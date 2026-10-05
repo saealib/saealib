@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.CrossoverSBX &#8212; saealib 0.1.1.dev2+ge3c91ccb2 ドキュメント</title>
+    <title>saealib.CrossoverSBX &#8212; saealib 0.1.0 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=148c2212"></script>
+    <script src="../../_static/documentation_options.js?v=98e9f989"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1008,7 +1008,7 @@ crossover for continuous search space. <em>Complex Systems</em>, 9(2), 115-148.<
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.CrossoverSBX.crossover">
-<span class="sig-prename descclassname"><span class="pre">CrossoverSBX.</span></span><span class="sig-name descname"><span class="pre">crossover</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7FBB524A6180</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.CrossoverSBX.crossover" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">CrossoverSBX.</span></span><span class="sig-name descname"><span class="pre">crossover</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F47F8932180</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.CrossoverSBX.crossover" title="Link to this definition">#</a></dt>
 <dd><p>Execute crossover for one parent group.</p>
 <p>This method is derived from <a class="reference internal" href="#saealib.CrossoverSBX.crossover_batch" title="saealib.CrossoverSBX.crossover_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">crossover_batch()</span></code></a> by passing a
 single-pair batch.</p>
@@ -1038,7 +1038,7 @@ both modes, override <a class="reference internal" href="#saealib.CrossoverSBX.c
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.CrossoverSBX.crossover_batch">
-<span class="sig-prename descclassname"><span class="pre">CrossoverSBX.</span></span><span class="sig-name descname"><span class="pre">crossover_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parents_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7FBB524EC2E0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/operators/crossover.html#CrossoverSBX.crossover_batch"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.CrossoverSBX.crossover_batch" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">CrossoverSBX.</span></span><span class="sig-name descname"><span class="pre">crossover_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parents_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F47F89742E0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/operators/crossover.html#CrossoverSBX.crossover_batch"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.CrossoverSBX.crossover_batch" title="Link to this definition">#</a></dt>
 <dd><p>Execute SBX crossover on a batch of parent pairs at once.</p>
 <p>This is the primary SBX implementation, vectorized over the leading
 <code class="docutils literal notranslate"><span class="pre">n_pair</span></code> axis.</p>

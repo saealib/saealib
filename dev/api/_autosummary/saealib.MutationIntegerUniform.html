@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.MutationIntegerUniform &#8212; saealib 0.1.0 documentation</title>
+    <title>saealib.MutationIntegerUniform &#8212; saealib 0.1.1.dev1+g3eb245cf8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/documentation_options.js?v=e13c902b"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -991,7 +991,7 @@ when <code class="docutils literal notranslate"><span class="pre">None</span></c
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.MutationIntegerUniform.mutate">
-<span class="sig-prename descclassname"><span class="pre">MutationIntegerUniform.</span></span><span class="sig-name descname"><span class="pre">mutate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mutate_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F0E7F1FC580</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.MutationIntegerUniform.mutate" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">MutationIntegerUniform.</span></span><span class="sig-name descname"><span class="pre">mutate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mutate_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F7488DAC580</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.MutationIntegerUniform.mutate" title="Link to this definition">#</a></dt>
 <dd><p>Execute mutation for one candidate.</p>
 <p>This method is derived from <a class="reference internal" href="#saealib.MutationIntegerUniform.mutate_batch" title="saealib.MutationIntegerUniform.mutate_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">mutate_batch()</span></code></a> by passing a
 single-row batch.</p>
@@ -1023,7 +1023,7 @@ internally; the result does not preserve the input’s dtype.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.MutationIntegerUniform.mutate_batch">
-<span class="sig-prename descclassname"><span class="pre">MutationIntegerUniform.</span></span><span class="sig-name descname"><span class="pre">mutate_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mutate_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F0E7F1FD380</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.MutationIntegerUniform.mutate_batch" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">MutationIntegerUniform.</span></span><span class="sig-name descname"><span class="pre">mutate_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mutate_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F7488DAD380</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.MutationIntegerUniform.mutate_batch" title="Link to this definition">#</a></dt>
 <dd><p>Execute discrete uniform mutation on a batch of candidates at once.</p>
 <p>This is the primary discrete uniform mutation implementation. An
 individual-level <code class="docutils literal notranslate"><span class="pre">prob</span></code> gate (one Bernoulli draw per row via

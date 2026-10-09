@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.CrossoverOnePoint &#8212; saealib 0.1.1.dev1+g3eb245cf8 documentation</title>
+    <title>saealib.CrossoverOnePoint &#8212; saealib 0.1.1.dev2+g812c916e4 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=e13c902b"></script>
+    <script src="../../_static/documentation_options.js?v=a5713929"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -971,7 +971,7 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.CrossoverOnePoint.crossover">
-<span class="sig-prename descclassname"><span class="pre">CrossoverOnePoint.</span></span><span class="sig-name descname"><span class="pre">crossover</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F7488D81000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.CrossoverOnePoint.crossover" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">CrossoverOnePoint.</span></span><span class="sig-name descname"><span class="pre">crossover</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F232A10D000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.CrossoverOnePoint.crossover" title="Link to this definition">#</a></dt>
 <dd><p>Execute crossover for one parent group.</p>
 <p>This method is derived from <a class="reference internal" href="#saealib.CrossoverOnePoint.crossover_batch" title="saealib.CrossoverOnePoint.crossover_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">crossover_batch()</span></code></a> by passing a
 single-pair batch.</p>
@@ -1001,7 +1001,7 @@ both modes, override <a class="reference internal" href="#saealib.CrossoverOnePo
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.CrossoverOnePoint.crossover_batch">
-<span class="sig-prename descclassname"><span class="pre">CrossoverOnePoint.</span></span><span class="sig-name descname"><span class="pre">crossover_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parents_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F7488D83840</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/operators/crossover.html#CrossoverOnePoint.crossover_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.CrossoverOnePoint.crossover_batch" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">CrossoverOnePoint.</span></span><span class="sig-name descname"><span class="pre">crossover_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parents_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7F232A10F840</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/operators/crossover.html#CrossoverOnePoint.crossover_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.CrossoverOnePoint.crossover_batch" title="Link to this definition">#</a></dt>
 <dd><p>Execute one-point crossover on a batch of parent pairs at once.</p>
 <p>This is the primary one-point crossover implementation. Each pair
 gets its own independently drawn cut point, and offspring are

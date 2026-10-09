@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 
@@ -145,6 +147,24 @@ def test_lstsq_returns_finite_values_for_rank_deficient_training_data():
     surrogate.fit(train_x, train_y)
 
     assert np.isfinite(surrogate.predict(test_x).value).all()
+
+
+def test_nonfinite_solve_result_uses_singular_nan_fallback(monkeypatch):
+    surrogate = RBFSurrogate(kernel=GaussianKernel(), solver="solve")
+    monkeypatch.setattr(
+        np.linalg,
+        "solve",
+        lambda a, rhs: np.resize((np.inf, -np.inf), rhs.shape),
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        surrogate.fit(TRAIN_X, TRAIN_Y)
+        prediction = surrogate.predict(TRAIN_X).value
+
+    assert surrogate._models is not None
+    assert surrogate._models[0]._last_singular
+    assert np.isnan(prediction).all()
 
 
 @pytest.mark.parametrize("polynomial_degree", [-1, 2, 0.5, True, False])

@@ -136,13 +136,15 @@ class _RBFModel:
             else:
                 solution = np.linalg.solve(a, rhs)
         except np.linalg.LinAlgError:
-            logger.debug("Kernel matrix solve failed (singular).")
             self._last_singular = True
+        else:
+            self._last_singular = not np.isfinite(solution).all()
+
+        if self._last_singular:
+            logger.debug("Kernel matrix solve failed (singular).")
             # Deliberate recoverable surrogate failure: expose NaN predictions
             # so downstream acquisition/feedback code can handle this candidate.
             solution = np.nan * np.ones(a.shape[0])
-        else:
-            self._last_singular = False
 
         self.weights = solution[:n_samples]
         self.poly_coeffs = solution[n_samples:] if n_poly else None

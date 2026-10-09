@@ -13,10 +13,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@v6
+      - name: Resolve Ruff version
+        run: |
+          RUFF_VERSION=$(uv export --frozen --only-group dev --no-emit-project --no-hashes --format requirements-txt | sed -n 's/^ruff==//p')
+          if [ -z "$RUFF_VERSION" ]; then
+            echo "Ruff was not found in uv.lock" >&2
+            exit 1
+          fi
+          echo "RUFF_VERSION=$RUFF_VERSION" >> "$GITHUB_ENV"
       - name: Run Ruff (Format)
-        run: uvx ruff format --check .
+        run: uvx --from "ruff==$RUFF_VERSION" ruff format --check .
       - name: Run Ruff (Lint)
-        run: uvx ruff check --output-format=github .
+        run: uvx --from "ruff==$RUFF_VERSION" ruff check --output-format=github .
 
   ty:
     runs-on: ubuntu-latest

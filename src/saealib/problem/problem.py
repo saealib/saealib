@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 if TYPE_CHECKING:
     from saealib.execution.evaluator import EvaluationAdapter
@@ -79,8 +80,8 @@ class Problem:
         dim: int | None,
         n_obj: int,
         direction: np.ndarray,
-        lb: list[float] | None = None,
-        ub: list[float] | None = None,
+        lb: npt.ArrayLike | None = None,
+        ub: npt.ArrayLike | None = None,
         comparator: Comparator | None = None,
         constraints: list[InequalityConstraint] | None = None,
         *,
@@ -105,11 +106,13 @@ class Problem:
         direction : np.ndarray
             Optimization direction per objective. shape = (n_obj, )
             Each element must be +1 (maximize) or -1 (minimize).
-        lb : list[float], optional
-            Lower bounds for design variables. length = dim.
+        lb : array_like, optional
+            Lower bounds for design variables. A scalar is broadcast to all
+            dimensions; otherwise, the array must have length dim.
             Required when *variables* is not provided.
-        ub : list[float], optional
-            Upper bounds for design variables. length = dim.
+        ub : array_like, optional
+            Upper bounds for design variables. A scalar is broadcast to all
+            dimensions; otherwise, the array must have length dim.
             Required when *variables* is not provided.
         comparator : Comparator, optional
             Comparator instance to use. If None, auto-selected based on n_obj:
@@ -163,6 +166,20 @@ class Problem:
                 )
             raw_lb = np.asarray(lb, dtype=float)
             raw_ub = np.asarray(ub, dtype=float)
+            if raw_lb.ndim == 0:
+                raw_lb = np.full(dim, float(raw_lb), dtype=float)
+            elif raw_lb.ndim != 1 or raw_lb.size != dim:
+                raise ValidationError(
+                    f"lb has shape={raw_lb.shape} and length={raw_lb.size}; "
+                    f"expected a scalar or a 1-D array with length dim={dim}"
+                )
+            if raw_ub.ndim == 0:
+                raw_ub = np.full(dim, float(raw_ub), dtype=float)
+            elif raw_ub.ndim != 1 or raw_ub.size != dim:
+                raise ValidationError(
+                    f"ub has shape={raw_ub.shape} and length={raw_ub.size}; "
+                    f"expected a scalar or a 1-D array with length dim={dim}"
+                )
             self.variables = [
                 ContinuousVariable(float(raw_lb[i]), float(raw_ub[i]))
                 for i in range(dim)

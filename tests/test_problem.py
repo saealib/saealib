@@ -10,6 +10,7 @@ Tests cover:
 import numpy as np
 import pytest
 
+from saealib.exceptions import ValidationError
 from saealib.problem import InequalityConstraint, Problem
 
 
@@ -23,6 +24,70 @@ def _sphere_problem(constraints=None):
         ub=[5.0, 5.0],
         constraints=constraints,
     )
+
+
+def test_rejects_lower_bound_with_wrong_length():
+    with pytest.raises(ValidationError, match=r"lb.*length=1.*dim=2"):
+        Problem(
+            func=lambda x: np.sum(x**2),
+            dim=2,
+            n_obj=1,
+            direction=np.array([-1.0]),
+            lb=[-5.0],
+            ub=[5.0, 5.0],
+        )
+
+
+def test_rejects_upper_bound_with_wrong_length():
+    with pytest.raises(ValidationError, match=r"ub.*length=3.*dim=2"):
+        Problem(
+            func=lambda x: np.sum(x**2),
+            dim=2,
+            n_obj=1,
+            direction=np.array([-1.0]),
+            lb=[-5.0, -5.0],
+            ub=[5.0, 5.0, 5.0],
+        )
+
+
+def test_rejects_multidimensional_lower_bound():
+    with pytest.raises(ValidationError, match=r"lb.*shape=\(1, 2\).*dim=2"):
+        Problem(
+            func=lambda x: np.sum(x**2),
+            dim=2,
+            n_obj=1,
+            direction=np.array([-1.0]),
+            lb=np.array([[-5.0, -5.0]]),
+            ub=[5.0, 5.0],
+        )
+
+
+def test_broadcasts_scalar_bounds():
+    problem = Problem(
+        func=lambda x: np.sum(x**2),
+        dim=2,
+        n_obj=1,
+        direction=np.array([-1.0]),
+        lb=-5.0,
+        ub=5.0,
+    )
+
+    np.testing.assert_array_equal(problem.lb, [-5.0, -5.0])
+    np.testing.assert_array_equal(problem.ub, [5.0, 5.0])
+
+
+def test_accepts_bounds_with_length_dim():
+    problem = Problem(
+        func=lambda x: np.sum(x**2),
+        dim=2,
+        n_obj=1,
+        direction=np.array([-1.0]),
+        lb=np.array([-5.0, -1.0]),
+        ub=np.array([5.0, 1.0]),
+    )
+
+    np.testing.assert_array_equal(problem.lb, [-5.0, -1.0])
+    np.testing.assert_array_equal(problem.ub, [5.0, 1.0])
 
 
 class TestDefaultEvaluateBatch:

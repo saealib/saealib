@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.problem.problem &#8212; saealib 0.1.1.dev3+gaa612b4b8 documentation</title>
+    <title>saealib.problem.problem &#8212; saealib 0.1.1.dev4+g7f28172a5 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=b1f81c47"></script>
+    <script src="../../../_static/documentation_options.js?v=7eaa8efc"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -964,6 +964,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationAdapter</span>
@@ -1041,8 +1042,8 @@ window.runMermaid = runMermaid;</script>
         <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">n_obj</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">direction</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">lb</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ub</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">lb</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">ub</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">comparator</span><span class="p">:</span> <span class="n">Comparator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InequalityConstraint</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
@@ -1067,11 +1068,13 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        direction : np.ndarray</span>
 <span class="sd">            Optimization direction per objective. shape = (n_obj, )</span>
 <span class="sd">            Each element must be +1 (maximize) or -1 (minimize).</span>
-<span class="sd">        lb : list[float], optional</span>
-<span class="sd">            Lower bounds for design variables. length = dim.</span>
+<span class="sd">        lb : array_like, optional</span>
+<span class="sd">            Lower bounds for design variables. A scalar is broadcast to all</span>
+<span class="sd">            dimensions; otherwise, the array must have length dim.</span>
 <span class="sd">            Required when *variables* is not provided.</span>
-<span class="sd">        ub : list[float], optional</span>
-<span class="sd">            Upper bounds for design variables. length = dim.</span>
+<span class="sd">        ub : array_like, optional</span>
+<span class="sd">            Upper bounds for design variables. A scalar is broadcast to all</span>
+<span class="sd">            dimensions; otherwise, the array must have length dim.</span>
 <span class="sd">            Required when *variables* is not provided.</span>
 <span class="sd">        comparator : Comparator, optional</span>
 <span class="sd">            Comparator instance to use. If None, auto-selected based on n_obj:</span>
@@ -1125,6 +1128,20 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">)</span>
             <span class="n">raw_lb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">lb</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
             <span class="n">raw_ub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ub</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">raw_lb</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">raw_lb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">raw_lb</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">raw_lb</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">raw_lb</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">dim</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;lb has shape=</span><span class="si">{</span><span class="n">raw_lb</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and length=</span><span class="si">{</span><span class="n">raw_lb</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">; &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;expected a scalar or a 1-D array with length dim=</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">raw_ub</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">raw_ub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">raw_ub</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">raw_ub</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">raw_ub</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">dim</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;ub has shape=</span><span class="si">{</span><span class="n">raw_ub</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and length=</span><span class="si">{</span><span class="n">raw_ub</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">; &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;expected a scalar or a 1-D array with length dim=</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">variables</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="n">ContinuousVariable</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">raw_lb</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">raw_ub</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>

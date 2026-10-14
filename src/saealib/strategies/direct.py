@@ -10,6 +10,7 @@ from saealib.core.graph_builder import (
     StageContractNodeAdapter,
     build_decomposed_component_graph_from_specs,
 )
+from saealib.exceptions import ValidationError
 from saealib.pipeline import Pipeline
 from saealib.policies.evaluation import EvaluateAll
 from saealib.policies.feedback import FeedbackBuilder, TrueOnlyFeedback
@@ -49,7 +50,7 @@ class DirectStrategy(OptimizationStrategy):
 
     def __init__(self, n_offspring: int | None = None) -> None:
         if n_offspring is not None and n_offspring < 1:
-            raise ValueError("n_offspring must be positive")
+            raise ValidationError("n_offspring must be positive")
         self.n_offspring = n_offspring
         self.pipeline: Pipeline | None = None
 

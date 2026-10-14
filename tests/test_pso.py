@@ -21,6 +21,7 @@ from saealib.comparators import SingleObjectiveComparator
 from saealib.context import OptimizationState
 from saealib.core.contracts import FeedbackBatch
 from saealib.core.state import StateView
+from saealib.exceptions import ConfigurationError
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
 from saealib.problem import Problem
 
@@ -380,6 +381,14 @@ class TestPSOPbestUpdate:
 # ---------------------------------------------------------------------------
 # TestPSOLeaderSelection
 # ---------------------------------------------------------------------------
+
+
+class TestPSOTellGuards:
+    def test_missing_offspring_raises_configuration_error(self):
+        pso = PSO()
+        ctx = _make_pso_ctx(init_pbest=True)
+        with pytest.raises(ConfigurationError, match="offspring population"):
+            pso.tell(cast(FeedbackBatch, object()), _view(ctx, pso))
 
 
 class TestPSOLeaderSelection:

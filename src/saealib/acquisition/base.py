@@ -339,7 +339,9 @@ class CompositeAcquisition(AcquisitionFunction):
         combine_fn: Callable[[list[np.ndarray]], np.ndarray],
     ):
         if not acquisitions:
-            raise ValueError("CompositeAcquisition requires at least one acquisition.")
+            raise ValidationError(
+                "CompositeAcquisition requires at least one acquisition."
+            )
         self.acquisitions = acquisitions
         self.combine_fn = combine_fn
 

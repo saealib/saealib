@@ -725,7 +725,7 @@ class Population(Generic[T_Individual]):
         occurs for a no-op truncation.
         """
         if new_size < 0:
-            raise ValueError("new_size must be non-negative")
+            raise ValidationError("new_size must be non-negative")
         if new_size < self._size:
             self._size = new_size
             if self._genome_items is not None:
@@ -780,7 +780,7 @@ class Population(Generic[T_Individual]):
         structure-dependent views.
         """
         if len(order) != self._size:
-            raise ValueError(
+            raise ValidationError(
                 f"Order length {len(order)} must match population size {self._size}"
             )
         for k, v in self._data.items():

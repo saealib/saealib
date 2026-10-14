@@ -21,6 +21,7 @@ from saealib.core.contracts import (
     ProposalRelations,
 )
 from saealib.core.state import POPULATIONS_MAIN, StatePatch, StateView
+from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.population import Archive, Population, PopulationAttribute
 from saealib.population.genome import GenomeBatch
 from saealib.problem import Problem
@@ -83,7 +84,7 @@ class GenomeGA(AskTellAlgorithm):
         self.n_parents = int(getattr(crossover, "n_parents", 2))
         self.n_children = int(getattr(crossover, "n_children", 2))
         if self.n_parents < 1 or self.n_children < 1:
-            raise ValueError("crossover parent and child counts must be positive")
+            raise ValidationError("crossover parent and child counts must be positive")
 
     def contract(self):
         """Return the component contract for this genetic algorithm."""
@@ -139,7 +140,7 @@ class GenomeGA(AskTellAlgorithm):
         popsize = len(ctx.population)
         target = popsize if n_offspring is None else n_offspring
         if target < 0:
-            raise ValueError("n_offspring must be non-negative")
+            raise ValidationError("n_offspring must be non-negative")
         if target == 0:
             candidates = ctx.population.empty_like(capacity=0)
             return ProposalBatch.from_allocator(
@@ -195,7 +196,7 @@ class GenomeGA(AskTellAlgorithm):
         ctx = algorithm_context(state)
         offspring = ctx.offspring
         if offspring is None:
-            raise ValueError("GenomeGA.tell() requires an offspring population")
+            raise ConfigurationError("GenomeGA.tell() requires an offspring population")
         population = ctx.population
         pool = population.empty_like(capacity=len(population) + len(offspring))
         pool._extend_internal(population, preserve_ids=True)

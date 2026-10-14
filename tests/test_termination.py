@@ -83,8 +83,8 @@ class TestTerminationInit:
         t = Termination(lambda ctx: ctx.fe >= 10)
         assert isinstance(t.condition, TerminationCondition)
 
-    def test_no_conditions_raises_value_error(self) -> None:
-        with pytest.raises(ValueError, match="At least one"):
+    def test_no_conditions_raises_validation_error(self) -> None:
+        with pytest.raises(ValidationError, match="At least one"):
             Termination()
 
     def test_non_callable_raises_type_error(self) -> None:
@@ -348,8 +348,8 @@ class TestTerminationClassMethods:
         assert t.is_terminated(_make_ctx(fe=99)) is False
         assert t.is_terminated(_make_ctx(fe=100)) is True
 
-    def test_all_of_no_conditions_raises(self) -> None:
-        with pytest.raises(ValueError, match="At least one"):
+    def test_all_of_no_conditions_raises_validation_error(self) -> None:
+        with pytest.raises(ValidationError, match="At least one"):
             Termination.all_of()
 
     def test_not_negates(self) -> None:

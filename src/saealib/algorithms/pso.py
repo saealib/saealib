@@ -23,6 +23,7 @@ from saealib.core.contracts import (
     ServiceRequirement,
 )
 from saealib.core.state import POPULATIONS_MAIN, StatePatch, StateView
+from saealib.exceptions import ConfigurationError
 from saealib.population import Archive, Population, PopulationAttribute
 from saealib.problem import Problem
 from saealib.registry import register
@@ -287,7 +288,7 @@ class PSO(AskTellAlgorithm):
         ctx = algorithm_context(state)
         offspring = ctx.offspring
         if offspring is None:
-            raise ValueError("PSO.tell() requires an offspring population")
+            raise ConfigurationError("PSO.tell() requires an offspring population")
         x_new = offspring.get_array("x")
         f_new = offspring.get_array("f")
         g_new = offspring.get_array("g")

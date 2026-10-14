@@ -251,7 +251,7 @@ class ArchiveMixin:
             service.
         """
         if duplicate_policy not in {"keep_first", "replace", "append"}:
-            raise ValueError(
+            raise ValidationError(
                 "duplicate_policy must be 'keep_first', 'replace', or 'append'"
             )
         _validate_observation_schema(attrs, duplicate_policy)
@@ -339,7 +339,7 @@ class ArchiveMixin:
                 )
 
         if self._legacy_identity and key_attr not in self.schema:  # ty: ignore[unresolved-attribute]
-            raise ValueError(f"key_attr '{key_attr}' is not defined in attrs")
+            raise ValidationError(f"key_attr '{key_attr}' is not defined in attrs")
 
         self._kdtree: cKDTree | None = None
         self._fingerprint_index: object | None = None
@@ -420,7 +420,7 @@ class ArchiveMixin:
         data = _collect_data(self._schema, element, kwargs)  # type: ignore[unresolved-attribute]
         key_attr_val = data.get(self.key_attr)
         if self._legacy_identity and key_attr_val is None:
-            raise ValueError(f"Solution must have {self.key_attr} attribute")
+            raise ValidationError(f"Solution must have {self.key_attr} attribute")
 
         _validate_data(self._schema, data)  # type: ignore[unresolved-attribute]
         incoming_genome = _extract_genome(element, kwargs, self)
@@ -914,7 +914,7 @@ class ParetoMixin:
         **kwargs,
     ):
         if duplicate_policy not in {"keep_first", "replace", "append"}:
-            raise ValueError("invalid duplicate_policy")
+            raise ValidationError("invalid duplicate_policy")
         if duplicate_policy == "append":
             raise ValidationError("ParetoArchive does not support append policy")
         cast(Any, super().__init__)(
@@ -926,7 +926,7 @@ class ParetoMixin:
             space=kwargs.pop("space", None),
         )
         if key_attr not in getattr(self, "_schema"):
-            raise ValueError(f"key_attr '{key_attr}' is not defined in attrs")
+            raise ValidationError(f"key_attr '{key_attr}' is not defined in attrs")
 
         # Import here to avoid circular imports at module load time.
         from saealib.comparators import ParetoDominator

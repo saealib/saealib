@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from saealib.exceptions import ValidationError
 from saealib.surrogate.base import RegressionSurrogate, Surrogate
 from saealib.surrogate.prediction import SurrogatePrediction
 
@@ -33,7 +34,9 @@ class PerObjectiveSurrogate(RegressionSurrogate):
 
     def __init__(self, surrogates: list[Surrogate]) -> None:
         if not surrogates:
-            raise ValueError("PerObjectiveSurrogate requires at least one surrogate.")
+            raise ValidationError(
+                "PerObjectiveSurrogate requires at least one surrogate."
+            )
         self.surrogates = surrogates
 
     @property
@@ -57,7 +60,7 @@ class PerObjectiveSurrogate(RegressionSurrogate):
             arr = arr.reshape(-1, 1)
         n_obj = arr.shape[1]
         if n_obj != len(self.surrogates):
-            raise ValueError(
+            raise ValidationError(
                 f"n_obj={n_obj} does not match len(surrogates)={len(self.surrogates)}"
             )
         for i, s in enumerate(self.surrogates):

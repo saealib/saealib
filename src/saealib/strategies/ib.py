@@ -59,8 +59,9 @@ class IndividualBasedStrategy(OptimizationStrategy):
         evaluation_ratio : float
             Ratio of offspring selected for true objective evaluation.
             The top ``evaluation_ratio`` fraction of offspring are evaluated
-            with the real objective function; the rest are discarded after
-            surrogate scoring.
+            with the real objective function; every offspring is still passed
+            to ``algorithm.tell()``, and the ones not evaluated carry their
+            surrogate-predicted objective values.
             The number of neighbors for local surrogate fitting is now
             configured on the SurrogateManager (e.g. LocalSurrogateManager).
         """

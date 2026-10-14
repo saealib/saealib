@@ -106,7 +106,7 @@ While the major version is `0` (pre-1.0, e.g. `0.1.0`), the public API is not co
 
 A release is cut by pushing a `vX.Y.Z` (optionally with a `bN` pre-release suffix) tag on `main`. This is the single trigger for:
 
-* Publishing the package to PyPI (`.github/workflows/publish.yml`) — for a tag on `main`, this happens automatically. For a tag cut from a `release/vX.Y.x` branch, see "Backporting to an old minor series" below.
+* Publishing the package to PyPI (`.github/workflows/publish.yml`) — for a tag on `main`, publishing goes through the `pypi` environment; for a tag cut from a `release/vX.Y.x` branch, it goes through `pypi-legacy` (see "Backporting to an old minor series" below). Both environments have required reviewers configured, so publishing waits for a manual approval in either case.
 * Building and deploying version-tagged documentation snapshots (`.github/workflows/docs.yml`, `deploy-release` job) — final-release snapshots (`vX.Y.Z/`), the `versions.json` version-switcher list, and the root redirect are all only regenerated here.
 * For final releases (`vX.Y.Z`, no pre-release suffix) only: keeping the `release/vX.Y.x` maintenance branch for that minor series in sync with `main` (`create-release-branch` job). The branch is created on the first final release in a minor series, then fast-forwarded on every later final release in the same series — as long as the tag is still an ancestor of `main` (i.e., `main` is still the one shipping patches for that series). Once `main` moves on to a newer minor series, or once `release/vX.Y.x` has taken on maintenance commits of its own (a tag cut directly from the branch rather than from `main`), the job leaves it alone rather than forcing a sync.
 
@@ -116,7 +116,7 @@ Each final release's minor series (`X.Y`) gets its own `release/vX.Y.x` branch, 
 
 #### Backporting to an old minor series
 
-A tag cut from a `release/vX.Y.x` branch is, by definition, not an ancestor of `main` (`main` has moved on). `publish.yml`'s `check-tag` job detects this and routes the `publish` job through the `pypi-legacy` GitHub Environment instead of `pypi`. Unlike `pypi`, `pypi-legacy` has required reviewers configured (see repo Settings → Environments), so the build still runs automatically but publishing waits for an explicit manual approval. This is intentional: backporting — whether it's a documentation fix or a real code fix for a security/critical issue in an old series — is a deliberate, infrequent action, not something that should auto-publish just because a `v*` tag was pushed.
+A tag cut from a `release/vX.Y.x` branch is, by definition, not an ancestor of `main` (`main` has moved on). `publish.yml`'s `check-tag` job detects this and routes the `publish` job through the `pypi-legacy` GitHub Environment instead of `pypi`. Both `pypi` and `pypi-legacy` have required reviewers configured (see repo Settings → Environments), so the build still runs automatically but publishing waits for an explicit manual approval in either case. This is intentional: backporting — whether it's a documentation fix or a real code fix for a security/critical issue in an old series — is a deliberate, infrequent action, not something that should auto-publish just because a `v*` tag was pushed.
 
 #### Documentation snapshots
 

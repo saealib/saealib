@@ -94,7 +94,15 @@ class Result:
         eps = state.problem.eps_cv
 
         feasible = np.where(archive_cv <= eps)[0]
-        pool = feasible if len(feasible) else np.array([int(np.argmin(archive_cv))])
+        if len(feasible):
+            pool = feasible
+        elif len(archive_cv):
+            pool = np.array([int(np.argmin(archive_cv))])
+        else:
+            raise ValidationError(
+                "Cannot build a result from a state whose archive is empty. "
+                "Evaluate at least one candidate before requesting a result."
+            )
 
         if state.problem.n_obj == 1:
             scores = archive_f[pool] @ direction

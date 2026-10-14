@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 import numpy as np
 
@@ -35,6 +35,7 @@ from saealib.core.state import (
 from saealib.exceptions import ValidationError
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
 from saealib.problem import Problem
+from saealib.space import DenseNumericView
 
 
 class Algorithm(ABC):
@@ -126,6 +127,10 @@ class Algorithm(ABC):
                     "key_attr": "id",
                     "space": problem.space,
                     "genomes": problem.space.sample(0),
+                    "dense_numeric_view": cast(
+                        DenseNumericView | None,
+                        problem.space.services.get("DenseNumericView"),
+                    ),
                 }
             )
         return self.pareto_archive_class(

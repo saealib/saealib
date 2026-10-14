@@ -13,6 +13,7 @@ from saealib import (
     GA,
     CrossoverBLXAlpha,
     GenerationEndEvent,
+    GenomeInitializer,
     LHSInitializer,
     MutationUniform,
     Optimizer,
@@ -429,10 +430,11 @@ def test_evaluation_history_records_evaluator_costs(path: str) -> None:
     "initializer",
     [
         LHSInitializer(10, 3),
+        GenomeInitializer(10, 3),
         RandomInitializer(10, 3),
         SobolInitializer(8, 3),
     ],
-    ids=["lhs", "random", "sobol"],
+    ids=["lhs", "genome", "random", "sobol"],
 )
 def test_initializer_records_single_initial_evaluation_row(initializer) -> None:
     n_init = initializer.n_init_archive

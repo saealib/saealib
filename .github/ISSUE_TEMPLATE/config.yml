@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    about: Documentation for saealib.
+    url: https://saealib.github.io/saealib/index.html
+  - name: Report a security vulnerability
+    about: Report a security vulnerability via private vulnerability reporting.
+    url: https://github.com/saealib/saealib/security/advisories/new

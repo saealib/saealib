@@ -17,9 +17,13 @@ def _objective_array(values: np.ndarray, n_obj: int | None = None) -> np.ndarray
         else:
             values = values.reshape((0, 0) if values.size == 0 else (1, -1))
     if values.ndim != 2:
-        raise ValueError("objective values must be a one- or two-dimensional array")
+        raise ValidationError(
+            "objective values must be a one- or two-dimensional array"
+        )
     if n_obj is not None and values.shape[1] != n_obj:
-        raise ValueError("objective arrays must have the same number of objectives")
+        raise ValidationError(
+            "objective arrays must have the same number of objectives"
+        )
     return values
 
 

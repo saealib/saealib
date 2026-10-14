@@ -328,14 +328,14 @@ class CORSDistance(PointwiseAcquisition):
     def _candidate_x(prediction: SurrogatePrediction) -> np.ndarray:
         x = prediction.x
         if x is None:
-            raise ValueError(
+            raise ValidationError(
                 "CORSDistance requires prediction.x (the candidate design "
                 "vectors) to evaluate the distance constraint; the "
                 "surrogate's predict() must populate it."
             )
         x = np.atleast_2d(np.asarray(x, dtype=float))
         if x.shape[0] != prediction.value.shape[0]:
-            raise ValueError(
+            raise ValidationError(
                 "prediction.x must have one row per candidate in "
                 f"prediction.value (got {x.shape[0]} rows vs "
                 f"{prediction.value.shape[0]})."

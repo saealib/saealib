@@ -19,6 +19,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 from saealib.core.contracts import ComponentContract, PartSpec
+from saealib.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from saealib.strategies.base import OptimizationStrategy
@@ -200,7 +201,7 @@ class StrategySwitcher(AccuracyBasedSurrogateSwitcher["OptimizationStrategy"]):
         mid_threshold: float | None = None,
     ) -> None:
         if (mid is None) != (mid_threshold is None):
-            raise ValueError("mid and mid_threshold must be provided together")
+            raise ValidationError("mid and mid_threshold must be provided together")
         self.primary = primary
         self.fallback = fallback
         self.metric = metric
@@ -285,11 +286,11 @@ class GenCtrlSwitcher(AccuracyBasedSurrogateSwitcher[int]):
         initial_error: float = 0.5,
     ) -> None:
         if not (0 < update_rate <= 1.0):
-            raise ValueError("update_rate must be in (0, 1]")
+            raise ValidationError("update_rate must be in (0, 1]")
         if gm_min < 0:
-            raise ValueError("gm_min must be >= 0")
+            raise ValidationError("gm_min must be >= 0")
         if gm_max < gm_min:
-            raise ValueError("gm_max must be >= gm_min")
+            raise ValidationError("gm_max must be >= gm_min")
         self.gm_max = gm_max
         self.gm_min = gm_min
         self.update_rate = update_rate

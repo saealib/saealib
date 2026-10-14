@@ -604,7 +604,9 @@ class CompositeSurrogateManager(SurrogateManager):
         managers: dict[str, SurrogateManager],
     ):
         if not managers:
-            raise ValueError("CompositeSurrogateManager requires at least one manager.")
+            raise ValidationError(
+                "CompositeSurrogateManager requires at least one manager."
+            )
         self.managers = managers
 
     def fit(

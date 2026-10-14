@@ -12,4 +12,8 @@ primary_layer: cross
    saealib.SaealibError
    saealib.ValidationError
    saealib.ConfigurationError
+   saealib.CheckpointError
+   saealib.EvaluationProtocolError
+   saealib.EvaluationSubmissionError
+   saealib.EvaluationFatalError
 ```

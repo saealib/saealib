@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from saealib.exceptions import ValidationError
+
 
 class Dominator(ABC):
     """
@@ -284,11 +286,11 @@ class EpsilonDominator(Dominator):
     ) -> None:
         eps_arr = np.atleast_1d(np.asarray(eps, dtype=float))
         if np.any(eps_arr <= 0):
-            raise ValueError(
+            raise ValidationError(
                 f"All eps values must be strictly positive (> 0); got {eps_arr}"
             )
         if mode not in ("additive", "multiplicative"):
-            raise ValueError(
+            raise ValidationError(
                 f"mode must be 'additive' or 'multiplicative'; got {mode!r}"
             )
         self._eps = eps_arr
@@ -331,7 +333,7 @@ class EpsilonDominator(Dominator):
             return np.floor(f / self._eps)
         # multiplicative mode
         if np.any(f <= 0):
-            raise ValueError(
+            raise ValidationError(
                 "Multiplicative ε-dominance requires all objective values to be "
                 "strictly positive (f > 0).  Found non-positive values in f."
             )

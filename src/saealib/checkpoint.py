@@ -7,6 +7,8 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from saealib.exceptions import ValidationError
+
 if TYPE_CHECKING:
     from saealib.callback import CallbackManager, GenerationEndEvent, RunEndEvent
     from saealib.optimizer import Optimizer
@@ -55,11 +57,11 @@ class CheckpointCallback:
         optimizer: Optimizer | None = None,
     ) -> None:
         if format not in self._VALID_FORMATS:
-            raise ValueError(
+            raise ValidationError(
                 f"format must be one of {sorted(self._VALID_FORMATS)!r}, got {format!r}"
             )
         if format in ("pickle", "both") and optimizer is None:
-            raise ValueError(
+            raise ValidationError(
                 "optimizer must be provided when format is 'pickle' or 'both'"
             )
         self._base = Path(path)

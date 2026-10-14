@@ -48,6 +48,7 @@ from saealib.core.contracts import (
     Var,
 )
 from saealib.core.state import RUNTIME_RNG
+from saealib.exceptions import ValidationError
 from saealib.population.archive import Archive
 from saealib.population.genome import DenseVectorBatch
 from saealib.registry import register
@@ -240,7 +241,7 @@ class KNNObjectiveSet(TrainingSet):
     ) -> TrainingData:
         """Return k nearest-neighbour archive points around ``candidate_x``."""
         if candidate_x is None:
-            raise ValueError("KNNObjectiveSet requires candidate_x.")
+            raise ValidationError("KNNObjectiveSet requires candidate_x.")
         idx, _ = archive.get_knn(candidate_x, self.n_neighbors)
         rows = _dense_archive_rows(archive, idx, "f")
         if rows is not None:
@@ -272,7 +273,7 @@ class ConstraintObjectiveSet(TrainingSet):
         """Return all archive points with raw constraint values."""
         g = archive.g
         if g.shape[1] == 0:
-            raise ValueError(
+            raise ValidationError(
                 "ConstraintObjectiveSet requires at least one constraint "
                 "(archive.g has 0 columns)."
             )
@@ -309,14 +310,14 @@ class KNNConstraintObjectiveSet(TrainingSet):
     ) -> TrainingData:
         """Return k nearest-neighbour archive points with raw constraint values."""
         if candidate_x is None:
-            raise ValueError("KNNConstraintObjectiveSet requires candidate_x.")
+            raise ValidationError("KNNConstraintObjectiveSet requires candidate_x.")
         dense_data = _canonical_dense_archive_data(archive)
         if dense_data is not None and "g" in dense_data:
             g = dense_data["g"][: len(archive)]
         else:
             g = archive.g
         if g.shape[1] == 0:
-            raise ValueError(
+            raise ValidationError(
                 "KNNConstraintObjectiveSet requires at least one constraint "
                 "(archive.g has 0 columns)."
             )
@@ -361,7 +362,7 @@ class FeasibilityClassificationSet(TrainingSet):
         """Return feasibility binary labels (1 = feasible, 0 = infeasible)."""
         if self.source == "population":
             if population is None:
-                raise ValueError(
+                raise ValidationError(
                     "FeasibilityClassificationSet: source='population' requires "
                     "population to be provided."
                 )
@@ -409,10 +410,10 @@ class TopKBipartitionSet(TrainingSet):
     ) -> TrainingData:
         """Return bipartition labels based on sorted rank."""
         if ctx is None:
-            raise ValueError("TopKBipartitionSet requires ctx.")
+            raise ValidationError("TopKBipartitionSet requires ctx.")
         if self.source == "population":
             if population is None:
-                raise ValueError(
+                raise ValidationError(
                     "TopKBipartitionSet: source='population' requires population."
                 )
             src = population
@@ -460,10 +461,10 @@ class LevelBasedSet(TrainingSet):
     ) -> TrainingData:
         """Return level labels from equal-size sorted groups."""
         if ctx is None:
-            raise ValueError("LevelBasedSet requires ctx.")
+            raise ValidationError("LevelBasedSet requires ctx.")
         if self.source == "population":
             if population is None:
-                raise ValueError(
+                raise ValidationError(
                     "LevelBasedSet: source='population' requires population."
                 )
             src = population
@@ -541,10 +542,10 @@ class PairwiseComparisonSet(TrainingSet):
     ) -> TrainingData:
         """Return pairwise comparison training data."""
         if ctx is None:
-            raise ValueError("PairwiseComparisonSet requires ctx.")
+            raise ValidationError("PairwiseComparisonSet requires ctx.")
         if self.source == "population":
             if population is None:
-                raise ValueError(
+                raise ValidationError(
                     "PairwiseComparisonSet: source='population' requires population."
                 )
             src = population
@@ -611,10 +612,10 @@ class ReferencePointComparisonSet(TrainingSet):
     ) -> TrainingData:
         """Return binary labels: 1 if archive point dominates reference, 0 otherwise."""
         if ctx is None:
-            raise ValueError("ReferencePointComparisonSet requires ctx.")
+            raise ValidationError("ReferencePointComparisonSet requires ctx.")
         if self.ref_source == "population_best":
             if population is None:
-                raise ValueError(
+                raise ValidationError(
                     "ReferencePointComparisonSet: ref_source='population_best' "
                     "requires population."
                 )

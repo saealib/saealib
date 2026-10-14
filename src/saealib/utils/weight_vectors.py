@@ -6,6 +6,8 @@ import math
 
 import numpy as np
 
+from saealib.exceptions import ValidationError
+
 
 def uniform_weight_vectors(n_obj: int, n_divisions: int) -> np.ndarray:
     """
@@ -57,9 +59,9 @@ def uniform_weight_vectors(n_obj: int, n_divisions: int) -> np.ndarray:
            [1.  , 0.  ]])
     """
     if n_obj < 2:
-        raise ValueError(f"n_obj must be >= 2; got {n_obj}")
+        raise ValidationError(f"n_obj must be >= 2; got {n_obj}")
     if n_divisions < 1:
-        raise ValueError(f"n_divisions must be >= 1; got {n_divisions}")
+        raise ValidationError(f"n_divisions must be >= 1; got {n_divisions}")
 
     n_vectors = math.comb(n_obj + n_divisions - 1, n_divisions)
     rows: list[list[int]] = []

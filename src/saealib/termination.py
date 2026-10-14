@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from saealib.core.contracts import ComponentContract, StateContract
 from saealib.core.state import ARCHIVES_MAIN, EVALUATIONS_COUNT, RUNTIME_GENERATION
+from saealib.exceptions import ValidationError
 from saealib.registry import register
 
 if TYPE_CHECKING:
@@ -180,7 +181,9 @@ class Termination:
 
     def __init__(self, *conditions: ConditionFunc | TerminationCondition):
         if not conditions:
-            raise ValueError("At least one termination condition must be provided.")
+            raise ValidationError(
+                "At least one termination condition must be provided."
+            )
         for cond in conditions:
             if not callable(cond):
                 raise TypeError(
@@ -268,7 +271,9 @@ class Termination:
             If no conditions are provided.
         """
         if not conditions:
-            raise ValueError("At least one termination condition must be provided.")
+            raise ValidationError(
+                "At least one termination condition must be provided."
+            )
         combined = reduce(
             operator.and_,
             (TerminationCondition._coerce(cond) for cond in conditions),

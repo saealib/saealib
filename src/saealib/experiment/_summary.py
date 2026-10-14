@@ -101,7 +101,7 @@ def write_aggregate(
         return None
     metric = metric_columns[0]
     if len(rows) != len(results):
-        raise ValueError("summary rows and results must have matching lengths")
+        raise ValidationError("summary rows and results must have matching lengths")
     groups: dict[tuple[str, str], tuple[str, list[float]]] = {}
     for row, result in zip(rows, results, strict=True):
         key = (row["problem"], row["algorithm"])

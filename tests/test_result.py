@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from saealib import (
     DirectStrategy,
@@ -18,6 +19,7 @@ from saealib import (
 )
 from saealib.algorithms import GenomeGA
 from saealib.context import OptimizationState
+from saealib.exceptions import ValidationError
 from saealib.operators import (
     OrderCrossover,
     SequentialSelection,
@@ -118,6 +120,11 @@ def test_feasibility_is_prioritized_and_impossible_uses_min_cv():
     assert Result.from_state(state).f[0] == 1
     state = _state([[100], [1], [2]], [0.5, 0.2, 0.3], [-1])
     assert Result.from_state(state).f[0] == 1
+
+
+def test_empty_archive_raises_validation_error():
+    with pytest.raises(ValidationError):
+        Result.from_state(_state([], [], [-1]))
 
 
 def test_optimizer_run_state_can_build_result():

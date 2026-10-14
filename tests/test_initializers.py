@@ -275,6 +275,18 @@ def test_genome_initializer_merges_comparator_required_attrs():
     assert [attr.name for attr in attrs].count("marker") == 1
 
 
+def test_genome_initializer_resolves_dense_numeric_view_on_pareto_archive(
+    problem, provider
+):
+    ctx = GenomeInitializer(N_ARCHIVE, N_POP, seed=0).initialize(
+        cast(Any, provider), problem
+    )
+
+    assert ctx.pareto_archive._dense_numeric_view is (
+        problem.space.services.get("DenseNumericView")
+    )
+
+
 def test_compatible_algorithm_and_comparator_attrs_are_deduplicated():
     algorithm_attr = PopulationAttribute("marker", np.float64, (), default=np.nan)
     comparator_attr = PopulationAttribute("marker", float, (), default=np.nan)

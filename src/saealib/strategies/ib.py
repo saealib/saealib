@@ -61,7 +61,9 @@ class IndividualBasedStrategy(OptimizationStrategy):
             The top ``evaluation_ratio`` fraction of offspring are evaluated
             with the real objective function; every offspring is still passed
             to ``algorithm.tell()``, and the ones not evaluated carry their
-            surrogate-predicted objective values.
+            surrogate-predicted objective values. When only truly evaluated
+            solutions are needed, use ``state.archive`` or
+            ``state.pareto_archive`` instead of ``state.population``.
             The number of neighbors for local surrogate fitting is now
             configured on the SurrogateManager (e.g. LocalSurrogateManager).
         """

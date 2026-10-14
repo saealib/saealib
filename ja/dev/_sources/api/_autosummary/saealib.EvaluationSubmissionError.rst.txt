@@ -1,0 +1,6 @@
+﻿saealib.EvaluationSubmissionError
+=================================
+
+.. currentmodule:: saealib
+
+.. autoexception:: EvaluationSubmissionError

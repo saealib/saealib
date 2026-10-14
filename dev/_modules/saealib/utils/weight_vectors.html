@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.utils.weight_vectors &#8212; saealib 0.1.1.dev4+g7f28172a5 documentation</title>
+    <title>saealib.utils.weight_vectors &#8212; saealib 0.1.1.dev10+gb5214caff documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=7eaa8efc"></script>
+    <script src="../../../_static/documentation_options.js?v=7146a760"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -964,6 +964,8 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
+
 
 <div class="viewcode-block" id="uniform_weight_vectors">
 <a class="viewcode-back" href="../../../api/utils.html#saealib.uniform_weight_vectors">[docs]</a>
@@ -1017,9 +1019,9 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">           [1.  , 0.  ]])</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">n_obj</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;n_obj must be &gt;= 2; got </span><span class="si">{</span><span class="n">n_obj</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;n_obj must be &gt;= 2; got </span><span class="si">{</span><span class="n">n_obj</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">n_divisions</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;n_divisions must be &gt;= 1; got </span><span class="si">{</span><span class="n">n_divisions</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;n_divisions must be &gt;= 1; got </span><span class="si">{</span><span class="n">n_divisions</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="n">n_vectors</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">comb</span><span class="p">(</span><span class="n">n_obj</span> <span class="o">+</span> <span class="n">n_divisions</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_divisions</span><span class="p">)</span>
     <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>

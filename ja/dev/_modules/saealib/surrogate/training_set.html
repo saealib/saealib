@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.surrogate.training_set &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>saealib.surrogate.training_set &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../../../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1007,6 +1007,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">Var</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">RUNTIME_RNG</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.archive</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.genome</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenseVectorBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
@@ -1224,7 +1225,7 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return k nearest-neighbour archive points around ``candidate_x``.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">candidate_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;KNNObjectiveSet requires candidate_x.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;KNNObjectiveSet requires candidate_x.&quot;</span><span class="p">)</span>
         <span class="n">idx</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_knn</span><span class="p">(</span><span class="n">candidate_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_neighbors</span><span class="p">)</span>
         <span class="n">rows</span> <span class="o">=</span> <span class="n">_dense_archive_rows</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="s2">&quot;f&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">rows</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1262,7 +1263,7 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all archive points with raw constraint values.&quot;&quot;&quot;</span>
         <span class="n">g</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">g</span>
         <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;ConstraintObjectiveSet requires at least one constraint &quot;</span>
                 <span class="s2">&quot;(archive.g has 0 columns).&quot;</span>
             <span class="p">)</span>
@@ -1308,14 +1309,14 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return k nearest-neighbour archive points with raw constraint values.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">candidate_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;KNNConstraintObjectiveSet requires candidate_x.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;KNNConstraintObjectiveSet requires candidate_x.&quot;</span><span class="p">)</span>
         <span class="n">dense_data</span> <span class="o">=</span> <span class="n">_canonical_dense_archive_data</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dense_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;g&quot;</span> <span class="ow">in</span> <span class="n">dense_data</span><span class="p">:</span>
             <span class="n">g</span> <span class="o">=</span> <span class="n">dense_data</span><span class="p">[</span><span class="s2">&quot;g&quot;</span><span class="p">][:</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive</span><span class="p">)]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">g</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">g</span>
         <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;KNNConstraintObjectiveSet requires at least one constraint &quot;</span>
                 <span class="s2">&quot;(archive.g has 0 columns).&quot;</span>
             <span class="p">)</span>
@@ -1369,7 +1370,7 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return feasibility binary labels (1 = feasible, 0 = infeasible).&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;population&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">population</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                     <span class="s2">&quot;FeasibilityClassificationSet: source=&#39;population&#39; requires &quot;</span>
                     <span class="s2">&quot;population to be provided.&quot;</span>
                 <span class="p">)</span>
@@ -1426,10 +1427,10 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return bipartition labels based on sorted rank.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;TopKBipartitionSet requires ctx.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;TopKBipartitionSet requires ctx.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;population&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">population</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                     <span class="s2">&quot;TopKBipartitionSet: source=&#39;population&#39; requires population.&quot;</span>
                 <span class="p">)</span>
             <span class="n">src</span> <span class="o">=</span> <span class="n">population</span>
@@ -1486,10 +1487,10 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return level labels from equal-size sorted groups.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;LevelBasedSet requires ctx.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;LevelBasedSet requires ctx.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;population&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">population</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                     <span class="s2">&quot;LevelBasedSet: source=&#39;population&#39; requires population.&quot;</span>
                 <span class="p">)</span>
             <span class="n">src</span> <span class="o">=</span> <span class="n">population</span>
@@ -1579,10 +1580,10 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return pairwise comparison training data.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;PairwiseComparisonSet requires ctx.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;PairwiseComparisonSet requires ctx.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;population&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">population</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                     <span class="s2">&quot;PairwiseComparisonSet: source=&#39;population&#39; requires population.&quot;</span>
                 <span class="p">)</span>
             <span class="n">src</span> <span class="o">=</span> <span class="n">population</span>
@@ -1658,10 +1659,10 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return binary labels: 1 if archive point dominates reference, 0 otherwise.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ReferencePointComparisonSet requires ctx.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;ReferencePointComparisonSet requires ctx.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ref_source</span> <span class="o">==</span> <span class="s2">&quot;population_best&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">population</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                     <span class="s2">&quot;ReferencePointComparisonSet: ref_source=&#39;population_best&#39; &quot;</span>
                     <span class="s2">&quot;requires population.&quot;</span>
                 <span class="p">)</span>

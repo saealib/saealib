@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>例外 &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>例外 &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -564,6 +564,10 @@
 <li class="toctree-l2"><a class="reference internal" href="_autosummary/saealib.SaealibError.html">saealib.SaealibError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="_autosummary/saealib.ValidationError.html">saealib.ValidationError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="_autosummary/saealib.ConfigurationError.html">saealib.ConfigurationError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/saealib.CheckpointError.html">saealib.CheckpointError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/saealib.EvaluationProtocolError.html">saealib.EvaluationProtocolError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/saealib.EvaluationSubmissionError.html">saealib.EvaluationSubmissionError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/saealib.EvaluationFatalError.html">saealib.EvaluationFatalError</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="registry.html">Registry</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -904,6 +908,18 @@
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/saealib.ConfigurationError.html#saealib.ConfigurationError" title="saealib.ConfigurationError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.ConfigurationError</span></code></a></p></td>
 <td><p>Raised when an <a class="reference internal" href="_autosummary/saealib.Optimizer.html#saealib.Optimizer" title="saealib.Optimizer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Optimizer</span></code></a> is misconfigured at run time.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/saealib.CheckpointError.html#saealib.CheckpointError" title="saealib.CheckpointError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.CheckpointError</span></code></a></p></td>
+<td><p>Raised when a checkpoint is invalid or cannot be migrated.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/saealib.EvaluationProtocolError.html#saealib.EvaluationProtocolError" title="saealib.EvaluationProtocolError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.EvaluationProtocolError</span></code></a></p></td>
+<td><p>Raised when an evaluation lifecycle message violates its contract.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/saealib.EvaluationSubmissionError.html#saealib.EvaluationSubmissionError" title="saealib.EvaluationSubmissionError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.EvaluationSubmissionError</span></code></a></p></td>
+<td><p>Raised when submission leaves externally running work.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/saealib.EvaluationFatalError.html#saealib.EvaluationFatalError" title="saealib.EvaluationFatalError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.EvaluationFatalError</span></code></a></p></td>
+<td><p>Raised when a post-effect lifecycle failure cannot be retried.</p></td>
 </tr>
 </tbody>
 </table>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.termination &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>saealib.termination &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -973,6 +973,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span><span class="p">,</span> <span class="n">StateContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCHIVES_MAIN</span><span class="p">,</span> <span class="n">EVALUATIONS_COUNT</span><span class="p">,</span> <span class="n">RUNTIME_GENERATION</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
@@ -1149,7 +1150,9 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Termination.html#saealib.Termination.__init__">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">conditions</span><span class="p">:</span> <span class="n">ConditionFunc</span> <span class="o">|</span> <span class="n">TerminationCondition</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">conditions</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;At least one termination condition must be provided.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;At least one termination condition must be provided.&quot;</span>
+            <span class="p">)</span>
         <span class="k">for</span> <span class="n">cond</span> <span class="ow">in</span> <span class="n">conditions</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">cond</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
@@ -1246,7 +1249,9 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            If no conditions are provided.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">conditions</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;At least one termination condition must be provided.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;At least one termination condition must be provided.&quot;</span>
+            <span class="p">)</span>
         <span class="n">combined</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span>
             <span class="n">operator</span><span class="o">.</span><span class="n">and_</span><span class="p">,</span>
             <span class="p">(</span><span class="n">TerminationCondition</span><span class="o">.</span><span class="n">_coerce</span><span class="p">(</span><span class="n">cond</span><span class="p">)</span> <span class="k">for</span> <span class="n">cond</span> <span class="ow">in</span> <span class="n">conditions</span><span class="p">),</span>

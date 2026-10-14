@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.utils.indicators &#8212; saealib 0.1.1.dev4+g7f28172a5 documentation</title>
+    <title>saealib.utils.indicators &#8212; saealib 0.1.1.dev10+gb5214caff documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=7eaa8efc"></script>
+    <script src="../../../_static/documentation_options.js?v=7146a760"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -975,9 +975,13 @@ window.runMermaid = runMermaid;</script>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;objective values must be a one- or two-dimensional array&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="s2">&quot;objective values must be a one- or two-dimensional array&quot;</span>
+        <span class="p">)</span>
     <span class="k">if</span> <span class="n">n_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">n_obj</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;objective arrays must have the same number of objectives&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="s2">&quot;objective arrays must have the same number of objectives&quot;</span>
+        <span class="p">)</span>
     <span class="k">return</span> <span class="n">values</span>
 
 

@@ -1,0 +1,6 @@
+﻿saealib.EvaluationProtocolError
+===============================
+
+.. currentmodule:: saealib
+
+.. autoexception:: EvaluationProtocolError

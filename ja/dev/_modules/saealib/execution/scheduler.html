@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../../../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -961,6 +961,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span>
@@ -1274,12 +1275,13 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">request_id</span><span class="p">,</span>
                     <span class="nb">len</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">),</span>
                 <span class="p">)</span>
+                <span class="n">prediction</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">predictions</span><span class="p">)</span>
                 <span class="n">pending</span> <span class="o">=</span> <span class="n">PendingEvaluation</span><span class="p">(</span>
                     <span class="n">request</span><span class="p">,</span>
                     <span class="n">EvaluationStatus</span><span class="o">.</span><span class="n">PENDING</span><span class="p">,</span>
                     <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
                     <span class="n">reserved_cost</span><span class="o">=</span><span class="n">estimated_cost</span><span class="p">,</span>
-                    <span class="n">prediction</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">predictions</span><span class="p">,</span>
+                    <span class="n">prediction</span><span class="o">=</span><span class="n">prediction</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">checkpointable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">can_reattach</span><span class="p">(</span><span class="n">pending</span><span class="p">)</span>
                 <span class="n">pending</span> <span class="o">=</span> <span class="n">PendingEvaluation</span><span class="p">(</span>
@@ -1288,7 +1290,7 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
                     <span class="n">reserved_cost</span><span class="o">=</span><span class="n">estimated_cost</span><span class="p">,</span>
                     <span class="n">checkpointable</span><span class="o">=</span><span class="n">checkpointable</span><span class="p">,</span>
-                    <span class="n">prediction</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">predictions</span><span class="p">,</span>
+                    <span class="n">prediction</span><span class="o">=</span><span class="n">prediction</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">handles</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">handle</span>
                 <span class="n">pending_map</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">pending</span>

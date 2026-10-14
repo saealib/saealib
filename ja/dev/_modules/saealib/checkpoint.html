@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.checkpoint &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>saealib.checkpoint &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -966,6 +966,8 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">cast</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
+
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallbackManager</span><span class="p">,</span> <span class="n">GenerationEndEvent</span><span class="p">,</span> <span class="n">RunEndEvent</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimizer</span>
@@ -1018,11 +1020,11 @@ window.runMermaid = runMermaid;</script>
         <span class="n">optimizer</span><span class="p">:</span> <span class="n">Optimizer</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">format</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_VALID_FORMATS</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;format must be one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_VALID_FORMATS</span><span class="p">)</span><span class="si">!r}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">format</span><span class="si">!r}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="nb">format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">optimizer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;optimizer must be provided when format is &#39;pickle&#39; or &#39;both&#39;&quot;</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_base</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>

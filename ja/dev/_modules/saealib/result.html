@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.result &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>saealib.result &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1057,7 +1057,15 @@ window.runMermaid = runMermaid;</script>
         <span class="n">eps</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">eps_cv</span>
 
         <span class="n">feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">archive_cv</span> <span class="o">&lt;=</span> <span class="n">eps</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">pool</span> <span class="o">=</span> <span class="n">feasible</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">feasible</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">archive_cv</span><span class="p">))])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">feasible</span><span class="p">):</span>
+            <span class="n">pool</span> <span class="o">=</span> <span class="n">feasible</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive_cv</span><span class="p">):</span>
+            <span class="n">pool</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">archive_cv</span><span class="p">))])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot build a result from a state whose archive is empty. &quot;</span>
+                <span class="s2">&quot;Evaluate at least one candidate before requesting a result.&quot;</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">scores</span> <span class="o">=</span> <span class="n">archive_f</span><span class="p">[</span><span class="n">pool</span><span class="p">]</span> <span class="o">@</span> <span class="n">direction</span>

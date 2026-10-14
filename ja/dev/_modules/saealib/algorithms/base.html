@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.algorithms.base &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>saealib.algorithms.base &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../../../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -963,7 +963,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">runtime_checkable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">runtime_checkable</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -994,6 +994,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span><span class="p">,</span> <span class="n">ParetoArchive</span><span class="p">,</span> <span class="n">Population</span><span class="p">,</span> <span class="n">PopulationAttribute</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenseNumericView</span>
 
 
 <div class="viewcode-block" id="Algorithm">
@@ -1095,6 +1096,10 @@ window.runMermaid = runMermaid;</script>
                     <span class="s2">&quot;key_attr&quot;</span><span class="p">:</span> <span class="s2">&quot;id&quot;</span><span class="p">,</span>
                     <span class="s2">&quot;space&quot;</span><span class="p">:</span> <span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span>
                     <span class="s2">&quot;genomes&quot;</span><span class="p">:</span> <span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                    <span class="s2">&quot;dense_numeric_view&quot;</span><span class="p">:</span> <span class="n">cast</span><span class="p">(</span>
+                        <span class="n">DenseNumericView</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">services</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DenseNumericView&quot;</span><span class="p">),</span>
+                    <span class="p">),</span>
                 <span class="p">}</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto_archive_class</span><span class="p">(</span>

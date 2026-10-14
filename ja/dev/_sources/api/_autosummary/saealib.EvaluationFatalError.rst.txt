@@ -1,0 +1,6 @@
+﻿saealib.EvaluationFatalError
+============================
+
+.. currentmodule:: saealib
+
+.. autoexception:: EvaluationFatalError

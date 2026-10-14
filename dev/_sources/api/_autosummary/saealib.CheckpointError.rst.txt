@@ -1,0 +1,6 @@
+﻿saealib.CheckpointError
+=======================
+
+.. currentmodule:: saealib
+
+.. autoexception:: CheckpointError

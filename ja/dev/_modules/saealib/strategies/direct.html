@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.direct &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>saealib.strategies.direct &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../../../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -969,6 +969,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">StageContractNodeAdapter</span><span class="p">,</span>
     <span class="n">build_decomposed_component_graph_from_specs</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluateAll</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeedbackBuilder</span><span class="p">,</span> <span class="n">TrueOnlyFeedback</span>
@@ -1012,7 +1013,7 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.DirectStrategy.html#saealib.DirectStrategy.__init__">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_offspring</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">n_offspring</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">n_offspring</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;n_offspring must be positive&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;n_offspring must be positive&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_offspring</span> <span class="o">=</span> <span class="n">n_offspring</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">Pipeline</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
 

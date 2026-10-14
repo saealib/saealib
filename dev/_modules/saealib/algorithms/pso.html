@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.algorithms.pso &#8212; saealib 0.1.1.dev4+g7f28172a5 documentation</title>
+    <title>saealib.algorithms.pso &#8212; saealib 0.1.1.dev10+gb5214caff documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=7eaa8efc"></script>
+    <script src="../../../_static/documentation_options.js?v=7146a760"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -981,6 +981,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">ServiceRequirement</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">StatePatch</span><span class="p">,</span> <span class="n">StateView</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigurationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span><span class="p">,</span> <span class="n">Population</span><span class="p">,</span> <span class="n">PopulationAttribute</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
@@ -1261,7 +1262,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">ctx</span> <span class="o">=</span> <span class="n">algorithm_context</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">offspring</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">offspring</span>
         <span class="k">if</span> <span class="n">offspring</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;PSO.tell() requires an offspring population&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span><span class="s2">&quot;PSO.tell() requires an offspring population&quot;</span><span class="p">)</span>
         <span class="n">x_new</span> <span class="o">=</span> <span class="n">offspring</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
         <span class="n">f_new</span> <span class="o">=</span> <span class="n">offspring</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
         <span class="n">g_new</span> <span class="o">=</span> <span class="n">offspring</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">)</span>

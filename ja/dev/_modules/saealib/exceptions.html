@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.exceptions &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>saealib.exceptions &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -999,28 +999,40 @@ window.runMermaid = runMermaid;</script>
 
 
 
+<div class="viewcode-block" id="CheckpointError">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.CheckpointError.html#saealib.CheckpointError">[ドキュメント]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CheckpointError</span><span class="p">(</span><span class="n">ValidationError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a checkpoint is invalid or cannot be migrated.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a checkpoint is invalid or cannot be migrated.&quot;&quot;&quot;</span></div>
 
 
+
+<div class="viewcode-block" id="EvaluationProtocolError">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationProtocolError.html#saealib.EvaluationProtocolError">[ドキュメント]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">EvaluationProtocolError</span><span class="p">(</span><span class="n">SaealibError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when an evaluation lifecycle message violates its contract.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when an evaluation lifecycle message violates its contract.&quot;&quot;&quot;</span></div>
 
 
+
+<div class="viewcode-block" id="EvaluationFatalError">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationFatalError.html#saealib.EvaluationFatalError">[ドキュメント]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">EvaluationFatalError</span><span class="p">(</span><span class="n">EvaluationProtocolError</span><span class="p">,</span> <span class="ne">RuntimeError</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a post-effect lifecycle failure cannot be retried.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">state</span></div>
 
 
+
+<div class="viewcode-block" id="EvaluationSubmissionError">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationSubmissionError.html#saealib.EvaluationSubmissionError">[ドキュメント]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">EvaluationSubmissionError</span><span class="p">(</span><span class="n">EvaluationProtocolError</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when submission leaves externally running work.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">state</span></div>
+
 </pre></div>
 
                 </article>

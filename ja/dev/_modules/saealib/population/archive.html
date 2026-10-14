@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.population.archive &#8212; saealib 0.1.1.dev4+g7f28172a5 ドキュメント</title>
+    <title>saealib.population.archive &#8212; saealib 0.1.1.dev10+gb5214caff ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=e7b03552"></script>
+    <script src="../../../_static/documentation_options.js?v=e85c1cce"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1214,7 +1214,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            service.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">duplicate_policy</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;keep_first&quot;</span><span class="p">,</span> <span class="s2">&quot;replace&quot;</span><span class="p">,</span> <span class="s2">&quot;append&quot;</span><span class="p">}:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;duplicate_policy must be &#39;keep_first&#39;, &#39;replace&#39;, or &#39;append&#39;&quot;</span>
             <span class="p">)</span>
         <span class="n">_validate_observation_schema</span><span class="p">(</span><span class="n">attrs</span><span class="p">,</span> <span class="n">duplicate_policy</span><span class="p">)</span>
@@ -1302,7 +1302,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_legacy_identity</span> <span class="ow">and</span> <span class="n">key_attr</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>  <span class="c1"># ty: ignore[unresolved-attribute]</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;key_attr &#39;</span><span class="si">{</span><span class="n">key_attr</span><span class="si">}</span><span class="s2">&#39; is not defined in attrs&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;key_attr &#39;</span><span class="si">{</span><span class="n">key_attr</span><span class="si">}</span><span class="s2">&#39; is not defined in attrs&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_kdtree</span><span class="p">:</span> <span class="n">cKDTree</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_fingerprint_index</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1386,7 +1386,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">data</span> <span class="o">=</span> <span class="n">_collect_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_schema</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>  <span class="c1"># type: ignore[unresolved-attribute]</span>
         <span class="n">key_attr_val</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key_attr</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_legacy_identity</span> <span class="ow">and</span> <span class="n">key_attr_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solution must have </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key_attr</span><span class="si">}</span><span class="s2"> attribute&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solution must have </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key_attr</span><span class="si">}</span><span class="s2"> attribute&quot;</span><span class="p">)</span>
 
         <span class="n">_validate_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_schema</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>  <span class="c1"># type: ignore[unresolved-attribute]</span>
         <span class="n">incoming_genome</span> <span class="o">=</span> <span class="n">_extract_genome</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
@@ -1913,7 +1913,7 @@ window.runMermaid = runMermaid;</script>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="n">duplicate_policy</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;keep_first&quot;</span><span class="p">,</span> <span class="s2">&quot;replace&quot;</span><span class="p">,</span> <span class="s2">&quot;append&quot;</span><span class="p">}:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid duplicate_policy&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;invalid duplicate_policy&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">duplicate_policy</span> <span class="o">==</span> <span class="s2">&quot;append&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;ParetoArchive does not support append policy&quot;</span><span class="p">)</span>
         <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)(</span>
@@ -1925,7 +1925,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">space</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;space&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">key_attr</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_schema&quot;</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;key_attr &#39;</span><span class="si">{</span><span class="n">key_attr</span><span class="si">}</span><span class="s2">&#39; is not defined in attrs&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;key_attr &#39;</span><span class="si">{</span><span class="n">key_attr</span><span class="si">}</span><span class="s2">&#39; is not defined in attrs&quot;</span><span class="p">)</span>
 
         <span class="c1"># Import here to avoid circular imports at module load time.</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParetoDominator</span>

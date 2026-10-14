@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 import time
 from collections.abc import Iterable
@@ -293,12 +294,13 @@ class AsyncEvaluationScheduler:
                     request_id,
                     len(request.candidate_ids),
                 )
+                prediction = copy.deepcopy(state.predictions)
                 pending = PendingEvaluation(
                     request,
                     EvaluationStatus.PENDING,
                     np.empty(0, dtype=np.int64),
                     reserved_cost=estimated_cost,
-                    prediction=state.predictions,
+                    prediction=prediction,
                 )
                 checkpointable = self.evaluator.can_reattach(pending)
                 pending = PendingEvaluation(
@@ -307,7 +309,7 @@ class AsyncEvaluationScheduler:
                     np.empty(0, dtype=np.int64),
                     reserved_cost=estimated_cost,
                     checkpointable=checkpointable,
-                    prediction=state.predictions,
+                    prediction=prediction,
                 )
                 handles[request_id] = handle
                 pending_map[request_id] = pending

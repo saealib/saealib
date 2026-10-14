@@ -385,6 +385,32 @@ def test_async_out_of_order_and_nonblocking_poll():
     assert state.fe == 2
 
 
+def test_submit_prediction_is_submit_time_snapshot():
+    state = make_state()
+    prediction = SurrogatePrediction.objective(
+        value=np.array([[1.0], [2.0]]),
+        std=np.ones((2, 1)),
+        x=np.array([[0.2], [0.1]]),
+    )
+    state = state.replace(predictions=prediction)
+    scheduler = AsyncEvaluationScheduler(
+        AsyncEvaluator(SlowEvaluator(), max_workers=2), max_pending=2
+    )
+    state = scheduler.submit(state, requests())
+    submitted = [pending.prediction for pending in state.pending_evaluations.values()]
+    assert all(
+        submitted_prediction is not prediction for submitted_prediction in submitted
+    )
+    prediction.channels["objective"].value[:] += 100.0
+    prediction.channels["objective"].std[:] += 100.0
+    if prediction.x is not None:
+        prediction.x[:] += 100.0
+    for submitted_prediction in submitted:
+        np.testing.assert_array_equal(submitted_prediction.value, [[1.0], [2.0]])
+        np.testing.assert_array_equal(submitted_prediction.std, [[1.0], [1.0]])
+        np.testing.assert_array_equal(submitted_prediction.x, [[0.2], [0.1]])
+
+
 def test_repeated_plan_waits_for_all_requests_before_tell():
     class Algorithm:
         def __init__(self):

@@ -12,7 +12,7 @@ jobs:
     outputs:
       on_main: ${{ steps.check.outputs.on_main }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # Tags cut from a release/vX.Y.x maintenance branch (patches to an old
@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Install uv

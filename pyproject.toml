@@ -68,7 +68,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=5.0.0",
     # opfunu imports pkg_resources, which setuptools removed in 81.
-    "setuptools>=80.9.0,<81",
+    "setuptools>=80.9.0,<85",
     "ty==0.0.69",
     "ruff",
     "scikit-learn>=1.0.0",

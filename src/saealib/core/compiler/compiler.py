@@ -953,6 +953,27 @@ class Compiler:
         # subsequent compiler phase operates on nodes carrying these snapshots.
         graph = _snapshot_graph_contracts(graph, refresh=True)
         structural = list(graph.well_formedness())
+        if any(item.severity is Severity.ERROR for item in structural):
+            # Resolution and verification rules dereference node ids and would
+            # crash on the very locations these diagnostics already report.
+            return ExecutablePlan(
+                graph=graph,
+                diagnostics=tuple(
+                    sorted(dict.fromkeys(structural), key=_diagnostic_sort_key)
+                ),
+                required_runtime_capabilities=frozenset(
+                    capability
+                    for node in graph.nodes
+                    for capability in (
+                        node.contract.execution.required_runtime_capabilities
+                    )
+                ),
+                active_rule_namespaces=frozenset(),
+                active_rule_names=(),
+                contract_snapshots=tuple(
+                    (node.component_id, node.contract) for node in graph.nodes
+                ),
+            )
         registrations = self.registry.registrations()
         resolution = tuple(
             registration

@@ -280,6 +280,19 @@ class ComponentGraph:
                         "Declare an existing node as the entry point.",
                     )
                 )
+        for binding in self.state_bindings:
+            if binding.node.component_id not in known:
+                key = binding.state_key
+                findings.append(
+                    _diagnostic(
+                        "invalid_state_binding",
+                        binding.node.component_id,
+                        f"State binding for {key.namespace}:{key.name}:"
+                        f"{key.schema_version} references "
+                        f"{binding.node.component_id!r}, which is not a graph node.",
+                        "Add the referenced node or remove the state binding.",
+                    )
+                )
         return findings
 
 

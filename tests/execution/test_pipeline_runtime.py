@@ -282,6 +282,54 @@ def test_compiler_to_runtime_executes_state_bound_component() -> None:
     assert step.state._store.get(bound) == 2
 
 
+def test_non_enumerable_writer_still_writes_the_state_bound_key() -> None:
+    declared = StateKey(namespace="user", name="value", schema_version=1)
+    bound = StateKey(namespace="user", name="actual", schema_version=1)
+    node = _GenericNode(
+        ComponentContract(
+            state=StateContract(writes=(declared,), writes_enumerable=False),
+        ),
+        lambda view: NodeResult(patch=StatePatch(writes={declared: 9})),
+    )
+    plan = _generic_plan(
+        (node,),
+        state_bindings=(
+            StateBinding(node=NodeRef(component_id="node_0"), state_key=bound),
+        ),
+    )
+
+    step = PipelineRuntime().advance(
+        PipelineRuntime().initialize(plan, _generic_state({bound: 1}))
+    )
+
+    assert step.state._store.get(bound) == 9
+
+
+def test_non_enumerable_writer_still_deletes_the_state_bound_key() -> None:
+    declared = StateKey(namespace="user", name="value", schema_version=1)
+    bound = StateKey(namespace="user", name="actual", schema_version=1)
+    node = _GenericNode(
+        ComponentContract(
+            state=StateContract(writes=(declared,), writes_enumerable=False),
+        ),
+        lambda view: NodeResult(
+            patch=StatePatch(writes={}, deletes=frozenset((declared,)))
+        ),
+    )
+    plan = _generic_plan(
+        (node,),
+        state_bindings=(
+            StateBinding(node=NodeRef(component_id="node_0"), state_key=bound),
+        ),
+    )
+
+    step = PipelineRuntime().advance(
+        PipelineRuntime().initialize(plan, _generic_state({bound: 1}))
+    )
+
+    assert not step.state._store.contains(bound)
+
+
 def test_generic_node_rejects_undeclared_writes_and_does_not_mutate_state() -> None:
     key = StateKey(namespace="user", name="value", schema_version=1)
     node = _GenericNode(

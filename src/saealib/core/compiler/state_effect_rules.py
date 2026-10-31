@@ -78,6 +78,22 @@ def _resolve_keys(
     return resolved
 
 
+def _reads_opaque(node: ComponentNode) -> bool:
+    return not node.contract.state.reads_enumerable
+
+
+def _writes_opaque(node: ComponentNode) -> bool:
+    return not node.contract.state.writes_enumerable
+
+
+def _strictly_before(ref: NodeRef, others: set[NodeRef], order: dict) -> bool:
+    """Return whether ``ref`` runs before every node in ``others``."""
+    return all(
+        other in order.get(ref, set()) and ref not in order.get(other, set())
+        for other in others
+    )
+
+
 class StateEffectRule:
     """Verify initialization and ordering of declared state effects."""
 
@@ -99,7 +115,17 @@ class StateEffectRule:
         initial = set(context.compile_context.initial_state_keys)
         reads: dict[NodeRef, set[StateKey[object]]] = {}
         writes: dict[NodeRef, set[StateKey[object]]] = {}
-        universe = set(initial)
+        opaque_refs = {
+            ref
+            for node, ref in zip(graph.nodes, refs)
+            if _reads_opaque(node) or _writes_opaque(node)
+        }
+        non_enumerable_reads = {
+            ref for node, ref in zip(graph.nodes, refs) if _reads_opaque(node)
+        }
+        non_enumerable_writes = {
+            ref for node, ref in zip(graph.nodes, refs) if _writes_opaque(node)
+        }
         for node in graph.nodes:
             ref = _node_ref(node)
             bindings = tuple(
@@ -109,15 +135,26 @@ class StateEffectRule:
             )
             reads[ref] = _resolve_keys(bindings, node.contract.state.reads)
             writes[ref] = _resolve_keys(bindings, node.contract.state.writes)
-            exports = _resolve_keys(bindings, node.contract.state.exports)
-            universe.update(reads[ref] | writes[ref] | exports)
-        universe.update(binding.state_key for binding in graph.state_bindings)
-        for node in graph.nodes:
-            ref = _node_ref(node)
-            if not node.contract.state.reads_enumerable:
-                reads[ref] = set(universe)
 
         findings: list[Diagnostic] = []
+        for node, ref in zip(graph.nodes, refs):
+            if ref in opaque_refs:
+                findings.append(
+                    Diagnostic(
+                        severity=Severity.WARNING,
+                        code="opaque_state_effects",
+                        message=(
+                            f"Node {_path(ref)} declares its state effects "
+                            "non-enumerable, so its state reads and writes "
+                            "cannot be verified."
+                        ),
+                        path=_path(ref),
+                        resolutions=(
+                            "Declare the state effects in the component's "
+                            "contract, or accept that they are not verified.",
+                        ),
+                    )
+                )
 
         def add(code: str, node: NodeRef, key: StateKey[object], related=()) -> None:
             findings.append(
@@ -137,7 +174,16 @@ class StateEffectRule:
                 )
             )
 
+        def verifiable(ref: NodeRef) -> bool:
+            # A non-enumerable writer that may run before ``ref`` could
+            # initialize any key, so initialization findings stop being
+            # definite for ``ref``.
+            unverifiable = {other for other in non_enumerable_writes if other != ref}
+            return _strictly_before(ref, unverifiable, order)
+
         for ref in refs:
+            if ref in non_enumerable_reads:
+                continue
             for key in reads[ref]:
                 writers = [
                     other for other in refs if key in writes[other] and other != ref
@@ -145,22 +191,30 @@ class StateEffectRule:
                 if key in initial:
                     continue
                 if key in writes[ref] and not writers:
-                    add("uninitialized_state_write", ref, key)
+                    if verifiable(ref):
+                        add("uninitialized_state_write", ref, key)
                     continue
                 if any(ref in order.get(other, set()) for other in writers):
                     continue
                 if writers and all(other in order.get(ref, set()) for other in writers):
                     code = "unreachable_state_read"
+                    if not verifiable(ref):
+                        continue
                 else:
                     code = (
                         "concurrent_state_read_write"
                         if writers
                         else "unreachable_state_read"
                     )
+                    if not writers and not verifiable(ref):
+                        continue
                 add(code, ref, key, writers)
         for index, left in enumerate(refs):
             for right in refs[index + 1 :]:
                 for key in writes[left] & writes[right]:
+                    # A non-enumerable writer may also write keys outside its
+                    # declaration, but keys it does declare are conclusive
+                    # evidence for this check.
                     if right not in order.get(left, set()) and left not in order.get(
                         right, set()
                     ):
@@ -205,20 +259,47 @@ def _structured_diagnostics(
                 visit_regions(otherwise)
 
     visit_regions(graph)
+    opaque_refs = {
+        _node_ref(node)
+        for node in graph.nodes
+        if _reads_opaque(node) or _writes_opaque(node)
+    }
+    non_enumerable_reads = {
+        _node_ref(node) for node in graph.nodes if _reads_opaque(node)
+    }
+    non_enumerable_writes = {
+        _node_ref(node) for node in graph.nodes if _writes_opaque(node)
+    }
     reads: dict[NodeRef, set[StateKey[object]]] = {}
     writes: dict[NodeRef, set[StateKey[object]]] = {}
     for node in graph.nodes:
         ref = _node_ref(node)
         bindings = bindings_by_node[ref]
         state = node.contract.state
-        reads[ref] = (
-            set(universe)
-            if not state.reads_enumerable
-            else _resolve_keys(bindings, state.reads)
-        )
+        reads[ref] = _resolve_keys(bindings, state.reads)
         writes[ref] = _resolve_keys(bindings, state.writes)
 
     findings: list[Diagnostic] = []
+    for node in graph.nodes:
+        ref = _node_ref(node)
+        if ref not in opaque_refs:
+            continue
+        findings.append(
+            Diagnostic(
+                severity=Severity.WARNING,
+                code="opaque_state_effects",
+                message=(
+                    f"Node {_path(ref)} declares its state effects "
+                    "non-enumerable, so its state reads and writes cannot "
+                    "be verified."
+                ),
+                path=_path(ref),
+                resolutions=(
+                    "Declare the state effects in the component's contract, "
+                    "or accept that they are not verified.",
+                ),
+            )
+        )
 
     def add(code: str, node: NodeRef, key: StateKey[object]) -> None:
         findings.append(
@@ -266,8 +347,14 @@ def _structured_diagnostics(
         for operation in current.operations:
             if isinstance(operation, ComponentNode):
                 ref = _node_ref(operation)
-                check_reads(ref, current_available)
-                current_available.update(writes[ref])
+                if ref not in non_enumerable_reads:
+                    check_reads(ref, current_available)
+                if ref in non_enumerable_writes:
+                    # Unknown writes may touch any key, so every key becomes
+                    # potentially available after the node runs.
+                    current_available.update(universe)
+                else:
+                    current_available.update(writes[ref])
                 continue
             region = operation.region
             body = _structured_body(region)

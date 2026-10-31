@@ -268,6 +268,7 @@ def _stage_contract(
     required_runtime_capabilities: tuple[str, ...] = (),
     offered_runtime_capabilities: tuple[str, ...] = (),
     reads_enumerable: bool = True,
+    writes_enumerable: bool = True,
 ) -> ComponentContract:
     """Build a Stage contract while keeping held contracts as named parts."""
     parts: list[PartSpec] = []
@@ -282,6 +283,7 @@ def _stage_contract(
             writes=writes,
             exports=exports,
             reads_enumerable=reads_enumerable,
+            writes_enumerable=writes_enumerable,
         ),
         execution=ExecutionContract(
             required_runtime_capabilities=required_runtime_capabilities,
@@ -473,6 +475,7 @@ class StageStateViewAdapter:
             writes=tuple(dict.fromkeys((*direct.state.writes, *held.writes))),
             exports=tuple(dict.fromkeys((*direct.state.exports, *held.exports))),
             reads_enumerable=direct.state.reads_enumerable and held.reads_enumerable,
+            writes_enumerable=direct.state.writes_enumerable and held.writes_enumerable,
         )
         self._contract = replace(direct, state=state)
 

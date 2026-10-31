@@ -107,6 +107,7 @@ class SklearnSVMSurrogate(SklearnSurrogate):
     def __init__(self, **kwargs: object) -> None:
         from sklearn.svm import SVR
 
+        self.kwargs = kwargs
         super().__init__(SVR(**kwargs))
 
 
@@ -126,6 +127,7 @@ class SklearnNNSurrogate(SklearnSurrogate):
     def __init__(self, **kwargs: object) -> None:
         from sklearn.neural_network import MLPRegressor
 
+        self.kwargs = kwargs
         super().__init__(MLPRegressor(**kwargs))
 
 
@@ -146,6 +148,7 @@ class SklearnRFRSurrogate(SklearnSurrogate):
     def __init__(self, **kwargs: object) -> None:
         from sklearn.ensemble import RandomForestRegressor
 
+        self.kwargs = kwargs
         super().__init__(RandomForestRegressor(**kwargs))
 
 
@@ -181,6 +184,7 @@ class SklearnGPRSurrogate(SklearnSurrogate):
     def __init__(self, **kwargs: object) -> None:
         from sklearn.gaussian_process import GaussianProcessRegressor
 
+        self.kwargs = kwargs
         super().__init__(GaussianProcessRegressor(**kwargs))
 
     def predict(self, test_x: np.ndarray) -> SurrogatePrediction:
@@ -238,6 +242,7 @@ class SklearnXGBSurrogate(SklearnSurrogate):
                 "xgboost is required for SklearnXGBSurrogate. "
                 "Install it with: pip install saealib[xgboost]"
             ) from e
+        self.kwargs = kwargs
         super().__init__(XGBRegressor(**kwargs))
 
 
@@ -267,6 +272,7 @@ class SklearnLGBMSurrogate(SklearnSurrogate):
                 "lightgbm is required for SklearnLGBMSurrogate. "
                 "Install it with: pip install saealib[lightgbm]"
             ) from e
+        self.kwargs = kwargs
         super().__init__(LGBMRegressor(**kwargs))  # type: ignore  # LightGBM stubs mistype __init__ kwargs
 
 
@@ -358,6 +364,7 @@ class SklearnSVCClassificationSurrogate(SklearnClassificationSurrogate):
         from sklearn.svm import SVC
 
         kwargs["probability"] = True
+        self.kwargs = kwargs
         super().__init__(SVC(**kwargs))
 
 
@@ -378,4 +385,5 @@ class SklearnRFCClassificationSurrogate(SklearnClassificationSurrogate):
     def __init__(self, **kwargs: object) -> None:
         from sklearn.ensemble import RandomForestClassifier
 
+        self.kwargs = kwargs
         super().__init__(RandomForestClassifier(**kwargs))

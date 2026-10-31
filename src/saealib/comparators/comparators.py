@@ -1481,6 +1481,7 @@ class NSGA3Comparator(ParetoComparator):
             dominator=dominator,
         )
         self._reference_points = np.asarray(reference_points, dtype=float)
+        self.seed = seed
         self._rng = np.random.default_rng(seed) if seed is not None else None
 
     @property

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Compiling a graph that refers to a missing node** reports `invalid_graph_edge`, `invalid_entry_point`, or the new `invalid_state_binding` instead of raising `KeyError` ([#295](https://github.com/saealib/saealib/issues/295))
 - **Branches at the start or end of a lowered sequence**: the else path is no longer reported as unreachable and the then path is ordered before what follows ([#296](https://github.com/saealib/saealib/issues/296))
 - **Inputs after a branch** supplied by a different component on each path are no longer reported as unresolved ([#297](https://github.com/saealib/saealib/issues/297))
+- **`to_spec` round-trips** classes without their own `__init__`, `**kwargs` settings (restored from a same-named mapping attribute; a class that does not keep or cannot represent them now raises `ValidationError` instead of silently dropping them), and the `NSGA3Comparator` seed ([#301](https://github.com/saealib/saealib/issues/301))
 
 ## [0.1.0] - 2026-09-03
 

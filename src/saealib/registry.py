@@ -17,9 +17,13 @@ A "spec" is one of:
 
 ``to_spec()`` is the reverse operation: it serializes a live instance back
 into a spec by reflecting its constructor signature and reading same-named
-attributes. A class opts out of this generic reflection by exposing a
-``_registry_spec`` attribute (a spec, or ``None`` if it cannot be
-serialized) which ``to_spec()`` uses directly instead.
+attributes. Classes that inherit ``object.__init__`` have no constructor
+parameters and serialize with empty ``params``. A ``*args`` parameter is
+read from the same-named attribute; a ``**kwargs`` parameter's same-named
+mapping attribute is merged into ``params`` key by key. A class opts out of
+this generic reflection by exposing a ``_registry_spec`` attribute (a spec,
+or ``None`` if it cannot be serialized) which ``to_spec()`` uses directly
+instead.
 
 Custom components are registered the same way as builtins, which lets them be
 referenced by a short name from preset YAML files just like ``GA`` or
@@ -42,7 +46,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Protocol, TypeVar
 
 import numpy as np
@@ -163,7 +167,12 @@ def to_spec(obj: Any) -> Any:
     same-named attribute on ``obj`` is read and serialized recursively. A
     single ``*args`` (``VAR_POSITIONAL``) parameter is serialized as a
     params *list* instead of a dict, so it round-trips through ``build()``'s
-    positional-call path.
+    positional-call path. A ``**kwargs`` (``VAR_KEYWORD``) parameter's
+    same-named mapping attribute is serialized item by item and merged into
+    ``params``. The params-list form cannot carry keyword settings, so a
+    class holding a non-empty same-named mapping attribute for its
+    ``**kwargs`` parameter alongside ``*args`` cannot be serialized and
+    raises :exc:`ValidationError` instead of dropping them.
     """
     if obj is None or isinstance(obj, bool | int | float | str):
         return obj
@@ -197,6 +206,8 @@ def to_spec(obj: Any) -> Any:
 
     cls = type(obj)
     type_name = _find_registered_name(cls) or _dotted_path(cls)
+    if cls.__init__ is object.__init__:
+        return {"type": type_name, "params": {}}
     parameters = [
         p
         for name, p in inspect.signature(cls.__init__).parameters.items()
@@ -211,6 +222,16 @@ def to_spec(obj: Any) -> Any:
                 f"Cannot serialize {type_name!r}: no attribute {param.name!r} "
                 f"matching *{param.name} constructor parameter."
             )
+        var_keyword = next((p for p in parameters if p.kind is p.VAR_KEYWORD), None)
+        if var_keyword is not None and hasattr(obj, var_keyword.name):
+            mapping = getattr(obj, var_keyword.name)
+            if isinstance(mapping, Mapping) and mapping:
+                raise ValidationError(
+                    f"Cannot serialize {type_name!r}: *{param.name} form cannot "
+                    f"represent the {len(mapping)} keyword setting(s) held in "
+                    f"the attribute {var_keyword.name!r} matching "
+                    f"**{var_keyword.name} constructor parameter."
+                )
         return {
             "type": type_name,
             "params": [to_spec(v) for v in getattr(obj, param.name)],
@@ -219,6 +240,26 @@ def to_spec(obj: Any) -> Any:
     params: dict[str, Any] = {}
     for param in parameters:
         if param.kind is param.VAR_KEYWORD:
+            if not hasattr(obj, param.name):
+                raise ValidationError(
+                    f"Cannot serialize {type_name!r}: no attribute {param.name!r} "
+                    f"matching **{param.name} constructor parameter."
+                )
+            mapping = getattr(obj, param.name)
+            if not isinstance(mapping, Mapping):
+                raise ValidationError(
+                    f"Cannot serialize {type_name!r}: attribute {param.name!r} "
+                    f"matching **{param.name} constructor parameter is not a "
+                    "mapping."
+                )
+            for key, value in mapping.items():
+                if key in params:
+                    raise ValidationError(
+                        f"Cannot serialize {type_name!r}: **{param.name} key "
+                        f"{key!r} collides with a same-named constructor "
+                        "parameter."
+                    )
+                params[key] = to_spec(value)
             continue
         if not hasattr(obj, param.name):
             if param.default is not param.empty:

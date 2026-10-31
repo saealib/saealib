@@ -733,6 +733,90 @@ def test_verification_diagnostics_are_collected() -> None:
     ] == ["finding from a", "finding from b"]
 
 
+def _graph_with_missing_reference(kind: str) -> ComponentGraph:
+    nodes = (
+        ComponentNode(component_id="a", component=_Component()),
+        ComponentNode(component_id="b", component=_Component()),
+    )
+    if kind == "data_source":
+        return ComponentGraph(
+            nodes=nodes,
+            data_edges=(
+                DataEdge(
+                    source=NodeRef(component_id="ghost"),
+                    target=NodeRef(component_id="b"),
+                    source_port="out",
+                    target_port="in",
+                ),
+            ),
+            entry_points=(NodeRef(component_id="a"),),
+        )
+    if kind == "data_target":
+        return ComponentGraph(
+            nodes=nodes,
+            data_edges=(
+                DataEdge(
+                    source=NodeRef(component_id="a"),
+                    target=NodeRef(component_id="ghost"),
+                    source_port="out",
+                    target_port="in",
+                ),
+            ),
+            entry_points=(NodeRef(component_id="a"),),
+        )
+    if kind == "control":
+        return ComponentGraph(
+            nodes=nodes,
+            control_edges=(
+                ControlEdge(
+                    source=NodeRef(component_id="a"),
+                    target=NodeRef(component_id="ghost"),
+                ),
+            ),
+            entry_points=(NodeRef(component_id="a"),),
+        )
+    if kind == "entry_point":
+        return ComponentGraph(
+            nodes=nodes,
+            entry_points=(NodeRef(component_id="ghost"),),
+        )
+    return ComponentGraph(
+        nodes=nodes,
+        state_bindings=(
+            StateBinding(
+                node=NodeRef(component_id="ghost"),
+                state_key=StateKey(namespace="user", name="value", schema_version=1),
+            ),
+        ),
+        entry_points=(NodeRef(component_id="a"),),
+    )
+
+
+@pytest.mark.parametrize(
+    ("kind", "expected_code"),
+    [
+        ("data_source", "invalid_graph_edge"),
+        ("data_target", "invalid_graph_edge"),
+        ("control", "invalid_graph_edge"),
+        ("entry_point", "invalid_entry_point"),
+        ("state_binding", "invalid_state_binding"),
+    ],
+)
+def test_compile_reports_missing_node_references_as_diagnostics(
+    kind, expected_code
+) -> None:
+    plan = Compiler().compile(_graph_with_missing_reference(kind))
+
+    findings = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == expected_code
+    ]
+    assert findings
+    assert all(diagnostic.severity is Severity.ERROR for diagnostic in findings)
+    assert plan.active_rule_namespaces == frozenset()
+
+
 def test_core_rules_are_registered_once_and_not_duplicated_by_well_formedness() -> None:
     graph = ComponentGraph(
         nodes=(

@@ -191,7 +191,8 @@ def test_structured_condition_reads_require_incoming_initialization():
             region_id="loop",
             condition=_Condition(StateContract(reads=(USER_DATA,))),
             body=(),
-        )
+        ),
+        _Component(ComponentContract()),
     )
     assert "unreachable_state_read" in _codes(graph)
 

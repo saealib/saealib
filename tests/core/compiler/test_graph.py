@@ -95,6 +95,21 @@ def test_well_formedness_reports_invalid_entry_points(nodes, entry_points):
     assert [diagnostic.code for diagnostic in diagnostics] == ["invalid_entry_point"]
 
 
+def test_well_formedness_reports_state_bindings_to_missing_nodes():
+    graph = ComponentGraph(
+        nodes=(node("a"),),
+        state_bindings=(
+            StateBinding(node=NodeRef(component_id="missing"), state_key=USER_DATA),
+        ),
+        entry_points=(NodeRef(component_id="a"),),
+    )
+
+    diagnostics = tuple(graph.well_formedness())
+
+    assert [diagnostic.code for diagnostic in diagnostics] == ["invalid_state_binding"]
+    assert diagnostics[0].path.components == ("missing",)
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [

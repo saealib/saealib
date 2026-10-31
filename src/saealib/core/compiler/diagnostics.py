@@ -105,6 +105,10 @@ for _name, _description in (
         "A graph entry point is empty or refers to a missing node.",
     ),
     (
+        "invalid_state_binding",
+        "A state binding refers to a node that is not present in the graph.",
+    ),
+    (
         "unreachable_node",
         "A graph node cannot be reached from any declared entry point.",
     ),

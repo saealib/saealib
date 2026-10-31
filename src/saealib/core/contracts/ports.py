@@ -38,6 +38,7 @@ __all__ = [
     "ServiceRequirement",
     "cardinality_satisfies",
     "check_port_compatibility",
+    "definite_port_incompatibility",
     "validate_port_contract_directions",
 ]
 
@@ -238,6 +239,23 @@ class PortCompatibility:
             and self.direction_ok
             and self.schema_ok
         )
+
+
+def definite_port_incompatibility(compatibility: PortCompatibility) -> bool:
+    """Check whether a registered-value check already failed.
+
+    ``unknown_kinds`` and ``unknown_cardinalities`` make their own axis
+    unverifiable, but a disagreement between registered values on another
+    axis is evidence of a defect regardless of unregistered names.
+    """
+    return (
+        (not compatibility.kind_ok and not compatibility.unknown_kinds)
+        or (
+            not compatibility.cardinality_ok and not compatibility.unknown_cardinalities
+        )
+        or not compatibility.direction_ok
+        or bool(compatibility.schema.conflicts)
+    )
 
 
 def check_port_compatibility(

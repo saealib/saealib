@@ -15,6 +15,7 @@ from saealib.core.compiler.diagnostics import (
     Diagnostic,
     DiagnosticBag,
     Severity,
+    near_miss_suggestions,
 )
 from saealib.core.compiler.graph import (
     ComponentGraph,
@@ -40,6 +41,7 @@ from saealib.core.contracts.ports import (
     PortSpec,
     ServiceRequirement,
     check_port_compatibility,
+    definite_port_incompatibility,
 )
 from saealib.core.contracts.vocabulary import validate_name
 from saealib.core.state.keys import StateKey
@@ -361,9 +363,10 @@ def _service_diagnostic(
     service_name: str,
     message: str,
     resolution: str,
+    severity: Severity = Severity.ERROR,
 ) -> Diagnostic:
     return Diagnostic(
-        severity=Severity.ERROR,
+        severity=severity,
         code=code,
         message=(f"{path} requires service {service_name!r}. {message}"),
         path=path,
@@ -396,18 +399,30 @@ class ServiceResolutionRule:
             for path, requirement in requirements:
                 descriptor = SERVICE_VOCABULARY.get(requirement.name)
                 if descriptor is None:
+                    suggestions = near_miss_suggestions(
+                        requirement.name, SERVICE_VOCABULARY
+                    )
+                    suggestion = (
+                        f" Registered names similar to {requirement.name!r}: "
+                        f"{', '.join(suggestions)}."
+                        if suggestions
+                        else ""
+                    )
                     findings.append(
                         _service_diagnostic(
                             code="unknown_service",
                             path=path,
                             service_name=requirement.name,
                             message=(
-                                "The service is not in the core service vocabulary."
+                                "The service is not in the core service vocabulary, "
+                                "so this requirement cannot be verified."
+                                f"{suggestion}"
                             ),
                             resolution=(
                                 f"Register {requirement.name!r} in "
                                 "SERVICE_VOCABULARY before requiring it."
                             ),
+                            severity=Severity.WARNING,
                         )
                     )
                     continue
@@ -632,6 +647,35 @@ class PortCompatibilityRule:
             ):
                 # A resolution diagnostic already identifies the actionable
                 # cause; do not add a generic incompatible-port shadow.
+                continue
+            if (
+                compatibility.unknown_kinds or compatibility.unknown_cardinalities
+            ) and not definite_port_incompatibility(compatibility):
+                # Unregistered vocabulary means the compatibility of this
+                # connection is unverifiable, not that it is incompatible.  A
+                # definite mismatch on a registered axis stays a defect.
+                unregistered = (
+                    *compatibility.unknown_kinds,
+                    *compatibility.unknown_cardinalities,
+                )
+                findings.append(
+                    Diagnostic(
+                        severity=Severity.WARNING,
+                        code="cannot_verify_data_kind",
+                        message=(
+                            f"Connection {connection} cannot be verified: "
+                            "data kinds or cardinalities are not registered: "
+                            f"{', '.join(unregistered)}."
+                        ),
+                        path=source_path,
+                        related=(target_path,),
+                        resolutions=(
+                            "Register the data kinds and cardinalities in their "
+                            "vocabularies, or use registered names in the port "
+                            "contracts.",
+                        ),
+                    )
+                )
                 continue
             findings.append(
                 Diagnostic(

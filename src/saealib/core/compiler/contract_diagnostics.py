@@ -8,6 +8,7 @@ from saealib.core.compiler.diagnostics import (
     Diagnostic,
     DiagnosticBag,
     Severity,
+    near_miss_suggestions,
 )
 from saealib.core.contracts import (
     ASSUMPTION_KEYS,
@@ -20,6 +21,7 @@ from saealib.core.contracts import (
     SERVICE_VOCABULARY,
     ComponentContract,
 )
+from saealib.core.contracts.vocabulary import Vocabulary
 from saealib.core.state import STATE_NAMESPACES
 
 __all__ = ["check_component_contract", "check_pymoo_feedback_compatibility"]
@@ -86,6 +88,8 @@ def _finding(
     path: ContractPath,
     message: str,
     resolution: str,
+    *,
+    severity: Severity = Severity.ERROR,
 ) -> None:
     if DIAGNOSTIC_CODES.get(code) is None:
         message = (
@@ -97,15 +101,23 @@ def _finding(
             f"Original resolution: {resolution}"
         )
         code = "unregistered_diagnostic_code"
+        severity = Severity.ERROR
     diagnostics.append(
         Diagnostic(
-            severity=Severity.ERROR,
+            severity=severity,
             code=code,
             message=message,
             path=path,
             resolutions=(resolution,),
         )
     )
+
+
+def _suggestion_note(name: str, vocabulary: Vocabulary) -> str:
+    suggestions = near_miss_suggestions(name, vocabulary)
+    if not suggestions:
+        return ""
+    return f" Registered names similar to {name!r}: {', '.join(suggestions)}."
 
 
 def _check_vocabularies(
@@ -118,8 +130,13 @@ def _check_vocabularies(
                 diagnostics,
                 "unknown_role",
                 role_path,
-                f"Role {role!r} is not registered at {role_path}.",
+                (
+                    f"Role {role!r} is not registered at {role_path}, so ports "
+                    f"declared with it cannot be verified."
+                    f"{_suggestion_note(role, ROLES)}"
+                ),
                 f"Register {role!r} in ROLES, or use a registered role name.",
+                severity=Severity.WARNING,
             )
         for port in (*role_contract.inputs, *role_contract.outputs):
             port_path = ContractPath(
@@ -132,12 +149,15 @@ def _check_vocabularies(
                     port_path,
                     (
                         f"Data specification kind {port.data.kind!r} is not "
-                        f"registered at {port_path}."
+                        f"registered at {port_path}, so this port cannot be "
+                        f"verified against connections."
+                        f"{_suggestion_note(port.data.kind, DATA_SPEC_KINDS)}"
                     ),
                     (
                         f"Register {port.data.kind!r} in DATA_SPEC_KINDS, or use "
                         "a registered data kind."
                     ),
+                    severity=Severity.WARNING,
                 )
             if CARDINALITIES.get(port.cardinality) is None:
                 _finding(
@@ -146,12 +166,15 @@ def _check_vocabularies(
                     port_path,
                     (
                         f"Cardinality {port.cardinality!r} is not registered at "
-                        f"{port_path}."
+                        f"{port_path}, so this port cannot be verified against "
+                        f"connections."
+                        f"{_suggestion_note(port.cardinality, CARDINALITIES)}"
                     ),
                     (
                         f"Register {port.cardinality!r} in CARDINALITIES, or use "
                         "a registered cardinality."
                     ),
+                    severity=Severity.WARNING,
                 )
             for variable in port.data.bindings:
                 if SCHEMA_VARIABLES.get(variable) is None:
@@ -161,12 +184,14 @@ def _check_vocabularies(
                         port_path,
                         (
                             f"Schema variable {variable!r} is not registered at "
-                            f"{port_path}."
+                            f"{port_path}, so bindings using it cannot be verified."
+                            f"{_suggestion_note(variable, SCHEMA_VARIABLES)}"
                         ),
                         (
                             f"Register {variable!r} in SCHEMA_VARIABLES, or use "
                             "a registered schema variable."
                         ),
+                        severity=Severity.WARNING,
                     )
             for service in port.required_services:
                 if SERVICE_VOCABULARY.get(service.name) is None:
@@ -174,11 +199,16 @@ def _check_vocabularies(
                         diagnostics,
                         "unknown_service",
                         port_path,
-                        (f"Service {service.name!r} is not registered at {port_path}."),
+                        (
+                            f"Service {service.name!r} is not registered at "
+                            f"{port_path}, so this requirement cannot be verified."
+                            f"{_suggestion_note(service.name, SERVICE_VOCABULARY)}"
+                        ),
                         (
                             f"Register {service.name!r} in SERVICE_VOCABULARY, or "
                             "use a registered service name."
                         ),
+                        severity=Severity.WARNING,
                     )
 
     for state_keys in (
@@ -192,11 +222,16 @@ def _check_vocabularies(
                     diagnostics,
                     "unknown_state_namespace",
                     path,
-                    (f"State namespace {key.namespace!r} is not registered at {path}."),
+                    (
+                        f"State namespace {key.namespace!r} is not registered at "
+                        f"{path}, so this state declaration cannot be verified."
+                        f"{_suggestion_note(key.namespace, STATE_NAMESPACES)}"
+                    ),
                     (
                         f"Register {key.namespace!r} in STATE_NAMESPACES, or use "
                         "a registered namespace."
                     ),
+                    severity=Severity.WARNING,
                 )
     for capability in (
         *contract.execution.required_runtime_capabilities,
@@ -207,11 +242,16 @@ def _check_vocabularies(
                 diagnostics,
                 "unknown_runtime_capability",
                 path,
-                (f"Runtime capability {capability!r} is not registered at {path}."),
+                (
+                    f"Runtime capability {capability!r} is not registered at "
+                    f"{path}, so this requirement cannot be verified."
+                    f"{_suggestion_note(capability, RUNTIME_CAPABILITIES)}"
+                ),
                 (
                     f"Register {capability!r} in RUNTIME_CAPABILITIES, or use "
                     "a registered capability."
                 ),
+                severity=Severity.WARNING,
             )
     for assumption in contract.assumptions:
         if ASSUMPTION_KEYS.get(assumption) is None:
@@ -219,11 +259,16 @@ def _check_vocabularies(
                 diagnostics,
                 "unknown_assumption_key",
                 path,
-                (f"Assumption key {assumption!r} is not registered at {path}."),
+                (
+                    f"Assumption key {assumption!r} is not registered at {path}, "
+                    f"so this assumption cannot be verified."
+                    f"{_suggestion_note(assumption, ASSUMPTION_KEYS)}"
+                ),
                 (
                     f"Register {assumption!r} in ASSUMPTION_KEYS, or use a "
                     "registered assumption key."
                 ),
+                severity=Severity.WARNING,
             )
 
 

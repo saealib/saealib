@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
@@ -14,6 +15,7 @@ __all__ = [
     "DiagnosticBag",
     "DiagnosticCodeVocabulary",
     "Severity",
+    "near_miss_suggestions",
 ]
 
 
@@ -23,6 +25,23 @@ class Severity(str, Enum):
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
+
+
+def near_miss_suggestions(
+    name: str, vocabulary: Vocabulary, *, count: int = 3
+) -> tuple[str, ...]:
+    """Return registered names closest to an unregistered ``name``."""
+    folded = name.casefold()
+    scored = [
+        (
+            difflib.SequenceMatcher(None, folded, str(candidate).casefold()).ratio(),
+            str(candidate),
+        )
+        for candidate in vocabulary.names()
+    ]
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    matches = [candidate for ratio, candidate in scored if ratio >= 0.6]
+    return tuple(matches[:count])
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -186,6 +205,16 @@ DIAGNOSTIC_CODES.register(
         name="ambiguous_adapter",
         description=(
             "More than one lossless adapter can be inserted for one connection."
+        ),
+    ),
+)
+DIAGNOSTIC_CODES.register(
+    "cannot_verify_data_kind",
+    VocabularyDescriptor(
+        name="cannot_verify_data_kind",
+        description=(
+            "A connection names an unregistered data kind or cardinality, so "
+            "its compatibility cannot be verified."
         ),
     ),
 )

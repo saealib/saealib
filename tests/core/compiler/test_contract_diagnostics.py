@@ -7,7 +7,12 @@ import pytest
 
 from saealib.algorithms.ga import GA
 from saealib.algorithms.pso import PSO
-from saealib.core.compiler import ContractPath, DiagnosticBag, check_component_contract
+from saealib.core.compiler import (
+    ContractPath,
+    DiagnosticBag,
+    Severity,
+    check_component_contract,
+)
 from saealib.core.compiler.contract_diagnostics import _finding
 from saealib.core.contracts import (
     AssumptionSet,
@@ -106,6 +111,52 @@ def test_unknown_port_role_has_one_finding_at_role_path() -> None:
     finding = next(iter(findings))
     assert finding.code == "unknown_role"
     assert finding.path == ContractPath(components=("algorithm",), role="missing_role")
+
+
+def test_unknown_role_is_a_warning_that_cannot_be_verified() -> None:
+    contract = ComponentContract(ports={"magic": PortContract()})
+
+    findings = check_component_contract(contract)
+
+    assert [finding.code for finding in findings] == ["unknown_role"]
+    finding = next(iter(findings))
+    assert finding.severity is Severity.WARNING
+    assert "cannot be verified" in finding.message
+
+
+def test_unknown_cardinality_warning_suggests_registered_near_misses() -> None:
+    contract = ComponentContract(
+        ports={
+            "proposer": PortContract(
+                inputs=(
+                    PortSpec(
+                        name="genomes",
+                        direction=PortDirection.INPUT,
+                        data=DataSpec(kind="GenomeBatch"),
+                        cardinality="many",
+                    ),
+                )
+            )
+        }
+    )
+
+    findings = check_component_contract(contract)
+
+    assert [finding.code for finding in findings] == ["unknown_cardinality"]
+    finding = next(iter(findings))
+    assert finding.severity is Severity.WARNING
+    assert "MANY" in finding.message
+
+
+def test_part_contract_mismatch_stays_error() -> None:
+    findings = check_component_contract(
+        _Parent().contract(),
+        component=_Parent(),
+        path=ContractPath(components=("root",)),
+    )
+
+    assert [finding.code for finding in findings] == ["part_contract_mismatch"]
+    assert next(iter(findings)).severity is Severity.ERROR
 
 
 def test_unregistered_diagnostic_code_falls_back_to_registered_finding() -> None:

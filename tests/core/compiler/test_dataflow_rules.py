@@ -12,13 +12,17 @@ from saealib.core.compiler import (
     LoopRegion,
     NodeRef,
     RepeatRegion,
+    Severity,
     StructuredGraph,
     lower_structured,
 )
+from saealib.core.component import Component
 from saealib.core.contracts import (
     MANY,
+    ONE,
     ComponentContract,
     DataSpec,
+    Fixed,
     PortContract,
     PortDirection,
     PortSpec,
@@ -36,11 +40,15 @@ class _Component:
         output: str | None = None,
         input_kind: str | None = None,
         optional: bool = False,
+        output_cardinality: str = MANY,
+        input_cardinality: str = MANY,
     ) -> None:
         self.name = name
         self._output = output
         self._input_kind = input_kind
         self._optional = optional
+        self._output_cardinality = output_cardinality
+        self._input_cardinality = input_cardinality
 
     def contract(self) -> ComponentContract:
         outputs = (
@@ -51,7 +59,7 @@ class _Component:
                     name="value",
                     direction=PortDirection.OUTPUT,
                     data=DataSpec(kind=self._output),
-                    cardinality=MANY,
+                    cardinality=self._output_cardinality,
                 ),
             )
         )
@@ -63,7 +71,7 @@ class _Component:
                     name="value",
                     direction=PortDirection.INPUT,
                     data=DataSpec(kind=self._input_kind),
-                    cardinality=MANY,
+                    cardinality=self._input_cardinality,
                     optional=self._optional,
                 ),
             )
@@ -81,7 +89,7 @@ class _Condition:
         return True
 
 
-def _compile(*components: _Component):
+def _compile(*components: Component):
     return Compiler().compile_pipeline(Pipeline(list(components)))
 
 
@@ -111,6 +119,125 @@ def test_required_input_without_compatible_upstream_is_reported() -> None:
     plan = _compile(_Component("consumer", input_kind="Population"))
 
     assert [diagnostic.code for diagnostic in plan.diagnostics] == ["unresolved_input"]
+
+
+def test_unknown_target_kind_cannot_be_verified_and_is_not_double_reported() -> None:
+    plan = _compile(
+        _Component("producer", output="Population"),
+        _Component("consumer", input_kind="MagicTensor"),
+    )
+
+    assert [diagnostic.code for diagnostic in plan.diagnostics] == [
+        "cannot_verify_data_kind"
+    ]
+    assert plan.diagnostics[0].severity is Severity.WARNING
+
+
+def test_unknown_producer_kind_cannot_supply_a_known_input() -> None:
+    plan = _compile(
+        _Component("producer", output="MagicTensor"),
+        _Component("consumer", input_kind="Population"),
+    )
+
+    assert [diagnostic.code for diagnostic in plan.diagnostics] == [
+        "cannot_verify_data_kind"
+    ]
+    assert plan.diagnostics[0].severity is Severity.WARNING
+
+
+def test_unknown_kind_with_known_cardinality_mismatch_is_an_error() -> None:
+    plan = _compile(
+        _Component("producer", output="MagicTensor"),
+        _Component("consumer", input_kind="Population", input_cardinality=ONE),
+    )
+
+    errors = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.severity is Severity.ERROR
+    ]
+    assert [diagnostic.code for diagnostic in errors] == ["unresolved_input"]
+    assert not [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "cannot_verify_data_kind"
+    ]
+
+
+class _BoundEndpoint:
+    def __init__(
+        self,
+        name: str,
+        value: str,
+        *,
+        direction: PortDirection,
+        cardinality: str,
+    ) -> None:
+        self.name = name
+        self._data = DataSpec(
+            kind="Population", bindings={"representation": Fixed(value=value)}
+        )
+        self._direction = direction
+        self._cardinality = cardinality
+
+    def contract(self) -> ComponentContract:
+        port = PortSpec(
+            name="value",
+            direction=self._direction,
+            data=self._data,
+            cardinality=self._cardinality,
+        )
+        return ComponentContract(
+            ports={
+                "main": (
+                    PortContract(outputs=(port,))
+                    if self._direction is PortDirection.OUTPUT
+                    else PortContract(inputs=(port,))
+                )
+            }
+        )
+
+
+def test_unknown_cardinality_with_known_schema_conflict_is_an_error() -> None:
+    plan = _compile(
+        _BoundEndpoint(
+            "producer", "A", direction=PortDirection.OUTPUT, cardinality="many"
+        ),
+        _BoundEndpoint(
+            "consumer", "B", direction=PortDirection.INPUT, cardinality=MANY
+        ),
+    )
+
+    errors = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.severity is Severity.ERROR
+    ]
+    assert [diagnostic.code for diagnostic in errors] == ["unresolved_input"]
+    assert not [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "cannot_verify_data_kind"
+    ]
+
+
+def test_unknown_cardinality_with_known_kind_mismatch_is_an_error() -> None:
+    plan = _compile(
+        _Component("producer", output="GenomeBatch"),
+        _Component("consumer", input_kind="Population", input_cardinality="many"),
+    )
+
+    errors = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.severity is Severity.ERROR
+    ]
+    assert [diagnostic.code for diagnostic in errors] == ["unresolved_input"]
+    assert not [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "cannot_verify_data_kind"
+    ]
 
 
 def test_multiple_compatible_upstream_producers_are_ambiguous() -> None:

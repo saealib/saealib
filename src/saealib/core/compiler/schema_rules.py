@@ -5,9 +5,15 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from saealib.core.compiler.diagnostics import ContractPath, Diagnostic, Severity
+from saealib.core.compiler.diagnostics import (
+    ContractPath,
+    Diagnostic,
+    Severity,
+    near_miss_suggestions,
+)
 from saealib.core.compiler.graph import ComponentNode, DataEdge, NodeRef
 from saealib.core.contracts import (
+    SCHEMA_VARIABLES,
     ComponentContract,
     DataSpec,
     PartSpec,
@@ -191,12 +197,21 @@ class SchemaBindingRule:
                 port=edge.source_port,
             )
             for variable in result.unknown_variables:
+                suggestions = near_miss_suggestions(variable, SCHEMA_VARIABLES)
+                suggestion = (
+                    f" Registered names similar to {variable!r}: "
+                    f"{', '.join(suggestions)}."
+                    if suggestions
+                    else ""
+                )
                 findings.append(
                     Diagnostic(
-                        severity=Severity.ERROR,
+                        severity=Severity.WARNING,
                         code="unknown_schema_variable",
                         message=(
-                            f"Schema variable {variable!r} is not registered at {path}."
+                            f"Schema variable {variable!r} is not registered at "
+                            f"{path}, so this binding cannot be verified."
+                            f"{suggestion}"
                         ),
                         path=path,
                         resolutions=(

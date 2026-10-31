@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The compiler blocks a run only on evidence of a defect**: unregistered vocabulary values are reported as "cannot verify" warnings with near-miss suggestions, and a connection rejected only because of an unknown data kind or cardinality becomes a single `cannot_verify_data_kind` warning ([#298](https://github.com/saealib/saealib/issues/298))
+
 ### Fixed
 
 - **Compiling a graph that refers to a missing node** reports `invalid_graph_edge`, `invalid_entry_point`, or the new `invalid_state_binding` instead of raising `KeyError` ([#295](https://github.com/saealib/saealib/issues/295))

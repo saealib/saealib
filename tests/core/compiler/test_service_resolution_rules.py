@@ -22,7 +22,7 @@ from saealib.core.compiler import (
     RuleContext,
     ServiceResolutionRule,
 )
-from saealib.core.compiler.diagnostics import DiagnosticBag
+from saealib.core.compiler.diagnostics import DiagnosticBag, Severity
 from saealib.core.contracts import (
     MANY,
     ONE,
@@ -137,6 +137,28 @@ def test_missing_bounds_service_is_rejected_at_compile_time() -> None:
     assert all("BoundsService" in diagnostic.message for diagnostic in findings)
     assert all(diagnostic.resolutions for diagnostic in findings)
     assert plan.graph.node_by_id("ga").resolved_services == {}
+
+
+def test_unknown_service_requirement_is_a_warning_with_near_miss_suggestion() -> None:
+    component = _ContractComponent(
+        required_services=(ServiceRequirement(name="BoundsServic"),)
+    )
+    graph = ComponentGraph(
+        nodes=(ComponentNode(component_id="component", component=component),),
+        entry_points=(NodeRef(component_id="component"),),
+    )
+
+    plan = Compiler().compile(graph, CompileContext(space=_object_space()))
+
+    findings = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "unknown_service"
+    ]
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.WARNING
+    assert "cannot be verified" in findings[0].message
+    assert "BoundsService" in findings[0].message
 
 
 def test_resolved_service_is_a_direct_reference_on_the_node() -> None:
@@ -259,6 +281,8 @@ def _edge_graph(
     target_port: str = "value",
     source_role: str | None = "role",
     target_role: str | None = "role",
+    source_cardinality: str = ONE,
+    target_cardinality: str = MANY,
 ) -> ComponentGraph:
     return ComponentGraph(
         nodes=(
@@ -266,7 +290,7 @@ def _edge_graph(
                 component_id="producer",
                 component=_Endpoint(
                     data_kind=producer_kind,
-                    cardinality=ONE,
+                    cardinality=source_cardinality,
                     direction=PortDirection.OUTPUT,
                 ),
             ),
@@ -274,7 +298,7 @@ def _edge_graph(
                 component_id="consumer",
                 component=_Endpoint(
                     data_kind=consumer_kind,
-                    cardinality=MANY,
+                    cardinality=target_cardinality,
                     direction=PortDirection.INPUT,
                 ),
             ),
@@ -381,6 +405,81 @@ def test_unknown_port_name_has_a_distinct_diagnostic() -> None:
     assert findings[0].resolutions == (
         "Correct the edge port name or declare that directional port in the "
         "endpoint contract.",
+    )
+
+
+def test_unknown_kind_with_known_cardinality_mismatch_is_an_error() -> None:
+    plan = Compiler().compile(
+        _edge_graph(
+            "MagicTensor",
+            "Population",
+            source_cardinality=MANY,
+            target_cardinality=ONE,
+        )
+    )
+
+    findings = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "incompatible_port"
+    ]
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.ERROR
+    assert "cardinalities are incompatible" in findings[0].message
+    assert not any(
+        diagnostic.code == "cannot_verify_data_kind" for diagnostic in plan.diagnostics
+    )
+
+
+def test_unknown_cardinality_with_known_kind_mismatch_is_an_error() -> None:
+    plan = Compiler().compile(
+        _edge_graph("GenomeBatch", "Population", source_cardinality="many")
+    )
+
+    findings = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "incompatible_port"
+    ]
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.ERROR
+    assert not any(
+        diagnostic.code == "cannot_verify_data_kind" for diagnostic in plan.diagnostics
+    )
+
+
+def test_unknown_data_kind_on_explicit_edge_is_one_verification_warning() -> None:
+    plan = Compiler().compile(_edge_graph("MagicTensor", "Population"))
+
+    findings = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "cannot_verify_data_kind"
+    ]
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.WARNING
+    assert "MagicTensor" in findings[0].message
+    assert findings[0].related
+    assert not any(
+        diagnostic.code == "incompatible_port" for diagnostic in plan.diagnostics
+    )
+
+
+def test_unknown_cardinality_on_explicit_edge_is_one_verification_warning() -> None:
+    plan = Compiler().compile(
+        _edge_graph("Population", "Population", target_cardinality="many")
+    )
+
+    findings = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "cannot_verify_data_kind"
+    ]
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.WARNING
+    assert "many" in findings[0].message
+    assert not any(
+        diagnostic.code == "incompatible_port" for diagnostic in plan.diagnostics
     )
 
 

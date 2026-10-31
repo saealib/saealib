@@ -1,6 +1,8 @@
 """Integration tests: built-in components self-register and Registry.build
 reproduces objects equivalent to the hardcoded resolvers in saealib.api."""
 
+from typing import Any, cast
+
 import numpy as np
 import pytest
 
@@ -139,3 +141,58 @@ class TestBuildMatchesApiResolvers:
         assert isinstance(strategy, cls)
         for attr, expected in attrs.items():
             assert getattr(strategy, attr) == expected
+
+
+def _normalize(value: Any) -> Any:
+    """Normalize tuples/arrays to lists and sklearn objects to param dicts."""
+    if isinstance(value, tuple | list | np.ndarray):
+        return [_normalize(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _normalize(v) for k, v in value.items()}
+    if hasattr(value, "get_params"):
+        return {k: _normalize(v) for k, v in value.get_params().items()}
+    return value
+
+
+class TestSklearnSurrogateRoundTrip:
+    def test_gpr_round_trip_preserves_estimator_params(self):
+        pytest.importorskip("sklearn")
+        from sklearn.gaussian_process.kernels import Matern
+
+        from saealib.registry import to_spec
+        from saealib.surrogate.sklearn_surrogate import SklearnGPRSurrogate
+
+        original = SklearnGPRSurrogate(kernel=Matern(nu=2.5), normalize_y=True)
+        rebuilt = build(to_spec(original))
+
+        assert isinstance(rebuilt, SklearnGPRSurrogate)
+        original_estimator = cast(Any, original.estimator)
+        rebuilt_estimator = rebuilt.estimator
+        original_params = original_estimator.get_params()
+        rebuilt_params = rebuilt_estimator.get_params()
+        assert set(rebuilt_params) == set(original_params)
+        assert all(
+            _normalize(rebuilt_params[key]) == _normalize(original_params[key])
+            for key in original_params
+        )
+        assert isinstance(rebuilt_estimator.kernel, Matern)
+        assert rebuilt_estimator.kernel.nu == 2.5
+        assert rebuilt_estimator.normalize_y is True
+
+
+class TestNSGA3ComparatorRoundTrip:
+    def test_nsga3_round_trip_keeps_seed_and_dominator(self):
+        from saealib.comparators.comparators import NSGA3Comparator
+        from saealib.comparators.dominance import ParetoDominator
+        from saealib.registry import to_spec
+
+        reference_points = np.eye(3)
+        original = NSGA3Comparator(reference_points, seed=3)
+        rebuilt = build(to_spec(original))
+
+        assert isinstance(rebuilt, NSGA3Comparator)
+        np.testing.assert_array_equal(rebuilt.reference_points, reference_points)
+        assert rebuilt.seed == 3
+        assert isinstance(rebuilt.dominator, ParetoDominator)
+        assert rebuilt.eps_cv == original.eps_cv
+        assert rebuilt.eps_obj == original.eps_obj

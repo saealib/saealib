@@ -51,6 +51,21 @@ class Powered:
         self.kernel = kernel
 
 
+class KwargsPlugin:
+    """Constructor takes **kwargs, stored under the same-named attribute."""
+
+    def __init__(self, **settings):
+        self.settings = settings
+
+
+class KwargsWithNamed:
+    """Constructor takes a named param plus **kwargs."""
+
+    def __init__(self, name="base", **settings):
+        self.name = name
+        self.settings = settings
+
+
 class TestRegisterAndGet:
     def test_register_default_name(self):
         register()(Engine)
@@ -181,6 +196,8 @@ class TestToSpec:
         register("OptionalOnly")(OptionalOnly)
         register("Opaque")(Opaque)
         register("Powered")(Powered)
+        register("KwargsPlugin")(KwargsPlugin)
+        register("KwargsWithNamed")(KwargsWithNamed)
 
     @pytest.mark.parametrize(
         "value", [None, True, 1, 1.5, "s", [1, 2], (1, 2), {"a": 1}]
@@ -254,6 +271,42 @@ class TestToSpec:
         with pytest.raises(ValidationError):
             to_spec(BadConvoy())
 
+    def test_var_positional_with_keyword_settings_raises_validation_error(self):
+        class Both:
+            def __init__(self, *args, **settings):
+                self.args = args
+                self.settings = settings
+
+        register("BothVarargsKwargs")(Both)
+        with pytest.raises(ValidationError, match=r"BothVarargsKwargs.*settings"):
+            to_spec(Both(1, 2, alpha=3))
+
+    def test_var_positional_without_keyword_settings_round_trips(self):
+        class PositionalOnly:
+            def __init__(self, *args, **settings):
+                self.args = args
+                self.settings = settings
+
+        register("PositionalOnly")(PositionalOnly)
+        obj = PositionalOnly(1, 2)
+        assert to_spec(obj) == {"type": "PositionalOnly", "params": [1, 2]}
+        rebuilt = build(to_spec(obj))
+        assert rebuilt.args == (1, 2)
+        assert rebuilt.settings == {}
+
+    def test_var_positional_with_empty_settings_attribute_round_trips(self):
+        class EmptySettings:
+            def __init__(self, *args, **settings):
+                self.args = args
+                self.settings = settings
+
+        register("EmptySettings")(EmptySettings)
+        obj = EmptySettings(1, 2)
+        obj.settings = {}
+        rebuilt = build(to_spec(obj))
+        assert rebuilt.args == (1, 2)
+        assert rebuilt.settings == {}
+
     def test_registry_spec_hook_used_instead_of_reflection(self):
         obj = Opaque(spec={"type": "whatever", "params": {"x": 1}})
         assert to_spec(obj) == {"type": "whatever", "params": {"x": 1}}
@@ -287,6 +340,79 @@ class TestToSpec:
         }
         rebuilt = build(spec)
         assert rebuilt.kernel is math.isnan
+
+    def test_no_init_class_serializes_with_empty_params(self):
+        class NoInit:
+            pass
+
+        register("NoInit")(NoInit)
+        assert to_spec(NoInit()) == {"type": "NoInit", "params": {}}
+
+    def test_no_init_class_round_trips(self):
+        class NoInit:
+            pass
+
+        register("NoInit")(NoInit)
+        rebuilt = build(to_spec(NoInit()))
+        assert isinstance(rebuilt, NoInit)
+
+    def test_var_keyword_attrs_merged_into_params(self):
+        obj = KwargsPlugin(alpha=1, beta="two")
+        assert to_spec(obj) == {
+            "type": "KwargsPlugin",
+            "params": {"alpha": 1, "beta": "two"},
+        }
+
+    def test_var_keyword_round_trips(self):
+        original = KwargsPlugin(alpha=1, beta="two")
+        rebuilt = build(to_spec(original))
+        assert isinstance(rebuilt, KwargsPlugin)
+        assert rebuilt.settings == {"alpha": 1, "beta": "two"}
+
+    def test_var_keyword_merged_alongside_named_params(self):
+        obj = KwargsWithNamed(name="custom", scale=2.0)
+        assert to_spec(obj) == {
+            "type": "KwargsWithNamed",
+            "params": {"name": "custom", "scale": 2.0},
+        }
+
+    def test_var_keyword_nested_spec_value_recurses(self):
+        original = KwargsPlugin(engine=Engine(power=5))
+        spec = to_spec(original)
+        assert spec == {
+            "type": "KwargsPlugin",
+            "params": {"engine": {"type": "Engine", "params": {"power": 5}}},
+        }
+        rebuilt = build(spec)
+        assert rebuilt.settings["engine"].power == 5
+
+    def test_var_keyword_missing_attr_raises_validation_error(self):
+        class DropsKwargs:
+            def __init__(self, **settings):
+                pass
+
+        register("DropsKwargs")(DropsKwargs)
+        with pytest.raises(ValidationError, match=r"DropsKwargs.*settings"):
+            to_spec(DropsKwargs(alpha=1))
+
+    def test_var_keyword_non_mapping_attr_raises_validation_error(self):
+        class ListKwargs:
+            def __init__(self, **settings):
+                self.settings = list(settings)
+
+        register("ListKwargs")(ListKwargs)
+        with pytest.raises(ValidationError, match=r"not a.*mapping"):
+            to_spec(ListKwargs(alpha=1))
+
+    def test_var_keyword_key_colliding_with_named_param_raises(self):
+        class Colliding:
+            def __init__(self, name="base", **settings):
+                self.name = name
+                self.settings = {"name": "shadow", "extra": 1}
+
+        register("Colliding")(Colliding)
+        with pytest.raises(ValidationError, match=r"'name'.*collides"):
+            to_spec(Colliding())
 
     def test_lambda_raises_validation_error(self):
         with pytest.raises(ValidationError):

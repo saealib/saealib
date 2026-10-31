@@ -80,27 +80,48 @@ class PersistenceRule:
 
         exported = _population_state_names(context.graph)
         findings: list[Diagnostic] = []
+        space_known = context.compile_context.space is not None
         for path, state_names in sorted(
             exported.items(), key=lambda item: str(item[0])
         ):
-            findings.append(
-                Diagnostic(
-                    severity=Severity.ERROR,
-                    code="missing_genome_codec",
-                    message=(
-                        f"Node {path} exports population state "
-                        f"{', '.join(sorted(state_names))}; "
-                        "portable checkpointing requires the 'GenomeCodec' "
-                        "service, but the configured space does not offer it."
-                    ),
-                    path=path,
-                    resolutions=(
-                        "Register a GenomeCodec with encode/decode in the "
-                        "configured space services, or disable portable "
-                        "checkpointing for this compile.",
-                    ),
+            if space_known:
+                findings.append(
+                    Diagnostic(
+                        severity=Severity.ERROR,
+                        code="missing_genome_codec",
+                        message=(
+                            f"Node {path} exports population state "
+                            f"{', '.join(sorted(state_names))}; "
+                            "portable checkpointing requires the 'GenomeCodec' "
+                            "service, but the configured space does not offer it."
+                        ),
+                        path=path,
+                        resolutions=(
+                            "Register a GenomeCodec with encode/decode in the "
+                            "configured space services, or disable portable "
+                            "checkpointing for this compile.",
+                        ),
+                    )
                 )
-            )
+            else:
+                findings.append(
+                    Diagnostic(
+                        severity=Severity.WARNING,
+                        code="missing_genome_codec",
+                        message=(
+                            f"Node {path} exports population state "
+                            f"{', '.join(sorted(state_names))}; portable "
+                            "checkpointing requires the 'GenomeCodec' service, "
+                            "but the compile context supplies no space, so this "
+                            "requirement cannot be verified."
+                        ),
+                        path=path,
+                        resolutions=(
+                            "Compile with the configured space, or register a "
+                            "GenomeCodec with encode/decode in the space services.",
+                        ),
+                    )
+                )
         return VerificationResult(diagnostics=tuple(findings))
 
 
@@ -115,18 +136,38 @@ class RuntimeCompatibilityRule:
         """Report required capabilities absent from the effective offer."""
         from saealib.core.compiler.compiler import VerificationResult
 
-        offered = set(context.compile_context.offered_runtime_capabilities)
-        offered_rendered = ", ".join(sorted(offered)) or "none"
+        offered = context.compile_context.offered_runtime_capabilities
+        offered_set = None if offered is None else set(offered)
         findings: list[Diagnostic] = []
         emitted: set[tuple[ContractPath, str]] = set()
         for node in context.graph.nodes:
             path = _node_path(node)
             required = set(node.contract.execution.required_runtime_capabilities)
-            for capability in sorted(required - offered):
+            missing = required if offered_set is None else required - offered_set
+            for capability in sorted(missing):
                 key = (path, capability)
                 if key in emitted:
                     continue
                 emitted.add(key)
+                if offered_set is None:
+                    findings.append(
+                        Diagnostic(
+                            severity=Severity.WARNING,
+                            code="missing_runtime_capability",
+                            message=(
+                                f"Node {path} requires runtime capability "
+                                f"{capability!r}; the compile context supplies "
+                                "no runtime offer, so this requirement cannot "
+                                "be verified."
+                            ),
+                            path=path,
+                            resolutions=(
+                                f"Provide a runtime offering {capability!r}, or "
+                                "change the component's execution contract.",
+                            ),
+                        )
+                    )
+                    continue
                 findings.append(
                     Diagnostic(
                         severity=Severity.ERROR,
@@ -134,7 +175,7 @@ class RuntimeCompatibilityRule:
                         message=(
                             f"Node {path} requires runtime capability "
                             f"{capability!r}; the effective runtime offers "
-                            f"[{offered_rendered}]."
+                            f"[{', '.join(sorted(offered_set)) or 'none'}]."
                         ),
                         path=path,
                         resolutions=(

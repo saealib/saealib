@@ -177,6 +177,26 @@ def test_resolved_service_is_a_direct_reference_on_the_node() -> None:
     )
 
 
+def test_service_requirement_without_environment_is_a_warning() -> None:
+    component = _ContractComponent(
+        required_services=(ServiceRequirement(name="BoundsService"),)
+    )
+    graph = ComponentGraph(
+        nodes=(ComponentNode(component_id="component", component=component),),
+        entry_points=(NodeRef(component_id="component"),),
+    )
+
+    findings = [
+        diagnostic
+        for diagnostic in Compiler().compile(graph).diagnostics
+        if diagnostic.code == "unresolved_service"
+    ]
+
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.WARNING
+    assert "cannot be verified" in findings[0].message
+
+
 def test_component_service_is_resolved_without_compiler_insertion() -> None:
     component = _ContractComponent(
         required_services=(ServiceRequirement(name="FeatureEncoder"),)
@@ -398,9 +418,10 @@ def test_unknown_port_name_has_a_distinct_diagnostic() -> None:
     findings = [
         diagnostic
         for diagnostic in plan.diagnostics
-        if diagnostic.code == "unknown_port"
+        if diagnostic.code == "cannot_verify_port"
     ]
     assert len(findings) == 1
+    assert findings[0].severity is Severity.WARNING
     assert "missing" in findings[0].message
     assert findings[0].resolutions == (
         "Correct the edge port name or declare that directional port in the "
@@ -492,7 +513,8 @@ def test_unqualified_duplicate_port_name_has_an_ambiguous_diagnostic() -> None:
         if diagnostic.code == "ambiguous_port"
     ]
     assert len(findings) == 1
-    assert "multiple roles" in findings[0].message
+    assert findings[0].severity is Severity.WARNING
+    assert "cannot be verified" in findings[0].message
     assert findings[0].resolutions == (
         "Specify the NodeRef role for the ambiguous endpoint.",
     )
@@ -502,7 +524,7 @@ def test_explicit_role_resolves_a_duplicate_port_name() -> None:
     plan = Compiler().compile(_ambiguous_edge_graph(source_role="first"))
 
     assert not any(
-        diagnostic.code in {"ambiguous_port", "unknown_port", "incompatible_port"}
+        diagnostic.code in {"ambiguous_port", "cannot_verify_port", "incompatible_port"}
         for diagnostic in plan.diagnostics
     )
 

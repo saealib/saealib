@@ -99,7 +99,8 @@ def _feedback_consumer(node: ComponentNode):
 
 
 def _partial_feedback_offered(context: RuleContext, graph: ComponentGraph) -> bool:
-    return _PARTIAL_FEEDBACK in context.compile_context.offered_runtime_capabilities
+    offered = context.compile_context.offered_runtime_capabilities
+    return _PARTIAL_FEEDBACK in (offered if offered is not None else frozenset())
 
 
 def _inserted_adapter_name(node: ComponentNode) -> str | None:

@@ -11,7 +11,7 @@ import pytest
 
 from saealib.algorithms.pymoo_algorithm import PymooAlgorithm
 from saealib.context import OptimizationState
-from saealib.core.compiler import CompileContext, Compiler, RuleContext
+from saealib.core.compiler import CompileContext, Compiler, RuleContext, Severity
 from saealib.core.compiler.diagnostics import Diagnostic, DiagnosticBag
 from saealib.core.compiler.graph import ComponentGraph, ComponentNode, NodeRef
 from saealib.core.compiler.persistence_runtime_rules import (
@@ -174,6 +174,23 @@ def test_portable_population_export_with_codec_has_no_persistence_diagnostic() -
     assert findings == ()
 
 
+def test_portable_population_export_without_space_cannot_be_verified() -> None:
+    graph = _graph(
+        ComponentContract(state=StateContract(exports=(POPULATIONS_MAIN,))),
+        component_id="population_owner",
+    )
+
+    findings = _diagnostics(
+        PersistenceRule(),
+        graph,
+        CompileContext(portability_required=True),
+    )
+
+    assert [finding.code for finding in findings] == ["missing_genome_codec"]
+    assert findings[0].severity is Severity.WARNING
+    assert "cannot be verified" in findings[0].message
+
+
 def test_runtime_capability_requires_set_containment() -> None:
     graph = _graph(
         ComponentContract(
@@ -186,7 +203,28 @@ def test_runtime_capability_requires_set_containment() -> None:
     findings = _diagnostics(RuntimeCompatibilityRule(), graph, CompileContext())
 
     assert [finding.code for finding in findings] == ["missing_runtime_capability"]
+    assert findings[0].severity is Severity.WARNING
     assert "partial_feedback" in findings[0].message
+    assert "cannot be verified" in findings[0].message
+
+
+def test_explicit_empty_runtime_offer_makes_missing_capability_an_error() -> None:
+    graph = _graph(
+        ComponentContract(
+            execution=ExecutionContract(
+                required_runtime_capabilities=("partial_feedback",)
+            )
+        )
+    )
+
+    findings = _diagnostics(
+        RuntimeCompatibilityRule(),
+        graph,
+        CompileContext(offered_runtime_capabilities=frozenset()),
+    )
+
+    assert [finding.code for finding in findings] == ["missing_runtime_capability"]
+    assert findings[0].severity is Severity.ERROR
     assert "offers [none]" in findings[0].message
 
 
@@ -207,6 +245,7 @@ def test_scheduler_contract_does_not_declare_partial_feedback_offer() -> None:
     findings = _diagnostics(RuntimeCompatibilityRule(), graph, CompileContext())
 
     assert [finding.code for finding in findings] == ["missing_runtime_capability"]
+    assert all(finding.severity is Severity.WARNING for finding in findings)
 
 
 def test_explicit_runtime_offer_satisfies_requirement() -> None:

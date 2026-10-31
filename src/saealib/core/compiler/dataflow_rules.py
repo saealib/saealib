@@ -10,7 +10,7 @@ from saealib.core.compiler.diagnostics import (
     Diagnostic,
     Severity,
 )
-from saealib.core.compiler.graph import DataEdge, NodeRef
+from saealib.core.compiler.graph import ComponentNode, DataEdge, NodeRef
 from saealib.core.compiler.regions import (
     BranchRegion,
     LoopRegion,
@@ -22,6 +22,7 @@ from saealib.core.contracts.ports import (
     PortDirection,
     PortSpec,
     check_port_compatibility,
+    definite_port_incompatibility,
 )
 
 __all__ = ["StructuredDataflowRule"]
@@ -57,6 +58,37 @@ def _target_is_connected(
         and edge.target_port == target_port
         and (edge.target.role == target_role or edge.target.role is None)
     )
+
+
+def _unregistered_vocabulary_names(
+    nodes_by_id: dict[str, ComponentNode],
+    source_ids: Iterable[str],
+    target_port: PortSpec,
+) -> tuple[str, ...]:
+    """Collect unregistered kinds/cardinalities seen while rejecting sources.
+
+    A source already ruled out by a mismatch between registered values can
+    never become a producer, so its rejection stays definite and a missing
+    producer remains a defect rather than unverifiable vocabulary.
+    """
+    unregistered: list[str] = []
+    for source_id in sorted(source_ids):
+        source = nodes_by_id[source_id]
+        for _, source_port in _port_specs(source, PortDirection.OUTPUT):
+            compatibility = check_port_compatibility(source_port, target_port)
+            if compatibility.compatible or definite_port_incompatibility(compatibility):
+                continue
+            unregistered.extend(
+                name
+                for name in (*compatibility.unknown_kinds,)
+                if name not in unregistered
+            )
+            unregistered.extend(
+                name
+                for name in (*compatibility.unknown_cardinalities,)
+                if name not in unregistered
+            )
+    return tuple(unregistered)
 
 
 class StructuredDataflowRule:
@@ -115,6 +147,28 @@ class StructuredDataflowRule:
                     path=path,
                     resolutions=(
                         "Provide one control-ordered compatible output port.",
+                    ),
+                )
+            )
+
+        def report_cannot_verify(
+            path: ContractPath,
+            unregistered: tuple[str, ...],
+        ) -> None:
+            findings.append(
+                Diagnostic(
+                    severity=Severity.WARNING,
+                    code="cannot_verify_data_kind",
+                    message=(
+                        f"Input {path} cannot be verified: data kinds or "
+                        "cardinalities are not registered: "
+                        f"{', '.join(unregistered)}."
+                    ),
+                    path=path,
+                    resolutions=(
+                        "Register the data kinds and cardinalities in their "
+                        "vocabularies, or use registered names in the port "
+                        "contracts.",
                     ),
                 )
             )
@@ -180,7 +234,13 @@ class StructuredDataflowRule:
                     ]
                     if any(not leaf for leaf in leaf_edges):
                         if not target_port.optional:
-                            report_unresolved(path)
+                            unregistered = _unregistered_vocabulary_names(
+                                nodes_by_id, available, target_port
+                            )
+                            if unregistered:
+                                report_cannot_verify(path, unregistered)
+                            else:
+                                report_unresolved(path)
                     elif any(len(leaf) > 1 for leaf in leaf_edges):
                         report_ambiguous(
                             path,

@@ -90,6 +90,18 @@ def _problem(n_obj: int = 1) -> Problem:
     )
 
 
+def _constrained_problem() -> Problem:
+    return Problem(
+        func=lambda x: np.array([np.sum(np.asarray(x) ** 2)]),
+        dim=2,
+        n_obj=1,
+        direction=np.full(1, -1.0),
+        lb=[-1.0, -1.0],
+        ub=[1.0, 1.0],
+        constraints=[InequalityConstraint(lambda x: 0.5 - x[0])],
+    )
+
+
 def _observe(
     state: OptimizationState, update: EvaluationUpdate, attempt: int = 0
 ) -> None:
@@ -150,6 +162,24 @@ class _CostEvaluator(Evaluator):
             g=np.empty((size, problem.n_constraints), dtype=np.float64),
             cv=np.zeros(size, dtype=np.float64),
             cost=cost,
+        )
+
+
+class _NoisyEvaluator(Evaluator):
+    """Return constant noise so recorded noise blocks are observable."""
+
+    def __init__(self) -> None:
+        self.returned_noise: list[np.ndarray] = []
+
+    def evaluate_batch(self, x: Any, problem: Problem) -> EvaluationResult:
+        size = len(x)
+        noise = np.full((size, problem.n_obj), 0.5, dtype=np.float64)
+        self.returned_noise.append(noise.copy())
+        return EvaluationResult(
+            f=np.zeros((size, problem.n_obj), dtype=np.float64),
+            g=np.empty((size, problem.n_constraints), dtype=np.float64),
+            cv=np.zeros(size, dtype=np.float64),
+            noise=noise,
         )
 
 
@@ -570,6 +600,188 @@ def test_evaluation_history_checkpoint_roundtrip_preserves_all_columns(
             np.testing.assert_array_equal(actual, expected)
             assert actual.dtype in {np.dtype(np.int64), np.dtype(np.float64)}
             assert actual.dtype == expected.dtype
+
+
+def test_evaluation_history_records_g_matching_archive_by_candidate_id() -> None:
+    problem = Problem(
+        func=lambda x: np.array([np.sum(np.asarray(x) ** 2)]),
+        dim=2,
+        n_obj=1,
+        direction=np.full(1, -1.0),
+        lb=[-1.0, -1.0],
+        ub=[1.0, 1.0],
+        constraints=[InequalityConstraint(lambda x: 0.5 - x[0])],
+    )
+    state = (
+        Optimizer(problem, seed=7)
+        .set_initializer(LHSInitializer(10, 3))
+        .set_termination(Termination(max_fe(13)))
+        .set_history(["evaluation"])
+        .run()
+    )
+
+    assert state.history is not None
+    archive_ids = state.archive.get_array("id")
+    archive_g = state.archive.get_array("g")
+    archived = {
+        int(candidate_id): archive_g[row]
+        for row, candidate_id in enumerate(archive_ids)
+    }
+    candidate_id_blocks = state.history.blocks("evaluation", "candidate_ids")
+    g_blocks = state.history.blocks("evaluation", "g")
+    assert len(g_blocks) == len(candidate_id_blocks)
+    for candidate_ids, g in zip(candidate_id_blocks, g_blocks, strict=True):
+        assert g.shape == (len(candidate_ids), problem.n_constraints)
+        for candidate_id, row_g in zip(candidate_ids.reshape(-1), g, strict=True):
+            np.testing.assert_array_equal(row_g, archived[int(candidate_id)])
+
+
+def test_noisy_evaluator_records_noise_blocks() -> None:
+    evaluator = _NoisyEvaluator()
+    optimizer = (
+        Optimizer(_problem(2), seed=7)
+        .set_initializer(LHSInitializer(10, 3))
+        .set_evaluator(evaluator)
+        .set_termination(Termination(max_fe(13)))
+        .set_history(["evaluation"])
+    )
+
+    state = optimizer.run()
+
+    assert state.history is not None
+    recorded = np.concatenate(
+        [block.ravel() for block in state.history.blocks("evaluation", "noise")]
+    )
+    expected = np.concatenate([batch.ravel() for batch in evaluator.returned_noise])
+    assert evaluator.returned_noise
+    np.testing.assert_array_equal(recorded, expected)
+    for block in state.history.blocks("evaluation", "noise"):
+        assert block.shape[1] == 2
+
+
+def test_run_without_noise_records_nan_noise_blocks() -> None:
+    state = _run_history_path("sync", ["evaluation"])
+
+    assert state.history is not None
+    noise_blocks = state.history.blocks("evaluation", "noise")
+    assert noise_blocks
+    for block in noise_blocks:
+        assert block.shape[1] == state.problem.n_obj
+        assert np.all(np.isnan(block))
+
+
+def test_failed_evaluation_records_nan_g_and_noise() -> None:
+    state = _empty_state().replace(
+        history=History(["evaluation"]), problem=_constrained_problem()
+    )
+    request = EvaluationRequest(
+        request_id=np.int64(23),
+        candidate_ids=np.array([201, 202], dtype=np.int64),
+        payload=np.zeros((2, 2), dtype=np.float64),
+    )
+    evaluator = _FailingEvaluator()
+    handle = evaluator.submit(request, state.problem)
+    updates = evaluator.collect(handle)
+
+    assert updates[0].status is EvaluationStatus.FAILED
+    _observe(state, updates[0], 0)
+    record_evaluations(state)
+
+    assert state.history is not None
+    g_blocks = state.history.blocks("evaluation", "g")
+    noise_blocks = state.history.blocks("evaluation", "noise")
+    assert len(g_blocks) == 1
+    assert len(noise_blocks) == 1
+    assert g_blocks[0].shape == (2, state.problem.n_constraints)
+    assert noise_blocks[0].shape == (2, state.problem.n_obj)
+    assert np.all(np.isnan(g_blocks[0]))
+    assert np.all(np.isnan(noise_blocks[0]))
+
+
+def test_checkpoint_without_g_and_noise_restores_with_nan(tmp_path: Path) -> None:
+    state = _run_history_path("sync", ["evaluation"])
+    path = tmp_path / "current.npz"
+    state.save(path)
+    data = np.load(path, allow_pickle=False)
+    metadata = json.loads(bytes(data["_history_meta"]).decode())
+    for section in ("columns", "blocks"):
+        metadata[section]["evaluation"] = [
+            name
+            for name in metadata[section]["evaluation"]
+            if name not in ("g", "noise")
+        ]
+    old_path = tmp_path / "old_format.npz"
+    _rewrite_npz(
+        path,
+        old_path,
+        _history_meta=np.frombuffer(json.dumps(metadata).encode(), dtype=np.uint8),
+        _history__evaluation__g=None,
+        _history__evaluation__noise=None,
+    )
+
+    restored = OptimizationState.load(old_path, state.problem)
+
+    assert restored.history is not None
+    assert state.history is not None
+    channel = restored.history.channel("evaluation")
+    expected_channel = state.history.channel("evaluation")
+    assert list(channel) == list(expected_channel)
+    for name, expected in expected_channel.items():
+        np.testing.assert_array_equal(channel[name], expected)
+    assert set(restored.history._block_columns["evaluation"]) == {
+        "candidate_ids",
+        "f",
+        "g",
+        "cv",
+        "cost",
+        "noise",
+    }
+    for column, width in (
+        ("g", state.problem.n_constraints),
+        ("noise", state.problem.n_obj),
+    ):
+        blocks = restored.history.blocks("evaluation", column)
+        expected_blocks = state.history.blocks("evaluation", "f")
+        assert len(blocks) == len(expected_blocks)
+        for block, expected in zip(blocks, expected_blocks, strict=True):
+            assert block.shape == (len(expected), width)
+            assert np.all(np.isnan(block))
+
+
+def test_resume_from_checkpoint_without_g_and_noise_appends_new_rows(
+    tmp_path: Path,
+) -> None:
+    state = _run_history_path("sync", ["evaluation"])
+    path = tmp_path / "current.npz"
+    state.save(path)
+    data = np.load(path, allow_pickle=False)
+    metadata = json.loads(bytes(data["_history_meta"]).decode())
+    for section in ("columns", "blocks"):
+        metadata[section]["evaluation"] = [
+            name
+            for name in metadata[section]["evaluation"]
+            if name not in ("g", "noise")
+        ]
+    old_path = tmp_path / "old_format.npz"
+    _rewrite_npz(
+        path,
+        old_path,
+        _history_meta=np.frombuffer(json.dumps(metadata).encode(), dtype=np.uint8),
+        _history__evaluation__g=None,
+        _history__evaluation__noise=None,
+    )
+    restored = OptimizationState.load(old_path, state.problem)
+
+    resumed = _resume_optimizer(restored, ["evaluation"]).run_from(restored)
+
+    assert resumed.history is not None
+    assert state.history is not None
+    prior_rows = len(state.history.blocks("evaluation", "f"))
+    g_blocks = resumed.history.blocks("evaluation", "g")
+    assert len(g_blocks) > prior_rows
+    for block in g_blocks[prior_rows:]:
+        assert block.shape[1] == restored.problem.n_constraints
+        assert np.all(np.isfinite(block))
 
 
 @pytest.mark.parametrize("path", ["sync", "async"], ids=["sync", "async"])

@@ -849,6 +849,35 @@ def _restore_surrogate_accuracy_keys(history: History) -> None:
         return
 
 
+def _fill_missing_evaluation_columns(
+    history: History, n_obj: int, n_constraints: int
+) -> None:
+    """NaN-fill evaluation block columns that older checkpoints lack."""
+    if not history.is_enabled("evaluation"):
+        return
+    if history._record_modes["evaluation"] != "block":
+        return
+    block_columns = history._block_columns["evaluation"]
+    missing = {"g", "noise"} - set(block_columns)
+    if not missing:
+        return
+    reference_offsets = history._block_offsets["evaluation"]
+    if not reference_offsets:
+        return
+    template = next(iter(reference_offsets.values()))
+    row_count = history._rows["evaluation"]
+    total = int(template[min(row_count, len(template) - 1)])
+    widths = {"g": n_constraints, "noise": n_obj}
+    for column in sorted(missing):
+        block_columns[column] = np.full(
+            (total, widths[column]), np.nan, dtype=np.float64
+        )
+        offsets = template[: row_count + 1].copy()
+        history._block_offsets["evaluation"][column] = offsets
+        history._block_capacities["evaluation"][column] = total
+        history._block_record_capacities["evaluation"][column] = row_count
+
+
 def _register_evaluation_origins(state: OptimizationState, history: History) -> None:
     """Remember request origins without adding state or checkpoint fields."""
     try:
@@ -894,9 +923,12 @@ def _evaluation_blocks(
             candidate_ids = np.asarray(candidate_ids, dtype=np.int64)
             size = len(candidate_ids)
             n_obj = int(state.problem.n_obj)
-            if n_obj < 0:
+            n_constraints = int(state.problem.n_constraints)
+            if n_obj < 0 or n_constraints < 0:
                 return None
             nan_f = np.full((size, n_obj), np.nan, dtype=np.float64)
+            nan_g = np.full((size, n_constraints), np.nan, dtype=np.float64)
+            nan_noise = np.full((size, n_obj), np.nan, dtype=np.float64)
             nan_vector = np.full((size, 1), np.nan, dtype=np.float64)
             return (
                 size,
@@ -904,6 +936,8 @@ def _evaluation_blocks(
                 {
                     "candidate_ids": candidate_ids.reshape((size, 1)),
                     "f": nan_f,
+                    "g": nan_g,
+                    "noise": nan_noise,
                     "cv": nan_vector,
                     "cost": nan_vector.copy(),
                 },
@@ -930,9 +964,13 @@ def _result_blocks(
     """Shape one evaluation result into the evaluation channel blocks."""
     size = len(candidate_ids)
     n_obj = int(state.problem.n_obj)
+    n_constraints = int(state.problem.n_constraints)
     f = np.asarray(getattr(result, "f"), dtype=np.float64)
+    g = np.asarray(getattr(result, "g"), dtype=np.float64)
     cv = np.asarray(getattr(result, "cv"), dtype=np.float64)
     if f.shape != (size, n_obj) or cv.shape != (size,):
+        return None
+    if g.shape != (size, n_constraints):
         return None
     cost_value = getattr(result, "cost", None)
     if cost_value is None:
@@ -941,9 +979,19 @@ def _result_blocks(
         cost = np.asarray(cost_value, dtype=np.float64)
         if cost.shape != (size,):
             return None
+    noise_value = getattr(result, "noise", None)
+    if noise_value is None:
+        noise = np.full((size, n_obj), np.nan, dtype=np.float64)
+    else:
+        noise = np.asarray(noise_value, dtype=np.float64)
+        if noise.shape != (size, n_obj):
+            return None
+        noise = np.array(noise, dtype=np.float64, copy=True)
     return {
         "candidate_ids": candidate_ids.reshape((size, 1)),
         "f": np.array(f, dtype=np.float64, copy=True),
+        "g": np.array(g, dtype=np.float64, copy=True),
+        "noise": noise,
         "cv": cv.reshape((size, 1)),
         "cost": cost.reshape((size, 1)),
     }

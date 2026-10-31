@@ -2360,7 +2360,10 @@ def _load_checkpoint(
     }
     history = None
     if "_history_meta" in data.files:
-        from saealib.execution.history import History
+        from saealib.execution.history import (
+            History,
+            _fill_missing_evaluation_columns,
+        )
 
         metadata = _read_json(data, "_history_meta")
         if not isinstance(metadata, dict):
@@ -2422,6 +2425,10 @@ def _load_checkpoint(
                     np.asarray(data[offsets_key]),
                 )
             history._restore_blocks(channel, block_columns)
+            if channel == "evaluation":
+                _fill_missing_evaluation_columns(
+                    history, problem.n_obj, problem.n_constraints
+                )
     kwargs["history"] = history
     kwargs.update(values)
     kwargs["fe"] = int(kwargs.get("fe", 0))

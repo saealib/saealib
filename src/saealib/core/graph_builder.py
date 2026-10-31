@@ -166,6 +166,8 @@ def _compose_contracts(held: Sequence[_HeldComponent]) -> ComponentContract:
     reads: list[StateKey[object]] = []
     writes: list[StateKey[object]] = []
     exports: list[StateKey[object]] = []
+    reads_enumerable = True
+    writes_enumerable = True
     events = []
     feedback = None
     capabilities: list[str] = []
@@ -191,6 +193,8 @@ def _compose_contracts(held: Sequence[_HeldComponent]) -> ComponentContract:
             _append_unique(writes, key)
         for key in contract.state.exports:
             _append_unique(exports, key)
+        reads_enumerable = reads_enumerable and contract.state.reads_enumerable
+        writes_enumerable = writes_enumerable and contract.state.writes_enumerable
         for event in contract.lifecycle.events:
             _append_unique(events, event)
         if contract.lifecycle.feedback is not None:
@@ -218,7 +222,11 @@ def _compose_contracts(held: Sequence[_HeldComponent]) -> ComponentContract:
         ports=ports,
         lifecycle=LifecycleContract(events=tuple(events), feedback=feedback),
         state=StateContract(
-            reads=tuple(reads), writes=tuple(writes), exports=tuple(exports)
+            reads=tuple(reads),
+            writes=tuple(writes),
+            exports=tuple(exports),
+            reads_enumerable=reads_enumerable,
+            writes_enumerable=writes_enumerable,
         ),
         execution=ExecutionContract(
             required_runtime_capabilities=tuple(capabilities),

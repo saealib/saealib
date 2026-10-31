@@ -1,5 +1,3 @@
-from dataclasses import replace
-
 import pytest
 
 from saealib.core.compiler import (
@@ -11,6 +9,7 @@ from saealib.core.compiler import (
     LoopRegion,
     NodeRef,
     RepeatRegion,
+    Severity,
     StateBinding,
     lower_structured,
 )
@@ -111,21 +110,113 @@ def test_unordered_writes_and_read_write_are_diagnosed():
     assert "concurrent_state_read_write" in _codes(read_write)
 
 
-def test_non_enumerable_reads_use_the_graph_state_universe():
-    opaque = ComponentContract(state=StateContract(reads_enumerable=False))
-    writer = ComponentContract(state=StateContract(writes=(USER_DATA,)))
-    graph = _graph(("opaque", opaque), ("writer", writer))
-    assert "concurrent_state_read_write" in _codes(graph)
-    ordered = replace(
-        graph,
-        control_edges=(
+def test_opaque_state_effects_warn_instead_of_deriving_errors():
+    opaque = ComponentContract(
+        state=StateContract(reads_enumerable=False, writes_enumerable=False)
+    )
+    writer = ComponentContract(
+        state=StateContract(reads=(USER_DATA,), writes=(USER_DATA,))
+    )
+    graph = _graph(
+        ("writer", writer),
+        ("opaque", opaque),
+        edges=(
+            ControlEdge(
+                source=NodeRef(component_id="opaque"),
+                target=NodeRef(component_id="writer"),
+            ),
+        ),
+    )
+    ordered = _graph(
+        ("writer", writer),
+        ("opaque", opaque),
+        edges=(
             ControlEdge(
                 source=NodeRef(component_id="writer"),
                 target=NodeRef(component_id="opaque"),
             ),
         ),
     )
-    assert "concurrent_state_read_write" not in _codes(ordered)
+
+    plan = Compiler().compile(graph)
+    ordered_plan = Compiler().compile(ordered)
+
+    opaque_warnings = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "opaque_state_effects"
+    ]
+    assert len(opaque_warnings) == 1
+    assert opaque_warnings[0].severity is Severity.WARNING
+    assert not [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code
+        in {
+            "uninitialized_state_write",
+            "unreachable_state_read",
+            "concurrent_state_read_write",
+            "concurrent_state_write",
+        }
+    ]
+    assert [diagnostic.code for diagnostic in ordered_plan.diagnostics] == [
+        "uninitialized_state_write",
+        "opaque_state_effects",
+    ]
+
+
+def test_opaque_reads_keep_declared_readable_writes_checked() -> None:
+    key = USER_DATA
+    reads_opaque_writer = ComponentContract(
+        state=StateContract(
+            reads_enumerable=False, writes_enumerable=True, writes=(key,)
+        )
+    )
+    writer = ComponentContract(state=StateContract(writes=(key,)))
+    graph = _graph(
+        ("left", reads_opaque_writer),
+        ("right", writer),
+    )
+
+    assert "concurrent_state_write" in _codes(graph)
+    assert "opaque_state_effects" in _codes(graph)
+    assert not [
+        diagnostic
+        for diagnostic in Compiler().compile(graph).diagnostics
+        if diagnostic.code
+        in {
+            "uninitialized_state_write",
+            "unreachable_state_read",
+            "concurrent_state_read_write",
+        }
+    ]
+
+
+def test_non_enumerable_writer_declared_keys_still_conflict() -> None:
+    opaque_writer = ComponentContract(
+        state=StateContract(writes=(USER_DATA,), writes_enumerable=False)
+    )
+    writer = ComponentContract(state=StateContract(writes=(USER_DATA,)))
+    graph = _graph(("left", opaque_writer), ("right", writer))
+
+    codes = _codes(graph)
+
+    assert "concurrent_state_write" in codes
+    assert "opaque_state_effects" in codes
+
+
+def test_structured_reads_opaque_node_with_no_writes_does_not_open_the_key_universe():
+    reads_opaque = _Component(
+        ComponentContract(
+            state=StateContract(
+                reads_enumerable=False, writes_enumerable=True, writes=()
+            )
+        )
+    )
+    reader = _Component(ComponentContract(state=StateContract(reads=(USER_DATA,))))
+    graph = _structured(reads_opaque, reader)
+
+    assert _codes(graph) == ["unreachable_state_read", "opaque_state_effects"]
 
 
 def test_bindings_keep_same_contract_nodes_in_distinct_namespaces():

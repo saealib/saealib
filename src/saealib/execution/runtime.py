@@ -408,6 +408,13 @@ def _bound_patch(
     plan: SequentialPlan | StructuredPlan, node: ComponentNode, patch: StatePatch
 ) -> StatePatch:
     aliases = _node_state_aliases(plan, node)
+    if not node.contract.state.writes_enumerable:
+        # The node declares its writes non-enumerable (an opaque Stage), so it
+        # may write any key; only the declared aliases are translated and no
+        # allowed-set restriction is applied.
+        writes = {aliases.get(key, key): value for key, value in patch.writes.items()}
+        deletes = frozenset(aliases.get(key, key) for key in patch.deletes)
+        return StatePatch(writes=writes, deletes=deletes)
     allowed = {aliases.get(key, key) for key in node.contract.state.writes}
     writes = {}
     for key, value in patch.writes.items():

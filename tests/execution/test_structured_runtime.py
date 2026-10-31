@@ -31,6 +31,7 @@ from saealib.core.state import (
     EVALUATIONS_PLAN_UPDATES,
     OPTIMIZATION_STATE_INITIAL_KEYS,
     USER_DATA,
+    StateKey,
 )
 from saealib.exceptions import ValidationError
 from saealib.execution.evaluator import (
@@ -43,6 +44,7 @@ from saealib.pipeline import Branch, Loop, Pipeline, Repeat, Stage
 from saealib.policies.evaluation import EvaluationPlan
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
 from saealib.problem import Problem
+from saealib.stages import stage_component
 
 
 def _state() -> OptimizationState:
@@ -744,3 +746,58 @@ class _LegacyStage(Stage):
 def test_structured_plan_rejects_optimization_state_stage_boundary() -> None:
     with pytest.raises(ValidationError, match="stage_component"):
         _compile(Pipeline([_LegacyStage()]))
+
+
+def test_stage_with_declared_writes_still_rejects_undeclared_writes() -> None:
+    extra = StateKey(namespace="user", name="extra", schema_version=1)
+
+    class DeclaredWriter(Stage):
+        name = "declared_writer"
+
+        def contract(self) -> ComponentContract:
+            return ComponentContract(state=StateContract(writes=(USER_DATA,)))
+
+        def execute(self, state: OptimizationState) -> OptimizationState:
+            state.set_state(extra, 1)
+            return state
+
+    plan = _compile(Pipeline([stage_component(DeclaredWriter())]))
+    state = _state()
+
+    session = PipelineRuntime().initialize(plan, state)
+    with pytest.raises(ValidationError, match="undeclared state write"):
+        PipelineRuntime().advance(session)
+
+
+def test_opaque_stage_writes_any_key_without_rejection() -> None:
+    extra = StateKey(namespace="user", name="extra", schema_version=1)
+
+    class OpaqueWriter(Stage):
+        name = "opaque_writer"
+
+        def execute(self, state: OptimizationState) -> OptimizationState:
+            state.set_state(extra, 1)
+            return state
+
+    pipeline = Pipeline([stage_component(OpaqueWriter())])
+    plan = Compiler().compile_pipeline(
+        pipeline,
+        CompileContext(
+            initial_state_keys=frozenset((*OPTIMIZATION_STATE_INITIAL_KEYS, USER_DATA))
+        ),
+    )
+    assert [
+        diagnostic.code
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "opaque_state_effects"
+    ]
+    assert not [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.severity.name == "ERROR"
+    ]
+
+    session = PipelineRuntime().initialize(plan, _state())
+    step = PipelineRuntime().advance(session)
+
+    assert step.state._store.get(extra) == 1

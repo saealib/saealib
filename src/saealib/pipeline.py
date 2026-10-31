@@ -143,7 +143,12 @@ class Stage(ABC):
 
     def contract(self) -> ComponentContract:
         """Return this stage's structural and direct state-access contract."""
-        return ComponentContract()
+        # A Stage that does not override contract() keeps its state effects
+        # private to execute(), so neither direction is enumerable and the
+        # compiler can only warn that the effects cannot be verified.
+        return ComponentContract(
+            state=StateContract(reads_enumerable=False, writes_enumerable=False)
+        )
 
 
 def _is_pipeline_entry(value: object) -> TypeGuard[PipelineEntry]:

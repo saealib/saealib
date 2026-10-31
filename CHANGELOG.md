@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The compiler blocks a run only on evidence of a defect**: unregistered vocabulary values are reported as "cannot verify" warnings with near-miss suggestions, and a connection rejected only because of an unknown data kind or cardinality becomes a single `cannot_verify_data_kind` warning ([#298](https://github.com/saealib/saealib/issues/298))
 - **Missing information no longer blocks a run**: several compatible candidates, edges to undeclared ports (`cannot_verify_port`), and unbound schema variables are warnings; a missing service, runtime capability, or genome codec is an error only when the real environment is supplied, and `CompileContext.offered_runtime_capabilities` now defaults to `None` ("not supplied") while an explicit empty set still means no capabilities ([#299](https://github.com/saealib/saealib/issues/299))
+- **A `Stage` that does not override `contract()` is opaque**: its reads and writes are not enumerated (new `StateContract.writes_enumerable`), it may write any state key at run time, and the compiler reports one `opaque_state_effects` warning; declare a contract to keep strict write checks ([#300](https://github.com/saealib/saealib/issues/300))
 
 ### Fixed
 

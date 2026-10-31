@@ -228,6 +228,16 @@ DIAGNOSTIC_CODES.register(
         ),
     ),
 )
+DIAGNOSTIC_CODES.register(
+    "opaque_state_effects",
+    VocabularyDescriptor(
+        name="opaque_state_effects",
+        description=(
+            "A node declares its state effects non-enumerable, so its state "
+            "reads and writes cannot be verified."
+        ),
+    ),
+)
 
 
 @dataclass(frozen=True, kw_only=True)

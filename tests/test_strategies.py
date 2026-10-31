@@ -30,9 +30,11 @@ from saealib.callback import AcquisitionEndEvent, CallbackManager
 from saealib.comparators import SingleObjectiveComparator
 from saealib.context import OptimizationState
 from saealib.execution.evaluator import SerialEvaluator
+from saealib.pipeline import Stage
 from saealib.policies import EvaluationPlanner, FeedbackBuilder
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
 from saealib.problem import Problem
+from saealib.stages import stage_component
 from saealib.strategies.gb import GenerationBasedStrategy
 from saealib.strategies.ib import IndividualBasedStrategy
 from saealib.strategies.ps import PreSelectionStrategy
@@ -569,6 +571,47 @@ class TestPipelineRebuildOnRuntimeReassignment:
 
         assert new_manager.call_count == 1
         assert old_manager.call_count == 1
+
+    def test_user_stage_without_contract_override_runs_to_completion(self):
+        class NoopCountStage(Stage):
+            """Replaces count_generation with only execute() implemented."""
+
+            name = "count_generation"
+
+            def execute(self, state):
+                return state.replace(gen=state.gen + 1)
+
+        class UserCountStrategy(GenerationBasedStrategy):
+            def build_pipeline(self, provider):
+                pipeline = super().build_pipeline(provider)
+                true_generation = cast(Any, pipeline.find("true_generation"))
+                true_generation.replace(
+                    "count_generation", stage_component(NoopCountStage())
+                )
+                return pipeline
+
+        opt = self._make_optimizer(UserCountStrategy(gen_ctrl=1), _SpyManager())
+
+        gen = opt.iterate()
+        next(gen)  # initial ctx
+        ctx = next(gen)  # one full generation step with the user stage
+
+        assert ctx.gen == 2
+        plan = opt.executable_plan
+        assert plan is not None
+        diagnostics = plan.diagnostics
+        warnings = [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.code == "opaque_state_effects"
+        ]
+        assert len(warnings) == 1
+        assert warnings[0].severity.name == "WARNING"
+        assert not [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.severity.name == "ERROR"
+        ]
 
     def test_gen_ctrl_change_alters_surrogate_only_iteration_count(self):
         manager = _SpyManager()

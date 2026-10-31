@@ -4,7 +4,9 @@ import pytest
 
 from saealib.core.compiler import (
     BranchRegion,
+    Compiler,
     LoopRegion,
+    NodeRef,
     RepeatRegion,
     StructuredGraph,
     lower_structured,
@@ -86,6 +88,182 @@ def test_control_regions_are_retained_and_loop_has_no_cycle_edge():
         edge.source.component_id != edge.target.component_id
         for edge in graph.control_edges
     )
+
+
+def test_leading_branch_declares_entry_points_on_every_path():
+    graph = lower_structured(
+        [
+            BranchRegion(
+                region_id="branch",
+                condition=Condition(),
+                body=(Component("then"),),
+                otherwise=(Component("otherwise"),),
+            ),
+            Component("after"),
+        ]
+    )
+
+    result = Compiler().compile(graph)
+
+    assert graph.entry_points == (
+        NodeRef(component_id="branch.then"),
+        NodeRef(component_id="branch.else.otherwise"),
+    )
+    assert not [
+        diagnostic
+        for diagnostic in result.diagnostics
+        if diagnostic.code == "unreachable_node"
+    ]
+
+
+def test_leading_branch_without_otherwise_keeps_single_entry_point():
+    graph = lower_structured(
+        [
+            BranchRegion(
+                region_id="branch",
+                condition=Condition(),
+                body=(Component("then"),),
+            ),
+            Component("after"),
+        ]
+    )
+
+    result = Compiler().compile(graph)
+
+    assert graph.entry_points == (NodeRef(component_id="branch.then"),)
+    assert not [
+        diagnostic
+        for diagnostic in result.diagnostics
+        if diagnostic.code == "unreachable_node"
+    ]
+
+
+def _leading_branch(region_id):
+    return BranchRegion(
+        region_id=region_id,
+        condition=Condition(),
+        body=(Component("then"),),
+        otherwise=(Component("otherwise"),),
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        _leading_branch("branch"),
+        RepeatRegion(
+            region_id="repeat",
+            count=2,
+            body=(_leading_branch("inner"), Component("tail")),
+        ),
+        LoopRegion(
+            region_id="loop",
+            condition=Condition(),
+            body=(_leading_branch("inner"), Component("tail")),
+        ),
+        BranchRegion(
+            region_id="branch",
+            condition=Condition(),
+            body=(_leading_branch("inner"), Component("tail")),
+            otherwise=(Component("else_tail"),),
+        ),
+    ],
+)
+def test_leading_region_body_starting_with_branch_reaches_inner_paths(body):
+    graph = lower_structured(
+        [
+            BranchRegion(
+                region_id="outer",
+                condition=Condition(),
+                body=(body, Component("tail")),
+                otherwise=(Component("else_tail"),),
+            )
+        ]
+    )
+
+    result = Compiler().compile(graph)
+
+    assert not [
+        diagnostic
+        for diagnostic in result.diagnostics
+        if diagnostic.code == "unreachable_node"
+    ]
+
+
+def test_trailing_branch_in_nested_body_exits_on_every_path():
+    graph = lower_structured(
+        [
+            RepeatRegion(
+                region_id="repeat",
+                count=1,
+                body=(
+                    Component("before"),
+                    BranchRegion(
+                        region_id="branch",
+                        condition=Condition(),
+                        body=(Component("then"),),
+                        otherwise=(Component("otherwise"),),
+                    ),
+                ),
+            ),
+            Component("after"),
+        ]
+    )
+
+    result = Compiler().compile(graph)
+
+    edge_ids = [
+        (edge.source.component_id, edge.target.component_id)
+        for edge in graph.control_edges
+    ]
+    assert ("repeat.branch.then", "after") in edge_ids
+    assert ("repeat.branch.else.otherwise", "after") in edge_ids
+    assert not [
+        diagnostic
+        for diagnostic in result.diagnostics
+        if diagnostic.code == "unreachable_node"
+    ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        RepeatRegion(
+            region_id="repeat",
+            count=2,
+            body=(_leading_branch("inner"), Component("tail")),
+        ),
+        LoopRegion(
+            region_id="loop",
+            condition=Condition(),
+            body=(_leading_branch("inner"), Component("tail")),
+        ),
+        BranchRegion(
+            region_id="branch",
+            condition=Condition(),
+            body=(_leading_branch("inner"), Component("tail")),
+            otherwise=(Component("else_tail"),),
+        ),
+    ],
+)
+def test_trailing_region_body_ending_with_branch_exits_inner_paths(body):
+    graph = lower_structured(
+        [
+            BranchRegion(
+                region_id="outer",
+                condition=Condition(),
+                body=(Component("head"), body),
+            )
+        ]
+    )
+
+    result = Compiler().compile(graph)
+
+    assert not [
+        diagnostic
+        for diagnostic in result.diagnostics
+        if diagnostic.code == "unreachable_node"
+    ]
 
 
 def test_region_effects_compose_component_and_condition_state():

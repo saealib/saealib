@@ -63,7 +63,23 @@ def _region_body(value: object) -> StructuredGraph | tuple[object, ...]:
     return items if items is not None else (value,)
 
 
+def _entry_nodes(graph: StructuredGraph) -> tuple[ComponentNode, ...]:
+    """Collect the component nodes declared as the graph's entry points."""
+    ids = {ref.component_id for ref in graph.entry_points}
+    entries = tuple(node for node in graph.nodes if node.component_id in ids)
+    if entries or not graph.nodes:
+        return entries
+    return (graph.nodes[0],)
+
+
 def _lower_sequence(items: tuple[object, ...], namespace: str) -> StructuredGraph:
+    """Lower a sequence, discarding its exit nodes."""
+    return _lower_sequence_with_exits(items, namespace)[0]
+
+
+def _lower_sequence_with_exits(
+    items: tuple[object, ...], namespace: str
+) -> tuple[StructuredGraph, tuple[ComponentNode, ...]]:
     nodes: list[ComponentNode] = []
     edges: list[ControlEdge] = []
     region_nodes: list[RegionNode] = []
@@ -71,6 +87,7 @@ def _lower_sequence(items: tuple[object, ...], namespace: str) -> StructuredGrap
     effects: list[StateContract] = []
     bindings: list[StateBinding] = []
     previous: tuple[ComponentNode, ...] = ()
+    first_entries: tuple[ComponentNode, ...] = ()
     for index, item in enumerate(items):
         entries: tuple[ComponentNode, ...] = ()
         exits: tuple[ComponentNode, ...] = ()
@@ -107,7 +124,7 @@ def _lower_sequence(items: tuple[object, ...], namespace: str) -> StructuredGrap
         if isinstance(item, (RepeatRegion, LoopRegion, BranchRegion)):
             nested_items = None
         if nested_items is not None:
-            body = _lower_sequence(nested_items, child_namespace)
+            body, body_exits = _lower_sequence_with_exits(nested_items, child_namespace)
             region = SequenceRegion(
                 region_id=local_id, namespace=namespace, body=body, effect=body.effect
             )
@@ -120,9 +137,11 @@ def _lower_sequence(items: tuple[object, ...], namespace: str) -> StructuredGrap
             bindings.extend(body.state_bindings)
             effects.append(body.effect)
             if body.nodes:
-                entries = (body.nodes[0],)
-                exits = (body.nodes[-1],)
+                entries = _entry_nodes(body)
+                exits = body_exits or (body.nodes[-1],)
         elif isinstance(item, StructuredRegion):
+            body_exits: tuple[ComponentNode, ...] = ()
+            otherwise_exits: tuple[ComponentNode, ...] = ()
             body_items = _body_items(item.body)
             if body_items is None:
                 if isinstance(item.body, StructuredGraph):
@@ -132,7 +151,9 @@ def _lower_sequence(items: tuple[object, ...], namespace: str) -> StructuredGrap
                         "Structured region body must be a sequence or StructuredGraph"
                     )
             else:
-                body = _lower_sequence(body_items, child_namespace)
+                body, body_exits = _lower_sequence_with_exits(
+                    body_items, child_namespace
+                )
             otherwise = getattr(item, "otherwise", None)
             otherwise_graph: StructuredGraph | None = None
             if otherwise is not None:
@@ -145,7 +166,7 @@ def _lower_sequence(items: tuple[object, ...], namespace: str) -> StructuredGrap
                         )
                     otherwise_graph = otherwise
                 else:
-                    otherwise_graph = _lower_sequence(
+                    otherwise_graph, otherwise_exits = _lower_sequence_with_exits(
                         otherwise_items, f"{child_namespace}.else"
                     )
             condition = getattr(item, "condition", None)
@@ -186,13 +207,16 @@ def _lower_sequence(items: tuple[object, ...], namespace: str) -> StructuredGrap
                 node
                 for graph in (body, otherwise_graph)
                 if graph is not None and graph.nodes
-                for node in (graph.nodes[0],)
+                for node in _entry_nodes(graph)
             )
             exits = tuple(
                 node
-                for graph in (body, otherwise_graph)
+                for graph, graph_exits in (
+                    (body, body_exits),
+                    (otherwise_graph, otherwise_exits),
+                )
                 if graph is not None and graph.nodes
-                for node in (graph.nodes[-1],)
+                for node in (graph_exits or (graph.nodes[-1],))
             )
         else:
             if _is_stage(item):
@@ -237,7 +261,8 @@ def _lower_sequence(items: tuple[object, ...], namespace: str) -> StructuredGrap
             )
         if entries:
             previous = exits
-    entry = (NodeRef(component_id=nodes[0].component_id),) if nodes else ()
+            first_entries = first_entries or entries
+    entry = tuple(NodeRef(component_id=node.component_id) for node in first_entries)
     return StructuredGraph(
         nodes=tuple(nodes),
         control_edges=tuple(edges),
@@ -246,7 +271,7 @@ def _lower_sequence(items: tuple[object, ...], namespace: str) -> StructuredGrap
         region_nodes=tuple(region_nodes),
         operations=tuple(operations),
         effect=compose_effects(effects),
-    )
+    ), previous
 
 
 def lower_structured(value: object | Sequence[object]) -> StructuredGraph:

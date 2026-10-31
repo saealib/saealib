@@ -107,9 +107,7 @@ def _contract_contains_var(contract: ComponentContract) -> bool:
     ) or any(_contract_contains_var(part.contract) for part in contract.parts)
 
 
-def _contract_has_unresolved_service(
-    node: ComponentNode,
-) -> bool:
+def _declared_service_names(contract: ComponentContract) -> set[str]:
     declared: set[str] = set()
 
     def collect(contract: ComponentContract) -> None:
@@ -122,8 +120,19 @@ def _contract_has_unresolved_service(
         for part in contract.parts:
             collect(part.contract)
 
-    collect(node.contract)
-    return bool(declared - set(node.resolved_services))
+    collect(contract)
+    return declared
+
+
+def _awaits_service_resolution(node: ComponentNode, resolvable: frozenset[str]) -> bool:
+    """Whether a declared service can still be resolved for this node.
+
+    Such a node is rewritten by service resolution in the same iteration, so
+    freshening it here would double-claim it; it is freshened once services
+    settle on a later pass.
+    """
+    pending = _declared_service_names(node.contract) - set(node.resolved_services)
+    return bool(pending & resolvable)
 
 
 def _binding_has_unresolved_var(
@@ -167,16 +176,37 @@ class SchemaBindingRule:
 
     def apply(self, context: RuleContext):
         """Freshen contracts once, then resolve graph-wide schema constraints."""
-        from saealib.core.compiler.compiler import ResolutionResult
+        from saealib.core.compiler.compiler import (
+            ResolutionResult,
+            _resolvable_service_names,
+        )
 
         graph = context.graph
-        # ServiceResolutionRule owns the same node claim.  Wait for its first
-        # pass to settle before changing the contract wrapper for that node.
+        # ServiceResolutionRule owns the same node claim.  A node whose
+        # declared services still resolve is rewritten by it in this same
+        # iteration, so it is freshened only after services settle.
+        resolvable = _resolvable_service_names(context.compile_context)
+        awaiting = frozenset(
+            node.component_id
+            for node in graph.nodes
+            if _awaits_service_resolution(node, resolvable)
+        )
         nodes = tuple(
-            node if _contract_has_unresolved_service(node) else _freshen_node(node)
+            node if node.component_id in awaiting else _freshen_node(node)
             for node in graph.nodes
         )
         current = replace(graph, nodes=nodes)
+        claims = frozenset(
+            context.claim("node", node.component_id)
+            for old, node in zip(graph.nodes, current.nodes)
+            if old != node
+        )
+        if awaiting:
+            # An awaiting node is not freshened yet, so its unqualified
+            # variables would merge across independent nodes in the shared
+            # substitution below. Defer graph-wide unification to the next
+            # iteration, after service resolution has settled.
+            return ResolutionResult(graph=current, claims=claims, diagnostics=())
         substitution = Substitution()
         findings: list[Diagnostic] = []
         deferred: list[tuple[ContractPath, SchemaConstraint, SchemaBinding]] = []
@@ -239,10 +269,12 @@ class SchemaBindingRule:
             if _binding_has_unresolved_var(producer_binding, substitution):
                 findings.append(
                     Diagnostic(
-                        severity=Severity.ERROR,
+                        severity=Severity.WARNING,
                         code="schema_variable_unbound",
                         message=(
-                            f"Schema variable remains deferred at {path}: {constraint}."
+                            f"Schema variable remains deferred at {path}: "
+                            f"{constraint}; the connection cannot be fully "
+                            "verified."
                         ),
                         path=path,
                         resolutions=(
@@ -250,11 +282,6 @@ class SchemaBindingRule:
                         ),
                     )
                 )
-        claims = frozenset(
-            context.claim("node", node.component_id)
-            for old, node in zip(graph.nodes, current.nodes)
-            if old != node
-        )
         return ResolutionResult(
             graph=current, claims=claims, diagnostics=tuple(findings)
         )

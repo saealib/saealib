@@ -308,9 +308,8 @@ def _partial_feedback_is_offered(
     graph: ComponentGraph | None = None,
     nodes: tuple[ComponentNode | None, ...] = (),
 ) -> bool:
-    return "partial_feedback" in getattr(
-        compile_context, "offered_runtime_capabilities", frozenset()
-    )
+    offered = getattr(compile_context, "offered_runtime_capabilities", None)
+    return "partial_feedback" in (offered if offered is not None else frozenset())
 
 
 def _target_requires_complete_batch(node: ComponentNode) -> bool:
@@ -431,12 +430,13 @@ class LosslessAdapterRule:
             if len(candidates) > 1:
                 findings.append(
                     Diagnostic(
-                        severity=Severity.ERROR,
+                        severity=Severity.WARNING,
                         code="ambiguous_adapter",
                         message=(
                             f"Connection {source_path} -> {target_path} has multiple "
                             "automatic adapters: "
-                            f"{', '.join(item.name for item in candidates)}."
+                            f"{', '.join(item.name for item in candidates)}; none is "
+                            "inserted, so the connection cannot be verified."
                         ),
                         path=source_path,
                         related=(target_path,),

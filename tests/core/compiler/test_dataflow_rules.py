@@ -248,6 +248,9 @@ def test_multiple_compatible_upstream_producers_are_ambiguous() -> None:
     )
 
     assert [diagnostic.code for diagnostic in plan.diagnostics] == ["ambiguous_input"]
+    assert all(
+        diagnostic.severity is Severity.WARNING for diagnostic in plan.diagnostics
+    )
     assert not plan.graph.data_edges
 
 

@@ -53,23 +53,35 @@ _ValueT = TypeVar("_ValueT")
 
 @dataclass(frozen=True, kw_only=True)
 class CompileContext:
-    """Configuration supplied by the caller, kept separate from rule state."""
+    """Configuration supplied by the caller, kept separate from rule state.
+
+    ``offered_runtime_capabilities`` is ``None`` when the caller supplies no
+    runtime environment at all; a non-empty or empty frozenset is an explicit
+    offer the runtime rules may treat as authoritative.
+    """
 
     enabled_rule_namespaces: frozenset[str] = frozenset()
     space: object | None = None
     problem: object | None = None
-    offered_runtime_capabilities: frozenset[RuntimeCapability] = frozenset()
+    offered_runtime_capabilities: frozenset[RuntimeCapability] | None = None
     portability_required: bool = False
     adapter_registry: object | None = None
     initial_state_keys: frozenset[StateKey[object]] = frozenset()
 
     def __post_init__(self) -> None:
         namespaces = frozenset(self.enabled_rule_namespaces)
-        capabilities = frozenset(self.offered_runtime_capabilities)
+        capabilities = (
+            None
+            if self.offered_runtime_capabilities is None
+            else frozenset(self.offered_runtime_capabilities)
+        )
         initial_state_keys = frozenset(self.initial_state_keys)
         if any(not isinstance(key, StateKey) for key in initial_state_keys):
             raise ValidationError("initial_state_keys must contain StateKey values")
-        for value in (*namespaces, *capabilities):
+        for value in (
+            *namespaces,
+            *(capabilities or ()),
+        ):
             validate_name(value)
         if not isinstance(self.portability_required, bool):
             raise ValidationError("portability_required must be a boolean")
@@ -356,6 +368,22 @@ def _lookup_service(
     return None
 
 
+def _resolvable_service_names(
+    compile_context: CompileContext,
+) -> frozenset[str]:
+    """Return the names of the declared services this context can supply."""
+    names: set[str] = set()
+    for name in SERVICE_VOCABULARY.names():
+        descriptor = SERVICE_VOCABULARY.get(name)
+        provider_name = getattr(descriptor, "provider", None)
+        if (
+            provider_name in {"space", "problem"}
+            and _lookup_service(compile_context, provider_name, name) is not None
+        ):
+            names.add(name)
+    return frozenset(names)
+
+
 def _service_diagnostic(
     *,
     code: str,
@@ -448,14 +476,38 @@ class ServiceResolutionRule:
                     requirement.name,
                 )
                 if service is None:
+                    provider = (
+                        context.compile_context.space
+                        if provider_name == "space"
+                        else context.compile_context.problem
+                    )
+                    if provider is None:
+                        findings.append(
+                            _service_diagnostic(
+                                code="unresolved_service",
+                                path=path,
+                                service_name=requirement.name,
+                                message=(
+                                    f"The compile context supplies no {provider_name}, "
+                                    "so this requirement cannot be verified."
+                                ),
+                                resolution=(
+                                    f"Compile with a bound {provider_name} that "
+                                    f"provides {requirement.name!r}, or choose a "
+                                    "component whose port does not require it."
+                                ),
+                                severity=Severity.WARNING,
+                            )
+                        )
+                        continue
                     findings.append(
                         _service_diagnostic(
                             code="unresolved_service",
                             path=path,
                             service_name=requirement.name,
                             message=(
-                                f"No {provider_name} provider is available in "
-                                "the compile context."
+                                f"The bound {provider_name} does not provide "
+                                "this service."
                             ),
                             resolution=(
                                 f"Provide {requirement.name!r} through the "
@@ -577,6 +629,7 @@ class PortCompatibilityRule:
                 endpoint_name, resolution = unresolved
                 if resolution.status == "ambiguous":
                     code = "ambiguous_port"
+                    severity = Severity.WARNING
                     port_name = (
                         edge.source_port
                         if endpoint_name == "source"
@@ -585,13 +638,15 @@ class PortCompatibilityRule:
                     message = (
                         f"Connection {connection} names {endpoint_name} port "
                         f"{port_name!r}, "
-                        "but multiple roles declare that directional port."
+                        "but multiple roles declare that directional port, so "
+                        "the connection cannot be verified."
                     )
                     resolution_advice = (
                         "Specify the NodeRef role for the ambiguous endpoint."
                     )
                 else:
-                    code = "unknown_port"
+                    code = "cannot_verify_port"
+                    severity = Severity.WARNING
                     port_name = (
                         edge.source_port
                         if endpoint_name == "source"
@@ -599,7 +654,8 @@ class PortCompatibilityRule:
                     )
                     message = (
                         f"Connection {connection} names an undeclared "
-                        f"{endpoint_name} port {port_name!r}."
+                        f"{endpoint_name} port {port_name!r}, so the connection "
+                        "cannot be verified."
                     )
                     resolution_advice = (
                         "Correct the edge port name or declare that directional "
@@ -607,7 +663,7 @@ class PortCompatibilityRule:
                     )
                 findings.append(
                     Diagnostic(
-                        severity=Severity.ERROR,
+                        severity=severity,
                         code=code,
                         message=message,
                         path=source_path,

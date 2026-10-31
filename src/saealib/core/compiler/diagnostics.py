@@ -218,6 +218,16 @@ DIAGNOSTIC_CODES.register(
         ),
     ),
 )
+DIAGNOSTIC_CODES.register(
+    "cannot_verify_port",
+    VocabularyDescriptor(
+        name="cannot_verify_port",
+        description=(
+            "A connection names a port that is not declared at its graph "
+            "endpoint, so the connection cannot be verified."
+        ),
+    ),
+)
 
 
 @dataclass(frozen=True, kw_only=True)

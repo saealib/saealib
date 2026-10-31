@@ -176,10 +176,12 @@ class StructuredDataflowRule:
         def report_ambiguous(path: ContractPath, edges: list[DataEdge]) -> None:
             findings.append(
                 Diagnostic(
-                    severity=Severity.ERROR,
+                    severity=Severity.WARNING,
                     code="ambiguous_input",
                     message=(
-                        f"Input {path} has multiple compatible upstream producers."
+                        f"Input {path} has multiple compatible upstream "
+                        "producers; none is selected automatically, so the "
+                        "connection cannot be verified."
                     ),
                     path=path,
                     related=tuple(

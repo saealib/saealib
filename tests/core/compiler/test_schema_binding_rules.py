@@ -21,6 +21,7 @@ from saealib.core.compiler import (
     NodeRef,
     ResolutionResult,
     RuleContext,
+    Severity,
 )
 from saealib.core.compiler.adapters import (
     ADAPTER_CATEGORIES,
@@ -33,12 +34,14 @@ from saealib.core.contracts import (
     MANY,
     ONE,
     ComponentContract,
+    Contained,
     DataSpec,
     Fixed,
     PortContract,
     PortDirection,
     PortSpec,
     RepresentationSpec,
+    ServiceRequirement,
     Var,
 )
 from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
@@ -48,7 +51,7 @@ from saealib.execution.scheduler import AsyncEvaluationScheduler
 from saealib.islands import IslandModel
 from saealib.optimizer import Optimizer
 from saealib.problem import Problem
-from saealib.space import ObjectSpace
+from saealib.space import ObjectSpace, VectorSpace
 from saealib.strategies.direct import DirectStrategy
 from saealib.surrogate.rbf import RBFSurrogate
 from saealib.surrogate.rbf_kernels import GaussianKernel
@@ -59,6 +62,7 @@ class _Endpoint:
     data: DataSpec
     direction: PortDirection
     cardinality: str = MANY
+    services: tuple[ServiceRequirement, ...] = ()
 
     def contract(self) -> ComponentContract:
         port = PortSpec(
@@ -66,6 +70,7 @@ class _Endpoint:
             direction=self.direction,
             data=self.data,
             cardinality=self.cardinality,
+            required_services=self.services,
         )
         role = (
             PortContract(outputs=(port,))
@@ -205,9 +210,13 @@ def test_two_automatic_adapter_candidates_are_ambiguous_and_not_inserted() -> No
         if diagnostic.code == "ambiguous_adapter"
     ]
     assert len(findings) == 1
+    assert findings[0].severity is Severity.WARNING
     assert "population_view_a" in findings[0].message
     assert "population_view_b" in findings[0].message
     assert not plan.inserted_adapters
+    assert not any(
+        diagnostic.code == "incompatible_port" for diagnostic in plan.diagnostics
+    )
     assert tuple(node.component_id for node in plan.graph.nodes) == (
         "producer",
         "consumer",
@@ -371,6 +380,208 @@ def test_schema_variables_are_freshened_per_node() -> None:
         "producer_a__representation",
         "producer_b__representation",
     ]
+
+
+def _service_chains(
+    q2_service: str = "BoundsService",
+) -> ComponentGraph:
+    """Two independent chains with a shared-name schema variable."""
+    nodes: list[ComponentNode] = []
+    edges: list[DataEdge] = []
+    for index, fixed in ((1, "A"), (2, "B")):
+        nodes.append(
+            ComponentNode(
+                component_id=f"p{index}",
+                component=_Endpoint(
+                    data=DataSpec(
+                        kind="Population",
+                        bindings={"representation": Fixed(value=fixed)},
+                    ),
+                    direction=PortDirection.OUTPUT,
+                    cardinality=ONE,
+                ),
+            )
+        )
+        nodes.append(
+            ComponentNode(
+                component_id=f"q{index}",
+                component=_Endpoint(
+                    data=DataSpec(
+                        kind="Population",
+                        bindings={"representation": Var(name="representation")},
+                    ),
+                    direction=PortDirection.INPUT,
+                    cardinality=ONE,
+                    services=(
+                        ServiceRequirement(
+                            name="BoundsService" if index == 1 else q2_service
+                        ),
+                    ),
+                ),
+            )
+        )
+        edges.append(
+            DataEdge(
+                source=NodeRef(component_id=f"p{index}", role="role"),
+                target=NodeRef(component_id=f"q{index}", role="role"),
+                source_port="value",
+                target_port="value",
+            )
+        )
+    graph = ComponentGraph(
+        nodes=tuple(nodes),
+        data_edges=tuple(edges),
+        entry_points=(
+            NodeRef(component_id="p1", role="role"),
+            NodeRef(component_id="p2", role="role"),
+        ),
+    )
+    return graph
+
+
+def test_unresolved_services_keep_schema_variables_of_independent_nodes_separate() -> (
+    None
+):
+    graph = _service_chains()
+
+    plan = Compiler().compile(graph, CompileContext())
+
+    assert [diagnostic.code for diagnostic in plan.diagnostics] == [
+        "unresolved_service",
+        "unresolved_service",
+    ]
+    assert not [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "incompatible_port"
+    ]
+
+
+def test_resolvable_services_keep_schema_variables_of_independent_nodes_separate() -> (
+    None
+):
+    graph = _service_chains()
+
+    plan = Compiler().compile(
+        graph,
+        CompileContext(space=VectorSpace(dim=1, lb=[0.0], ub=[1.0])),
+    )
+
+    assert not plan.diagnostics
+
+
+def test_mixed_services_keep_schema_variables_of_independent_nodes_separate() -> None:
+    graph = _service_chains(q2_service="UnresolvableService")
+
+    plan = Compiler().compile(
+        graph,
+        CompileContext(space=VectorSpace(dim=1, lb=[0.0], ub=[1.0])),
+    )
+
+    assert not [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "incompatible_port"
+    ]
+    assert [diagnostic.code for diagnostic in plan.diagnostics] == ["unknown_service"]
+
+
+def test_genuinely_shared_schema_variable_conflict_is_still_an_error() -> None:
+    shared = ComponentNode(
+        component_id="m",
+        component=_Endpoint(
+            data=DataSpec(
+                kind="Population",
+                bindings={"representation": Var(name="representation")},
+            ),
+            direction=PortDirection.OUTPUT,
+            cardinality=ONE,
+        ),
+    )
+    consumers = tuple(
+        ComponentNode(
+            component_id=f"q{index}",
+            component=_Endpoint(
+                data=DataSpec(
+                    kind="Population", bindings={"representation": Fixed(value=fixed)}
+                ),
+                direction=PortDirection.INPUT,
+            ),
+        )
+        for index, fixed in ((1, "A"), (2, "B"))
+    )
+    graph = ComponentGraph(
+        nodes=(shared, *consumers),
+        data_edges=tuple(
+            DataEdge(
+                source=NodeRef(component_id="m", role="role"),
+                target=NodeRef(component_id=f"q{index}", role="role"),
+                source_port="value",
+                target_port="value",
+            )
+            for index in (1, 2)
+        ),
+        entry_points=(NodeRef(component_id="m", role="role"),),
+    )
+
+    plan = Compiler().compile(graph)
+
+    errors = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.severity is Severity.ERROR
+    ]
+    assert [diagnostic.code for diagnostic in errors] == ["incompatible_port"]
+
+
+def test_unknown_schema_variable_and_unbound_variable_are_warnings() -> None:
+    graph = ComponentGraph(
+        nodes=(
+            ComponentNode(
+                component_id="producer",
+                component=_Endpoint(
+                    data=DataSpec(
+                        kind="Population",
+                        bindings={
+                            "future_variable": Var(name="future_variable"),
+                            "representation": Var(name="representation"),
+                        },
+                    ),
+                    direction=PortDirection.OUTPUT,
+                    cardinality=ONE,
+                ),
+            ),
+            ComponentNode(
+                component_id="consumer",
+                component=_Endpoint(
+                    data=DataSpec(
+                        kind="Population",
+                        bindings={"representation": Contained(values=frozenset({"a"}))},
+                    ),
+                    direction=PortDirection.INPUT,
+                ),
+            ),
+        ),
+        data_edges=(
+            DataEdge(
+                source=NodeRef(component_id="producer", role="role"),
+                target=NodeRef(component_id="consumer", role="role"),
+                source_port="value",
+                target_port="value",
+            ),
+        ),
+        entry_points=(NodeRef(component_id="producer", role="role"),),
+    )
+
+    plan = Compiler().compile(graph)
+
+    codes = [diagnostic.code for diagnostic in plan.diagnostics]
+    assert sorted(codes) == ["schema_variable_unbound", "unknown_schema_variable"]
+    assert all(
+        diagnostic.severity is Severity.WARNING for diagnostic in plan.diagnostics
+    )
+    unknown = next(d for d in plan.diagnostics if d.code == "unknown_schema_variable")
+    assert "future_variable" in unknown.message
 
 
 def _rule_order_signature(

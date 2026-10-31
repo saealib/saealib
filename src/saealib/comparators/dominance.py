@@ -130,6 +130,24 @@ class Dominator(ABC):
             ``dominates_fa[i]`` is True iff ``f_matrix[i]`` dominates ``fa``.
         """
 
+    def _criterion_key(self) -> tuple:
+        """
+        Hashable key of the settings that affect this dominator's relation.
+
+        Comparator cache keys hold the dominator object itself together with
+        this value, so built-in dominators override it with their comparison
+        settings and in-place changes of those settings are detected.
+        The default of ``()`` contributes nothing: custom dominators fall
+        back to object identity, and in-place mutation of such a dominator
+        is not detected by comparator caches.
+
+        Returns
+        -------
+        tuple
+            Hashable criterion, containing only value-based forms.
+        """
+        return ()
+
 
 class ParetoDominator(Dominator):
     """
@@ -219,6 +237,9 @@ class ParetoDominator(Dominator):
         dominates_fa = np.all(f_t <= fa_t, axis=1) & np.any(f_t < fa_t, axis=1)
         return fa_dominates, dominates_fa
 
+    def _criterion_key(self) -> tuple:
+        return ("pareto",)
+
 
 class EpsilonDominator(Dominator):
     """
@@ -307,6 +328,13 @@ class EpsilonDominator(Dominator):
     def mode(self) -> str:
         """Quantization mode ('additive' or 'multiplicative')."""
         return self._mode
+
+    def _criterion_key(self) -> tuple:
+        return (
+            "epsilon",
+            self._mode,
+            np.ascontiguousarray(self._eps).tobytes(),
+        )
 
     def _quantize(self, f: np.ndarray) -> np.ndarray:
         """

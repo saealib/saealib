@@ -3313,3 +3313,216 @@ class TestRNSGA2Comparator:
         comp = RNSGA2Comparator(ref)
         order = comp.sort_population(pop)
         np.testing.assert_array_equal(order, [2, 1, 3, 0])
+
+
+# ===========================================================================
+# Comparator cache criterion keys
+# ===========================================================================
+class TestComparatorCacheCriterionKeys:
+    """Population cache entries are keyed by the full ordering criterion."""
+
+    def test_nsga3_does_not_reuse_nsga2_cached_order(self) -> None:
+        """NSGA3Comparator sharing sorter+dominator with NSGA2 misses its cache."""
+        f = np.array([[0.2, 0.8], [0.8, 0.2], [0.6, 0.6], [0.15, 0.85]])
+        refs = np.array([[1.0, 0.0], [0.0, 1.0]])
+        pop = _make_pop(f)
+        dominator = ParetoDominator()
+        n2 = NSGA2Comparator(dominator=dominator)
+        n3 = NSGA3Comparator(refs, dominator=dominator, seed=0)
+        order_n2 = n2.sort_population(pop)
+        order_n3 = n3.sort_population(pop)
+        assert order_n3 is not order_n2
+        cold = NSGA3Comparator(refs, dominator=dominator, seed=0).sort_population(
+            _make_pop(f)
+        )
+        assert np.array_equal(order_n3, cold)
+
+    def test_rnsga2_does_not_reuse_nsga2_cached_order(self) -> None:
+        """RNSGA2Comparator sharing sorter+dominator with NSGA2 misses its cache."""
+        f = np.array([[0.1, 0.9], [0.9, 0.1], [0.5, 0.5], [0.11, 0.89]])
+        ref = np.array([[0.0, 1.0], [1.0, 0.0]])
+        pop = _make_pop(f)
+        dominator = ParetoDominator()
+        n2 = NSGA2Comparator(dominator=dominator)
+        r2 = RNSGA2Comparator(ref, 0.5, dominator=dominator)
+        order_n2 = n2.sort_population(pop)
+        order_r2 = r2.sort_population(pop)
+        assert order_r2 is not order_n2
+        cold = RNSGA2Comparator(ref, 0.5, dominator=dominator).sort_population(
+            _make_pop(f)
+        )
+        assert np.array_equal(order_r2, cold)
+
+    def test_nsga2_cache_invalidated_on_eps_cv_change(self) -> None:
+        """Changing eps_cv in place on an unchanged population recomputes."""
+        f = np.array([[0.0, 0.0], [1.0, 3.0], [3.0, 1.0]])
+        cv = np.array([0.5, 0.0, 0.0])
+        pop = _make_pop(f, cv)
+        comp = NSGA2Comparator()
+        order1 = comp.sort_population(pop)
+        assert list(order1) == [1, 2, 0]
+        comp.eps_cv = 1.0
+        order2 = comp.sort_population(pop)
+        assert order1 is not order2
+        assert list(order2) == [0, 1, 2]
+
+    def test_equivalent_criteria_share_cache_entry(self) -> None:
+        """Two comparators with identical criteria reuse one cache entry."""
+        f = np.array([[0.0, 1.0], [1.0, 0.0], [0.5, 0.5]])
+        pop = _make_pop(f)
+        dominator = ParetoDominator()
+        c1 = NSGA2Comparator(dominator=dominator)
+        c2 = NSGA2Comparator(dominator=dominator)
+        order1 = c1.sort_population(pop)
+        order2 = c2.sort_population(pop)
+        assert order2 is order1
+
+    def test_spea2_fallback_not_shared_across_eps_cv(self) -> None:
+        """A second SPEA2Comparator must not read another criterion's fallback."""
+        f = np.array([[0.0, 0.0], [1.0, 1.0]])
+        cv = np.array([0.5, 0.0])
+        pop = _make_pop(f, cv)
+        c1 = SPEA2Comparator()
+        c1.prepare_population(pop)
+        assert list(c1.sort_population(pop)) == [1, 0]
+
+        c2 = SPEA2Comparator(eps_cv=1.0)
+        order2 = c2.sort_population(pop)
+        cold = SPEA2Comparator(eps_cv=1.0)
+        cold.prepare_population(_make_pop(f, cv))
+        assert list(order2) == [0, 1]
+        assert np.array_equal(order2, cold.sort_population(pop))
+
+    def test_spea2_fallback_invalidated_on_eps_cv_change(self) -> None:
+        """Changing eps_cv in place recomputes the fallback fitness ordering."""
+        f = np.array([[0.0, 0.0], [1.0, 1.0]])
+        cv = np.array([0.5, 0.0])
+        pop = _make_pop(f, cv)
+        comp = SPEA2Comparator()
+        order1 = comp.sort_population(pop)
+        assert list(order1) == [1, 0]
+        comp.eps_cv = 1.0
+        order2 = comp.sort_population(pop)
+        assert list(order2) == [0, 1]
+
+    def test_hv_keys_not_shared_across_reference_points(self) -> None:
+        """HypervolumeComparators differing in reference point miss hv_keys."""
+        f = np.array([[0.0, 1.0], [1.0, 0.0], [0.4, 0.4]])
+        pop = _make_pop(f)
+        c1 = HypervolumeComparator()
+        c2 = HypervolumeComparator(reference_point=np.array([0.5, 0.5]))
+        keys1 = c1._keys(pop)
+        keys2 = c2._keys(pop)
+        assert keys2 is not keys1
+
+    def test_hv_keys_not_shared_across_last_front_only(self) -> None:
+        """HypervolumeComparators differing in last_front_only miss hv_keys."""
+        f = np.array([[0.0, 1.0], [1.0, 0.0], [0.4, 0.4]])
+        pop = _make_pop(f)
+        c1 = HypervolumeComparator()
+        c2 = HypervolumeComparator(last_front_only=True)
+        assert c2._keys(pop) is not c1._keys(pop)
+
+    def test_nsga3_cache_invalidated_on_reference_point_change(self) -> None:
+        """NSGA3Comparators differing in reference points miss the sort cache."""
+        f = np.array([[0.2, 0.8], [0.8, 0.2], [0.6, 0.6], [0.15, 0.85]])
+        pop = _make_pop(f)
+        dominator = ParetoDominator()
+        c1 = NSGA3Comparator(
+            np.array([[1.0, 0.0], [0.0, 1.0]]), dominator=dominator, seed=0
+        )
+        c2 = NSGA3Comparator(
+            np.array([[0.0, 1.0], [1.0, 0.0]]), dominator=dominator, seed=0
+        )
+        order1 = c1.sort_population(pop)
+        order2 = c2.sort_population(pop)
+        assert order2 is not order1
+        cold = NSGA3Comparator(
+            np.array([[0.0, 1.0], [1.0, 0.0]]), dominator=dominator, seed=0
+        ).sort_population(_make_pop(f))
+        assert np.array_equal(order2, cold)
+
+    def test_nsga3_cache_not_shared_across_instances_different_seeds(self) -> None:
+        """NSGA3Comparators differing in seed miss the sort cache."""
+        f = _nsga3_tie_population_f()
+        refs = np.array([[0.0, 1.0], [0.5, 0.5], [1.0, 0.0]])
+        dominator = ParetoDominator()
+        pop = _make_pop(f)
+        c0 = NSGA3Comparator(refs, dominator=dominator, seed=0)
+        c1 = NSGA3Comparator(refs, dominator=dominator, seed=1)
+        order0 = c0.sort_population(pop)
+        order1 = c1.sort_population(pop)
+        assert order1 is not order0
+        cold = NSGA3Comparator(
+            refs, dominator=ParetoDominator(), seed=1
+        ).sort_population(_make_pop(f))
+        assert not np.array_equal(order1, order0)
+        assert np.array_equal(order1, cold)
+
+    def test_nsga3_cache_not_shared_across_same_seed_advanced_rng(self) -> None:
+        """Same-seed instances with different RNG progress miss the sort cache."""
+        f = _nsga3_tie_population_f()
+        refs = np.array([[0.0, 1.0], [0.5, 0.5], [1.0, 0.0]])
+        dominator = ParetoDominator()
+        advanced = NSGA3Comparator(refs, dominator=dominator, seed=42)
+        independent = NSGA3Comparator(refs, dominator=dominator, seed=42)
+        # Consume advanced's RNG on another population before the target one.
+        advanced.sort_population(_make_pop(f))
+        pop = _make_pop(f)
+        advanced_order = advanced.sort_population(pop)
+        independent_order = independent.sort_population(pop)
+        assert independent_order is not advanced_order
+        cold = NSGA3Comparator(
+            refs, dominator=ParetoDominator(), seed=42
+        ).sort_population(_make_pop(f))
+        assert not np.array_equal(independent_order, advanced_order)
+        assert np.array_equal(independent_order, cold)
+
+    def test_nsga3_same_instance_reuses_cached_order(self) -> None:
+        """Re-sorting an unchanged population returns the cached order."""
+        f = _nsga3_tie_population_f()
+        refs = np.array([[0.0, 1.0], [0.5, 0.5], [1.0, 0.0]])
+        comparator = NSGA3Comparator(refs, seed=42)
+        pop = _make_pop(f)
+        order1 = comparator.sort_population(pop)
+        assert comparator.sort_population(pop) is order1
+
+    def test_spea2_fallback_not_shared_across_dominators(self) -> None:
+        """SPEA2Comparators differing in dominator miss the fallback cache."""
+        f = np.array([[0.0, 1.0], [0.2, 0.8], [1.0, 0.0], [0.55, 0.55]])
+        pop = _make_pop(f)
+        order_a = SPEA2Comparator(dominator=EpsilonDominator(0.1)).sort_population(pop)
+        order_b = SPEA2Comparator(dominator=EpsilonDominator(1.0)).sort_population(pop)
+        cold = SPEA2Comparator(dominator=EpsilonDominator(1.0)).sort_population(
+            _make_pop(f)
+        )
+        assert order_b is not order_a
+        assert np.array_equal(order_b, cold)
+
+    def test_nsga2_cache_invalidated_on_dominator_eps_change(self) -> None:
+        """In-place eps change of a built-in dominator recomputes the order."""
+        f = np.array([[0.0, 1.0], [0.2, 0.8], [1.0, 0.0], [0.55, 0.55]])
+        pop = _make_pop(f)
+        dominator = EpsilonDominator(0.1)
+        comparator = NSGA2Comparator(dominator=dominator)
+        order_a = comparator.sort_population(pop)
+        dominator.eps[...] = 1.0
+        order_b = comparator.sort_population(pop)
+        cold = NSGA2Comparator(dominator=EpsilonDominator(1.0)).sort_population(
+            _make_pop(f)
+        )
+        assert order_b is not order_a
+        assert np.array_equal(order_b, cold)
+
+    def test_nsga3_cache_invalidated_on_rng_generator_replacement(self) -> None:
+        """Replacing the public rng generator recomputes the sort order."""
+        f = _nsga3_tie_population_f()
+        refs = np.array([[0.0, 1.0], [0.5, 0.5], [1.0, 0.0]])
+        comparator = NSGA3Comparator(refs, seed=0)
+        pop = _make_pop(f)
+        order_a = comparator.sort_population(pop)
+        comparator.rng = np.random.default_rng(987654321)
+        order_b = comparator.sort_population(pop)
+        cold = NSGA3Comparator(refs, seed=987654321).sort_population(_make_pop(f))
+        assert order_b is not order_a
+        assert np.array_equal(order_b, cold)

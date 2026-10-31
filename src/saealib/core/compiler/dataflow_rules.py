@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import replace
 
 from saealib.core.compiler.diagnostics import (
@@ -77,7 +78,74 @@ class StructuredDataflowRule:
         findings: list[Diagnostic] = []
         nodes_by_id = {node.component_id: node for node in graph.nodes}
 
-        def resolve_target(target, available: set[str]) -> None:
+        def compatible_edges(
+            source_ids: Iterable[str], target, target_role: str, target_port: PortSpec
+        ) -> list[DataEdge]:
+            edges: list[DataEdge] = []
+            for source in sorted(
+                (nodes_by_id[node_id] for node_id in source_ids),
+                key=lambda node: node.component_id,
+            ):
+                for source_role, source_port in _port_specs(
+                    source, PortDirection.OUTPUT
+                ):
+                    if check_port_compatibility(source_port, target_port).compatible:
+                        edges.append(
+                            DataEdge(
+                                source=NodeRef(
+                                    component_id=source.component_id,
+                                    role=source_role,
+                                ),
+                                target=NodeRef(
+                                    component_id=target.component_id,
+                                    role=target_role,
+                                ),
+                                source_port=source_port.name,
+                                target_port=target_port.name,
+                            )
+                        )
+            return sorted(edges, key=_edge_key)
+
+        def report_unresolved(path: ContractPath) -> None:
+            findings.append(
+                Diagnostic(
+                    severity=Severity.ERROR,
+                    code="unresolved_input",
+                    message=(f"Input {path} has no compatible upstream producer."),
+                    path=path,
+                    resolutions=(
+                        "Provide one control-ordered compatible output port.",
+                    ),
+                )
+            )
+
+        def report_ambiguous(path: ContractPath, edges: list[DataEdge]) -> None:
+            findings.append(
+                Diagnostic(
+                    severity=Severity.ERROR,
+                    code="ambiguous_input",
+                    message=(
+                        f"Input {path} has multiple compatible upstream producers."
+                    ),
+                    path=path,
+                    related=tuple(
+                        ContractPath(
+                            components=(edge.source.component_id,),
+                            role=edge.source.role,
+                            port=edge.source_port,
+                        )
+                        for edge in edges
+                    ),
+                    resolutions=(
+                        "Add an explicit target-port data edge or remove "
+                        "the competing producer.",
+                    ),
+                )
+            )
+
+        def resolve_target(
+            target, available: set[str], paths: tuple[frozenset[str], ...]
+        ) -> None:
             connected = graph.data_edges
             for target_role, target_port in _port_specs(target, PortDirection.INPUT):
                 if any(
@@ -87,32 +155,9 @@ class StructuredDataflowRule:
                     for edge in connected
                 ):
                     continue
-                candidates: list[DataEdge] = []
-                for source in sorted(
-                    (nodes_by_id[node_id] for node_id in available),
-                    key=lambda node: node.component_id,
-                ):
-                    for source_role, source_port in _port_specs(
-                        source, PortDirection.OUTPUT
-                    ):
-                        if check_port_compatibility(
-                            source_port, target_port
-                        ).compatible:
-                            candidates.append(
-                                DataEdge(
-                                    source=NodeRef(
-                                        component_id=source.component_id,
-                                        role=source_role,
-                                    ),
-                                    target=NodeRef(
-                                        component_id=target.component_id,
-                                        role=target_role,
-                                    ),
-                                    source_port=source_port.name,
-                                    target_port=target_port.name,
-                                )
-                            )
-                candidates = sorted(candidates, key=_edge_key)
+                candidates = compatible_edges(
+                    available, target, target_role, target_port
+                )
                 path = ContractPath(
                     components=(target.component_id,),
                     role=target_role,
@@ -123,78 +168,89 @@ class StructuredDataflowRule:
                     if edge not in (*connected, *added):
                         added.append(edge)
                         context.claim("data_edge", _edge_key(edge))
-                elif len(candidates) == 0 and not target_port.optional:
-                    findings.append(
-                        Diagnostic(
-                            severity=Severity.ERROR,
-                            code="unresolved_input",
-                            message=(
-                                f"Input {path} has no compatible upstream producer."
-                            ),
-                            path=path,
-                            resolutions=(
-                                "Provide one control-ordered compatible output port.",
-                            ),
-                        )
-                    )
                 elif len(candidates) > 1:
-                    findings.append(
-                        Diagnostic(
-                            severity=Severity.ERROR,
-                            code="ambiguous_input",
-                            message=(
-                                f"Input {path} has multiple compatible upstream "
-                                "producers."
-                            ),
-                            path=path,
-                            related=tuple(
-                                ContractPath(
-                                    components=(edge.source.component_id,),
-                                    role=edge.source.role,
-                                    port=edge.source_port,
-                                )
-                                for edge in candidates
-                            ),
-                            resolutions=(
-                                "Add an explicit target-port data edge or remove "
-                                "the competing producer.",
-                            ),
+                    report_ambiguous(path, candidates)
+                else:
+                    # No definite producer: accept one compatible producer per
+                    # branch path (each leaf of ``paths`` holds the producers
+                    # added along one execution path).
+                    leaf_edges = [
+                        compatible_edges(leaf, target, target_role, target_port)
+                        for leaf in paths
+                    ]
+                    if any(not leaf for leaf in leaf_edges):
+                        if not target_port.optional:
+                            report_unresolved(path)
+                    elif any(len(leaf) > 1 for leaf in leaf_edges):
+                        report_ambiguous(
+                            path,
+                            [
+                                edge
+                                for leaf in leaf_edges
+                                if len(leaf) > 1
+                                for edge in leaf
+                            ],
                         )
-                    )
+                    else:
+                        for edge in leaf_edges:
+                            if edge[0] not in (*connected, *added):
+                                added.append(edge[0])
+                                context.claim("data_edge", _edge_key(edge[0]))
 
-        def sequence(current: StructuredGraph, available: set[str]) -> set[str]:
+        def sequence(
+            current: StructuredGraph,
+            available: set[str],
+            paths: tuple[frozenset[str], ...],
+        ) -> tuple[set[str], tuple[frozenset[str], ...]]:
             current_available = set(available)
+            current_paths = paths
             for operation in current.operations:
                 if not isinstance(operation, RegionNode):
-                    resolve_target(operation, current_available)
+                    resolve_target(operation, current_available, current_paths)
                     current_available.add(operation.component_id)
+                    current_paths = tuple(
+                        leaf | {operation.component_id} for leaf in current_paths
+                    )
                     continue
                 region = operation.region
                 body = region.body
                 if not isinstance(body, StructuredGraph):
                     continue
                 if isinstance(region, RepeatRegion):
-                    body_available = sequence(body, current_available)
+                    body_available, _ = sequence(
+                        body, current_available, (frozenset(),)
+                    )
                     if isinstance(region.count, int) and region.count > 0:
                         current_available.update(body_available)
+                    current_paths = (frozenset(),)
                     continue
                 if isinstance(region, LoopRegion):
-                    sequence(body, current_available)
+                    sequence(body, current_available, (frozenset(),))
+                    current_paths = (frozenset(),)
                     continue
                 if isinstance(region, BranchRegion):
-                    then_available = sequence(body, current_available)
-                    otherwise = getattr(region, "otherwise", None)
-                    else_available = (
-                        sequence(otherwise, current_available)
-                        if isinstance(otherwise, StructuredGraph)
-                        else set(current_available)
+                    then_available, then_paths = sequence(
+                        body, current_available, current_paths
                     )
-                    current_available.update(then_available & else_available)
+                    otherwise = getattr(region, "otherwise", None)
+                    if isinstance(otherwise, StructuredGraph):
+                        else_available, else_paths = sequence(
+                            otherwise, current_available, current_paths
+                        )
+                    else:
+                        else_available = set(current_available)
+                        else_paths = current_paths
+                    current_available = then_available & else_available
+                    current_paths = (*then_paths, *else_paths)
                     continue
-                current_available.update(sequence(body, current_available))
-            return current_available
+                body_available, body_paths = sequence(
+                    body, current_available, current_paths
+                )
+                current_available.update(body_available)
+                current_paths = body_paths
+            return current_available, current_paths
 
-        sequence(graph, set())
+        sequence(graph, set(), (frozenset(),))
         if not added:
             return ResolutionResult(graph=graph, diagnostics=tuple(findings))
         return ResolutionResult(

@@ -221,3 +221,116 @@ def test_branch_single_path_producer_does_not_provide_data_after_branch() -> Non
 
     assert not plan.graph.data_edges
     assert [diagnostic.code for diagnostic in plan.diagnostics] == ["unresolved_input"]
+
+
+def _dataflow_diagnostics(plan) -> list[str]:
+    return [
+        diagnostic.code
+        for diagnostic in plan.diagnostics
+        if diagnostic.code in ("unresolved_input", "ambiguous_input")
+    ]
+
+
+def test_branch_paths_each_supplying_one_producer_resolve_the_input() -> None:
+    plan = Compiler().compile(
+        lower_structured(
+            [
+                BranchRegion(
+                    region_id="branch",
+                    condition=_Condition(),
+                    body=(_Component("a", output="Population"),),
+                    otherwise=(_Component("b", output="Population"),),
+                ),
+                _Component("consumer", input_kind="Population"),
+            ]
+        )
+    )
+
+    assert not _dataflow_diagnostics(plan)
+    assert sorted(_edge_tuple(edge) for edge in plan.graph.data_edges) == [
+        ("branch.a", "main", "consumer", "main"),
+        ("branch.else.b", "main", "consumer", "main"),
+    ]
+
+
+def test_branch_path_with_multiple_compatible_producers_is_ambiguous() -> None:
+    plan = Compiler().compile(
+        lower_structured(
+            [
+                BranchRegion(
+                    region_id="branch",
+                    condition=_Condition(),
+                    body=(
+                        _Component("a1", output="Population"),
+                        _Component("a2", output="Population"),
+                    ),
+                    otherwise=(_Component("b", output="Population"),),
+                ),
+                _Component("consumer", input_kind="Population"),
+            ]
+        )
+    )
+
+    assert _dataflow_diagnostics(plan) == ["ambiguous_input"]
+    assert not plan.graph.data_edges
+    ambiguous = next(
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "ambiguous_input"
+    )
+    assert {related.components[0] for related in ambiguous.related} == {
+        "branch.a1",
+        "branch.a2",
+    }
+
+
+def test_nested_branch_paths_each_supplying_one_producer_resolve_the_input() -> None:
+    plan = Compiler().compile(
+        lower_structured(
+            [
+                BranchRegion(
+                    region_id="outer",
+                    condition=_Condition(),
+                    body=(
+                        BranchRegion(
+                            region_id="inner",
+                            condition=_Condition(),
+                            body=(_Component("a1", output="Population"),),
+                            otherwise=(_Component("a2", output="Population"),),
+                        ),
+                    ),
+                    otherwise=(_Component("b", output="Population"),),
+                ),
+                _Component("consumer", input_kind="Population"),
+            ]
+        )
+    )
+
+    assert not _dataflow_diagnostics(plan)
+    assert sorted(_edge_tuple(edge) for edge in plan.graph.data_edges) == [
+        ("outer.else.b", "main", "consumer", "main"),
+        ("outer.inner.a1", "main", "consumer", "main"),
+        ("outer.inner.else.a2", "main", "consumer", "main"),
+    ]
+
+
+def test_upstream_producer_before_branch_keeps_single_definite_edge() -> None:
+    plan = Compiler().compile(
+        lower_structured(
+            [
+                _Component("producer", output="Population"),
+                BranchRegion(
+                    region_id="branch",
+                    condition=_Condition(),
+                    body=(_Component("a", output="Population"),),
+                    otherwise=(_Component("b", output="Population"),),
+                ),
+                _Component("consumer", input_kind="Population"),
+            ]
+        )
+    )
+
+    assert not _dataflow_diagnostics(plan)
+    assert [_edge_tuple(edge) for edge in plan.graph.data_edges] == [
+        ("producer", "main", "consumer", "main")
+    ]

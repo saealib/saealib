@@ -31,6 +31,15 @@ from saealib.defaults.keys import POPULATION_SIZE
 from saealib.defaults.model import DefaultHint, DefaultStrength
 from saealib.identity import PopulationAttribute
 
+
+def _direction_key(direction: np.ndarray | None) -> tuple[float, ...] | None:
+    return tuple(direction.tolist()) if direction is not None else None
+
+
+def _array_key(arr: np.ndarray | None) -> bytes | None:
+    return None if arr is None else np.ascontiguousarray(arr).tobytes()
+
+
 if TYPE_CHECKING:
     from saealib.defaults.context import DefaultContext
     from saealib.population import Population
@@ -136,6 +145,22 @@ class Comparator(ABC):
             -1 if a is better than b, 1 if b is better than a, 0 if equal.
         """
         pass
+
+    def _criterion_key(self) -> tuple:
+        """Hashable key identifying everything affecting this comparator's ordering.
+
+        Used as part of population cache keys so that entries written by one
+        comparator are never reused by another whose ordering criterion
+        differs. Overrides must extend ``super()._criterion_key()`` with any
+        additional parameters that change the ordering result; arrays enter
+        the key in value-based hashable form.
+        """
+        return (
+            type(self).__name__,
+            _direction_key(self.direction),
+            float(self.eps_cv),
+            float(self.eps_obj),
+        )
 
     def get_required_attrs(self, problem: Problem) -> list[PopulationAttribute]:
         """Return population attributes this comparator needs to persist.
@@ -406,6 +431,14 @@ class ParetoComparator(Comparator):
             dominator if dominator is not None else ParetoDominator()
         )
 
+    def _criterion_key(self) -> tuple:
+        return (
+            *super()._criterion_key(),
+            self._sorter,
+            self._dominator,
+            self._dominator._criterion_key(),
+        )
+
     @property
     def sorter(self) -> NonDominatedSorter:
         """The non-dominated sorting callable used by this comparator."""
@@ -506,10 +539,7 @@ class NSGA2Comparator(ParetoComparator):
 
     def sort_population(self, population: Population) -> np.ndarray:
         """Sort by Pareto front rank then crowding distance (NSGA-II style)."""
-        _dir_key = (
-            tuple(self.direction.tolist()) if self.direction is not None else None
-        )
-        _cache_key = ("pareto_sort", self._sorter, self._dominator, _dir_key)
+        _cache_key = ("pareto_sort", self._criterion_key())
         cached = population.get_cache(_cache_key)
         if cached is not None:
             return cached
@@ -539,7 +569,7 @@ class NSGA2Comparator(ParetoComparator):
 
         result = np.concatenate([sorted_feasible, sorted_infeasible]).astype(int)
         population.set_cache(_cache_key, result)
-        _rc_key = ("nsga2_rank_cd", self._sorter, self._dominator, _dir_key)
+        _rc_key = ("nsga2_rank_cd", self._criterion_key())
         population.set_cache(_rc_key, (rank_full, cd_full))
         return result
 
@@ -575,10 +605,7 @@ class NSGA2Comparator(ParetoComparator):
 
         # Both feasible: rank first, then crowding distance (higher = better).
         self.sort_population(population)
-        _dir_key = (
-            tuple(self.direction.tolist()) if self.direction is not None else None
-        )
-        _rc_key = ("nsga2_rank_cd", self._sorter, self._dominator, _dir_key)
+        _rc_key = ("nsga2_rank_cd", self._criterion_key())
         cached = population.get_cache(_rc_key)
         assert cached is not None
         rank_full, cd_full = cached
@@ -672,6 +699,13 @@ class SPEA2Comparator(Comparator):
         """The dominance predicate used by this comparator."""
         return self._dominator
 
+    def _criterion_key(self) -> tuple:
+        return (
+            *super()._criterion_key(),
+            self._dominator,
+            self._dominator._criterion_key(),
+        )
+
     def get_required_attrs(self, problem: Problem) -> list[PopulationAttribute]:
         """Declare persistent SPEA2 fitness storage."""
         return [PopulationAttribute("spea2_fitness", np.float64, (), default=np.nan)]
@@ -692,13 +726,24 @@ class SPEA2Comparator(Comparator):
             fitness_all[feasible] = f_feasible
         return fitness_all
 
+    def _fallback_fitness_key(self) -> tuple | None:
+        key = ("spea2_fitness_fallback", self._criterion_key())
+        try:
+            hash(key)
+        except TypeError:
+            # An unhashable custom dominator cannot be keyed: recompute fresh.
+            return None
+        return key
+
     def prepare_population(self, population: Population) -> None:
         """Recompute and store SPEA2 fitness for the current population."""
         fitness = self._compute_fitness(population)
         if "spea2_fitness" in population.schema:
             population.update_array("spea2_fitness", fitness)
         else:
-            population.set_cache("spea2_fitness_fallback", fitness)
+            key = self._fallback_fitness_key()
+            if key is not None:
+                population.set_cache(key, fitness)
 
     def _assigned_fitness(self, population: Population) -> np.ndarray | None:
         """Return persisted fitness when every active row has a value."""
@@ -714,11 +759,14 @@ class SPEA2Comparator(Comparator):
         assigned = self._assigned_fitness(population)
         if assigned is not None:
             return assigned
-        cached = population.get_cache("spea2_fitness_fallback")
-        if cached is not None:
-            return cached
+        key = self._fallback_fitness_key()
+        if key is not None:
+            cached = population.get_cache(key)
+            if cached is not None:
+                return cached
         fitness_all = self._compute_fitness(population)
-        population.set_cache("spea2_fitness_fallback", fitness_all)
+        if key is not None:
+            population.set_cache(key, fitness_all)
         return fitness_all
 
     def sort_population(self, population: Population) -> np.ndarray:
@@ -1016,9 +1064,9 @@ class HypervolumeComparator(ParetoComparator):
 
         Arrays have length N (population size).  Infeasible individuals
         receive ``+inf`` rank and ``-inf`` contribution so they sort last.
-        Results are cached under the key ``"hv_keys"``.
+        Results are cached under ``("hv_keys", criterion_key)``.
         """
-        cached = population.get_cache("hv_keys")
+        cached = population.get_cache(("hv_keys", self._criterion_key()))
         if cached is not None:
             return cached  # type: ignore[return-value]  # cached value is Any; runtime type matches return annotation
 
@@ -1062,8 +1110,15 @@ class HypervolumeComparator(ParetoComparator):
                 contrib_all[gidx] = contribs
 
         keys = (rank_all, contrib_all)
-        population.set_cache("hv_keys", keys)
+        population.set_cache(("hv_keys", self._criterion_key()), keys)
         return keys
+
+    def _criterion_key(self) -> tuple:
+        return (
+            *super()._criterion_key(),
+            _array_key(self._reference_point),
+            self._last_front_only,
+        )
 
     def sort_population(self, population: Population) -> np.ndarray:
         """
@@ -1483,6 +1538,7 @@ class NSGA3Comparator(ParetoComparator):
         self._reference_points = np.asarray(reference_points, dtype=float)
         self.seed = seed
         self._rng = np.random.default_rng(seed) if seed is not None else None
+        self._cache_token = object()
 
     @property
     def reference_points(self) -> np.ndarray:
@@ -1512,7 +1568,10 @@ class NSGA3Comparator(ParetoComparator):
 
     @rng.setter
     def rng(self, value: np.random.Generator) -> None:
+        if value is self._rng:
+            return
         self._rng = value
+        self._cache_token = object()
 
     def default_hints(self, ctx: DefaultContext) -> tuple[DefaultHint, ...]:
         """Provide default hints based on reference points.
@@ -1552,10 +1611,7 @@ class NSGA3Comparator(ParetoComparator):
 
     def sort_population(self, population: Population) -> np.ndarray:
         """Sort by Pareto front rank then NSGA-III niche preservation."""
-        _dir_key = (
-            tuple(self.direction.tolist()) if self.direction is not None else None
-        )
-        _cache_key = ("pareto_sort", self._sorter, self._dominator, _dir_key)
+        _cache_key = ("pareto_sort", self._criterion_key())
         cached = population.get_cache(_cache_key)
         if cached is not None:
             return cached
@@ -1616,6 +1672,13 @@ class NSGA3Comparator(ParetoComparator):
         ).astype(int)
         population.set_cache(_cache_key, result)
         return result
+
+    def _criterion_key(self) -> tuple:
+        return (
+            *super()._criterion_key(),
+            self._cache_token,
+            _array_key(self._reference_points),
+        )
 
 
 class RNSGA2Comparator(ParetoComparator):
@@ -1704,10 +1767,7 @@ class RNSGA2Comparator(ParetoComparator):
 
     def sort_population(self, population: Population) -> np.ndarray:
         """Sort by Pareto front rank then reference-point proximity (R-NSGA-II)."""
-        _dir_key = (
-            tuple(self.direction.tolist()) if self.direction is not None else None
-        )
-        _cache_key = ("pareto_sort", self._sorter, self._dominator, _dir_key)
+        _cache_key = ("pareto_sort", self._criterion_key())
         cached = population.get_cache(_cache_key)
         if cached is not None:
             return cached
@@ -1755,7 +1815,7 @@ class RNSGA2Comparator(ParetoComparator):
             [np.array(sorted_feasible, dtype=int), sorted_infeasible]
         ).astype(int)
         population.set_cache(_cache_key, result)
-        _rd_key = ("rnsga2_rank_dist", self._sorter, self._dominator, _dir_key)
+        _rd_key = ("rnsga2_rank_dist", self._criterion_key())
         population.set_cache(_rd_key, (rank_full, dist_min_full))
         return result
 
@@ -1785,10 +1845,7 @@ class RNSGA2Comparator(ParetoComparator):
         # Both feasible: rank first, then distance to nearest reference point
         # (smaller distance = better, i.e. closer to user preference).
         self.sort_population(population)
-        _dir_key = (
-            tuple(self.direction.tolist()) if self.direction is not None else None
-        )
-        _rd_key = ("rnsga2_rank_dist", self._sorter, self._dominator, _dir_key)
+        _rd_key = ("rnsga2_rank_dist", self._criterion_key())
         cached = population.get_cache(_rd_key)
         assert cached is not None
         rank_full, dist_min_full = cached
@@ -1857,3 +1914,10 @@ class RNSGA2Comparator(ParetoComparator):
                     best_dist[ref] = d_val
 
         return np.array(selected + cleared, dtype=int)
+
+    def _criterion_key(self) -> tuple:
+        return (
+            *super()._criterion_key(),
+            _array_key(self._reference_points),
+            float(self._epsilon),
+        )

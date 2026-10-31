@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Branches at the start or end of a lowered sequence**: the else path is no longer reported as unreachable and the then path is ordered before what follows ([#296](https://github.com/saealib/saealib/issues/296))
 - **Inputs after a branch** supplied by a different component on each path are no longer reported as unresolved ([#297](https://github.com/saealib/saealib/issues/297))
 - **`to_spec` round-trips** classes without their own `__init__`, `**kwargs` settings (restored from a same-named mapping attribute; a class that does not keep or cannot represent them now raises `ValidationError` instead of silently dropping them), and the `NSGA3Comparator` seed ([#301](https://github.com/saealib/saealib/issues/301))
+- **Comparator sort caches** are keyed by the full comparison criterion, and per instance for NSGA-III, so another comparator, an in-place `eps_cv` change or built-in dominator setting, or an independent NSGA-III random stream no longer returns a stale order ([#302](https://github.com/saealib/saealib/issues/302))
 
 ## [0.1.0] - 2026-09-03
 

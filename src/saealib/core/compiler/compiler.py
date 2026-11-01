@@ -999,6 +999,49 @@ class ExecutablePlan:
         )
 
 
+@dataclass
+class _PreparedGraph:
+    """Graph after structural validation and resolution, with its rule state."""
+
+    graph: ComponentGraph
+    context: CompileContext
+    diagnostics: DiagnosticBag
+    resolution: tuple[RuleRegistration, ...]
+    wellformedness_failed: bool
+
+
+def _resolution_registrations(
+    registrations: Sequence[RuleRegistration], context: CompileContext
+) -> tuple[RuleRegistration, ...]:
+    return tuple(
+        registration
+        for registration in registrations
+        if registration.phase == "resolution"
+        and (
+            registration.namespace == "core"
+            or registration.namespace in context.enabled_rule_namespaces
+        )
+    )
+
+
+def _verification_registrations(
+    registrations: Sequence[RuleRegistration],
+    graph: ComponentGraph,
+    context: CompileContext,
+) -> tuple[RuleRegistration, ...]:
+    referenced = _rule_namespaces(graph)
+    return tuple(
+        registration
+        for registration in registrations
+        if registration.phase == "verification"
+        and (
+            registration.namespace == "core"
+            or registration.namespace in context.enabled_rule_namespaces
+            or registration.namespace in referenced
+        )
+    )
+
+
 class Compiler:
     """Compile a graph through resolution and then verification."""
 
@@ -1030,6 +1073,79 @@ class Compiler:
         self, graph: ComponentGraph, context: CompileContext | None = None
     ) -> ExecutablePlan:
         """Resolve and verify a graph, returning an execution-free plan."""
+        prepared = self._prepare(graph, context)
+        if prepared.wellformedness_failed:
+            # Resolution and verification rules dereference node ids and would
+            # crash on the very locations these diagnostics already report.
+            return ExecutablePlan(
+                graph=prepared.graph,
+                diagnostics=tuple(
+                    sorted(
+                        dict.fromkeys(prepared.diagnostics), key=_diagnostic_sort_key
+                    )
+                ),
+                required_runtime_capabilities=frozenset(
+                    capability
+                    for node in prepared.graph.nodes
+                    for capability in (
+                        node.contract.execution.required_runtime_capabilities
+                    )
+                ),
+                active_rule_namespaces=frozenset(),
+                active_rule_names=(),
+                contract_snapshots=tuple(
+                    (node.component_id, node.contract) for node in prepared.graph.nodes
+                ),
+            )
+        diagnostics = self._verify(prepared)
+        active = tuple(
+            sorted(
+                (
+                    *prepared.resolution,
+                    *_verification_registrations(
+                        self.registry.registrations(),
+                        prepared.graph,
+                        prepared.context,
+                    ),
+                ),
+                key=lambda item: (item.namespace, item.name, item.phase),
+            )
+        )
+        current = prepared.graph
+        required = frozenset(
+            capability
+            for node in current.nodes
+            for capability in node.contract.execution.required_runtime_capabilities
+        )
+        inserted_adapters = tuple(
+            sorted(
+                (
+                    insertion
+                    for node in current.nodes
+                    if (insertion := getattr(node.component, "insertion", None))
+                    is not None
+                ),
+                key=str,
+            )
+        )
+        return ExecutablePlan(
+            graph=current,
+            diagnostics=tuple(
+                sorted(dict.fromkeys(diagnostics), key=_diagnostic_sort_key)
+            ),
+            required_runtime_capabilities=required,
+            active_rule_namespaces=frozenset(item.namespace for item in active),
+            active_rule_names=tuple(f"{item.namespace}:{item.name}" for item in active),
+            inserted_adapters=inserted_adapters,
+            contract_snapshots=tuple(
+                (node.component_id, node.contract) for node in current.nodes
+            ),
+        )
+
+    def _prepare(
+        self, graph: ComponentGraph, context: CompileContext | None
+    ) -> _PreparedGraph:
+        """Run well-formedness checks and resolution rules to a fixed point."""
         if not isinstance(graph, ComponentGraph):
             raise ValidationError("Compiler.compile graph must be a ComponentGraph")
         # Structured control is executed from its operation tree, not from the
@@ -1054,36 +1170,15 @@ class Compiler:
         graph = _snapshot_graph_contracts(graph, refresh=True)
         structural = list(graph.well_formedness())
         if any(item.severity is Severity.ERROR for item in structural):
-            # Resolution and verification rules dereference node ids and would
-            # crash on the very locations these diagnostics already report.
-            return ExecutablePlan(
+            return _PreparedGraph(
                 graph=graph,
-                diagnostics=tuple(
-                    sorted(dict.fromkeys(structural), key=_diagnostic_sort_key)
-                ),
-                required_runtime_capabilities=frozenset(
-                    capability
-                    for node in graph.nodes
-                    for capability in (
-                        node.contract.execution.required_runtime_capabilities
-                    )
-                ),
-                active_rule_namespaces=frozenset(),
-                active_rule_names=(),
-                contract_snapshots=tuple(
-                    (node.component_id, node.contract) for node in graph.nodes
-                ),
+                context=compile_context,
+                diagnostics=DiagnosticBag(structural),
+                resolution=(),
+                wellformedness_failed=True,
             )
         registrations = self.registry.registrations()
-        resolution = tuple(
-            registration
-            for registration in registrations
-            if registration.phase == "resolution"
-            and (
-                registration.namespace == "core"
-                or registration.namespace in compile_context.enabled_rule_namespaces
-            )
-        )
+        resolution = _resolution_registrations(registrations, compile_context)
         diagnostics = DiagnosticBag(structural)
         current = graph
         unstable_names: set[str] = set()
@@ -1210,26 +1305,28 @@ class Compiler:
                     resolutions=("Make resolution rules terminating and idempotent.",),
                 )
             )
-        referenced = _rule_namespaces(current)
-        verification = tuple(
-            registration
-            for registration in registrations
-            if registration.phase == "verification"
-            and (
-                registration.namespace == "core"
-                or registration.namespace in compile_context.enabled_rule_namespaces
-                or registration.namespace in referenced
-            )
+        return _PreparedGraph(
+            graph=current,
+            context=compile_context,
+            diagnostics=diagnostics,
+            resolution=resolution,
+            wellformedness_failed=False,
         )
-        active = tuple(
-            sorted(
-                (*resolution, *verification),
-                key=lambda item: (item.namespace, item.name, item.phase),
-            )
-        )
-        active_names = tuple(f"{item.namespace}:{item.name}" for item in active)
-        for registration in verification:
-            rule_context = RuleContext(current, compile_context, diagnostics)
+
+    def _verify(self, prepared: _PreparedGraph) -> DiagnosticBag:
+        """Run the verification rules once over a prepared graph.
+
+        Verification only observes the resolved graph and never rewrites it;
+        the returned bag is a fresh extension of the prepared diagnostics, so
+        calling this twice yields the same diagnostics.
+        """
+        diagnostics = DiagnosticBag(prepared.diagnostics)
+        if prepared.wellformedness_failed:
+            return diagnostics
+        for registration in _verification_registrations(
+            self.registry.registrations(), prepared.graph, prepared.context
+        ):
+            rule_context = RuleContext(prepared.graph, prepared.context, diagnostics)
             result = registration.rule.apply(rule_context)
             if not isinstance(result, VerificationResult):
                 raise ValidationError(
@@ -1237,35 +1334,7 @@ class Compiler:
                     f"{registration.name!r} returned the wrong result type"
                 )
             diagnostics.extend(result.diagnostics)
-        required = frozenset(
-            capability
-            for node in current.nodes
-            for capability in node.contract.execution.required_runtime_capabilities
-        )
-        inserted_adapters = tuple(
-            sorted(
-                (
-                    insertion
-                    for node in current.nodes
-                    if (insertion := getattr(node.component, "insertion", None))
-                    is not None
-                ),
-                key=str,
-            )
-        )
-        return ExecutablePlan(
-            graph=current,
-            diagnostics=tuple(
-                sorted(dict.fromkeys(diagnostics), key=_diagnostic_sort_key)
-            ),
-            required_runtime_capabilities=required,
-            active_rule_namespaces=frozenset(item.namespace for item in active),
-            active_rule_names=active_names,
-            inserted_adapters=inserted_adapters,
-            contract_snapshots=tuple(
-                (node.component_id, node.contract) for node in current.nodes
-            ),
-        )
+        return diagnostics
 
     def compile_pipeline(
         self, pipeline: object, context: CompileContext | None = None

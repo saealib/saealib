@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.core.compiler.diagnostics &#8212; saealib 0.1.1.dev15+g393b12258 ドキュメント</title>
+    <title>saealib.core.compiler.diagnostics &#8212; saealib 0.1.1.dev19+g46f3309b5 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../../_static/documentation_options.js?v=dfcdd092"></script>
+    <script src="../../../../_static/documentation_options.js?v=66bab13f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -959,6 +959,7 @@ window.runMermaid = runMermaid;</script>
   <h1>saealib.core.compiler.diagnostics のソースコード</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">difflib</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
@@ -973,6 +974,7 @@ window.runMermaid = runMermaid;</script>
     <span class="s2">&quot;DiagnosticBag&quot;</span><span class="p">,</span>
     <span class="s2">&quot;DiagnosticCodeVocabulary&quot;</span><span class="p">,</span>
     <span class="s2">&quot;Severity&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;near_miss_suggestions&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
 
@@ -982,6 +984,23 @@ window.runMermaid = runMermaid;</script>
     <span class="n">ERROR</span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span>
     <span class="n">WARNING</span> <span class="o">=</span> <span class="s2">&quot;warning&quot;</span>
     <span class="n">INFO</span> <span class="o">=</span> <span class="s2">&quot;info&quot;</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">near_miss_suggestions</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">vocabulary</span><span class="p">:</span> <span class="n">Vocabulary</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return registered names closest to an unregistered ``name``.&quot;&quot;&quot;</span>
+    <span class="n">folded</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">casefold</span><span class="p">()</span>
+    <span class="n">scored</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span>
+            <span class="n">difflib</span><span class="o">.</span><span class="n">SequenceMatcher</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">folded</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span><span class="o">.</span><span class="n">casefold</span><span class="p">())</span><span class="o">.</span><span class="n">ratio</span><span class="p">(),</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">candidate</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">vocabulary</span><span class="o">.</span><span class="n">names</span><span class="p">()</span>
+    <span class="p">]</span>
+    <span class="n">scored</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">item</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="n">item</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">item</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="n">candidate</span> <span class="k">for</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">scored</span> <span class="k">if</span> <span class="n">ratio</span> <span class="o">&gt;=</span> <span class="mf">0.6</span><span class="p">]</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">matches</span><span class="p">[:</span><span class="n">count</span><span class="p">])</span>
 
 
 <div class="viewcode-block" id="ContractPath">
@@ -1148,6 +1167,36 @@ window.runMermaid = runMermaid;</script>
         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;ambiguous_adapter&quot;</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">&quot;More than one lossless adapter can be inserted for one connection.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">DIAGNOSTIC_CODES</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+    <span class="s2">&quot;cannot_verify_data_kind&quot;</span><span class="p">,</span>
+    <span class="n">VocabularyDescriptor</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;cannot_verify_data_kind&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;A connection names an unregistered data kind or cardinality, so &quot;</span>
+            <span class="s2">&quot;its compatibility cannot be verified.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">DIAGNOSTIC_CODES</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+    <span class="s2">&quot;cannot_verify_port&quot;</span><span class="p">,</span>
+    <span class="n">VocabularyDescriptor</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;cannot_verify_port&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;A connection names a port that is not declared at its graph &quot;</span>
+            <span class="s2">&quot;endpoint, so the connection cannot be verified.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">DIAGNOSTIC_CODES</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+    <span class="s2">&quot;opaque_state_effects&quot;</span><span class="p">,</span>
+    <span class="n">VocabularyDescriptor</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;opaque_state_effects&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;A node declares its state effects non-enumerable, so its state &quot;</span>
+            <span class="s2">&quot;reads and writes cannot be verified.&quot;</span>
         <span class="p">),</span>
     <span class="p">),</span>
 <span class="p">)</span>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.core.compiler.compiler &#8212; saealib 0.1.1.dev15+g393b12258 ドキュメント</title>
+    <title>saealib.core.compiler.compiler &#8212; saealib 0.1.1.dev19+g46f3309b5 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../../_static/documentation_options.js?v=dfcdd092"></script>
+    <script src="../../../../_static/documentation_options.js?v=66bab13f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -974,6 +974,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">Diagnostic</span><span class="p">,</span>
     <span class="n">DiagnosticBag</span><span class="p">,</span>
     <span class="n">Severity</span><span class="p">,</span>
+    <span class="n">near_miss_suggestions</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.graph</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ComponentGraph</span><span class="p">,</span>
@@ -999,6 +1000,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">PortSpec</span><span class="p">,</span>
     <span class="n">ServiceRequirement</span><span class="p">,</span>
     <span class="n">check_port_compatibility</span><span class="p">,</span>
+    <span class="n">definite_port_incompatibility</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.vocabulary</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_name</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state.keys</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateKey</span>
@@ -1010,23 +1012,35 @@ window.runMermaid = runMermaid;</script>
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CompileContext</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration supplied by the caller, kept separate from rule state.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration supplied by the caller, kept separate from rule state.</span>
+
+<span class="sd">    ``offered_runtime_capabilities`` is ``None`` when the caller supplies no</span>
+<span class="sd">    runtime environment at all; a non-empty or empty frozenset is an explicit</span>
+<span class="sd">    offer the runtime rules may treat as authoritative.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">enabled_rule_namespaces</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
     <span class="n">space</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">problem</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">offered_runtime_capabilities</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">RuntimeCapability</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+    <span class="n">offered_runtime_capabilities</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">RuntimeCapability</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">portability_required</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">adapter_registry</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">initial_state_keys</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">StateKey</span><span class="p">[</span><span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">namespaces</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">enabled_rule_namespaces</span><span class="p">)</span>
-        <span class="n">capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">offered_runtime_capabilities</span><span class="p">)</span>
+        <span class="n">capabilities</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="kc">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">offered_runtime_capabilities</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">offered_runtime_capabilities</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="n">initial_state_keys</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_state_keys</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">StateKey</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">initial_state_keys</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;initial_state_keys must contain StateKey values&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span><span class="o">*</span><span class="n">namespaces</span><span class="p">,</span> <span class="o">*</span><span class="n">capabilities</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="o">*</span><span class="n">namespaces</span><span class="p">,</span>
+            <span class="o">*</span><span class="p">(</span><span class="n">capabilities</span> <span class="ow">or</span> <span class="p">()),</span>
+        <span class="p">):</span>
             <span class="n">validate_name</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">portability_required</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;portability_required must be a boolean&quot;</span><span class="p">)</span>
@@ -1319,6 +1333,22 @@ window.runMermaid = runMermaid;</script>
     <span class="k">return</span> <span class="kc">None</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolvable_service_names</span><span class="p">(</span>
+    <span class="n">compile_context</span><span class="p">:</span> <span class="n">CompileContext</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the names of the declared services this context can supply.&quot;&quot;&quot;</span>
+    <span class="n">names</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">SERVICE_VOCABULARY</span><span class="o">.</span><span class="n">names</span><span class="p">():</span>
+        <span class="n">descriptor</span> <span class="o">=</span> <span class="n">SERVICE_VOCABULARY</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">provider_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">descriptor</span><span class="p">,</span> <span class="s2">&quot;provider&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">provider_name</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;space&quot;</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">}</span>
+            <span class="ow">and</span> <span class="n">_lookup_service</span><span class="p">(</span><span class="n">compile_context</span><span class="p">,</span> <span class="n">provider_name</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_service_diagnostic</span><span class="p">(</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -1326,9 +1356,10 @@ window.runMermaid = runMermaid;</script>
     <span class="n">service_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">resolution</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">severity</span><span class="p">:</span> <span class="n">Severity</span> <span class="o">=</span> <span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Diagnostic</span><span class="p">:</span>
     <span class="k">return</span> <span class="n">Diagnostic</span><span class="p">(</span>
-        <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+        <span class="n">severity</span><span class="o">=</span><span class="n">severity</span><span class="p">,</span>
         <span class="n">code</span><span class="o">=</span><span class="n">code</span><span class="p">,</span>
         <span class="n">message</span><span class="o">=</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> requires service </span><span class="si">{</span><span class="n">service_name</span><span class="si">!r}</span><span class="s2">. </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
         <span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span>
@@ -1361,18 +1392,30 @@ window.runMermaid = runMermaid;</script>
             <span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">requirement</span> <span class="ow">in</span> <span class="n">requirements</span><span class="p">:</span>
                 <span class="n">descriptor</span> <span class="o">=</span> <span class="n">SERVICE_VOCABULARY</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">descriptor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">suggestions</span> <span class="o">=</span> <span class="n">near_miss_suggestions</span><span class="p">(</span>
+                        <span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">SERVICE_VOCABULARY</span>
+                    <span class="p">)</span>
+                    <span class="n">suggestion</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot; Registered names similar to </span><span class="si">{</span><span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2">: &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">suggestions</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+                        <span class="k">if</span> <span class="n">suggestions</span>
+                        <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+                    <span class="p">)</span>
                     <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                         <span class="n">_service_diagnostic</span><span class="p">(</span>
                             <span class="n">code</span><span class="o">=</span><span class="s2">&quot;unknown_service&quot;</span><span class="p">,</span>
                             <span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span>
                             <span class="n">service_name</span><span class="o">=</span><span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
                             <span class="n">message</span><span class="o">=</span><span class="p">(</span>
-                                <span class="s2">&quot;The service is not in the core service vocabulary.&quot;</span>
+                                <span class="s2">&quot;The service is not in the core service vocabulary, &quot;</span>
+                                <span class="s2">&quot;so this requirement cannot be verified.&quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">suggestion</span><span class="si">}</span><span class="s2">&quot;</span>
                             <span class="p">),</span>
                             <span class="n">resolution</span><span class="o">=</span><span class="p">(</span>
                                 <span class="sa">f</span><span class="s2">&quot;Register </span><span class="si">{</span><span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> in &quot;</span>
                                 <span class="s2">&quot;SERVICE_VOCABULARY before requiring it.&quot;</span>
                             <span class="p">),</span>
+                            <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span>
                         <span class="p">)</span>
                     <span class="p">)</span>
                     <span class="k">continue</span>
@@ -1398,14 +1441,38 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="k">if</span> <span class="n">service</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">provider</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">context</span><span class="o">.</span><span class="n">compile_context</span><span class="o">.</span><span class="n">space</span>
+                        <span class="k">if</span> <span class="n">provider_name</span> <span class="o">==</span> <span class="s2">&quot;space&quot;</span>
+                        <span class="k">else</span> <span class="n">context</span><span class="o">.</span><span class="n">compile_context</span><span class="o">.</span><span class="n">problem</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">provider</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">_service_diagnostic</span><span class="p">(</span>
+                                <span class="n">code</span><span class="o">=</span><span class="s2">&quot;unresolved_service&quot;</span><span class="p">,</span>
+                                <span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span>
+                                <span class="n">service_name</span><span class="o">=</span><span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                                <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">&quot;The compile context supplies no </span><span class="si">{</span><span class="n">provider_name</span><span class="si">}</span><span class="s2">, &quot;</span>
+                                    <span class="s2">&quot;so this requirement cannot be verified.&quot;</span>
+                                <span class="p">),</span>
+                                <span class="n">resolution</span><span class="o">=</span><span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">&quot;Compile with a bound </span><span class="si">{</span><span class="n">provider_name</span><span class="si">}</span><span class="s2"> that &quot;</span>
+                                    <span class="sa">f</span><span class="s2">&quot;provides </span><span class="si">{</span><span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2">, or choose a &quot;</span>
+                                    <span class="s2">&quot;component whose port does not require it.&quot;</span>
+                                <span class="p">),</span>
+                                <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+                        <span class="k">continue</span>
                     <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                         <span class="n">_service_diagnostic</span><span class="p">(</span>
                             <span class="n">code</span><span class="o">=</span><span class="s2">&quot;unresolved_service&quot;</span><span class="p">,</span>
                             <span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span>
                             <span class="n">service_name</span><span class="o">=</span><span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
                             <span class="n">message</span><span class="o">=</span><span class="p">(</span>
-                                <span class="sa">f</span><span class="s2">&quot;No </span><span class="si">{</span><span class="n">provider_name</span><span class="si">}</span><span class="s2"> provider is available in &quot;</span>
-                                <span class="s2">&quot;the compile context.&quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;The bound </span><span class="si">{</span><span class="n">provider_name</span><span class="si">}</span><span class="s2"> does not provide &quot;</span>
+                                <span class="s2">&quot;this service.&quot;</span>
                             <span class="p">),</span>
                             <span class="n">resolution</span><span class="o">=</span><span class="p">(</span>
                                 <span class="sa">f</span><span class="s2">&quot;Provide </span><span class="si">{</span><span class="n">requirement</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> through the &quot;</span>
@@ -1527,6 +1594,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">endpoint_name</span><span class="p">,</span> <span class="n">resolution</span> <span class="o">=</span> <span class="n">unresolved</span>
                 <span class="k">if</span> <span class="n">resolution</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;ambiguous&quot;</span><span class="p">:</span>
                     <span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;ambiguous_port&quot;</span>
+                    <span class="n">severity</span> <span class="o">=</span> <span class="n">Severity</span><span class="o">.</span><span class="n">WARNING</span>
                     <span class="n">port_name</span> <span class="o">=</span> <span class="p">(</span>
                         <span class="n">edge</span><span class="o">.</span><span class="n">source_port</span>
                         <span class="k">if</span> <span class="n">endpoint_name</span> <span class="o">==</span> <span class="s2">&quot;source&quot;</span>
@@ -1535,13 +1603,15 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;Connection </span><span class="si">{</span><span class="n">connection</span><span class="si">}</span><span class="s2"> names </span><span class="si">{</span><span class="n">endpoint_name</span><span class="si">}</span><span class="s2"> port &quot;</span>
                         <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">port_name</span><span class="si">!r}</span><span class="s2">, &quot;</span>
-                        <span class="s2">&quot;but multiple roles declare that directional port.&quot;</span>
+                        <span class="s2">&quot;but multiple roles declare that directional port, so &quot;</span>
+                        <span class="s2">&quot;the connection cannot be verified.&quot;</span>
                     <span class="p">)</span>
                     <span class="n">resolution_advice</span> <span class="o">=</span> <span class="p">(</span>
                         <span class="s2">&quot;Specify the NodeRef role for the ambiguous endpoint.&quot;</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;unknown_port&quot;</span>
+                    <span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;cannot_verify_port&quot;</span>
+                    <span class="n">severity</span> <span class="o">=</span> <span class="n">Severity</span><span class="o">.</span><span class="n">WARNING</span>
                     <span class="n">port_name</span> <span class="o">=</span> <span class="p">(</span>
                         <span class="n">edge</span><span class="o">.</span><span class="n">source_port</span>
                         <span class="k">if</span> <span class="n">endpoint_name</span> <span class="o">==</span> <span class="s2">&quot;source&quot;</span>
@@ -1549,7 +1619,8 @@ window.runMermaid = runMermaid;</script>
                     <span class="p">)</span>
                     <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;Connection </span><span class="si">{</span><span class="n">connection</span><span class="si">}</span><span class="s2"> names an undeclared &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">endpoint_name</span><span class="si">}</span><span class="s2"> port </span><span class="si">{</span><span class="n">port_name</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">endpoint_name</span><span class="si">}</span><span class="s2"> port </span><span class="si">{</span><span class="n">port_name</span><span class="si">!r}</span><span class="s2">, so the connection &quot;</span>
+                        <span class="s2">&quot;cannot be verified.&quot;</span>
                     <span class="p">)</span>
                     <span class="n">resolution_advice</span> <span class="o">=</span> <span class="p">(</span>
                         <span class="s2">&quot;Correct the edge port name or declare that directional &quot;</span>
@@ -1557,7 +1628,7 @@ window.runMermaid = runMermaid;</script>
                     <span class="p">)</span>
                 <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">Diagnostic</span><span class="p">(</span>
-                        <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                        <span class="n">severity</span><span class="o">=</span><span class="n">severity</span><span class="p">,</span>
                         <span class="n">code</span><span class="o">=</span><span class="n">code</span><span class="p">,</span>
                         <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">,</span>
                         <span class="n">path</span><span class="o">=</span><span class="n">source_path</span><span class="p">,</span>
@@ -1597,6 +1668,35 @@ window.runMermaid = runMermaid;</script>
             <span class="p">):</span>
                 <span class="c1"># A resolution diagnostic already identifies the actionable</span>
                 <span class="c1"># cause; do not add a generic incompatible-port shadow.</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">compatibility</span><span class="o">.</span><span class="n">unknown_kinds</span> <span class="ow">or</span> <span class="n">compatibility</span><span class="o">.</span><span class="n">unknown_cardinalities</span>
+            <span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">definite_port_incompatibility</span><span class="p">(</span><span class="n">compatibility</span><span class="p">):</span>
+                <span class="c1"># Unregistered vocabulary means the compatibility of this</span>
+                <span class="c1"># connection is unverifiable, not that it is incompatible.  A</span>
+                <span class="c1"># definite mismatch on a registered axis stays a defect.</span>
+                <span class="n">unregistered</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="o">*</span><span class="n">compatibility</span><span class="o">.</span><span class="n">unknown_kinds</span><span class="p">,</span>
+                    <span class="o">*</span><span class="n">compatibility</span><span class="o">.</span><span class="n">unknown_cardinalities</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">Diagnostic</span><span class="p">(</span>
+                        <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span>
+                        <span class="n">code</span><span class="o">=</span><span class="s2">&quot;cannot_verify_data_kind&quot;</span><span class="p">,</span>
+                        <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Connection </span><span class="si">{</span><span class="n">connection</span><span class="si">}</span><span class="s2"> cannot be verified: &quot;</span>
+                            <span class="s2">&quot;data kinds or cardinalities are not registered: &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">unregistered</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+                        <span class="p">),</span>
+                        <span class="n">path</span><span class="o">=</span><span class="n">source_path</span><span class="p">,</span>
+                        <span class="n">related</span><span class="o">=</span><span class="p">(</span><span class="n">target_path</span><span class="p">,),</span>
+                        <span class="n">resolutions</span><span class="o">=</span><span class="p">(</span>
+                            <span class="s2">&quot;Register the data kinds and cardinalities in their &quot;</span>
+                            <span class="s2">&quot;vocabularies, or use registered names in the port &quot;</span>
+                            <span class="s2">&quot;contracts.&quot;</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
                 <span class="k">continue</span>
             <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="n">Diagnostic</span><span class="p">(</span>

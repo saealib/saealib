@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.core.compiler.compiler &#8212; saealib 0.1.1.dev12+g169e4e206 documentation</title>
+    <title>saealib.core.compiler.compiler &#8212; saealib 0.1.1.dev15+g393b12258 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../../_static/documentation_options.js?v=f0c88aec"></script>
+    <script src="../../../../_static/documentation_options.js?v=46d76b3c"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1923,6 +1923,27 @@ window.runMermaid = runMermaid;</script>
         <span class="c1"># subsequent compiler phase operates on nodes carrying these snapshots.</span>
         <span class="n">graph</span> <span class="o">=</span> <span class="n">_snapshot_graph_contracts</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">structural</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">well_formedness</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">severity</span> <span class="ow">is</span> <span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">structural</span><span class="p">):</span>
+            <span class="c1"># Resolution and verification rules dereference node ids and would</span>
+            <span class="c1"># crash on the very locations these diagnostics already report.</span>
+            <span class="k">return</span> <span class="n">ExecutablePlan</span><span class="p">(</span>
+                <span class="n">graph</span><span class="o">=</span><span class="n">graph</span><span class="p">,</span>
+                <span class="n">diagnostics</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                    <span class="nb">sorted</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">structural</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">_diagnostic_sort_key</span><span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">required_runtime_capabilities</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span>
+                    <span class="n">capability</span>
+                    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span>
+                    <span class="k">for</span> <span class="n">capability</span> <span class="ow">in</span> <span class="p">(</span>
+                        <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">required_runtime_capabilities</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">active_rule_namespaces</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(),</span>
+                <span class="n">active_rule_names</span><span class="o">=</span><span class="p">(),</span>
+                <span class="n">contract_snapshots</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">component_id</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
         <span class="n">registrations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">registry</span><span class="o">.</span><span class="n">registrations</span><span class="p">()</span>
         <span class="n">resolution</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
             <span class="n">registration</span>

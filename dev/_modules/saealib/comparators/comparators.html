@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.comparators.comparators &#8212; saealib 0.1.1.dev19+g46f3309b5 documentation</title>
+    <title>saealib.comparators.comparators &#8212; saealib 0.1.1.dev22+g4ea2c695d documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=ffa00a91"></script>
+    <script src="../../../_static/documentation_options.js?v=83c9f151"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -989,6 +989,15 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultHint</span><span class="p">,</span> <span class="n">DefaultStrength</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">PopulationAttribute</span>
 
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_direction_key</span><span class="p">(</span><span class="n">direction</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">direction</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span> <span class="k">if</span> <span class="n">direction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_array_key</span><span class="p">(</span><span class="n">arr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">arr</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span>
+
+
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultContext</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Population</span>
@@ -1108,6 +1117,22 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_criterion_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hashable key identifying everything affecting this comparator&#39;s ordering.</span>
+
+<span class="sd">        Used as part of population cache keys so that entries written by one</span>
+<span class="sd">        comparator are never reused by another whose ordering criterion</span>
+<span class="sd">        differs. Overrides must extend ``super()._criterion_key()`` with any</span>
+<span class="sd">        additional parameters that change the ordering result; arrays enter</span>
+<span class="sd">        the key in value-based hashable form.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">_direction_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">direction</span><span class="p">),</span>
+            <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span><span class="p">),</span>
+            <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps_obj</span><span class="p">),</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="Comparator.get_required_attrs">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.Comparator.html#saealib.Comparator.get_required_attrs">[docs]</a>
@@ -1423,6 +1448,14 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span></div>
 
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_criterion_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="o">*</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sorter</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">(),</span>
+        <span class="p">)</span>
+
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">sorter</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NonDominatedSorter</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The non-dominated sorting callable used by this comparator.&quot;&quot;&quot;</span>
@@ -1540,10 +1573,7 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.NSGA2Comparator.html#saealib.NSGA2Comparator.sort_population">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">sort_population</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sort by Pareto front rank then crowding distance (NSGA-II style).&quot;&quot;&quot;</span>
-        <span class="n">_dir_key</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">direction</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">direction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
-        <span class="n">_cache_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;pareto_sort&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="p">,</span> <span class="n">_dir_key</span><span class="p">)</span>
+        <span class="n">_cache_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;pareto_sort&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">())</span>
         <span class="n">cached</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">get_cache</span><span class="p">(</span><span class="n">_cache_key</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">cached</span>
@@ -1573,7 +1603,7 @@ window.runMermaid = runMermaid;</script>
 
         <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">sorted_feasible</span><span class="p">,</span> <span class="n">sorted_infeasible</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
         <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="n">_cache_key</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-        <span class="n">_rc_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;nsga2_rank_cd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="p">,</span> <span class="n">_dir_key</span><span class="p">)</span>
+        <span class="n">_rc_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;nsga2_rank_cd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">())</span>
         <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="n">_rc_key</span><span class="p">,</span> <span class="p">(</span><span class="n">rank_full</span><span class="p">,</span> <span class="n">cd_full</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">result</span></div>
 
@@ -1612,10 +1642,7 @@ window.runMermaid = runMermaid;</script>
 
         <span class="c1"># Both feasible: rank first, then crowding distance (higher = better).</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sort_population</span><span class="p">(</span><span class="n">population</span><span class="p">)</span>
-        <span class="n">_dir_key</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">direction</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">direction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
-        <span class="n">_rc_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;nsga2_rank_cd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="p">,</span> <span class="n">_dir_key</span><span class="p">)</span>
+        <span class="n">_rc_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;nsga2_rank_cd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">())</span>
         <span class="n">cached</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">get_cache</span><span class="p">(</span><span class="n">_rc_key</span><span class="p">)</span>
         <span class="k">assert</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="n">rank_full</span><span class="p">,</span> <span class="n">cd_full</span> <span class="o">=</span> <span class="n">cached</span>
@@ -1716,6 +1743,13 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The dominance predicate used by this comparator.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_criterion_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="o">*</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">(),</span>
+        <span class="p">)</span>
+
 <div class="viewcode-block" id="SPEA2Comparator.get_required_attrs">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.SPEA2Comparator.html#saealib.SPEA2Comparator.get_required_attrs">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_required_attrs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">Problem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">]:</span>
@@ -1739,6 +1773,15 @@ window.runMermaid = runMermaid;</script>
             <span class="n">fitness_all</span><span class="p">[</span><span class="n">feasible</span><span class="p">]</span> <span class="o">=</span> <span class="n">f_feasible</span>
         <span class="k">return</span> <span class="n">fitness_all</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fallback_fitness_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;spea2_fitness_fallback&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">())</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">hash</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="c1"># An unhashable custom dominator cannot be keyed: recompute fresh.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">key</span>
+
 <div class="viewcode-block" id="SPEA2Comparator.prepare_population">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.SPEA2Comparator.html#saealib.SPEA2Comparator.prepare_population">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">prepare_population</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1747,7 +1790,9 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="s2">&quot;spea2_fitness&quot;</span> <span class="ow">in</span> <span class="n">population</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
             <span class="n">population</span><span class="o">.</span><span class="n">update_array</span><span class="p">(</span><span class="s2">&quot;spea2_fitness&quot;</span><span class="p">,</span> <span class="n">fitness</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="s2">&quot;spea2_fitness_fallback&quot;</span><span class="p">,</span> <span class="n">fitness</span><span class="p">)</span></div>
+            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fallback_fitness_key</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">fitness</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_assigned_fitness</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -1764,11 +1809,14 @@ window.runMermaid = runMermaid;</script>
         <span class="n">assigned</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assigned_fitness</span><span class="p">(</span><span class="n">population</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">assigned</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">assigned</span>
-        <span class="n">cached</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">get_cache</span><span class="p">(</span><span class="s2">&quot;spea2_fitness_fallback&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">cached</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fallback_fitness_key</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cached</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">get_cache</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">cached</span>
         <span class="n">fitness_all</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_fitness</span><span class="p">(</span><span class="n">population</span><span class="p">)</span>
-        <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="s2">&quot;spea2_fitness_fallback&quot;</span><span class="p">,</span> <span class="n">fitness_all</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">fitness_all</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">fitness_all</span>
 
 <div class="viewcode-block" id="SPEA2Comparator.sort_population">
@@ -2081,9 +2129,9 @@ window.runMermaid = runMermaid;</script>
 
 <span class="sd">        Arrays have length N (population size).  Infeasible individuals</span>
 <span class="sd">        receive ``+inf`` rank and ``-inf`` contribution so they sort last.</span>
-<span class="sd">        Results are cached under the key ``&quot;hv_keys&quot;``.</span>
+<span class="sd">        Results are cached under ``(&quot;hv_keys&quot;, criterion_key)``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">cached</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">get_cache</span><span class="p">(</span><span class="s2">&quot;hv_keys&quot;</span><span class="p">)</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">get_cache</span><span class="p">((</span><span class="s2">&quot;hv_keys&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">()))</span>
         <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">cached</span>  <span class="c1"># type: ignore[return-value]  # cached value is Any; runtime type matches return annotation</span>
 
@@ -2127,8 +2175,15 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">contrib_all</span><span class="p">[</span><span class="n">gidx</span><span class="p">]</span> <span class="o">=</span> <span class="n">contribs</span>
 
         <span class="n">keys</span> <span class="o">=</span> <span class="p">(</span><span class="n">rank_all</span><span class="p">,</span> <span class="n">contrib_all</span><span class="p">)</span>
-        <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="s2">&quot;hv_keys&quot;</span><span class="p">,</span> <span class="n">keys</span><span class="p">)</span>
+        <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">((</span><span class="s2">&quot;hv_keys&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">()),</span> <span class="n">keys</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">keys</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_criterion_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="o">*</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">(),</span>
+            <span class="n">_array_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reference_point</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_front_only</span><span class="p">,</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="HypervolumeComparator.sort_population">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.HypervolumeComparator.html#saealib.HypervolumeComparator.sort_population">[docs]</a>
@@ -2566,7 +2621,9 @@ window.runMermaid = runMermaid;</script>
             <span class="n">dominator</span><span class="o">=</span><span class="n">dominator</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_reference_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">reference_points</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_token</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span></div>
 
 
     <span class="nd">@property</span>
@@ -2597,7 +2654,10 @@ window.runMermaid = runMermaid;</script>
 
     <span class="nd">@rng</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">rng</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">Generator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">:</span>
+            <span class="k">return</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_token</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
 
 <div class="viewcode-block" id="NSGA3Comparator.default_hints">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.NSGA3Comparator.html#saealib.NSGA3Comparator.default_hints">[docs]</a>
@@ -2642,10 +2702,7 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.NSGA3Comparator.html#saealib.NSGA3Comparator.sort_population">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">sort_population</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sort by Pareto front rank then NSGA-III niche preservation.&quot;&quot;&quot;</span>
-        <span class="n">_dir_key</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">direction</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">direction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
-        <span class="n">_cache_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;pareto_sort&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="p">,</span> <span class="n">_dir_key</span><span class="p">)</span>
+        <span class="n">_cache_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;pareto_sort&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">())</span>
         <span class="n">cached</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">get_cache</span><span class="p">(</span><span class="n">_cache_key</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">cached</span>
@@ -2706,7 +2763,14 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
         <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="n">_cache_key</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">result</span></div>
-</div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_criterion_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="o">*</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache_token</span><span class="p">,</span>
+            <span class="n">_array_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reference_points</span><span class="p">),</span>
+        <span class="p">)</span></div>
 
 
 
@@ -2803,10 +2867,7 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.RNSGA2Comparator.html#saealib.RNSGA2Comparator.sort_population">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">sort_population</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sort by Pareto front rank then reference-point proximity (R-NSGA-II).&quot;&quot;&quot;</span>
-        <span class="n">_dir_key</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">direction</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">direction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
-        <span class="n">_cache_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;pareto_sort&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="p">,</span> <span class="n">_dir_key</span><span class="p">)</span>
+        <span class="n">_cache_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;pareto_sort&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">())</span>
         <span class="n">cached</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">get_cache</span><span class="p">(</span><span class="n">_cache_key</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">cached</span>
@@ -2854,7 +2915,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">sorted_feasible</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="n">sorted_infeasible</span><span class="p">]</span>
         <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
         <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="n">_cache_key</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-        <span class="n">_rd_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;rnsga2_rank_dist&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="p">,</span> <span class="n">_dir_key</span><span class="p">)</span>
+        <span class="n">_rd_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;rnsga2_rank_dist&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">())</span>
         <span class="n">population</span><span class="o">.</span><span class="n">set_cache</span><span class="p">(</span><span class="n">_rd_key</span><span class="p">,</span> <span class="p">(</span><span class="n">rank_full</span><span class="p">,</span> <span class="n">dist_min_full</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">result</span></div>
 
@@ -2887,10 +2948,7 @@ window.runMermaid = runMermaid;</script>
         <span class="c1"># Both feasible: rank first, then distance to nearest reference point</span>
         <span class="c1"># (smaller distance = better, i.e. closer to user preference).</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sort_population</span><span class="p">(</span><span class="n">population</span><span class="p">)</span>
-        <span class="n">_dir_key</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">direction</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">direction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
-        <span class="n">_rd_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;rnsga2_rank_dist&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dominator</span><span class="p">,</span> <span class="n">_dir_key</span><span class="p">)</span>
+        <span class="n">_rd_key</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;rnsga2_rank_dist&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">())</span>
         <span class="n">cached</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">get_cache</span><span class="p">(</span><span class="n">_rd_key</span><span class="p">)</span>
         <span class="k">assert</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="n">rank_full</span><span class="p">,</span> <span class="n">dist_min_full</span> <span class="o">=</span> <span class="n">cached</span>
@@ -2959,7 +3017,14 @@ window.runMermaid = runMermaid;</script>
                 <span class="k">if</span> <span class="n">ref</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">best_dist</span><span class="p">:</span>
                     <span class="n">best_dist</span><span class="p">[</span><span class="n">ref</span><span class="p">]</span> <span class="o">=</span> <span class="n">d_val</span>
 
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">selected</span> <span class="o">+</span> <span class="n">cleared</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">selected</span> <span class="o">+</span> <span class="n">cleared</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_criterion_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="o">*</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_criterion_key</span><span class="p">(),</span>
+            <span class="n">_array_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reference_points</span><span class="p">),</span>
+            <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_epsilon</span><span class="p">),</span>
+        <span class="p">)</span></div>
 
 </pre></div>
 

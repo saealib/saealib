@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.comparators.dominance &#8212; saealib 0.1.1.dev19+g46f3309b5 ドキュメント</title>
+    <title>saealib.comparators.dominance &#8212; saealib 0.1.1.dev22+g4ea2c695d ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=66bab13f"></script>
+    <script src="../../../_static/documentation_options.js?v=1ad34aff"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1098,7 +1098,25 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            ``fa_dominates[i]`` is True iff ``fa`` dominates ``f_matrix[i]``;</span>
 <span class="sd">            ``dominates_fa[i]`` is True iff ``f_matrix[i]`` dominates ``fa``.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
-</div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_criterion_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Hashable key of the settings that affect this dominator&#39;s relation.</span>
+
+<span class="sd">        Comparator cache keys hold the dominator object itself together with</span>
+<span class="sd">        this value, so built-in dominators override it with their comparison</span>
+<span class="sd">        settings and in-place changes of those settings are detected.</span>
+<span class="sd">        The default of ``()`` contributes nothing: custom dominators fall</span>
+<span class="sd">        back to object identity, and in-place mutation of such a dominator</span>
+<span class="sd">        is not detected by comparator caches.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple</span>
+<span class="sd">            Hashable criterion, containing only value-based forms.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">()</span></div>
 
 
 
@@ -1196,7 +1214,10 @@ window.runMermaid = runMermaid;</script>
         <span class="n">fa_dominates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">fa_t</span> <span class="o">&lt;=</span> <span class="n">f_t</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">fa_t</span> <span class="o">&lt;</span> <span class="n">f_t</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">dominates_fa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">f_t</span> <span class="o">&lt;=</span> <span class="n">fa_t</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">f_t</span> <span class="o">&lt;</span> <span class="n">fa_t</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">fa_dominates</span><span class="p">,</span> <span class="n">dominates_fa</span></div>
-</div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_criterion_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s2">&quot;pareto&quot;</span><span class="p">,)</span></div>
 
 
 
@@ -1292,6 +1313,13 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">mode</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Quantization mode (&#39;additive&#39; or &#39;multiplicative&#39;).&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_criterion_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="s2">&quot;epsilon&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_eps</span><span class="p">)</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_quantize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>

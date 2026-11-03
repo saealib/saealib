@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.registry.to_spec &#8212; saealib 0.1.1.dev19+g46f3309b5 ドキュメント</title>
+    <title>saealib.registry.to_spec &#8212; saealib 0.1.1.dev22+g4ea2c695d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=66bab13f"></script>
+    <script src="../../_static/documentation_options.js?v=1ad34aff"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -912,7 +912,12 @@ their constructor signature: for each <code class="docutils literal notranslate"
 same-named attribute on <code class="docutils literal notranslate"><span class="pre">obj</span></code> is read and serialized recursively. A
 single <code class="docutils literal notranslate"><span class="pre">*args</span></code> (<code class="docutils literal notranslate"><span class="pre">VAR_POSITIONAL</span></code>) parameter is serialized as a
 params <em>list</em> instead of a dict, so it round-trips through <code class="docutils literal notranslate"><span class="pre">build()</span></code>'s
-positional-call path.</p>
+positional-call path. A <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> (<code class="docutils literal notranslate"><span class="pre">VAR_KEYWORD</span></code>) parameter's
+same-named mapping attribute is serialized item by item and merged into
+<code class="docutils literal notranslate"><span class="pre">params</span></code>. The params-list form cannot carry keyword settings, so a
+class holding a non-empty same-named mapping attribute for its
+<code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> parameter alongside <code class="docutils literal notranslate"><span class="pre">*args</span></code> cannot be serialized and
+raises <code class="xref py py-exc docutils literal notranslate"><span class="pre">ValidationError</span></code> instead of dropping them.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>obj</strong> (<em>Any</em>)</p>

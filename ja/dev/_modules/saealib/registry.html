@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.registry &#8212; saealib 0.1.1.dev19+g46f3309b5 ドキュメント</title>
+    <title>saealib.registry &#8212; saealib 0.1.1.dev22+g4ea2c695d ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=66bab13f"></script>
+    <script src="../../_static/documentation_options.js?v=1ad34aff"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -976,9 +976,13 @@ window.runMermaid = runMermaid;</script>
 
 <span class="sd">``to_spec()`` is the reverse operation: it serializes a live instance back</span>
 <span class="sd">into a spec by reflecting its constructor signature and reading same-named</span>
-<span class="sd">attributes. A class opts out of this generic reflection by exposing a</span>
-<span class="sd">``_registry_spec`` attribute (a spec, or ``None`` if it cannot be</span>
-<span class="sd">serialized) which ``to_spec()`` uses directly instead.</span>
+<span class="sd">attributes. Classes that inherit ``object.__init__`` have no constructor</span>
+<span class="sd">parameters and serialize with empty ``params``. A ``*args`` parameter is</span>
+<span class="sd">read from the same-named attribute; a ``**kwargs`` parameter&#39;s same-named</span>
+<span class="sd">mapping attribute is merged into ``params`` key by key. A class opts out of</span>
+<span class="sd">this generic reflection by exposing a ``_registry_spec`` attribute (a spec,</span>
+<span class="sd">or ``None`` if it cannot be serialized) which ``to_spec()`` uses directly</span>
+<span class="sd">instead.</span>
 
 <span class="sd">Custom components are registered the same way as builtins, which lets them be</span>
 <span class="sd">referenced by a short name from preset YAML files just like ``GA`` or</span>
@@ -1001,7 +1005,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">TypeVar</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -1133,7 +1137,12 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    same-named attribute on ``obj`` is read and serialized recursively. A</span>
 <span class="sd">    single ``*args`` (``VAR_POSITIONAL``) parameter is serialized as a</span>
 <span class="sd">    params *list* instead of a dict, so it round-trips through ``build()``&#39;s</span>
-<span class="sd">    positional-call path.</span>
+<span class="sd">    positional-call path. A ``**kwargs`` (``VAR_KEYWORD``) parameter&#39;s</span>
+<span class="sd">    same-named mapping attribute is serialized item by item and merged into</span>
+<span class="sd">    ``params``. The params-list form cannot carry keyword settings, so a</span>
+<span class="sd">    class holding a non-empty same-named mapping attribute for its</span>
+<span class="sd">    ``**kwargs`` parameter alongside ``*args`` cannot be serialized and</span>
+<span class="sd">    raises :exc:`ValidationError` instead of dropping them.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">obj</span>
@@ -1167,6 +1176,8 @@ window.runMermaid = runMermaid;</script>
 
     <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
     <span class="n">type_name</span> <span class="o">=</span> <span class="n">_find_registered_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_dotted_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+    <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="ow">is</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__init__</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">type_name</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{}}</span>
     <span class="n">parameters</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">p</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
@@ -1181,6 +1192,16 @@ window.runMermaid = runMermaid;</script>
                 <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: no attribute </span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;matching *</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> constructor parameter.&quot;</span>
             <span class="p">)</span>
+        <span class="n">var_keyword</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">p</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">var_keyword</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">var_keyword</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
+            <span class="n">mapping</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">var_keyword</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">)</span> <span class="ow">and</span> <span class="n">mapping</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: *</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> form cannot &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;represent the </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="si">}</span><span class="s2"> keyword setting(s) held in &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;the attribute </span><span class="si">{</span><span class="n">var_keyword</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> matching &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;**</span><span class="si">{</span><span class="n">var_keyword</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> constructor parameter.&quot;</span>
+                <span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">type_name</span><span class="p">,</span>
             <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">to_spec</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">)],</span>
@@ -1189,6 +1210,26 @@ window.runMermaid = runMermaid;</script>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">param</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: no attribute </span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;matching **</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> constructor parameter.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">mapping</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: attribute </span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;matching **</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> constructor parameter is not a &quot;</span>
+                    <span class="s2">&quot;mapping.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: **</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> key &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2"> collides with a same-named constructor &quot;</span>
+                        <span class="s2">&quot;parameter.&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_spec</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
             <span class="k">continue</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>

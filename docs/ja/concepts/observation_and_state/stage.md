@@ -48,7 +48,7 @@ Stageは `OptimizationState` を受け取り、一つの処理を行って更新
 | クラス | 名前 | ラベル | 表記 | 読み取り | 書き込み | エクスポート |
 |---|---|---|---|---|---|---|
 | CountGenerationStage | count_generation | Count generation | $gen \leftarrow gen + 1$ | `runtime.generation`, `evaluations.pending` | `runtime.generation` | — |
-| AskStage | ask | Generate offspring | $\mathcal{Q} \leftarrow \text{ask}(P, n)$ | `evaluations.plan`, `evaluations.plan_state`, `runtime.candidate_id_allocator` | `proposals.offspring`, `proposals.current`, `runtime.candidate_id_allocator`, `evaluations.evaluated_offspring` | — |
+| AskStage | ask | Generate offspring | $\mathcal{Q} \leftarrow \text{ask}(P, n)$ | `proposals.offspring`, `proposals.proposal_id_allocator`, `evaluations.plan`, `evaluations.plan_state`, `runtime.candidate_id_allocator` | `proposals.offspring`, `proposals.current`, `runtime.candidate_id_allocator`, `evaluations.evaluated_offspring` | — |
 | SurrogatePredictStage | surrogate_predict | Surrogate prediction | $\hat{y} \leftarrow \text{predict}(\mathcal{Q}, \mathcal{A})$ | `proposals.offspring`, `populations.main`, `archives.main` | `proposals.offspring`, `surrogates.predictions` | — |
 | PendingEvaluationContextStage | pending_evaluation_context | Pending evaluation context | $C \leftarrow \text{pending}(C)$ | — | — | — |
 | AcquisitionStage | acquisition | Acquisition scoring | $\mathbf{s} \leftarrow \text{acquire}(\mathcal{Q}, \hat{y}, \mathcal{A})$ | `proposals.offspring`, `surrogates.predictions`, `archives.main`, `runtime.generation`, `runtime.decision_count`, `runtime.rng` | `evaluations.scores`, `evaluations.acquisition_result` | — |

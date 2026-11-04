@@ -17,6 +17,7 @@ from saealib import (
 from saealib.core.compiler import CompileContext, Compiler, RuleContext
 from saealib.core.compiler.diagnostics import DiagnosticBag
 from saealib.core.compiler.graph import IdentityRule, ReachabilityRule
+from saealib.core.compiler.regions import RegionNode
 from saealib.core.compiler.structured import StructuredGraph
 from saealib.core.contracts import (
     MANY,
@@ -139,14 +140,21 @@ def test_builtins_and_graph_only_strategies_share_graph_pipeline_facade(
         graph = strategy.build_graph(provider)
         pipeline = strategy.build_pipeline(provider)
         if isinstance(graph, StructuredGraph):
-            assert [
-                operation.region.qualified_id for operation in graph.operations[1:]
-            ] == [
-                "generation_based.surrogate_generations",
-                "generation_based.true_generation",
-            ]
-            assert pipeline.stages[0].name == "surrogate_fit"
-            assert len(pipeline.stages) == 3
+            if isinstance(strategy, GenerationBasedStrategy):
+                assert [
+                    operation.region.qualified_id for operation in graph.operations[1:]
+                ] == [
+                    "generation_based.surrogate_generations",
+                    "generation_based.true_generation",
+                ]
+                assert pipeline.stages[0].name == "surrogate_fit"
+                assert len(pipeline.stages) == 3
+            else:
+                # Direct and SteadyState are structured plans without regions
+                assert not any(
+                    isinstance(operation, RegionNode) for operation in graph.operations
+                )
+                assert pipeline.stages[0].name == "count_generation"
             assert not any(
                 isinstance(node.component, StageNodeAdapter) for node in graph.nodes
             )
@@ -207,23 +215,34 @@ def test_graph_nodes_match_actual_pipeline_and_preselection_has_no_top_k_stage()
         ]
 
         if isinstance(graph, StructuredGraph):
-            assert [
-                operation.region.qualified_id for operation in graph.operations[1:]
-            ] == [
-                "generation_based.surrogate_generations",
-                "generation_based.true_generation",
-            ]
-            assert [
-                node.component_id
-                for node in graph.region_nodes[0].region.body.operations
-            ] == [
-                "generation_based.surrogate_generations.count_generation",
-                "generation_based.surrogate_generations.ask",
-                "generation_based.surrogate_generations.surrogate_predict",
-                "generation_based.surrogate_generations.acquisition",
-                "generation_based.surrogate_generations.feedback",
-                "generation_based.surrogate_generations.tell",
-            ]
+            if isinstance(strategy, GenerationBasedStrategy):
+                assert [
+                    operation.region.qualified_id for operation in graph.operations[1:]
+                ] == [
+                    "generation_based.surrogate_generations",
+                    "generation_based.true_generation",
+                ]
+                assert [
+                    node.component_id
+                    for node in graph.region_nodes[0].region.body.operations
+                ] == [
+                    "generation_based.surrogate_generations.count_generation",
+                    "generation_based.surrogate_generations.ask",
+                    "generation_based.surrogate_generations.surrogate_predict",
+                    "generation_based.surrogate_generations.acquisition",
+                    "generation_based.surrogate_generations.feedback",
+                    "generation_based.surrogate_generations.tell",
+                ]
+            else:
+                # Direct lowers to one region-less structured plan whose node
+                # IDs are the bare declaration Stage names
+                assert not any(
+                    isinstance(operation, RegionNode) for operation in graph.operations
+                )
+                assert [node.component_id for node in graph.operations] == [
+                    stage.name for stage in pipeline.stages
+                ]
+                assert graph.node_by_id("ask") is graph.nodes[1]
             assert all(
                 not isinstance(node.component, StageNodeAdapter) for node in graph.nodes
             )
@@ -249,6 +268,34 @@ def test_data_and_control_edges_are_distinct_and_archive_feedback_is_control_onl
         and edge.target.component_id == "feedback"
         for edge in graph.data_edges
     )
+    assert {
+        (
+            edge.source.component_id,
+            edge.source.role,
+            edge.source_port,
+            edge.target.component_id,
+            edge.target.role,
+            edge.target_port,
+        )
+        for edge in graph.data_edges
+    } == {
+        (
+            "ask___algorithm",
+            "proposer",
+            "genomes",
+            "evaluation_plan___planner",
+            "evaluation_planner",
+            "candidates",
+        ),
+        (
+            "feedback___builder",
+            "feedback_builder",
+            "feedback",
+            "tell___algorithm",
+            "feedback_consumer",
+            "feedback",
+        ),
+    }
 
 
 def _resolve_edge_port(graph, endpoint, port_name, direction):
@@ -314,21 +361,19 @@ def test_all_strategy_data_edges_resolve_to_declared_directional_ports():
     for strategy in _strategies():
         graph = strategy.build_graph(provider)
 
-        if isinstance(graph, StructuredGraph):
-            assert graph.data_edges == ()
-            assert all(
-                not isinstance(node.component, StageNodeAdapter) for node in graph.nodes
-            )
-            continue
-
         def stage_id(component_id: str) -> str:
-            return component_id.split("__", 1)[0]
+            return component_id.split("__", 1)[0].rsplit(".", 1)[-1]
 
-        expected = common | (
-            surrogate
-            if isinstance(strategy, (IndividualBasedStrategy, PreSelectionStrategy))
-            else set()
-        )
+        if isinstance(strategy, (IndividualBasedStrategy, PreSelectionStrategy)):
+            expected = common | surrogate
+        elif isinstance(strategy, GenerationBasedStrategy):
+            # the acquisition scores stay in the surrogate generations; the
+            # true generation plans its own offspring
+            expected = common | {
+                edge for edge in surrogate if edge[3] != "evaluation_plan"
+            }
+        else:
+            expected = common
         assert {
             (
                 stage_id(edge.source.component_id),
@@ -500,7 +545,7 @@ def test_decomposed_surrogate_bindings_remain_node_qualified():
 
 def test_structured_decomposition_exposes_stage_contract_and_held_parts():
     class _Stage(Stage):
-        name = "u2_stage"
+        name = "declared_contract_stage"
 
         def __init__(self) -> None:
             super().__init__()
@@ -520,8 +565,8 @@ def test_structured_decomposition_exposes_stage_contract_and_held_parts():
             return state
 
     graph = build_decomposed_component_graph(Pipeline([_Stage()]))
-    stage = graph.node_by_id("u2_stage")
-    part = graph.node_by_id("u2_stage__component")
+    stage = graph.node_by_id("declared_contract_stage")
+    part = graph.node_by_id("declared_contract_stage__component")
 
     assert stage.contract.state.reads == (SURROGATES_DEFAULT,)
     assert part.contract.state.exports == (SURROGATES_DEFAULT,)

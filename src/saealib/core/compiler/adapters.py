@@ -308,8 +308,18 @@ def _partial_feedback_is_offered(
     graph: ComponentGraph | None = None,
     nodes: tuple[ComponentNode | None, ...] = (),
 ) -> bool:
+    """Whether feedback can reach a consumer in partial deliveries.
+
+    A structured graph with regions runs each evaluation plan inside its
+    region and delivers the plan's feedback once the plan completes, so only
+    region-less graphs see the partial delivery a runtime offers.
+    """
+    from saealib.core.compiler.structured import StructuredGraph
+
     offered = getattr(compile_context, "offered_runtime_capabilities", None)
-    return "partial_feedback" in (offered if offered is not None else frozenset())
+    if "partial_feedback" not in (offered if offered is not None else frozenset()):
+        return False
+    return not (isinstance(graph, StructuredGraph) and graph.region_nodes)
 
 
 def _target_requires_complete_batch(node: ComponentNode) -> bool:

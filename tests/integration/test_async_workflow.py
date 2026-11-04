@@ -58,7 +58,7 @@ from saealib.stages import (
     FeedbackStage,
     TellStage,
 )
-from saealib.strategies import DirectStrategy
+from saealib.strategies import DirectStrategy, GenerationBasedStrategy
 from saealib.surrogate.prediction import PredictionChannel, SurrogatePrediction
 
 ATTRS = [
@@ -2119,3 +2119,319 @@ def test_timeout_without_runtime_termination_keeps_fatal_tombstone():
     assert scheduler.pending_candidate_ids(state).tolist() == [10]
     assert state.async_fatal is not None
     assert state.async_fatal["request_id"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Async callbacks observe the run's own state ctx
+# ---------------------------------------------------------------------------
+
+
+def _ctx_progress_optimizer(strategy, seed=42, gen_limit=3):
+    from saealib import (
+        GA,
+        CrossoverBLXAlpha,
+        LHSInitializer,
+        MutationUniform,
+        Optimizer,
+        SequentialSelection,
+        Termination,
+        TruncationSelection,
+    )
+    from saealib.acquisition import MeanPrediction
+    from saealib.comparators import SingleObjectiveComparator
+    from saealib.surrogate.manager import LocalSurrogateManager
+    from saealib.surrogate.rbf import RBFSurrogate
+    from saealib.surrogate.rbf_kernels import GaussianKernel
+
+    problem = Problem(
+        func=lambda x: np.array([float(np.sum(np.asarray(x) ** 2))], dtype=np.float64),
+        dim=2,
+        n_obj=1,
+        direction=np.array([-1.0]),
+        lb=[-5.0] * 2,
+        ub=[5.0] * 2,
+        comparator=SingleObjectiveComparator(),
+    )
+    optimizer = (
+        Optimizer(problem, seed=seed)
+        .set_initializer(LHSInitializer(6, 4, seed))
+        .set_algorithm(
+            GA(
+                crossover=CrossoverBLXAlpha(prob=0.9, alpha=0.4),
+                mutation=MutationUniform(prob_var=0.1),
+                parent_selection=SequentialSelection(),
+                survivor_selection=TruncationSelection(),
+            )
+        )
+        .set_strategy(strategy)
+        .set_termination(Termination(lambda state: state.gen >= gen_limit))
+    )
+    if strategy.requires_surrogate:
+        optimizer = optimizer.set_surrogate_manager(
+            LocalSurrogateManager(RBFSurrogate(GaussianKernel()))
+        ).set_acquisition(MeanPrediction())
+    return optimizer
+
+
+@pytest.mark.parametrize(
+    "strategy_factory",
+    [
+        lambda: DirectStrategy(),
+        lambda: GenerationBasedStrategy(1),
+    ],
+    ids=["direct", "generation_based"],
+)
+def test_async_callbacks_read_gen_fe_and_population_from_ctx(strategy_factory):
+    from saealib.callback import (
+        GenerationEndEvent,
+        GenerationStartEvent,
+        PostAskEvent,
+        PostEvaluationEvent,
+    )
+    from saealib.surrogate.rbf import RBFSurrogate  # noqa: F401
+
+    strategy = strategy_factory()
+    optimizer = (
+        _ctx_progress_optimizer(strategy)
+        .set_evaluator(AsyncEvaluator(SerialEvaluator(), max_workers=2))
+        .set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(
+                AsyncEvaluator(SerialEvaluator(), max_workers=2), max_pending=2
+            )
+        )
+    )
+    observed: list[tuple[int, int, int]] = []
+
+    def on_event(event):
+        ctx = event.ctx
+        observed.append((ctx.gen, ctx.fe, len(ctx.population)))
+
+    for event_class in (
+        GenerationStartEvent,
+        PostAskEvent,
+        PostEvaluationEvent,
+        GenerationEndEvent,
+    ):
+        optimizer.cbmanager.register(event_class, on_event)
+
+    state = optimizer.run()
+
+    assert observed
+    # deliveries observed through the callbacks follow the run's progress:
+    # each generation observes the same delivered batches, so the
+    # (generation, delivered evaluations) pairs are exact
+    from collections import Counter
+
+    pairs = Counter((gen, fe) for gen, fe, _pop in observed)
+    expected = (
+        Counter(
+            {
+                (0, 6): 1,
+                (1, 6): 1,
+                (1, 8): 1,
+                (1, 10): 3,
+                (2, 10): 1,
+                (2, 12): 1,
+                (2, 14): 3,
+                (3, 14): 1,
+                (3, 16): 1,
+                (3, 18): 2,
+            }
+        )
+        if isinstance(strategy, DirectStrategy)
+        else Counter(
+            {
+                (0, 6): 1,
+                (1, 6): 1,
+                (2, 6): 1,
+                (2, 10): 3,
+                (3, 10): 1,
+                (4, 10): 1,
+                (4, 14): 1,
+            }
+        )
+    )
+    assert pairs == expected
+    for _gen, _fe, pop in observed:
+        assert pop == 4
+    assert observed[-1][0] == state.gen
+
+
+# ---------------------------------------------------------------------------
+# Direct asynchronous submission goes through the scheduler seam
+# ---------------------------------------------------------------------------
+
+
+def _direct_async_optimizer(evaluator: Any, max_pending: int) -> Any:
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_component_replacement import _problem, _RecordingGA
+
+    from saealib import LHSInitializer, Optimizer, Termination
+
+    return (
+        Optimizer(_problem(), seed=11)
+        .set_initializer(LHSInitializer(6, 4, 11))
+        .set_algorithm(_RecordingGA())
+        .set_strategy(DirectStrategy(n_offspring=3))
+        .set_termination(Termination(lambda state: state.gen >= 3))
+        .set_evaluator(evaluator)
+        .set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=max_pending)
+        )
+    )
+
+
+@pytest.mark.parametrize("order", ["fifo", "lifo"])
+def test_async_direct_chunks_stay_within_the_scheduler_capacity(order: str) -> None:
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_component_replacement import _DeterministicEvaluator
+
+    evaluator = _DeterministicEvaluator(
+        order=order, release_after_collects=1, max_collects=20000
+    )
+    original_submit = evaluator.submit
+    outstanding_sizes: list[int] = []
+
+    def submit(request: Any, problem: Any) -> Any:
+        handle = original_submit(request, problem)
+        outstanding_sizes.append(
+            len(
+                [
+                    item
+                    for item in evaluator.submitted
+                    if int(item.request_id) not in evaluator._delivered
+                ]
+            )
+        )
+        return handle
+
+    evaluator.__dict__["submit"] = submit
+    optimizer = _direct_async_optimizer(evaluator, max_pending=1)
+    state = optimizer.run()
+
+    assert state.gen == 3
+    assert not state.pending_evaluations
+    # one proposal of three candidates submits one candidate at a time
+    assert outstanding_sizes == [1] * 9
+    assert max(outstanding_sizes) == 1
+
+
+def test_async_direct_submissions_use_the_scheduler_evaluator() -> None:
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_component_replacement import (
+        _DeterministicEvaluator,
+        _problem,
+        _RecordingGA,
+    )
+
+    from saealib import LHSInitializer, Optimizer, Termination
+
+    optimizer_evaluator = _DeterministicEvaluator(max_collects=20000)
+    scheduler_evaluator = _DeterministicEvaluator(max_collects=20000)
+    optimizer = (
+        Optimizer(_problem(), seed=11)
+        .set_initializer(LHSInitializer(6, 4, 11))
+        .set_algorithm(_RecordingGA())
+        .set_strategy(DirectStrategy(n_offspring=3))
+        .set_termination(Termination(lambda state: state.gen >= 3))
+        .set_evaluator(optimizer_evaluator)
+        .set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(scheduler_evaluator, max_pending=1)
+        )
+    )
+    state = optimizer.run()
+
+    # every submission goes through the scheduler's evaluator and the run
+    # finishes by its termination condition
+    assert len(optimizer_evaluator.submitted) == 0
+    assert len(scheduler_evaluator.submitted) == 9
+    assert state.gen == 3
+    assert state.fe == 15
+    assert not state.pending_evaluations
+
+
+_TracedArchiveF = (
+    [4.1619431748],
+    [5.349115342],
+    [12.7456084538],
+    [14.2740182641],
+    [22.2798947913],
+    [33.5641720644],
+    [10.9133891647],
+    [6.8222656604],
+    [29.5381728472],
+    [10.5005935066],
+    [6.4227245782],
+    [3.1447090519],
+    [11.5420617674],
+    [28.3170226572],
+)
+
+
+@pytest.mark.parametrize("order", ["fifo", "lifo"])
+def test_async_direct_limited_capacity_matches_the_sequential_trace(order: str) -> None:
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_component_replacement import _DeterministicEvaluator
+
+    evaluator = _DeterministicEvaluator(
+        order=order, release_after_collects=1, max_collects=20000
+    )
+    optimizer = _direct_async_optimizer(evaluator, max_pending=1)
+    events: list[tuple[int, int]] = []
+    cbmanager = CallbackManager()
+    cbmanager.register(
+        PostEvaluationEvent, lambda event: events.append((event.ctx.gen, event.ctx.fe))
+    )
+    optimizer.cbmanager = cbmanager
+    state = optimizer.run()
+
+    # acknowledgements confirm every request exactly once, in submission order
+    assert [(request_id, sequence) for request_id, sequence in evaluator.acks] == [
+        (request_id, 0) for request_id in range(9)
+    ]
+    # one evaluation is delivered per generation chunk: three per generation
+    assert events == [
+        (1, 7),
+        (1, 8),
+        (1, 9),
+        (2, 10),
+        (2, 11),
+        (2, 12),
+        (3, 13),
+        (3, 14),
+        (3, 15),
+    ]
+    assert np.asarray(state.archive.get_array("id")).tolist() == [
+        0,
+        4,
+        2,
+        5,
+        3,
+        1,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+    ]
+    np.testing.assert_allclose(
+        np.asarray(state.archive.get_array("f")),
+        np.array(_TracedArchiveF),
+        rtol=1e-9,
+        atol=1e-9,
+    )

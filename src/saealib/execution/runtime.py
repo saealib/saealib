@@ -31,6 +31,7 @@ from saealib.core.compiler.regions import (
     LoopRegion,
     RegionNode,
     RepeatRegion,
+    SequenceRegion,
 )
 from saealib.core.compiler.structured import StructuredGraph
 from saealib.core.contracts.execution import RuntimeCapability
@@ -71,6 +72,7 @@ from saealib.execution.history import (
     record_generation,
 )
 from saealib.execution.prepare import BINDING_SLOTS
+from saealib.termination import Termination
 
 logger = logging.getLogger(__name__)
 
@@ -505,6 +507,15 @@ def _structured_async_plan_complete(state: OptimizationState) -> bool:
     return request_ids <= terminal
 
 
+def _structured_async_has_unacknowledged_deliveries(state: OptimizationState) -> bool:
+    """Delivered updates whose acknowledge step has not run yet."""
+    plan = getattr(state, "evaluation_plan", None)
+    plan_state = getattr(state, "evaluation_plan_state", None)
+    if plan is None or plan_state is None:
+        return False
+    return bool(set(plan_state.completed) - set(plan_state.acknowledged))
+
+
 def _structured_async_waiting(node: ComponentNode, state: OptimizationState) -> bool:
     return bool(
         EVALUATION_UPDATES in node.contract.state.writes
@@ -524,18 +535,61 @@ def _rewind_to_async_driver(
     frame = frames[-1]
     driver_index = None
     for index in range(frame.operation_index - 1, -1, -1):
-        operation = frame.graph.operations[index]
-        if (
-            isinstance(operation, ComponentNode)
-            and _async_leaf_driver(operation.component) is not None
-            and (marker := _async_protocol_marker(operation.component)) is not None
-            and marker[1] == "driver"
-        ):
+        if _is_async_driver(frame.graph.operations[index]):
             driver_index = index
             break
     if driver_index is None:
+        if len(frames) == 1 and frame.operation_index == 0:
+            return _frames_at_nested_async_driver(frame.graph) or frames
         return frames
     return (*frames[:-1], replace(frame, operation_index=driver_index))
+
+
+def _is_async_driver(operation: object) -> bool:
+    return (
+        isinstance(operation, ComponentNode)
+        and _async_leaf_driver(operation.component) is not None
+        and (marker := _async_protocol_marker(operation.component)) is not None
+        and marker[1] == "driver"
+    )
+
+
+def _frames_at_nested_async_driver(
+    graph: StructuredGraph,
+) -> tuple[RegionFrame, ...] | None:
+    """Frames that enter sequence regions down to the plan's async driver.
+
+    A run resumed from a checkpoint starts without frames; when its active
+    plan still has requests to submit, execution continues at the driver of
+    the sequence region that opened the plan instead of starting a new step.
+    """
+    for index, operation in enumerate(graph.operations):
+        if not isinstance(operation, RegionNode) or not isinstance(
+            operation.region, SequenceRegion
+        ):
+            continue
+        body = operation.region.body
+        if not isinstance(body, StructuredGraph):
+            continue
+        root = RegionFrame(graph=graph, operation_index=index)
+        for driver_index, child in enumerate(body.operations):
+            if _is_async_driver(child):
+                return (
+                    root,
+                    RegionFrame(
+                        graph=body,
+                        region_id=operation.region.qualified_id,
+                        operation_index=driver_index,
+                    ),
+                )
+        nested = _frames_at_nested_async_driver(body)
+        if nested is not None:
+            return (
+                root,
+                replace(nested[0], region_id=operation.region.qualified_id),
+                *nested[1:],
+            )
+    return None
 
 
 def _invoke_async_leaf(
@@ -572,6 +626,24 @@ async def _await_async_result(result: Awaitable[object]) -> object:
     return await result
 
 
+def _state_boundary_target(
+    component: object, name: str
+) -> Callable[..., OptimizationState] | None:
+    """Resolve a state-boundary runner through schema-freshened wrappers."""
+    target = component
+    for _ in range(4):
+        candidate = inspect.getattr_static(target, name, None)
+        if candidate is not None:
+            return cast(
+                Callable[[OptimizationState], OptimizationState],
+                getattr(target, name),
+            )
+        target = getattr(target, "_component", None)
+        if target is None:
+            return None
+    return None
+
+
 def _structured_async_leaf_executor(
     async_kwargs: dict[str, object],
 ) -> Callable[
@@ -583,6 +655,24 @@ def _structured_async_leaf_executor(
         state: OptimizationState,
         view: _BoundStateView,
     ) -> _LeafExecution:
+        if getattr(
+            node.component, "execution_boundary", "transaction"
+        ) == "state" and not _async_driver_required(node):
+            seam = _state_boundary_target(node.component, "execute_async_state")
+            if seam is not None:
+                return _LeafExecution(
+                    _invoke_async_leaf(
+                        seam,
+                        cast(_BoundStateView, state),
+                        async_kwargs,
+                    )
+                )
+            run_state = _state_boundary_target(node.component, "execute_state")
+            if run_state is None:
+                raise ValidationError(
+                    f"state-boundary node {node.component_id!r} lost its runner"
+                )
+            return _LeafExecution(run_state(state))
         target = _async_leaf_driver(node.component)
         if target is None:
             if _async_driver_required(node):
@@ -770,6 +860,22 @@ def _execute_structured(
         executed.append(node.component_id)
         if debug_enabled:
             logger.debug("Runtime node start: %s", node.component_id)
+        if (
+            not async_control
+            and getattr(node.component, "execution_boundary", "transaction") == "state"
+        ):
+            run_state = _state_boundary_target(node.component, "execute_state")
+            if run_state is None:
+                raise ValidationError(
+                    f"state-boundary node {node.component_id!r} lost its runner"
+                )
+            next_state = run_state(current)
+            current = next_state
+            if observe is not None:
+                observe(current)
+            results.append(NodeResult(patch=StatePatch(writes={})))
+            stack[-1] = replace(frame, operation_index=frame.operation_index + 1)
+            continue
         aliases = _node_state_aliases(plan, node)
         view = current._store.view(
             tuple({aliases.get(key, key) for key in node.contract.state.reads}),
@@ -788,6 +894,14 @@ def _execute_structured(
             else _LeafExecution(plan._execute_targets[node.component_id](bound_view))
         )
         raw = leaf.raw
+        if isinstance(raw, OptimizationState):
+            # A declared state-boundary leaf returned the run's own state.
+            current = raw
+            if observe is not None:
+                observe(current)
+            results.append(NodeResult(patch=StatePatch(writes={})))
+            stack[-1] = replace(frame, operation_index=frame.operation_index + 1)
+            continue
         if isinstance(raw, StatePatch):
             result = NodeResult(patch=raw)
         elif isinstance(raw, NodeResult):
@@ -1072,6 +1186,41 @@ def _iter_plan_components_from_graph(
                 yield from _iter_plan_components_from_graph(body)
 
 
+def _structured_true_feedback_builder(plan: object) -> object | None:
+    """Return the builder of the Stage that feeds a plan's true evaluations back.
+
+    A structured plan builds true feedback in the ``FeedbackStage`` of the
+    sequence that plans the evaluations; asynchronous delivery uses that same
+    builder.  ``None`` when the plan has no such unique Stage.
+    """
+    from saealib.stages import EvaluationPlanStage, FeedbackStage
+
+    if not isinstance(plan, StructuredPlan):
+        return None
+    builders: list[object] = []
+
+    def visit(graph: StructuredGraph) -> None:
+        stages = tuple(
+            getattr(operation.component, "stage", None)
+            for operation in graph.operations
+            if isinstance(operation, ComponentNode)
+        )
+        if any(isinstance(stage, EvaluationPlanStage) for stage in stages):
+            builders.extend(
+                stage._builder for stage in stages if isinstance(stage, FeedbackStage)
+            )
+        for region_node in graph.region_nodes:
+            for body in (
+                region_node.region.body,
+                getattr(region_node.region, "otherwise", None),
+            ):
+                if isinstance(body, StructuredGraph):
+                    visit(body)
+
+    visit(plan.graph)
+    return builders[0] if len(builders) == 1 else None
+
+
 def _plan_has_unfinished_async_work(
     plan: SequentialPlan | StructuredPlan, state: OptimizationState
 ) -> bool:
@@ -1094,14 +1243,7 @@ class _OptimizerEnvironment:
             strategy_values=self._strategy_values(),
         )
         self.capabilities = _algorithm_runtime_capabilities(optimizer)
-        self._publish_scheduler()
-        scheduler = getattr(optimizer, "async_evaluation_scheduler", None)
-        if scheduler is not None and any(
-            getattr(insertion, "adapter_name", None) == "feedback_accumulator"
-            for insertion in plan.plan.inserted_adapters
-        ):
-            # The graph owns delivery; the seam only enables scheduler state.
-            scheduler.enable_feedback_accumulator()
+        self._publish_scheduler(plan.plan)
 
     @property
     def active_version(self) -> int:
@@ -1195,18 +1337,25 @@ class _OptimizerEnvironment:
             values=bindings,
             strategy_values=strategy_values,
         )
-        self._publish_scheduler()
+        self._publish_scheduler(executable)
 
-    def _publish_scheduler(self) -> None:
+    def _publish_scheduler(self, executable: ExecutablePlan) -> None:
         """Serve the scheduler from the active snapshot, never live reads.
 
         The feedback builder is served by the submission that opens each
         request; requests restored from a checkpoint commit with the builder
-        the scheduler already holds.
+        the scheduler already holds.  The scheduler accumulates partial
+        feedback once a published plan has the compiler-inserted
+        accumulator.
         """
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
         if scheduler is None:
             return
+        if any(
+            getattr(insertion, "adapter_name", None) == "feedback_accumulator"
+            for insertion in executable.inserted_adapters
+        ):
+            scheduler.enable_feedback_accumulator()
         values = self._active_snapshot.values
         updated = {
             "algorithm": values.get("algorithm"),
@@ -1472,7 +1621,7 @@ def execute_strategy_step(
         runtime = PipelineRuntime()
         session = runtime.initialize(plan, state)
         return runtime.advance(session).state
-    if isinstance(graph, StructuredGraph):
+    if isinstance(graph, StructuredGraph) and graph.region_nodes:
         raise ValidationError(
             "async strategy steps require a sequential graph execution seam"
         )
@@ -1483,6 +1632,7 @@ def execute_strategy_step(
             or len(state.pending_evaluations) >= scheduler.max_pending
         ):
             return state
+    structured = isinstance(graph, StructuredGraph)
     optimizer = SimpleNamespace(
         strategy=strategy,
         problem=state.problem,
@@ -1491,12 +1641,21 @@ def execute_strategy_step(
         feedback_builder=getattr(provider, "feedback_builder", None),
         cbmanager=getattr(provider, "cbmanager", None),
         async_evaluation_scheduler=scheduler,
+        dispatch=getattr(provider, "dispatch", None) or (lambda event: None),
+        termination=getattr(provider, "termination", None)
+        or Termination(lambda ctx: False),
     )
-    environment = _OptimizerEnvironment(
-        optimizer, SequentialPlan.from_executable_plan(plan)
-    )
+    if structured:
+        # Graph-native region-less plans reuse the asynchronous structured
+        # runtime branch; the strategy-step seam remains reserved for
+        # sequential plans.
+        runtime = AsyncPipelineRuntime(
+            _OptimizerEnvironment(optimizer, StructuredPlan.from_executable_plan(plan))
+        )
+        session = runtime.initialize(plan, state)
+        return runtime.advance(session).state
     sequential = SequentialPlan.from_executable_plan(plan)
-    environment.recompile(sequential)
+    environment = _OptimizerEnvironment(optimizer, sequential)
     return environment.execute_async(sequential, state)
 
 
@@ -1930,7 +2089,11 @@ class AsyncPipelineRuntime(PipelineRuntime):
         snapshot_values = getattr(environment, "binding_values", None)
         if callable(snapshot_values):
             bindings = snapshot_values()
-            builder = bindings.get("feedback_builder")
+            builder = _structured_true_feedback_builder(
+                getattr(environment, "plan", None)
+            )
+            if builder is None:
+                builder = bindings.get("feedback_builder")
             if builder is None:
                 builder = getattr(bindings.get("strategy"), "feedback_builder", None)
             return {
@@ -2041,14 +2204,44 @@ class AsyncPipelineRuntime(PipelineRuntime):
                     plan=plan,
                 )
         if environment.is_terminated(state):
-            environment.dispatch(RunEndEvent(ctx=state))
-            return self._step(
-                session,
-                state,
-                generation_open,
-                finished=True,
-                plan=plan,
-            )
+            # Region-bound flows end the run here even while the last delivery
+            # or a blocked frame still owes work.
+            if plan.graph.region_nodes:
+                environment.dispatch(RunEndEvent(ctx=state))
+                return self._step(
+                    session,
+                    state,
+                    generation_open,
+                    finished=True,
+                    plan=plan,
+                )
+            if (
+                not session.frames
+                and not _structured_async_has_unacknowledged_deliveries(state)
+            ):
+                # Region-less flows close the drained generation boundary
+                # before the run end so the final tell and acknowledge belong
+                # to this run.
+                if generation_open:
+                    environment.finish_generation(state)
+                else:
+                    environment.dispatch(RunEndEvent(ctx=state))
+                    return self._step(
+                        session,
+                        state,
+                        generation_open,
+                        finished=True,
+                        plan=plan,
+                    )
+                environment.dispatch(RunEndEvent(ctx=state))
+                return self._step(
+                    session,
+                    state,
+                    False,
+                    observable=True,
+                    finished=True,
+                    plan=plan,
+                )
         if not generation_open:
             environment.dispatch(GenerationStartEvent(ctx=state))
             generation_open = True

@@ -8,7 +8,7 @@ compiler vocabulary a component-shaped view of the components a stage holds.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import pairwise
 from typing import Any, cast
 
@@ -20,6 +20,7 @@ from saealib.core.compiler.graph import (
     NodeRef,
     StateBinding,
 )
+from saealib.core.compiler.structured import StructuredGraph
 from saealib.core.contracts import (
     AssumptionSet,
     ComponentContract,
@@ -42,6 +43,7 @@ __all__ = [
     "build_decomposed_component_graph",
     "build_decomposed_component_graph_from_specs",
     "build_decomposed_component_graph_from_stages",
+    "decompose_structured_graph",
 ]
 
 _MAX_CACHED_EXECUTION_UNWRAPS = 8
@@ -243,6 +245,7 @@ def _compose_contracts(held: Sequence[_HeldComponent]) -> ComponentContract:
 
 
 def _surrogate_key_name(node_id: str, item: _HeldComponent) -> str:
+    node_id = node_id.replace(".", "__")
     installed_name = item.installed_name
     if installed_name is None:
         ignored = {
@@ -611,32 +614,42 @@ def _decomposed_role_node(
     return None
 
 
-def build_decomposed_component_graph_from_specs(
-    specs: Sequence[NodeAdapterSpec],
-) -> ComponentGraph:
-    """Build the canonical graph from ordered component/adapter specs.
+@dataclass(frozen=True)
+class _StageDecomposition:
+    """Part nodes, part edges, and part bindings of an ordered Stage sequence.
 
-    ``build_component_graph`` remains the Stage bridge.  This function is an
-    opt-in decomposed path: each Stage is retained as the sole executable node,
-    while every declared part gets its own contract-bearing node.  Part nodes are
-    connected into the Stage control chain so ordering remains unique; data
-    edges target the part that owns the declared port and never encode control
-    side effects.
+    ``part_nodes[i]`` maps part names of the ``i``-th Stage to their
+    ``(node id, node)`` pairs in declaration order.  ``control_edges`` chain
+    each Stage through its own parts to the next Stage; ``data_edges`` connect
+    the declared ports of parts held by an earlier Stage to a later one.
     """
-    specs = tuple(specs)
-    if any(not isinstance(spec, NodeAdapterSpec) for spec in specs):
-        raise ValidationError("graph specs must contain NodeAdapterSpec values")
-    stage_ids = tuple(spec.component_id for spec in specs)
-    if len(set(stage_ids)) != len(stage_ids):
-        raise ValidationError("graph specs must have unique component_id values")
-    stage_adapters = tuple(spec.adapter for spec in specs)
-    stages = tuple(adapter.stage for adapter in stage_adapters)
-    held_by_stage = tuple(adapter._held for adapter in stage_adapters)
-    stage_nodes = tuple(
-        ComponentNode(component_id=stage_id, component=adapter)
-        for stage_id, adapter in zip(stage_ids, stage_adapters)
-    )
-    nodes: list[ComponentNode] = list(stage_nodes)
+
+    part_nodes: tuple[Mapping[str, tuple[str, ComponentNode]], ...]
+    control_edges: tuple[ControlEdge, ...]
+    data_edges: tuple[DataEdge, ...]
+    state_bindings: tuple[StateBinding, ...]
+
+    @property
+    def nodes(self) -> tuple[ComponentNode, ...]:
+        """Every part node, Stage by Stage."""
+        return tuple(
+            node for parts in self.part_nodes for _part_id, node in parts.values()
+        )
+
+
+def _decompose_stages(
+    stage_ids: Sequence[str],
+    stages: Sequence[Stage],
+    stage_nodes: Sequence[ComponentNode],
+    held_by_stage: Sequence[tuple[_HeldComponent, ...]],
+) -> _StageDecomposition:
+    """Expand ordered Stage nodes into ``(component, role)`` part nodes.
+
+    Each Stage stays the sole executable node of its parts.  Every declared
+    part gets its own contract-bearing node; a held component that the
+    Stage contract does not declare is exposed as a ``held_N`` part so its
+    ports stay visible to the compiler.
+    """
     part_nodes_by_stage: list[dict[str, tuple[str, ComponentNode]]] = []
     for stage_id, stage, stage_node, held in zip(
         stage_ids, stages, stage_nodes, held_by_stage
@@ -657,13 +670,8 @@ def build_decomposed_component_graph_from_specs(
                 component_id=part_id,
                 component=StagePartNodeAdapter(component, part.contract),
             )
-            nodes.append(part_node)
             stage_parts[part.name] = (part_id, part_node)
             declared_components.add(id(component))
-        # Declarations are authoritative for direct Stage state, but the
-        # Held objects still own ports on a few compatibility stages.
-        # Discover those objects as additional part nodes so no existing port
-        # disappears merely because its Stage contract has not migrated yet.
         for item_index, item in enumerate(held, start=1):
             if id(item.component) in declared_components:
                 continue
@@ -675,7 +683,6 @@ def build_decomposed_component_graph_from_specs(
                 component_id=part_id,
                 component=StagePartNodeAdapter(item.component, item.contract),
             )
-            nodes.append(part_node)
             stage_parts[part_name] = (part_id, part_node)
         part_nodes_by_stage.append(stage_parts)
 
@@ -761,12 +768,127 @@ def build_decomposed_component_graph_from_specs(
                             )
                         )
 
-    return ComponentGraph(
-        nodes=tuple(nodes),
-        data_edges=tuple(data_edges),
+    return _StageDecomposition(
+        part_nodes=tuple(part_nodes_by_stage),
         control_edges=tuple(control_edges),
+        data_edges=tuple(data_edges),
         state_bindings=tuple(bindings),
+    )
+
+
+def build_decomposed_component_graph_from_specs(
+    specs: Sequence[NodeAdapterSpec],
+) -> ComponentGraph:
+    """Build the canonical graph from ordered component/adapter specs.
+
+    ``build_component_graph`` remains the Stage bridge.  This function is an
+    opt-in decomposed path: each Stage is retained as the sole executable node,
+    while every declared part gets its own contract-bearing node.  Part nodes are
+    connected into the Stage control chain so ordering remains unique; data
+    edges target the part that owns the declared port and never encode control
+    side effects.
+    """
+    specs = tuple(specs)
+    if any(not isinstance(spec, NodeAdapterSpec) for spec in specs):
+        raise ValidationError("graph specs must contain NodeAdapterSpec values")
+    stage_ids = tuple(spec.component_id for spec in specs)
+    if len(set(stage_ids)) != len(stage_ids):
+        raise ValidationError("graph specs must have unique component_id values")
+    stage_adapters = tuple(spec.adapter for spec in specs)
+    stage_nodes = tuple(
+        ComponentNode(component_id=stage_id, component=adapter)
+        for stage_id, adapter in zip(stage_ids, stage_adapters)
+    )
+    decomposition = _decompose_stages(
+        stage_ids,
+        tuple(adapter.stage for adapter in stage_adapters),
+        stage_nodes,
+        tuple(adapter._held for adapter in stage_adapters),
+    )
+    return ComponentGraph(
+        nodes=(*stage_nodes, *decomposition.nodes),
+        data_edges=decomposition.data_edges,
+        control_edges=decomposition.control_edges,
+        state_bindings=decomposition.state_bindings,
         entry_points=(NodeRef(component_id=stage_ids[0]),) if stage_ids else (),
+    )
+
+
+def decompose_structured_graph(graph: StructuredGraph) -> StructuredGraph:
+    """Add the ``(component, role)`` part nodes of a lowered structured graph.
+
+    Every Stage the graph runs is expanded as
+    :func:`build_decomposed_component_graph_from_specs` expands a Stage
+    sequence: its parts are chained between the Stage and the Stage's control
+    successors, and data edges join the declared ports of Stages that run in
+    the same sequence.  Operations are left unchanged, so the Stages stay the
+    executable nodes and the part nodes are verification-only.
+
+    Data edges are not added between Stages in different sequences, such as
+    a Stage inside a region and a Stage in the enclosing sequence, so the
+    port contracts between them are not checked.
+    """
+    sequences: list[tuple[ComponentNode, ...]] = []
+
+    def collect(current: StructuredGraph) -> None:
+        leaves = tuple(
+            operation
+            for operation in current.operations
+            if isinstance(operation, ComponentNode)
+            and isinstance(getattr(operation.component, "stage", None), Stage)
+        )
+        if leaves:
+            sequences.append(leaves)
+        for region_node in current.region_nodes:
+            region = region_node.region
+            for body in (region.body, getattr(region, "otherwise", None)):
+                if isinstance(body, StructuredGraph):
+                    collect(body)
+
+    collect(graph)
+    part_nodes: list[ComponentNode] = []
+    data_edges: list[DataEdge] = []
+    bindings: list[StateBinding] = []
+    chains: dict[str, tuple[str, ...]] = {}
+    for leaves in sequences:
+        stages = tuple(cast(Stage, getattr(node.component, "stage")) for node in leaves)
+        decomposition = _decompose_stages(
+            tuple(node.component_id for node in leaves),
+            stages,
+            leaves,
+            tuple(_held_components(stage) for stage in stages),
+        )
+        part_nodes.extend(decomposition.nodes)
+        data_edges.extend(decomposition.data_edges)
+        bindings.extend(decomposition.state_bindings)
+        for node, parts in zip(leaves, decomposition.part_nodes):
+            if parts:
+                chains[node.component_id] = tuple(
+                    part_id for part_id, _ in parts.values()
+                )
+    if not part_nodes:
+        return graph
+    control_edges: list[ControlEdge] = []
+    for edge in graph.control_edges:
+        chain = chains.get(edge.source.component_id)
+        if chain is None:
+            control_edges.append(edge)
+        else:
+            control_edges.append(replace(edge, source=NodeRef(component_id=chain[-1])))
+    for stage_id, chain in chains.items():
+        control_edges.extend(
+            ControlEdge(
+                source=NodeRef(component_id=source),
+                target=NodeRef(component_id=target),
+            )
+            for source, target in pairwise((stage_id, *chain))
+        )
+    return replace(
+        graph,
+        nodes=(*graph.nodes, *part_nodes),
+        data_edges=(*graph.data_edges, *data_edges),
+        control_edges=tuple(control_edges),
+        state_bindings=tuple(dict.fromkeys((*graph.state_bindings, *bindings))),
     )
 
 

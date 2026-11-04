@@ -344,14 +344,17 @@ def test_generation_based_policies_distinguish_bundled_and_explicit():
     )
     strategy = GenerationBasedStrategy(1)
     pipeline = cast(Any, strategy).build_pipeline(cast(Any, provider))
-    surrogate_generations = pipeline["surrogate_generations"]
-    true_generation = pipeline["true_generation"]
-    inner_feedback = surrogate_generations.body.stages[4].stage._builder
-    outer_feedback = true_generation.stages[7].stage._builder
+    surrogate_generations = pipeline.find("surrogate_generations", recursive=True)
+    true_generation = pipeline.find("true_generation", recursive=True)
+    inner_feedback = surrogate_generations.body.stages[4]._builder
+    outer_feedback = true_generation.stages[7]._builder
     assert isinstance(inner_feedback, PredictedFeedback)
     assert isinstance(outer_feedback, TrueOnlyFeedback)
 
     provider.feedback_builder = NoFeedback()
     provider.feedback_builder_explicit = True
     pipeline = cast(Any, strategy).build_pipeline(cast(Any, provider))
-    assert isinstance(pipeline["true_generation"].stages[7].stage._builder, NoFeedback)
+    assert isinstance(
+        pipeline.find("true_generation", recursive=True).stages[7]._builder,
+        NoFeedback,
+    )

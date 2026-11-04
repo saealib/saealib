@@ -44,9 +44,13 @@ from saealib.exceptions import ValidationError
 from saealib.execution.runner import Runner
 from saealib.execution.runtime import create_runtime
 from saealib.pipeline import ComponentRef, Pipeline, Repeat, Stage
-from saealib.policies.evaluation import EvaluateAll
+from saealib.policies.evaluation import (
+    EvaluateAll,
+    RepeatedEvaluation,
+)
 from saealib.policies.feedback import (
     MixedFeedback,
+    NoFeedback,
     PredictedFeedback,
     TrueOnlyFeedback,
 )
@@ -627,7 +631,10 @@ def test_surrogate_only_loop_keeps_explicit_components_next_to_references() -> N
         2,
         acquisition=optimizer.acquisition,
     )
-    resolved = resolve_declaration(Pipeline([mixed], name="loop"), bindings).steps[0]
+    resolved_pipeline = cast(
+        Any, resolve_declaration(Pipeline([mixed], name="loop"), bindings)
+    )
+    resolved = resolved_pipeline.steps[0]
     assert resolved._algorithm is optimizer.algorithm
     assert resolved._acquisition is optimizer.acquisition
     assert resolved._sm is optimizer.surrogate_manager
@@ -642,7 +649,10 @@ def test_surrogate_only_loop_keeps_explicit_components_next_to_references() -> N
         acquisition=ComponentRef("acquisition"),
         feedback_builder=builder,
     )
-    resolved = resolve_declaration(Pipeline([loop], name="loop"), bindings).steps[0]
+    resolved_pipeline = cast(
+        Any, resolve_declaration(Pipeline([loop], name="loop"), bindings)
+    )
+    resolved = resolved_pipeline.steps[0]
     inner_feedback = [
         stage for stage in resolved.stages if isinstance(stage, FeedbackStage)
     ]
@@ -693,6 +703,83 @@ def test_resolved_contract_matches_the_component_holding_constructor() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _policy_run(
+    kind: str,
+    planner: Any,
+    feedback: Any,
+    *,
+    expert_planner: Any = None,
+    expert_feedback: Any = None,
+) -> tuple[Any, int]:
+    """Run one policy probe; return the final state and the tell count.
+
+    True evaluations and tells count the components that actually drove the
+    run, not just the attributes resolution would report.
+    """
+    strategy = DirectStrategy() if kind == "direct" else GenerationBasedStrategy(0)
+    strategy.evaluation_planner = planner
+    if kind == "direct":
+        strategy.feedback_builder = feedback
+    else:
+        cast(Any, strategy).true_feedback_builder = feedback
+    algorithm = _RecordingGA()
+    optimizer = _build_optimizer(algorithm, strategy, seed=17)
+    optimizer.set_termination(Termination(lambda state: state.gen >= 6))
+    if expert_planner is not None:
+        optimizer.set_evaluation_planner(expert_planner)
+    if expert_feedback is not None:
+        optimizer.set_feedback_builder(expert_feedback)
+    state = optimizer.run()
+    return state, len(algorithm.tell_xs)
+
+
+N_INIT, POPULATION, N_GEN = 6, 4, 6
+
+
+@pytest.mark.parametrize("kind", ["direct", "gb"])
+def test_empty_optimizer_planner_slot_uses_the_strategy_own_planner(kind: str) -> None:
+    state, tells = _policy_run(kind, RepeatedEvaluation(2), NoFeedback())
+    assert state.fe == N_INIT + 2 * POPULATION * N_GEN
+    assert tells == 0
+
+
+@pytest.mark.parametrize("kind", ["direct", "gb"])
+def test_empty_optimizer_feedback_slot_uses_the_strategy_own_feedback(
+    kind: str,
+) -> None:
+    state, tells = _policy_run(kind, EvaluateAll(), NoFeedback())
+    assert state.fe == N_INIT + POPULATION * N_GEN
+    assert tells == 0
+
+
+@pytest.mark.parametrize("kind", ["direct", "gb"])
+def test_explicit_optimizer_planner_slot_wins_over_the_strategy_own_planner(
+    kind: str,
+) -> None:
+    state, tells = _policy_run(
+        kind,
+        RepeatedEvaluation(2),
+        NoFeedback(),
+        expert_planner=RepeatedEvaluation(1),
+    )
+    assert state.fe == N_INIT + POPULATION * N_GEN
+    assert tells == 0
+
+
+@pytest.mark.parametrize("kind", ["direct", "gb"])
+def test_explicit_optimizer_feedback_slot_wins_over_the_strategy_own_feedback(
+    kind: str,
+) -> None:
+    state, tells = _policy_run(
+        kind,
+        EvaluateAll(),
+        NoFeedback(),
+        expert_feedback=TrueOnlyFeedback(),
+    )
+    assert state.fe == N_INIT + POPULATION * N_GEN
+    assert tells == N_GEN
+
+
 def _build_optimizer(
     algorithm: Any,
     strategy: Any,
@@ -726,8 +813,9 @@ def _capturing_runner(optimizer: Any) -> tuple[Runner, dict[str, Any]]:
 
 def _plan_ask_components(plan: Any) -> list[Any]:
     """Components the plan's ask stages resolved to."""
+    graph = plan.graph if hasattr(plan, "graph") else plan.plan.graph
     components = []
-    for node in plan.graph.nodes:
+    for node in graph.nodes:
         stage = getattr(node.component, "stage", None)
         if getattr(stage, "name", "") == "ask":
             components.append(getattr(stage, "_algorithm"))
@@ -938,8 +1026,12 @@ def _fallback_feedback_template() -> TemplateStrategy:
 
 @pytest.mark.parametrize(
     ("strategy_factory", "surrogate"),
-    [(_fallback_feedback_template, False)],
-    ids=["template-with-fallback"],
+    [
+        (_fallback_feedback_template, False),
+        (DirectStrategy, False),
+        (lambda: GenerationBasedStrategy(1), True),
+    ],
+    ids=["template-with-fallback", "direct", "generation-based"],
 )
 def test_strategy_step_runs_the_pipeline_it_keeps(
     monkeypatch: pytest.MonkeyPatch, strategy_factory: Any, surrogate: bool

@@ -240,10 +240,12 @@ def _lower_sequence_with_exits(
             operations.append(node)
             bindings.extend(
                 StateBinding(node=NodeRef(component_id=child_namespace), state_key=key)
-                for key in (
-                    *contract.state.reads,
-                    *contract.state.writes,
-                    *contract.state.exports,
+                for key in dict.fromkeys(
+                    (
+                        *contract.state.reads,
+                        *contract.state.writes,
+                        *contract.state.exports,
+                    )
                 )
             )
             effects.append(contract.state)
@@ -274,12 +276,21 @@ def _lower_sequence_with_exits(
     ), previous
 
 
-def lower_structured(value: object | Sequence[object]) -> StructuredGraph:
-    """Recursively lower a Pipeline-like sequence without runtime execution."""
+def lower_structured(
+    value: object | Sequence[object], *, namespace: str | None = None
+) -> StructuredGraph:
+    """Recursively lower a Pipeline-like sequence without runtime execution.
+
+    ``namespace`` overrides the node-ID prefix the value's own name would
+    produce: ``None`` keeps the display name, ``""`` lowers nested nodes
+    under their bare local IDs without a qualifier.
+    """
     items = _pipeline_items(value)
     if items is None:
         raise ValidationError("lower_structured requires a Pipeline or sequence")
-    return _lower_sequence(items, _pipeline_name(value))
+    return _lower_sequence(
+        items, _pipeline_name(value) if namespace is None else namespace
+    )
 
 
 lower_pipeline = lower_structured

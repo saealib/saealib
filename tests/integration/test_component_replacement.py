@@ -1,4 +1,4 @@
-"""Replacement of optimizer components between commit points (issue #286).
+"""Replacement of optimizer components between commit points.
 
 Each slot the Optimizer exposes is bound to a component at a commit point:
 a replacement observed there rebuilds the plan and publishes the new active
@@ -38,7 +38,11 @@ from saealib.execution.runner import Runner
 from saealib.execution.runtime import create_runtime, resolve_plan
 from saealib.policies.feedback import TrueOnlyFeedback
 from saealib.problem import Problem
-from saealib.strategies import DirectStrategy, SteadyStateStrategy
+from saealib.strategies import (
+    DirectStrategy,
+    GenerationBasedStrategy,
+    SteadyStateStrategy,
+)
 
 
 def _problem(dim: int = 2) -> Problem:
@@ -530,6 +534,28 @@ def test_steady_state_replacement_drains_outstanding_proposals() -> None:
     assert len(ga.asks) >= 1
 
 
+# ---------------------------------------------------------------------------
+# Strategy replacement at commit points, both directions
+# ---------------------------------------------------------------------------
+
+
+def _surrogate_optimizer_for_swap(strategy, seed=7):
+    from saealib.acquisition import MeanPrediction
+    from saealib.surrogate.manager import LocalSurrogateManager
+    from saealib.surrogate.rbf import RBFSurrogate
+    from saealib.surrogate.rbf_kernels import GaussianKernel
+
+    return (
+        Optimizer(_problem(), seed=seed)
+        .set_initializer(LHSInitializer(6, 4, seed))
+        .set_algorithm(_RecordingGA())
+        .set_surrogate_manager(LocalSurrogateManager(RBFSurrogate(GaussianKernel())))
+        .set_acquisition(MeanPrediction())
+        .set_strategy(strategy)
+        .set_termination(Termination(lambda state: state.gen >= 6))
+    )
+
+
 @pytest.mark.parametrize(
     "strategy",
     [SteadyStateStrategy(), DirectStrategy(1)],
@@ -575,3 +601,77 @@ def test_async_reverting_a_pending_replacement_keeps_the_run_running(
     assert session.state.fe >= 14
     assert environment._publication_deferred is False
     assert len(first.asks) >= 2
+
+
+def test_replacing_direct_with_generation_based_mid_run_keeps_running():
+    optimizer = _surrogate_optimizer_for_swap(DirectStrategy())
+    generator = optimizer.iterate()
+    next(generator)
+    next(generator)
+    optimizer.set_strategy(GenerationBasedStrategy(1))
+    state = optimizer.run()
+    assert state.gen == 6
+
+
+def test_replacing_generation_based_with_direct_mid_run_keeps_running():
+    optimizer = _surrogate_optimizer_for_swap(GenerationBasedStrategy(1), seed=11)
+    generator = optimizer.iterate()
+    next(generator)
+    next(generator)
+    optimizer.set_strategy(DirectStrategy())
+    state = optimizer.run()
+    assert state.gen == 6
+
+
+def test_strategy_replacement_publishes_one_binding_version():
+    from saealib.execution.runner import Runner
+    from saealib.execution.runtime import create_runtime
+
+    optimizer = _surrogate_optimizer_for_swap(DirectStrategy(), seed=23)
+    captured = {}
+
+    def factory(optimizer_obj):
+        runtime = create_runtime(optimizer_obj)
+        captured["environment"] = getattr(runtime, "environment", None)
+        return runtime
+
+    generator = Runner(optimizer, runtime_factory=factory).iterate()
+    next(generator)
+    baseline_version = captured["environment"].active_version
+
+    optimizer.set_strategy(GenerationBasedStrategy(1))
+    for _state in generator:
+        pass
+
+    assert captured["environment"].active_version - baseline_version == 1
+
+
+def test_async_generation_based_replacement_waits_for_in_flight_requests() -> None:
+    first = _RecordingGA()
+    second = _RecordingGA()
+    evaluator = _DeterministicEvaluator(release_after_collects=1, max_collects=4000)
+    optimizer = _surrogate_optimizer_for_swap(GenerationBasedStrategy(1))
+    optimizer.set_algorithm(first).set_evaluator(evaluator)
+    optimizer.set_async_evaluation_scheduler(
+        AsyncEvaluationScheduler(evaluator, max_pending=1)
+    )
+    swapped: list[int] = []
+
+    def on_post_ask(event: Any) -> None:
+        if not swapped and event.ctx.gen == 3:
+            swapped.append(len(first.asks))
+            optimizer.set_algorithm(second)
+
+    cbm = CallbackManager()
+    cbm.register(PostAskEvent, on_post_ask)
+    optimizer.cbmanager = cbm
+    state = optimizer.run()
+
+    first_asked = {row for rows in first.ask_xs for row in rows}
+    second_asked = {row for rows in second.ask_xs for row in rows}
+    assert swapped
+    assert state.gen >= 6
+    assert first.asks and second.asks and second.tell_xs
+    assert first_asked.isdisjoint(second_asked)
+    assert all(row in first_asked for rows in first.tell_xs for row in rows)
+    assert all(row in second_asked for rows in second.tell_xs for row in rows)

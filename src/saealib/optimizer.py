@@ -1177,6 +1177,14 @@ class Optimizer:
                 component = plan.graph.node_by_id(component_id).component
                 component_name = getattr(component, "component", component)
                 rejected.append(f"{component_id} ({type(component_name).__name__})")
+                continue
+            for part in contract.parts:
+                if not part.contract.assumptions["state.checkpointable"]:
+                    component = plan.graph.node_by_id(component_id).component
+                    held = getattr(getattr(component, "stage", None), part.name, None)
+                    rejected.append(
+                        f"{component_id}__{part.name} ({type(held).__name__})"
+                    )
         if rejected:
             raise ConfigurationError(
                 "Portable checkpointing requires state.checkpointable=True; "

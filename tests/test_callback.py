@@ -586,3 +586,160 @@ class TestPostEvaluationDispatch:
         strategy.step(ctx, opt)
 
         assert order.index(SurrogateEndEvent) < order.index(PostEvaluationEvent)
+
+
+# ---------------------------------------------------------------------------
+# Callback handlers observe the run's own state ctx
+# ---------------------------------------------------------------------------
+
+
+def _progress_problem() -> Problem:
+    import numpy as np
+
+    return Problem(
+        func=lambda x: np.array([float(np.sum(np.asarray(x) ** 2))], dtype=np.float64),
+        dim=2,
+        n_obj=1,
+        direction=np.array([-1.0]),
+        lb=[-5.0] * 2,
+        ub=[5.0] * 2,
+        comparator=SingleObjectiveComparator(),
+    )
+
+
+def _progress_ga():
+    from saealib import (
+        GA,
+        CrossoverBLXAlpha,
+        MutationUniform,
+        SequentialSelection,
+        TruncationSelection,
+    )
+
+    return GA(
+        crossover=CrossoverBLXAlpha(prob=0.9, alpha=0.4),
+        mutation=MutationUniform(prob_var=0.1),
+        parent_selection=SequentialSelection(),
+        survivor_selection=TruncationSelection(),
+    )
+
+
+def _progress_optimizer(strategy, seed=7):
+    from saealib import LHSInitializer, Optimizer, Termination
+
+    return (
+        Optimizer(_progress_problem(), seed=seed)
+        .set_initializer(LHSInitializer(6, 4, seed))
+        .set_algorithm(_progress_ga())
+        .set_strategy(strategy)
+        .set_termination(Termination(lambda state: state.gen >= 3))
+    )
+
+
+def test_direct_strategy_callbacks_read_gen_fe_and_population_from_ctx():
+    from saealib import DirectStrategy
+
+    optimizer = _progress_optimizer(DirectStrategy())
+    observed: list[tuple[int, int, int]] = []
+
+    def on_event(event):
+        ctx = event.ctx
+        observed.append((ctx.gen, ctx.fe, len(ctx.population)))
+
+    for event_class in (
+        GenerationStartEvent,
+        PostAskEvent,
+        PostEvaluationEvent,
+        GenerationEndEvent,
+    ):
+        optimizer.cbmanager.register(event_class, on_event)
+
+    state = optimizer.run()
+
+    assert state.gen == 3
+    assert observed
+    for gen, fe, pop in observed:
+        assert 0 <= gen <= state.gen
+        assert 0 <= fe <= state.fe
+        assert pop == 4
+    # the run's progress moved forward through the observed events
+    assert observed[-1][0] == state.gen
+
+
+def test_generation_based_strategy_callbacks_read_gen_fe_and_population_from_ctx():
+    from saealib import GenerationBasedStrategy, MeanPrediction
+    from saealib.surrogate.manager import LocalSurrogateManager
+    from saealib.surrogate.rbf import RBFSurrogate
+
+    optimizer = (
+        _progress_optimizer(GenerationBasedStrategy(1))
+        .set_surrogate_manager(LocalSurrogateManager(RBFSurrogate(GaussianKernel())))
+        .set_acquisition(MeanPrediction())
+    )
+    observed: list[tuple[int, int, int]] = []
+
+    def on_event(event):
+        ctx = event.ctx
+        observed.append((ctx.gen, ctx.fe, len(ctx.population)))
+
+    for event_class in (
+        GenerationStartEvent,
+        PostAskEvent,
+        PostSurrogateFitEvent,
+        PostEvaluationEvent,
+        GenerationEndEvent,
+    ):
+        optimizer.cbmanager.register(event_class, on_event)
+
+    state = optimizer.run()
+
+    # the generation counter also ticks inside the surrogate-only generations
+    assert state.gen >= 3
+    assert observed == [
+        (0, 6, 4),
+        (0, 6, 4),
+        (1, 6, 4),
+        (2, 6, 4),
+        (2, 10, 4),
+        (2, 10, 4),
+        (2, 10, 4),
+        (2, 10, 4),
+        (3, 10, 4),
+        (4, 10, 4),
+        (4, 14, 4),
+        (4, 14, 4),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("gen_ctrl", "expected"),
+    [
+        (0, [(1, 10, 4), (2, 14, 4), (3, 18, 4)]),
+        (1, [(2, 10, 4), (4, 14, 4)]),
+        (2, [(3, 10, 4)]),
+    ],
+)
+def test_generation_based_post_evaluation_ctx_reports_the_delivered_progress(
+    gen_ctrl: int,
+    expected: list[tuple[int, int, int]],
+) -> None:
+    from saealib import GenerationBasedStrategy, MeanPrediction
+    from saealib.surrogate.manager import LocalSurrogateManager
+
+    optimizer = (
+        _progress_optimizer(GenerationBasedStrategy(gen_ctrl))
+        .set_surrogate_manager(LocalSurrogateManager(RBFSurrogate(GaussianKernel())))
+        .set_acquisition(MeanPrediction())
+    )
+    observed: list[tuple[int, int, int]] = []
+
+    def on_event(event):
+        ctx = event.ctx
+        observed.append((ctx.gen, ctx.fe, len(ctx.population)))
+
+    optimizer.cbmanager.register(PostEvaluationEvent, on_event)
+    state = optimizer.run()
+
+    # the acknowledging stage has already added the delivered batch to fe
+    assert observed == expected
+    assert state.fe >= observed[-1][1]

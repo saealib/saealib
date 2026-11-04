@@ -40,7 +40,7 @@ from saealib.callback import (
     SurrogateEndEvent,
     SurrogateStartEvent,
 )
-from saealib.context import EvaluationPlanState
+from saealib.context import EvaluationPlanState, OptimizationState
 from saealib.core.contracts import (
     ComponentContract,
     FeedbackBatch,
@@ -95,7 +95,7 @@ from saealib.execution.evaluator import (
     Evaluator,
     PendingEvaluation,
 )
-from saealib.pipeline import ComponentRef, Stage
+from saealib.pipeline import _EXECUTION_BOUNDARIES, ComponentRef, Stage
 from saealib.policies.evaluation import (
     EvaluateAll,
     EvaluationPlan,
@@ -146,6 +146,34 @@ class _TransactionalExecutionContext(Protocol):
     def replace(self, **kwargs: Any) -> _TransactionalExecutionContext: ...
 
 
+def _state_ctx(event: Event) -> Event:
+    """Rewrite a callback event ctx to the run's own state view.
+
+    Stage transactions limit the ctx a component reads to its declared
+    reads; handlers observe the run itself and read the optimization state
+    ctx (gen, fe, populations, archives) from the event.  Values the Stage
+    has already written in its transaction stay visible: the ctx reflects
+    the transaction's writes on top of the run state.
+    """
+    ctx = getattr(event, "ctx", None)
+    if isinstance(ctx, OptimizationState):
+        return event
+    if isinstance(ctx, _StageStateProxy):
+        return replace(event, ctx=ctx._materialize())
+    state = getattr(ctx, "_state", None)
+    if not isinstance(state, OptimizationState):
+        state = getattr(getattr(ctx, "_context", None), "_state", None)
+    if not isinstance(state, OptimizationState):
+        return event
+    return replace(event, ctx=state)
+
+
+def _dispatch_callback(cbmanager: CallbackManager | None, event: Event) -> None:
+    """Dispatch through ``cbmanager`` with the run's own state ctx."""
+    if cbmanager is not None:
+        cbmanager.dispatch(_state_ctx(event))
+
+
 class _DispatchProxy:
     """Minimal component provider used to pass callbacks to ``Algorithm``."""
 
@@ -153,8 +181,7 @@ class _DispatchProxy:
         self._cbmanager = cbmanager
 
     def dispatch(self, event: Event) -> None:
-        if self._cbmanager is not None:
-            self._cbmanager.dispatch(event)
+        _dispatch_callback(self._cbmanager, event)
 
     @property
     def algorithm(self) -> None:
@@ -496,6 +523,20 @@ class _StageStateProxy:
     def _patch(self) -> StatePatch:
         return StatePatch(writes=self._writes, deletes=frozenset(self._deletes))
 
+    def _materialize(self) -> OptimizationState:
+        """Return the run state with this transaction's writes applied.
+
+        Callback handlers observe the run itself; the ctx they see reflects
+        everything the Stage has written so far in its transaction.
+        """
+        state = object.__getattribute__(self._context, "_state")
+        fields = {
+            name: self._writes[key]
+            for name, key in _STATE_FIELD_KEYS.items()
+            if key in self._writes
+        }
+        return state.replace(**fields) if fields else state
+
     def get_state(self, key: Any) -> object:
         return self._value(key)
 
@@ -532,6 +573,12 @@ class _StageStateProxy:
             raise AttributeError(name) from exc
 
 
+async def _await_or_value(result: object) -> object:
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
 class _TransactionalStageExecutor(Protocol):
     def execute(
         self, state: _TransactionalExecutionContext
@@ -543,10 +590,22 @@ class StageStateViewAdapter:
 
     _execution_mode = "graph-native"
 
-    def __init__(self, stage: Stage, *, node_path: str | None = None) -> None:
+    def __init__(
+        self,
+        stage: Stage,
+        *,
+        node_path: str | None = None,
+        execution_boundary: str = "transaction",
+    ) -> None:
         if not isinstance(stage, Stage):
             raise ValidationError("StageStateViewAdapter stage must be a Stage")
+        if execution_boundary not in _EXECUTION_BOUNDARIES:
+            raise ValidationError(
+                f"{type(stage).__name__} execution_boundary must be one of "
+                f"{_EXECUTION_BOUNDARIES}, got {execution_boundary!r}"
+            )
         self.stage = stage
+        self.execution_boundary = execution_boundary
         self.node_path = node_path or stage.name or type(stage).__name__
         self.name = stage.name
         self.label = stage.label
@@ -584,6 +643,29 @@ class StageStateViewAdapter:
         raise ValidationError(
             "graph-native Stage adapter requires the Stage to return its transaction"
         )
+
+    def execute_state(self, state: Any) -> Any:
+        """Run the Stage at the optimization-state boundary.
+
+        The Stage sees the run's own state, and callback events carry that
+        state ctx instead of the declared-reads transaction ctx.
+        """
+        return self.stage.execute(state)
+
+    async def execute_async_state(self, state: Any, **kwargs: Any) -> Any:
+        """Run the Stage's async seam at the optimization-state boundary."""
+        method = getattr(self.stage, "execute_async", None)
+        if not callable(method):
+            return await _await_or_value(self.stage.execute(state))
+        parameters = inspect.signature(method).parameters
+        accepts_kwargs = any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
+        )
+        if accepts_kwargs:
+            return await _await_or_value(method(state, **kwargs))
+        selected = {key: value for key, value in kwargs.items() if key in parameters}
+        return await _await_or_value(method(state, **selected))
 
     def execute(self, state: StateView) -> StatePatch:
         context = state.context
@@ -623,7 +705,11 @@ def stage_component(
     stage: Stage, *, node_path: str | None = None
 ) -> StageStateViewAdapter:
     """Create a graph-native component from an existing Stage."""
-    return StageStateViewAdapter(stage, node_path=node_path)
+    return StageStateViewAdapter(
+        stage,
+        node_path=node_path,
+        execution_boundary=getattr(stage, "execution_boundary", "transaction"),
+    )
 
 
 wrap_stage = stage_component
@@ -674,7 +760,12 @@ class AskStage(Stage):
 
     def contract(self) -> ComponentContract:
         return _stage_contract(
+            # Proposer ctx reads beyond the algorithm's declared contract: the
+            # proposal ctx exposes offspring and the proposal ID allocator to
+            # components built on the ask boundary.
             reads=(
+                PROPOSALS_OFFSPRING,
+                PROPOSALS_ID_ALLOCATOR,
                 EVALUATIONS_PLAN,
                 EVALUATIONS_PLAN_STATE,
                 RUNTIME_CANDIDATE_ID_ALLOCATOR,
@@ -846,8 +937,9 @@ class SurrogatePredictStage(Stage):
         assert candidates is not None
 
         if self._cbmanager is not None:
-            self._cbmanager.dispatch(
-                SurrogateStartEvent(ctx=state, offspring=candidates)
+            _dispatch_callback(
+                self._cbmanager,
+                SurrogateStartEvent(ctx=state, offspring=candidates),
             )
 
         prediction = self._sm.predict(
@@ -857,14 +949,17 @@ class SurrogatePredictStage(Stage):
             refit=self._refit,
         )
         if self._refit and self._cbmanager is not None:
-            self._cbmanager.dispatch(
+            _dispatch_callback(
+                self._cbmanager,
                 PostSurrogateFitEvent(
                     ctx=state,
                     surrogate=getattr(self._sm, "surrogate", None),
-                )
+                ),
             )
         if self._cbmanager is not None:
-            self._cbmanager.dispatch(SurrogateEndEvent(ctx=state, offspring=candidates))
+            _dispatch_callback(
+                self._cbmanager, SurrogateEndEvent(ctx=state, offspring=candidates)
+            )
 
         return state.replace(offspring=candidates, predictions=prediction)
 
@@ -982,8 +1077,9 @@ class AcquisitionStage(Stage):
         assert candidates is not None
 
         if self._cbmanager is not None:
-            self._cbmanager.dispatch(
-                AcquisitionStartEvent(ctx=state, offspring=candidates)
+            _dispatch_callback(
+                self._cbmanager,
+                AcquisitionStartEvent(ctx=state, offspring=candidates),
             )
 
         if len(candidates) == 0:
@@ -1023,8 +1119,9 @@ class AcquisitionStage(Stage):
             result = AcquisitionResult(scores=scores, artifacts=deepcopy(raw.artifacts))
 
         if self._cbmanager is not None:
-            self._cbmanager.dispatch(
-                AcquisitionEndEvent(ctx=state, offspring=candidates, result=result)
+            _dispatch_callback(
+                self._cbmanager,
+                AcquisitionEndEvent(ctx=state, offspring=candidates, result=result),
             )
 
         # Keep the complete result alive until planning.  In particular,
@@ -1637,6 +1734,67 @@ class EvaluationSubmitStage(Stage):
     ) -> Stage:
         return EvaluationSubmitStage(
             _resolve_reference(self, "_evaluator", bindings, defaults)
+        )
+
+    def execute_async(
+        self,
+        state: OptimizationState,
+        *,
+        scheduler: Any = None,
+        **kwargs: Any,
+    ) -> OptimizationState:
+        """Submit planned requests through the scheduler seam.
+
+        With a scheduler bound, submission honors the scheduler's capacity
+        and routes through its evaluator; requests beyond capacity stay
+        deferred until the plan driver resubmits them as capacity frees up.
+        Without a scheduler the synchronous submission runs.
+        """
+        del kwargs
+        if scheduler is None:
+            return self.execute(state)
+        plan = state.evaluation_plan
+        if plan is None:
+            return state
+        plan_state = state.evaluation_plan_state
+        submitted_ids = set(plan_state.submitted if plan_state else ())
+        completed_ids = set(plan_state.completed if plan_state else ())
+        acknowledged_ids = set(plan_state.acknowledged if plan_state else ())
+        remaining = tuple(
+            item
+            for item in plan.requests
+            if int(item.request_id) not in submitted_ids
+            and int(item.request_id) not in completed_ids
+            and int(item.request_id) not in acknowledged_ids
+            and int(item.request_id) not in state.evaluation_handles
+        )
+        active_pending = {
+            request_id: pending
+            for request_id, pending in state.pending_evaluations.items()
+            if request_id in state.evaluation_handles
+            or request_id not in {int(item.request_id) for item in plan.requests}
+        }
+        if len(active_pending) != len(state.pending_evaluations):
+            state = state.replace(pending_evaluations=active_pending)
+        capacity = scheduler.max_pending - len(active_pending)
+        if capacity <= 0 or not remaining:
+            return state
+        requests = list(remaining[:capacity])
+        submitted = scheduler.submit(state, requests)
+        return submitted.replace(
+            evaluation_request=requests[0],
+            evaluation_plan=plan,
+            evaluation_plan_state=EvaluationPlanState(
+                submitted=tuple(
+                    sorted(submitted_ids | {int(item.request_id) for item in requests})
+                ),
+                completed=tuple(sorted(completed_ids)),
+                acknowledged=tuple(sorted(acknowledged_ids)),
+                deferred=tuple(
+                    sorted(int(item.request_id) for item in remaining[capacity:])
+                ),
+                continuation=plan.continuation,
+            ),
         )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
@@ -2302,14 +2460,15 @@ class EvaluationAcknowledgeStage(Stage):
                             row_map[int(candidate_id)]
                             for candidate_id in update_new_ids
                         ]
-                self._cbmanager.dispatch(
+                _dispatch_callback(
+                    self._cbmanager,
                     PostEvaluationEvent(
                         ctx=current,
                         offspring=offspring.extract(rows),
                         request_id=request.request_id,
                         candidate_ids=update_new_ids,
                         status=update.status,
-                    )
+                    ),
                 )
         if isinstance(plan, EvaluationPlan) and len(plan.requests) > 1:
             all_updates = state.evaluation_plan_updates
@@ -2427,14 +2586,14 @@ class TrueEvaluationStage(Stage):
         )
 
         evaluated = candidates.extract(list(range(n)))
+        counted = state.replace(fe=state.fe + n)
 
         if self._cbmanager is not None:
-            self._cbmanager.dispatch(
-                PostEvaluationEvent(ctx=state, offspring=evaluated)
+            _dispatch_callback(
+                self._cbmanager, PostEvaluationEvent(ctx=state, offspring=evaluated)
             )
 
-        return state.replace(
-            fe=state.fe + n,
+        return counted.replace(
             offspring=candidates,
             evaluated_offspring=evaluated,
         )
@@ -2775,8 +2934,8 @@ class SurrogateOnlyLoopStage(Stage):
         for name in ("_sm", "_algorithm", "_acquisition"):
             if getattr(self, name) is None and name not in referenced_names:
                 raise ValidationError(
-                    "SurrogateOnlyLoopStage requires {} as a component or a "
-                    "(slot, role) reference".format(name[1:])
+                    f"SurrogateOnlyLoopStage requires {name[1:]} as a component or a "
+                    "(slot, role) reference"
                 )
         if cbmanager is not None and self._refs:
             raise ValidationError(
@@ -2826,9 +2985,7 @@ class SurrogateOnlyLoopStage(Stage):
             _resolve_reference(self, "_sm", bindings, defaults),
             self._gen_ctrl,
             cbmanager=(
-                _snapshot_cbmanager(bindings)
-                if referenced_names
-                else self._cbmanager
+                _snapshot_cbmanager(bindings) if referenced_names else self._cbmanager
             ),
             acquisition=_resolve_reference(self, "_acquisition", bindings, defaults),
             feedback_builder=builder,
@@ -2852,10 +3009,11 @@ class SurrogateOnlyLoopStage(Stage):
         if self._gen_ctrl > 0:
             self._sm.fit(state.archive, state)
             if self._cbmanager is not None:
-                self._cbmanager.dispatch(
+                _dispatch_callback(
+                    self._cbmanager,
                     PostSurrogateFitEvent(
                         ctx=state, surrogate=getattr(self._sm, "surrogate", None)
-                    )
+                    ),
                 )
             for _ in range(self._gen_ctrl):
                 for stage in self.stages:

@@ -247,3 +247,20 @@ class TestInitializerAndTerminationDefaults:
         assert opt.algorithm is algorithm
         assert opt.strategy is strategy
         assert opt.initializer is initializer
+
+
+class TestTemplateStrategyDefaults:
+    def test_generation_based_instances_keep_the_class_surrogate_requirement(self):
+        from saealib.strategies import GenerationBasedStrategy
+
+        strategy = GenerationBasedStrategy(1)
+        assert strategy.requires_surrogate is True
+        assert GenerationBasedStrategy.requires_surrogate is True
+
+    def test_validation_reports_missing_surrogate_components(self):
+        from saealib.strategies import GenerationBasedStrategy
+
+        opt = Optimizer(_problem()).set_strategy(GenerationBasedStrategy(1))
+        issues = opt.validate(require_initializer=False)
+        assert any("surrogate_manager" in issue for issue in issues)
+        assert any("acquisition" in issue for issue in issues)

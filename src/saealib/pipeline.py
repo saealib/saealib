@@ -34,6 +34,8 @@ __all__ = [
     "Stage",
 ]
 
+_EXECUTION_BOUNDARIES = ("transaction", "state")
+
 #: The Optimizer slot each stage-consumed role is served from when a
 #: declaration does not name one explicitly.  Slots not listed here have no
 #: well-known binding and must be named on the reference.
@@ -119,6 +121,16 @@ class Stage(ABC):
         LaTeX math expression used by :meth:`to_pseudocode`.
     stages : list[Stage]
         Sub-pipeline for composite stages.  Empty list for leaf stages.
+    execution_boundary : str
+        How the Stage runs when its Pipeline is lowered to a structured
+        graph.  ``"transaction"`` (the default) runs the Stage on a state
+        proxy limited to its declared reads, and callback events receive
+        that transaction ctx.  ``"state"`` runs the Stage on the run's own
+        optimization state, so the Stage and callback handlers see the full
+        run state; a node that requires the asynchronous driver still runs
+        as ``"transaction"``.  Any other value raises
+        :class:`~saealib.exceptions.ValidationError` when the plan is
+        prepared.
     """
 
     name: str = ""
@@ -131,6 +143,8 @@ class Stage(ABC):
     #: ``(attribute-name, reference)`` entries a declaration Stage fills when
     #: its references are resolved from a binding snapshot.
     _refs: tuple[tuple[str, ComponentRef], ...] = ()
+
+    execution_boundary: str = "transaction"
 
     def __init__(
         self,

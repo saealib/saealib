@@ -11,12 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **History evaluation channel records `g` and `noise`**; checkpoints written without these columns load with them filled with NaN ([#303](https://github.com/saealib/saealib/issues/303))
 - **`ComponentRef` and `TemplateStrategy`**: declared Stages reference components by `(slot, role)`, and each plan resolves its own copy of the declaration without modifying it ([#308](https://github.com/saealib/saealib/issues/308))
+- **`Stage.execution_boundary`**: `"transaction"` (default) runs a Stage on its declared reads, `"state"` gives the Stage and its callbacks the whole run state; any other value raises `ValidationError` when the plan is prepared ([#309](https://github.com/saealib/saealib/issues/309))
 
 ### Changed
 
 - **The compiler blocks a run only on evidence of a defect**: unregistered vocabulary values are reported as "cannot verify" warnings with near-miss suggestions, and a connection rejected only because of an unknown data kind or cardinality becomes a single `cannot_verify_data_kind` warning ([#298](https://github.com/saealib/saealib/issues/298))
 - **Missing information no longer blocks a run**: several compatible candidates, edges to undeclared ports (`cannot_verify_port`), and unbound schema variables are warnings; a missing service, runtime capability, or genome codec is an error only when the real environment is supplied, and `CompileContext.offered_runtime_capabilities` now defaults to `None` ("not supplied") while an explicit empty set still means no capabilities ([#299](https://github.com/saealib/saealib/issues/299))
 - **A `Stage` that does not override `contract()` is opaque**: its reads and writes are not enumerated (new `StateContract.writes_enumerable`), it may write any state key at run time, and the compiler reports one `opaque_state_effects` warning; declare a contract to keep strict write checks ([#300](https://github.com/saealib/saealib/issues/300))
+- **`GenerationBasedStrategy` Stage callbacks receive the whole run state as `event.ctx`**; values that were readable before are unchanged ([#309](https://github.com/saealib/saealib/issues/309))
+- **`strategy.pipeline` holds the most recently prepared Pipeline** ([#309](https://github.com/saealib/saealib/issues/309))
+- **`GenerationBasedStrategy` rejects a non-checkpointable algorithm before the run** when npz checkpointing is requested ([#309](https://github.com/saealib/saealib/issues/309))
+- **`DirectStrategy.build_graph()` returns a `StructuredGraph`**; GenerationBased and template graphs get component part nodes, the adapters the compiler chooses, and contract diagnostics, so an algorithm requiring an unoffered runtime capability now stops a GenerationBased run before it starts ([#309](https://github.com/saealib/saealib/issues/309))
 
 ### Fixed
 
@@ -26,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`to_spec` round-trips** classes without their own `__init__`, `**kwargs` settings (restored from a same-named mapping attribute; a class that does not keep or cannot represent them now raises `ValidationError` instead of silently dropping them), and the `NSGA3Comparator` seed ([#301](https://github.com/saealib/saealib/issues/301))
 - **Comparator sort caches** are keyed by the full comparison criterion, and per instance for NSGA-III, so another comparator, an in-place `eps_cv` change or built-in dominator setting, or an independent NSGA-III random stream no longer returns a stale order ([#302](https://github.com/saealib/saealib/issues/302))
 - **Components replaced during `run()` / `iterate()`** take effect at the next commit point in sync and async runs: replacing the algorithm (with `set_algorithm()` or by assignment) or another component switches ask and tell together, so they never use different algorithms ([#286](https://github.com/saealib/saealib/issues/286))
+- **Replacing `DirectStrategy` with `GenerationBasedStrategy`, or the reverse, during a run** works ([#309](https://github.com/saealib/saealib/issues/309))
+- **The GenerationBased true-evaluation generation uses the Optimizer's feedback builder only when it is set explicitly**, in sync and async runs alike; async runs used an attribute-assigned builder ([#309](https://github.com/saealib/saealib/issues/309))
+- **GenerationBased async runs respect `AsyncEvaluationScheduler.max_pending`** instead of submitting a whole generation at once; results change where the limit binds ([#309](https://github.com/saealib/saealib/issues/309))
+- **Async runs of a `TemplateStrategy` without regions** continue until the termination condition ([#309](https://github.com/saealib/saealib/issues/309))
+- **Direct async runs resume from an npz checkpoint**; restoring one failed with a conflicting `BoundsService` binding ([#309](https://github.com/saealib/saealib/issues/309))
 
 ## [0.1.0] - 2026-09-03
 

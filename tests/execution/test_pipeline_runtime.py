@@ -152,10 +152,11 @@ def test_real_default_strategy_graph_compiles_to_stage_order() -> None:
     ordered = SequentialPlan.from_executable_plan(plan)
 
     assert ordered.nodes
-    assert all(isinstance(node.component, StageNodeAdapter) for node in ordered.nodes)
-    assert len(ordered.nodes) == sum(
-        isinstance(node.component, StageNodeAdapter) for node in plan.graph.nodes
-    )
+    from saealib.core.compiler.regions import RegionNode
+    from saealib.core.compiler.structured import StructuredGraph
+
+    assert isinstance(plan.graph, StructuredGraph)
+    assert not any(isinstance(op, RegionNode) for op in plan.graph.operations)
     assert [node.component_id for node in ordered.execution_nodes] == [
         "count_generation",
         "ask",
@@ -168,12 +169,29 @@ def test_real_default_strategy_graph_compiles_to_stage_order() -> None:
         "tell",
         "evaluation_acknowledge",
     ]
-    assert (
-        sum(
-            getattr(target, "__func__", None) is StageNodeAdapter.execute
-            for target in ordered._execute_targets
-        )
-        == 0
+    operations = cast(Any, plan.graph.operations)
+    assert [node.component_id for node in operations] == [
+        node.component_id for node in ordered.execution_nodes
+    ]
+    assert plan.graph.node_by_id("ask") is plan.graph.nodes[1]
+    assert plan.graph.node_by_id("tell") is plan.graph.nodes[8]
+    from saealib.core.runtime import StructuredPlan
+
+    structured = StructuredPlan.from_executable_plan(plan)
+    targets = getattr(structured, "_execute_targets")
+
+    def _outermost(component: Any) -> Any:
+        while getattr(component, "_component", None) is not None:
+            component = component._component
+        return component
+
+    # every structured node executes through its own Stage adapter (possibly
+    # behind schema-freshening wrappers), so the Stage's declared contract
+    # and execution boundary stay in force
+    assert set(targets) == {node.component_id for node in operations}
+    assert all(
+        _outermost(targets[node.component_id].__self__) is _outermost(node.component)
+        for node in operations
     )
 
 

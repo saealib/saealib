@@ -12,6 +12,7 @@ from saealib.core.compiler.adapters import (
     AdapterInsertion,
     AdapterMatchContext,
     _feedback_accumulator_match,
+    _partial_feedback_is_offered,
 )
 from saealib.core.compiler.diagnostics import ContractPath, Diagnostic, Severity
 from saealib.core.compiler.graph import ComponentGraph, ComponentNode, DataEdge, NodeRef
@@ -31,9 +32,6 @@ if TYPE_CHECKING:
     from saealib.core.compiler.compiler import RuleContext, VerificationResult
 
 __all__ = ["FeedbackAccumulatorRule", "LifecycleCompatibilityRule"]
-
-
-_PARTIAL_FEEDBACK = "partial_feedback"
 
 
 def _node_path(
@@ -99,8 +97,7 @@ def _feedback_consumer(node: ComponentNode):
 
 
 def _partial_feedback_offered(context: RuleContext, graph: ComponentGraph) -> bool:
-    offered = context.compile_context.offered_runtime_capabilities
-    return _PARTIAL_FEEDBACK in (offered if offered is not None else frozenset())
+    return _partial_feedback_is_offered(context.compile_context, graph=graph)
 
 
 def _inserted_adapter_name(node: ComponentNode) -> str | None:

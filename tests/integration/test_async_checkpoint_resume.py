@@ -121,7 +121,9 @@ def _algorithm(name: str) -> Any:
     )
 
 
-def _optimizer(strategy: str, algorithm: str, generations: int) -> Optimizer:
+def _optimizer(
+    strategy: str, algorithm: str, generations: int, max_pending: int
+) -> Optimizer:
     evaluator = _FifoEvaluator()
     optimizer = (
         Optimizer(_problem(), seed=7)
@@ -138,24 +140,31 @@ def _optimizer(strategy: str, algorithm: str, generations: int) -> Optimizer:
     else:
         optimizer.set_strategy(DirectStrategy(n_offspring=3))
     optimizer.set_async_evaluation_scheduler(
-        AsyncEvaluationScheduler(evaluator, max_pending=2)
+        AsyncEvaluationScheduler(evaluator, max_pending=max_pending)
     )
     return optimizer
 
 
 @pytest.mark.parametrize(
-    ("strategy", "algorithm"),
-    [("generation_based", "ga")],
+    ("strategy", "algorithm", "max_pending"),
+    [
+        ("generation_based", "ga", 2),
+        ("generation_based", "ga", 1),
+        ("generation_based", "pso", 1),
+        ("direct", "ga", 2),
+        ("direct", "ga", 1),
+        ("direct", "pso", 2),
+    ],
 )
 def test_async_npz_checkpoint_resume_matches_uninterrupted_run(
-    tmp_path, strategy: str, algorithm: str
+    tmp_path, strategy: str, algorithm: str, max_pending: int
 ) -> None:
     path = tmp_path / "checkpoint.npz"
-    _optimizer(strategy, algorithm, generations=1).run().save(path)
+    _optimizer(strategy, algorithm, 1, max_pending).run().save(path)
     restored = OptimizationState.load(path, _problem())
 
-    resumed = _optimizer(strategy, algorithm, generations=3).run_from(restored)
-    uninterrupted = _optimizer(strategy, algorithm, generations=3).run()
+    resumed = _optimizer(strategy, algorithm, 3, max_pending).run_from(restored)
+    uninterrupted = _optimizer(strategy, algorithm, 3, max_pending).run()
 
     assert (resumed.gen, resumed.fe) == (uninterrupted.gen, uninterrupted.fe)
     assert (

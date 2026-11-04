@@ -1,5 +1,7 @@
 """Tests for Pipeline, Stage.to_pseudocode(), and Pipeline.__getitem__()."""
 
+from typing import cast
+
 import numpy as np
 import pytest
 
@@ -33,6 +35,7 @@ from saealib.stages import (
     TellStage,
     TopKSelectionStage,
     TrueEvaluationStage,
+    stage_component,
 )
 from saealib.surrogate.prediction import SurrogatePrediction
 
@@ -571,3 +574,44 @@ class TestAlgorithmNotationDefaults:
 
     def test_tell_notation_default_is_none(self):
         assert _MinimalAlgo().tell_notation is None
+
+
+# ---------------------------------------------------------------------------
+# Built-in strategy pipelines: find/replace by Stage name
+# ---------------------------------------------------------------------------
+
+
+def _noop_count_stage():
+    class NoopCountStage(Stage):
+        name = "count_generation"
+
+        def execute(self, state):
+            return state.replace(gen=state.gen + 1)
+
+    return stage_component(NoopCountStage())
+
+
+def test_pipeline_find_and_replace_by_stage_name_on_direct_strategy():
+    from saealib import DirectStrategy
+
+    strategy = DirectStrategy()
+    pipeline = strategy.build_pipeline(_make_provider())
+
+    ask = pipeline.find("ask")
+    assert ask is not None
+    pipeline.replace("count_generation", _noop_count_stage())
+    assert pipeline.find("count_generation") is not None
+    assert strategy.pipeline is pipeline
+
+
+def test_pipeline_find_and_replace_by_stage_name_on_generation_based_strategy():
+    from saealib import GenerationBasedStrategy
+
+    strategy = GenerationBasedStrategy(1)
+    pipeline = strategy.build_pipeline(_make_provider())
+
+    assert pipeline.find("surrogate_predict", recursive=True) is not None
+    true_generation = cast(Pipeline, pipeline.find("true_generation", recursive=True))
+    true_generation.replace("count_generation", _noop_count_stage())
+    assert true_generation.find("count_generation") is not None
+    assert strategy.pipeline is pipeline

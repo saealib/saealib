@@ -24,6 +24,7 @@ from saealib.core.state import (
     FEEDBACK_RESULT,
     POPULATIONS_MAIN,
     PROPOSALS_CURRENT,
+    PROPOSALS_ID_ALLOCATOR,
     PROPOSALS_OFFSPRING,
     RUNTIME_CANDIDATE_ID_ALLOCATOR,
     RUNTIME_DECISION_COUNT,
@@ -137,6 +138,8 @@ def test_all_operational_stages_have_exact_direct_state_contracts() -> None:
         ),
         AskStage: (
             {
+                PROPOSALS_OFFSPRING,
+                PROPOSALS_ID_ALLOCATOR,
                 EVALUATIONS_PLAN,
                 EVALUATIONS_PLAN_STATE,
                 RUNTIME_CANDIDATE_ID_ALLOCATOR,

@@ -95,7 +95,7 @@ from saealib.execution.evaluator import (
     Evaluator,
     PendingEvaluation,
 )
-from saealib.pipeline import Stage
+from saealib.pipeline import ComponentRef, Stage
 from saealib.policies.evaluation import (
     EvaluateAll,
     EvaluationPlan,
@@ -259,6 +259,86 @@ def _sync_feedback_metadata(
     return 0, True
 
 
+def _component_or_reference(
+    value: object,
+) -> tuple[Any, ComponentRef | None]:
+    """Split a constructor component argument into component or reference.
+
+    A component explicitly passed to a Stage is a Stage-local binding and
+    never enters the plan's shared slot table; a reference is resolved from
+    the plan's binding snapshot.
+    """
+    if isinstance(value, ComponentRef):
+        return None, value
+    return value, None
+
+
+def _unresolved_reference_roles(stage: object) -> tuple[str, ...]:
+    """Return the reference roles the stage has not resolved into components."""
+    return tuple(
+        ref.role
+        for name, ref in getattr(stage, "_refs", ())
+        if getattr(stage, name, "sentinel") is None
+    )
+
+
+def _snapshot_cbmanager(bindings: Mapping[str, object]) -> Any:
+    """Return the plan snapshot's callback manager for a reference stage."""
+    return bindings.get("cbmanager")
+
+
+def _resolve_reference(
+    stage: Stage,
+    name: str,
+    bindings: Mapping[str, object],
+    defaults: dict[tuple[str, str], object],
+    *,
+    fallback: Callable[[], object] | None = None,
+) -> Any:
+    """Resolve one declared ``(slot, role)`` reference of *stage*.
+
+    Snapshot values take precedence; an empty slot falls back to a default
+    component created once per plan so every reference to the same
+    ``(slot, role)`` of one plan shares one instance.
+    """
+    ref = next((r for attr, r in getattr(stage, "_refs", ()) if attr == name), None)
+    if ref is None:
+        component = getattr(stage, name, None)
+        if component is not None:
+            return component
+        raise ValidationError(
+            f"{type(stage).__name__} holds neither a component nor a "
+            f"(slot, role) reference for {name!r}; pass the component or a "
+            "ComponentRef."
+        )
+    component = bindings.get(ref.slot)
+    if component is not None:
+        return component
+    key = (ref.slot, ref.role)
+    if key in defaults:
+        return defaults[key]
+    factory = getattr(type(stage), "_reference_default", None) or fallback
+    if factory is None:
+        raise ValidationError(
+            f"{type(stage).__name__} needs a component for role "
+            f"{ref.role!r} from slot {ref.slot!r}: bind the slot on the "
+            "optimizer or pass the component explicitly to the stage."
+        )
+    defaults[key] = component = factory()
+    return component
+
+
+def _component_state_reads(component: object) -> Any:
+    """Recompute the state reads a Stage opens on behalf of a component."""
+    state_reads = getattr(component, "_state_reads", None)
+    if state_reads is None:
+        contract = getattr(component, "contract", None)
+        state_reads = (
+            contract().state if callable(contract) else (POPULATIONS_MAIN, RUNTIME_RNG)
+        )
+    return state_reads
+
+
 def _stage_contract(
     *,
     reads: tuple[Any, ...] = (),
@@ -269,8 +349,15 @@ def _stage_contract(
     offered_runtime_capabilities: tuple[str, ...] = (),
     reads_enumerable: bool = True,
     writes_enumerable: bool = True,
+    unresolved: tuple[str, ...] = (),
 ) -> ComponentContract:
     """Build a Stage contract while keeping held contracts as named parts."""
+    if unresolved:
+        raise ValidationError(
+            "stage holds unresolved (slot, role) reference(s) for "
+            + ", ".join(sorted(set(unresolved)))
+            + "; resolve it against a binding snapshot before lowering."
+        )
     parts: list[PartSpec] = []
     for name, component in components:
         contract = getattr(component, "contract", None)
@@ -599,28 +686,46 @@ class AskStage(Stage):
                 EVALUATED_OFFSPRING,
             ),
             components=(("_algorithm", self._algorithm),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
         self,
-        algorithm: Algorithm | Proposer,
+        algorithm: Algorithm | Proposer | ComponentRef,
         n_offspring: int | None = None,
         cbmanager: CallbackManager | None = None,
     ) -> None:
         super().__init__()
 
-        self._n_offspring = n_offspring
-        self._proxy = _DispatchProxy(cbmanager)
-        self._algorithm: Proposer = algorithm
-        state_reads = getattr(self._algorithm, "_state_reads", None)
-        if state_reads is None:
-            contract = getattr(self._algorithm, "contract", None)
-            state_reads = (
-                contract().state
-                if callable(contract)
-                else (POPULATIONS_MAIN, RUNTIME_RNG)
+        component, reference = _component_or_reference(algorithm)
+        if component is None and reference is None:
+            raise ValidationError(
+                "AskStage requires an algorithm or a (slot, role) reference"
             )
-        self._state_reads = state_reads
+        if reference is not None and cbmanager is not None:
+            raise ValidationError(
+                "AskStage takes no cbmanager next to a reference; callbacks "
+                "come from the plan's binding snapshot"
+            )
+        self._n_offspring = n_offspring
+        self._proxy = _DispatchProxy(None if reference is not None else cbmanager)
+        self._algorithm: Any = component
+        self._refs = (("_algorithm", reference),) if reference is not None else ()
+        if reference is not None:
+            self._state_reads = (POPULATIONS_MAIN, RUNTIME_RNG)
+        else:
+            self._state_reads = _component_state_reads(component)
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return AskStage(
+            _resolve_reference(self, "_algorithm", bindings, defaults),
+            n_offspring=self._n_offspring,
+            cbmanager=_snapshot_cbmanager(bindings),
+        )
 
     def to_pseudocode(self, *, expand: bool = False, indent: int = 0) -> str:
         r"""Expand into per-operator lines via ``Algorithm.ask_notation``."""
@@ -698,19 +803,43 @@ class SurrogatePredictStage(Stage):
             reads=(PROPOSALS_OFFSPRING, POPULATIONS_MAIN, ARCHIVES_MAIN),
             writes=(PROPOSALS_OFFSPRING, SURROGATES_PREDICTIONS),
             components=(("_sm", self._sm),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
         self,
-        surrogate_manager: SurrogateManager,
+        surrogate_manager: SurrogateManager | ComponentRef,
         cbmanager: CallbackManager | None = None,
         *,
         refit: bool = True,
     ) -> None:
         super().__init__()
-        self._sm = surrogate_manager
-        self._cbmanager = cbmanager
+        component, reference = _component_or_reference(surrogate_manager)
+        if component is None and reference is None:
+            raise ValidationError(
+                "SurrogatePredictStage requires a surrogate manager or a "
+                "(slot, role) reference"
+            )
+        if reference is not None and cbmanager is not None:
+            raise ValidationError(
+                "SurrogatePredictStage takes no cbmanager next to a "
+                "reference; callbacks come from the plan's binding snapshot"
+            )
+        self._sm: Any = component
+        self._refs = (("_sm", reference),) if reference is not None else ()
+        self._cbmanager = None if reference is not None else cbmanager
         self._refit = refit
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return SurrogatePredictStage(
+            _resolve_reference(self, "_sm", bindings, defaults),
+            cbmanager=_snapshot_cbmanager(bindings),
+            refit=self._refit,
+        )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         candidates = state.offspring
@@ -807,16 +936,29 @@ class AcquisitionStage(Stage):
             ),
             writes=(SCORES, ACQUISITION_RESULT),
             components=(("_acquisition", self._acquisition),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
         self,
-        acquisition: AcquisitionFunction,
+        acquisition: AcquisitionFunction | ComponentRef,
         cbmanager: CallbackManager | None = None,
     ) -> None:
         super().__init__()
-        self._acquisition = acquisition
-        self._cbmanager = cbmanager
+        component, reference = _component_or_reference(acquisition)
+        if component is None and reference is None:
+            raise ValidationError(
+                "AcquisitionStage requires an acquisition function or a "
+                "(slot, role) reference"
+            )
+        if reference is not None and cbmanager is not None:
+            raise ValidationError(
+                "AcquisitionStage takes no cbmanager next to a reference; "
+                "callbacks come from the plan's binding snapshot"
+            )
+        self._acquisition: Any = component
+        self._refs = (("_acquisition", reference),) if reference is not None else ()
+        self._cbmanager = None if reference is not None else cbmanager
         # Single-entry cache: id(self._acquisition) is constant for the life
         # of this stage instance, so only (gen, decision_count,
         # value_version, structure_version) actually varies -- a growing
@@ -824,6 +966,16 @@ class AcquisitionStage(Stage):
         # as long as this stage instance is reused.
         self._prepared_cache_key: tuple[int, int, int, int, int] | None = None
         self._prepared_cache_value: object = None
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return AcquisitionStage(
+            _resolve_reference(self, "_acquisition", bindings, defaults),
+            cbmanager=_snapshot_cbmanager(bindings),
+        )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         candidates = state.offspring
@@ -909,16 +1061,39 @@ class SurrogateFitStage(Stage):
             reads=(POPULATIONS_MAIN, ARCHIVES_MAIN),
             writes=(),
             components=(("_sm", self._sm),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
         self,
-        surrogate_manager: SurrogateManager,
+        surrogate_manager: SurrogateManager | ComponentRef,
         cbmanager: CallbackManager | None = None,
     ) -> None:
         super().__init__()
-        self._sm = surrogate_manager
-        self._cbmanager = cbmanager
+        component, reference = _component_or_reference(surrogate_manager)
+        if component is None and reference is None:
+            raise ValidationError(
+                "SurrogateFitStage requires a surrogate manager or a "
+                "(slot, role) reference"
+            )
+        if reference is not None and cbmanager is not None:
+            raise ValidationError(
+                "SurrogateFitStage takes no cbmanager next to a reference; "
+                "callbacks come from the plan's binding snapshot"
+            )
+        self._sm: Any = component
+        self._refs = (("_sm", reference),) if reference is not None else ()
+        self._cbmanager = None if reference is not None else cbmanager
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return SurrogateFitStage(
+            _resolve_reference(self, "_sm", bindings, defaults),
+            cbmanager=_snapshot_cbmanager(bindings),
+        )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         self._sm.fit(state.archive, state)
@@ -1048,18 +1223,34 @@ class EvaluationPlanStage(Stage):
             ),
             components=(("_planner", self._planner),),
             reads_enumerable=not callable(self._n_eval),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
         self,
-        planner: EvaluationPlanner | None = None,
+        planner: EvaluationPlanner | None | ComponentRef = None,
         n_eval=None,
     ) -> None:
         super().__init__()
         if planner is not None and n_eval is not None:
             raise ValidationError("provide planner or n_eval")
-        self._planner = planner or EvaluateAll()
+        _, reference = _component_or_reference(planner)
+        self._planner: Any = (planner or EvaluateAll()) if reference is None else None
         self._n_eval = n_eval
+        self._refs = (("_planner", reference),) if reference is not None else ()
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return EvaluationPlanStage(
+            _resolve_reference(self, "_planner", bindings, defaults),
+            self._n_eval,
+        )
+
+    #: Created once per plan when the evaluation_planner slot is empty.
+    _reference_default = staticmethod(EvaluateAll)
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         if _plan_incomplete(state):
@@ -1425,11 +1616,28 @@ class EvaluationSubmitStage(Stage):
             ),
             writes=(EVALUATIONS_PENDING, EVALUATION_HANDLES, EVALUATIONS_PLAN_STATE),
             components=(("_evaluator", self._evaluator),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
-    def __init__(self, evaluator: Evaluator) -> None:
+    def __init__(self, evaluator: Evaluator | ComponentRef) -> None:
         super().__init__()
-        self._evaluator = evaluator
+        component, reference = _component_or_reference(evaluator)
+        if component is None and reference is None:
+            raise ValidationError(
+                "EvaluationSubmitStage requires an evaluator or a "
+                "(slot, role) reference"
+            )
+        self._evaluator: Any = component
+        self._refs = (("_evaluator", reference),) if reference is not None else ()
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return EvaluationSubmitStage(
+            _resolve_reference(self, "_evaluator", bindings, defaults)
+        )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         request = state.evaluation_request
@@ -1545,11 +1753,28 @@ class EvaluationCollectStage(Stage):
                 EVALUATION_NEW_IDS,
             ),
             components=(("_evaluator", self._evaluator),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
-    def __init__(self, evaluator: Evaluator) -> None:
+    def __init__(self, evaluator: Evaluator | ComponentRef) -> None:
         super().__init__()
-        self._evaluator = evaluator
+        component, reference = _component_or_reference(evaluator)
+        if component is None and reference is None:
+            raise ValidationError(
+                "EvaluationCollectStage requires an evaluator or a "
+                "(slot, role) reference"
+            )
+        self._evaluator: Any = component
+        self._refs = (("_evaluator", reference),) if reference is not None else ()
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return EvaluationCollectStage(
+            _resolve_reference(self, "_evaluator", bindings, defaults)
+        )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         request = state.evaluation_request
@@ -1966,14 +2191,39 @@ class EvaluationAcknowledgeStage(Stage):
                 EVALUATIONS_COUNT,
             ),
             components=(("_evaluator", self._evaluator),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
-        self, evaluator: Evaluator, cbmanager: CallbackManager | None = None
+        self,
+        evaluator: Evaluator | ComponentRef,
+        cbmanager: CallbackManager | None = None,
     ) -> None:
         super().__init__()
-        self._evaluator = evaluator
-        self._cbmanager = cbmanager
+        component, reference = _component_or_reference(evaluator)
+        if component is None and reference is None:
+            raise ValidationError(
+                "EvaluationAcknowledgeStage requires an evaluator or a "
+                "(slot, role) reference"
+            )
+        if reference is not None and cbmanager is not None:
+            raise ValidationError(
+                "EvaluationAcknowledgeStage takes no cbmanager next to a "
+                "reference; callbacks come from the plan's binding snapshot"
+            )
+        self._evaluator: Any = component
+        self._refs = (("_evaluator", reference),) if reference is not None else ()
+        self._cbmanager = None if reference is not None else cbmanager
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return EvaluationAcknowledgeStage(
+            _resolve_reference(self, "_evaluator", bindings, defaults),
+            cbmanager=_snapshot_cbmanager(bindings),
+        )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         if _plan_incomplete(state):
@@ -2122,18 +2372,41 @@ class TrueEvaluationStage(Stage):
             reads=(PROPOSALS_OFFSPRING,),
             writes=(PROPOSALS_OFFSPRING, EVALUATED_OFFSPRING, EVALUATIONS_COUNT),
             components=(("_evaluator", self._evaluator),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
         self,
-        evaluator: Evaluator,
+        evaluator: Evaluator | ComponentRef,
         cbmanager: CallbackManager | None = None,
         n_eval: int | Callable[[OptimizationState], int] | None = None,
     ) -> None:
         super().__init__()
-        self._evaluator = evaluator
-        self._cbmanager = cbmanager
+        component, reference = _component_or_reference(evaluator)
+        if component is None and reference is None:
+            raise ValidationError(
+                "TrueEvaluationStage requires an evaluator or a (slot, role) reference"
+            )
+        if reference is not None and cbmanager is not None:
+            raise ValidationError(
+                "TrueEvaluationStage takes no cbmanager next to a reference; "
+                "callbacks come from the plan's binding snapshot"
+            )
+        self._evaluator: Any = component
+        self._refs = (("_evaluator", reference),) if reference is not None else ()
+        self._cbmanager = None if reference is not None else cbmanager
         self._n_eval = n_eval
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return TrueEvaluationStage(
+            _resolve_reference(self, "_evaluator", bindings, defaults),
+            cbmanager=_snapshot_cbmanager(bindings),
+            n_eval=self._n_eval,
+        )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         candidates = state.offspring
@@ -2240,14 +2513,29 @@ class FeedbackStage(Stage):
             ),
             writes=(PROPOSALS_OFFSPRING, FEEDBACK_RESULT),
             components=(("_builder", self._builder),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
         self,
-        builder: FeedbackBuilder | None = None,
+        builder: FeedbackBuilder | None | ComponentRef = None,
     ) -> None:
         super().__init__()
-        self._builder = builder or TrueOnlyFeedback()
+        _, reference = _component_or_reference(builder)
+        self._builder: Any = (
+            (builder or TrueOnlyFeedback()) if reference is None else None
+        )
+        self._refs = (("_builder", reference),) if reference is not None else ()
+
+    #: Created once per plan when the feedback_builder slot is empty.
+    _reference_default = staticmethod(TrueOnlyFeedback)
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return FeedbackStage(_resolve_reference(self, "_builder", bindings, defaults))
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         if _plan_incomplete(state):
@@ -2324,29 +2612,40 @@ class TellStage(Stage):
             ),
             writes=(),
             components=(("_algorithm", self._algorithm),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
         self,
-        algorithm: Algorithm | Proposer | FeedbackConsumer,
+        algorithm: Algorithm | Proposer | FeedbackConsumer | ComponentRef,
         *,
         channel: FeedbackChannel = TRUE,
     ) -> None:
         super().__init__()
-        from saealib.algorithms.base import FeedbackConsumer
 
+        component, reference = _component_or_reference(algorithm)
+        if component is None and reference is None:
+            raise ValidationError(
+                "TellStage requires an algorithm or a (slot, role) reference"
+            )
         self._proxy = _DispatchProxy()
         self._channel = channel
-        self._algorithm = cast(FeedbackConsumer, algorithm)
-        state_reads = getattr(self._algorithm, "_state_reads", None)
-        if state_reads is None:
-            contract = getattr(self._algorithm, "contract", None)
-            state_reads = (
-                contract().state
-                if callable(contract)
-                else (POPULATIONS_MAIN, RUNTIME_RNG)
-            )
-        self._state_reads = state_reads
+        self._algorithm: Any = component
+        self._refs = (("_algorithm", reference),) if reference is not None else ()
+        if reference is not None:
+            self._state_reads = (POPULATIONS_MAIN, RUNTIME_RNG)
+        else:
+            self._state_reads = _component_state_reads(component)
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        return TellStage(
+            _resolve_reference(self, "_algorithm", bindings, defaults),
+            channel=self._channel,
+        )
 
     def to_pseudocode(self, *, expand: bool = False, indent: int = 0) -> str:
         r"""Expand into per-step lines via ``Algorithm.tell_notation``."""
@@ -2401,19 +2700,25 @@ class SurrogateOnlyLoopStage(Stage):
 
     Parameters
     ----------
-    algorithm : Algorithm
-        Evolutionary algorithm for ask/tell.
-    surrogate_manager : SurrogateManager
+    algorithm : Algorithm or ComponentRef
+        Evolutionary algorithm for ask/tell, or the ``(slot, role)``
+        reference resolved from the plan's binding snapshot.
+    surrogate_manager : SurrogateManager or ComponentRef
         Manager used for fitting and prediction.
     gen_ctrl : int
         Number of surrogate-only generations.
     cbmanager : CallbackManager or None
-        Forwarded to inner stages for event dispatching.
-    acquisition : AcquisitionFunction
+        Forwarded to inner stages for event dispatching.  Must stay ``None``
+        for a reference-holding loop; callbacks then come from the plan's
+        binding snapshot.
+    acquisition : AcquisitionFunction or ComponentRef
         Acquisition function used to score offspring inside the inner loop.
         Keyword-only so existing positional
         ``SurrogateOnlyLoopStage(algorithm, surrogate_manager, gen_ctrl,
         cbmanager)`` calls stay valid.
+    feedback_builder : FeedbackBuilder, ComponentRef, or None
+        Inner-loop feedback builder; ``None`` keeps the built-in
+        surrogate-channel default.
     """
 
     name = "surrogate_only_loop"
@@ -2430,35 +2735,104 @@ class SurrogateOnlyLoopStage(Stage):
         return _stage_contract(
             reads=(ARCHIVES_MAIN,),
             components=(("_sm", self._sm),),
+            unresolved=_unresolved_reference_roles(self),
         )
 
     def __init__(
         self,
-        algorithm: Algorithm,
-        surrogate_manager: SurrogateManager,
+        algorithm: Algorithm | ComponentRef,
+        surrogate_manager: SurrogateManager | ComponentRef,
         gen_ctrl: int,
         cbmanager: CallbackManager | None = None,
         *,
-        acquisition: AcquisitionFunction,
-        feedback_builder: FeedbackBuilder | None = None,
+        acquisition: AcquisitionFunction | ComponentRef,
+        feedback_builder: FeedbackBuilder | None | ComponentRef = None,
     ) -> None:
         super().__init__()
         self._gen_ctrl = gen_ctrl
-        self._sm = surrogate_manager
-        self._cbmanager = cbmanager
-        if gen_ctrl > 0:
-            self.stages = [
-                CountGenerationStage(),
-                AskStage(algorithm, cbmanager=cbmanager),
-                SurrogatePredictStage(
-                    surrogate_manager, cbmanager=cbmanager, refit=False
-                ),
-                AcquisitionStage(acquisition, cbmanager=cbmanager),
-                FeedbackStage(feedback_builder or MixedFeedback()),
-                TellStage(algorithm, channel=SURROGATE),
-            ]
+        # Reference-tracking attributes stay unset until resolution; only
+        # the surrogate manager enters the contract as a named part.
+        self._sm: Any = None
+        self._algorithm: Any = None
+        self._acquisition: Any = None
+        self._builder: Any = None
+        references: list[tuple[str, ComponentRef]] = []
+        if isinstance(surrogate_manager, ComponentRef):
+            references.append(("_sm", surrogate_manager))
+        elif surrogate_manager is not None:
+            self._sm = surrogate_manager
+        for name, value in (
+            ("_algorithm", algorithm),
+            ("_acquisition", acquisition),
+            ("_builder", feedback_builder),
+        ):
+            if isinstance(value, ComponentRef):
+                references.append((name, value))
+            elif value is not None:
+                setattr(self, name, value)
+        self._refs = tuple(references)
+        referenced_names = {name for name, _ in references}
+        for name in ("_sm", "_algorithm", "_acquisition"):
+            if getattr(self, name) is None and name not in referenced_names:
+                raise ValidationError(
+                    "SurrogateOnlyLoopStage requires {} as a component or a "
+                    "(slot, role) reference".format(name[1:])
+                )
+        if cbmanager is not None and self._refs:
+            raise ValidationError(
+                "SurrogateOnlyLoopStage takes no cbmanager next to a "
+                "reference; callbacks come from the plan's binding snapshot"
+            )
+        self._cbmanager = None if self._refs else cbmanager
+        if gen_ctrl > 0 and not self._refs:
+            self.stages = self._build_inner_stages(
+                algorithm, surrogate_manager, acquisition, feedback_builder, cbmanager
+            )
         else:
             self.stages = []
+
+    @staticmethod
+    def _build_inner_stages(
+        algorithm: Any,
+        surrogate_manager: Any,
+        acquisition: Any,
+        feedback_builder: FeedbackBuilder | None | ComponentRef,
+        cbmanager: CallbackManager | None,
+    ) -> list[Stage]:
+        return [
+            CountGenerationStage(),
+            AskStage(algorithm, cbmanager=cbmanager),
+            SurrogatePredictStage(surrogate_manager, cbmanager=cbmanager, refit=False),
+            AcquisitionStage(acquisition, cbmanager=cbmanager),
+            FeedbackStage(feedback_builder or MixedFeedback()),
+            TellStage(algorithm, channel=SURROGATE),
+        ]
+
+    def _resolve_stage(
+        self,
+        bindings: Mapping[str, object],
+        defaults: dict[tuple[str, str], object],
+    ) -> Stage:
+        referenced_names = {name for name, _ in self._refs}
+        builder = (
+            _resolve_reference(
+                self, "_builder", bindings, defaults, fallback=MixedFeedback
+            )
+            if "_builder" in referenced_names
+            else self._builder
+        )
+        return SurrogateOnlyLoopStage(
+            _resolve_reference(self, "_algorithm", bindings, defaults),
+            _resolve_reference(self, "_sm", bindings, defaults),
+            self._gen_ctrl,
+            cbmanager=(
+                _snapshot_cbmanager(bindings)
+                if referenced_names
+                else self._cbmanager
+            ),
+            acquisition=_resolve_reference(self, "_acquisition", bindings, defaults),
+            feedback_builder=builder,
+        )
 
     def to_pseudocode(self, *, expand: bool = False, indent: int = 0) -> str:
         r"""Render as a ``\For`` loop block when *expand* is True."""

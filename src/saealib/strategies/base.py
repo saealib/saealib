@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 from saealib.context import OptimizationState
 from saealib.core.compiler.graph import ComponentGraph
 from saealib.core.contracts import ComponentContract, PortContract, StateContract
 from saealib.core.state import PENDING_EVALUATIONS
+from saealib.execution.prepare import BINDING_SLOTS
 from saealib.optimizer import ComponentProvider
 from saealib.pipeline import Pipeline
 from saealib.policies.evaluation import EvaluateAll, EvaluationPlanner
 from saealib.policies.feedback import FeedbackBuilder, MixedFeedback
+
+if TYPE_CHECKING:
+    from saealib.pipeline import PipelineEntry
 
 
 def build_runtime_neutral_graph(
@@ -102,3 +108,72 @@ class OptimizationStrategy:
         from saealib.execution.runtime import execute_strategy_step
 
         return execute_strategy_step(self, ctx, provider)
+
+
+class TemplateStrategy(OptimizationStrategy):
+    """
+    Run a declared Pipeline whose Stages reference components by ``(slot, role)``.
+
+    The declaration is a shareable value: it holds no components, only
+    :class:`~saealib.pipeline.ComponentRef` references (or explicit
+    Stage-local components).  Each preparation resolves the references from
+    one binding snapshot and rebuilds every Stage, so the same strategy —
+    even the same instance — can be prepared again for another Optimizer or
+    a new binding version without the earlier plan's components changing.
+
+    Parameters
+    ----------
+    pipeline : Pipeline
+        Declaration to resolve and run.
+    requires_surrogate : bool, optional
+        Whether the declaration needs a surrogate manager.
+
+    Attributes
+    ----------
+    declaration : Pipeline
+        The declaration passed as *pipeline*.
+    pipeline : Pipeline or None
+        The declaration resolved for the most recent plan; ``None`` until a
+        plan is prepared.
+    """
+
+    def __init__(
+        self,
+        pipeline: Pipeline,
+        *,
+        requires_surrogate: bool = False,
+    ) -> None:
+        self.declaration = pipeline
+        self.requires_surrogate = requires_surrogate
+        self.pipeline: Pipeline | None = None
+
+    def build_pipeline(self, provider: ComponentProvider) -> Pipeline:
+        """Return the declaration resolved against the active snapshot."""
+        resolved = self._resolve(provider)
+        declared = resolved if isinstance(resolved, Pipeline) else Pipeline([resolved])
+        self.pipeline = declared
+        return declared
+
+    def build_graph(self, provider: ComponentProvider) -> ComponentGraph:
+        """Lower the declaration resolved against the active snapshot."""
+        from saealib.core.compiler.lowerer import lower_pipeline
+        from saealib.execution.prepare import declared_components
+
+        return lower_pipeline(declared_components(self.build_pipeline(provider)))
+
+    def _resolve(self, provider: ComponentProvider) -> PipelineEntry:
+        from saealib.execution.prepare import resolve_declaration
+
+        return resolve_declaration(self.declaration, self.snapshot_bindings(provider))
+
+    @staticmethod
+    def snapshot_bindings(provider: ComponentProvider) -> dict[str, object]:
+        """Read the slots a declaration resolves from.
+
+        The runtime serves slots from the active binding snapshot; a bare
+        provider resolves from its current slot values.
+        """
+        values = getattr(provider, "binding_values", None)
+        if callable(values):
+            return cast(dict[str, object], values())
+        return {name: getattr(provider, name, None) for name in BINDING_SLOTS}

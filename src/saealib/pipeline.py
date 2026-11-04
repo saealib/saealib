@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeAlias, TypeGuard
 
 from saealib.core.compiler.regions import (
@@ -16,6 +17,7 @@ from saealib.core.compiler.regions import (
 )
 from saealib.core.component import Component
 from saealib.core.contracts import ComponentContract, StateContract
+from saealib.core.contracts.roles import ROLES
 from saealib.exceptions import ValidationError
 
 if TYPE_CHECKING:
@@ -23,6 +25,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Branch",
+    "ComponentRef",
     "Condition",
     "Loop",
     "Pipeline",
@@ -30,6 +33,71 @@ __all__ = [
     "Repeat",
     "Stage",
 ]
+
+#: The Optimizer slot each stage-consumed role is served from when a
+#: declaration does not name one explicitly.  Slots not listed here have no
+#: well-known binding and must be named on the reference.
+_ROLE_WELL_KNOWN_SLOT: Mapping[str, str] = {
+    "proposer": "algorithm",
+    "feedback_consumer": "algorithm",
+    "fitter": "surrogate_manager",
+    "predictor": "surrogate_manager",
+    "acquisition": "acquisition",
+    "evaluation_planner": "evaluation_planner",
+    "feedback_builder": "feedback_builder",
+    "evaluator": "evaluator",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentRef:
+    """
+    A declared Stage's ``(slot, role)`` reference to a component.
+
+    Declaration Stages hold this instead of a component so that the same
+    declaration can be prepared for many plans.  The reference is resolved
+    from the binding snapshot of the plan that executes the declaration,
+    producing a resolved Stage owned by that plan; the declaration itself is
+    never mutated.
+
+    Parameters
+    ----------
+    role : str
+        Registered ``ROLES`` name the referenced component plays.
+    slot : str, optional
+        Optimizer slot the component is read from.  Defaults to the role's
+        well-known slot (for example ``"algorithm"`` for ``"proposer"``).
+
+    Raises
+    ------
+    ValidationError
+        If *role* is not registered, or *slot* is omitted for a role without
+        a well-known slot.
+
+    Notes
+    -----
+    References are resolved in a Stage's own attributes and in the child
+    Stages listed in its ``stages``.  A Stage held in any other attribute
+    keeps its references unresolved, and preparing the plan fails.
+    """
+
+    role: str
+    slot: str = ""
+
+    def __post_init__(self) -> None:
+        if ROLES.get(self.role) is None:
+            raise ValidationError(
+                f"{self.role!r} is not a registered role; use one of the "
+                "names declared in saealib ROLES."
+            )
+        if not self.slot:
+            slot = _ROLE_WELL_KNOWN_SLOT.get(self.role)
+            if slot is None:
+                raise ValidationError(
+                    f"role {self.role!r} has no well-known slot; record the "
+                    "reference with an explicit slot."
+                )
+            object.__setattr__(self, "slot", slot)
 
 
 class Stage(ABC):
@@ -59,6 +127,10 @@ class Stage(ABC):
     stages: list[Stage]
     _execution_mode = "optimization_state"
     _saealib_stage_boundary = True
+
+    #: ``(attribute-name, reference)`` entries a declaration Stage fills when
+    #: its references are resolved from a binding snapshot.
+    _refs: tuple[tuple[str, ComponentRef], ...] = ()
 
     def __init__(
         self,
@@ -149,6 +221,22 @@ class Stage(ABC):
         return ComponentContract(
             state=StateContract(reads_enumerable=False, writes_enumerable=False)
         )
+
+    def _resolve_stage(
+        self, bindings: Mapping[str, object], defaults: dict[tuple[str, str], object]
+    ) -> Stage:
+        """Resolve declaration references from one binding snapshot.
+
+        Declaration Stages override this; a Stage subclass that records
+        references without supporting resolution fails loudly instead of
+        keeping an unresolved reference in a plan.
+        """
+        if self._refs:
+            raise ValidationError(
+                f"{type(self).__name__} records (slot, role) references but "
+                "does not support resolution against a binding snapshot."
+            )
+        return self
 
 
 def _is_pipeline_entry(value: object) -> TypeGuard[PipelineEntry]:

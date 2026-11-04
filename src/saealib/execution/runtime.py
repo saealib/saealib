@@ -70,6 +70,7 @@ from saealib.execution.history import (
     record_evaluations,
     record_generation,
 )
+from saealib.execution.prepare import BINDING_SLOTS
 
 logger = logging.getLogger(__name__)
 
@@ -994,16 +995,29 @@ def _algorithm_runtime_capabilities(
     return frozenset()
 
 
-_BINDING_SLOTS = (
-    "algorithm",
-    "strategy",
-    "surrogate_manager",
-    "acquisition",
-    "evaluation_planner",
-    "feedback_builder",
-    "evaluator",
-    "cbmanager",
-)
+_BINDING_SLOTS = BINDING_SLOTS
+
+
+class _SnapshotProviderView:
+    """Provider view over one candidate binding set.
+
+    Slots are served from the pending snapshot values, so plan preparation
+    never reads the live optimizer, even mid-run.  Non-slot attributes fall
+    through to the optimizer (problem, space, runtime flags).
+    """
+
+    def __init__(self, optimizer: Any, bindings: dict[str, object]) -> None:
+        self._optimizer = optimizer
+        self._bindings = bindings
+
+    def binding_values(self) -> dict[str, object]:
+        """Candidate snapshot values for declaration resolution."""
+        return dict(self._bindings)
+
+    def __getattr__(self, name: str) -> object:
+        if name in _BINDING_SLOTS:
+            return self._bindings.get(name)
+        return getattr(self._optimizer, name)
 
 
 @dataclass(frozen=True)
@@ -1170,7 +1184,7 @@ class _OptimizerEnvironment:
         bindings: dict[str, object],
         strategy_values: tuple[tuple[str, str], ...],
     ) -> None:
-        executable, rebuilt = self._compile_current_plan()
+        executable, rebuilt = self._compile_current_plan(bindings)
         self._gate(executable)
         self.plan = rebuilt
         if hasattr(self.optimizer, "_executable_plan"):
@@ -1234,7 +1248,7 @@ class _OptimizerEnvironment:
         return self.plan
 
     def _compile_current_plan(
-        self,
+        self, bindings: dict[str, object]
     ) -> tuple[ExecutablePlan, SequentialPlan | StructuredPlan]:
         strategy = getattr(self.optimizer, "strategy", None)
         build_graph = getattr(strategy, "build_graph", None)
@@ -1243,7 +1257,7 @@ class _OptimizerEnvironment:
             raise ValidationError(
                 "runtime plan refresh requires strategy.build_graph and problem"
             )
-        graph = build_graph(self.optimizer)
+        graph = build_graph(_SnapshotProviderView(self.optimizer, bindings))
         executable = Compiler().compile(
             graph,
             CompileContext(
@@ -1442,16 +1456,17 @@ def execute_strategy_step(
             initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
         ),
     )
-    if isinstance(graph, StructuredGraph):
-        build_pipeline = getattr(strategy, "build_pipeline", None)
-        if not callable(build_pipeline):
-            raise ValidationError(
-                "structured strategy graph requires build_pipeline(provider)"
-            )
-        setattr(strategy, "pipeline", build_pipeline(provider))
-    else:
-        from saealib.strategies.base import build_pipeline_from_graph
+    from saealib.strategies.base import TemplateStrategy, build_pipeline_from_graph
 
+    if isinstance(graph, StructuredGraph):
+        if not isinstance(strategy, TemplateStrategy) or strategy.pipeline is None:
+            build_pipeline = getattr(strategy, "build_pipeline", None)
+            if not callable(build_pipeline):
+                raise ValidationError(
+                    "structured strategy graph requires build_pipeline(provider)"
+                )
+            setattr(strategy, "pipeline", build_pipeline(provider))
+    else:
         setattr(strategy, "pipeline", build_pipeline_from_graph(graph))
     if scheduler is None:
         runtime = PipelineRuntime()

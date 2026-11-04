@@ -18,6 +18,7 @@ The canonical extension point for a new Strategy is `build_graph(provider) -> Co
    :nosignatures:
 
    saealib.OptimizationStrategy
+   saealib.strategies.TemplateStrategy
 ```
 
 ## Implementations

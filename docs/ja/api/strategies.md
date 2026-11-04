@@ -18,6 +18,7 @@ page_type: reference
    :nosignatures:
 
    saealib.OptimizationStrategy
+   saealib.strategies.TemplateStrategy
 ```
 
 ## 実装

@@ -31,7 +31,7 @@ from saealib.core.contracts import (
 )
 from saealib.core.state import StateKey
 from saealib.exceptions import ValidationError
-from saealib.pipeline import Pipeline, Stage
+from saealib.pipeline import ComponentRef, Pipeline, Stage
 
 __all__ = [
     "NodeAdapterSpec",
@@ -95,6 +95,12 @@ def _held_components(stage: Stage) -> tuple[_HeldComponent, ...]:
         value_id = id(value)
         if value_id in seen:
             return
+        if isinstance(value, ComponentRef):
+            raise ValidationError(
+                f"{type(value).__name__}({value.role!r}) at {'/'.join(path)!r} is "
+                "an unresolved (slot, role) reference; resolve the declaration "
+                "against a binding snapshot before building the graph."
+            )
         if isinstance(value, Stage):
             seen.add(value_id)
             for index, child in enumerate(value.stages):

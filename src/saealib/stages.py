@@ -1144,6 +1144,7 @@ class EvaluationPlanStage(Stage):
         callback_manager: Any = None,
         prefix=None,
         strategy: Any = None,
+        allow_new_proposals: bool = True,
     ) -> OptimizationState:
         """Submit through the public async execution seam.
 
@@ -1173,6 +1174,7 @@ class EvaluationPlanStage(Stage):
             and plan_state is not None
             and not plan_state.deferred
             and len(state.pending_evaluations) < scheduler.max_pending
+            and allow_new_proposals
         )
         current = state
         if refill:
@@ -1181,6 +1183,10 @@ class EvaluationPlanStage(Stage):
                 evaluation_plan_state=None,
                 evaluation_plan_updates={},
             )
+        # A deferred binding publication must not let the plan drain open a
+        # new proposal round; remaining requests of the active plan still run.
+        if not allow_new_proposals and (current.evaluation_plan is None or terminal):
+            return current
         if prefix is not None and (
             current.evaluation_plan is None or terminal or refill
         ):
@@ -1257,8 +1263,6 @@ class AsyncEvaluationSubmitStage(Stage):
         if candidates is None:
             raise EvaluationProtocolError("evaluation candidates are missing")
         self._scheduler.feedback_builder = self._feedback_builder
-        self._scheduler.algorithm = self._algorithm
-        self._scheduler.callback_manager = self._callback_manager
         acquisition = state.acquisition_result
         if acquisition is None and state.scores is not None:
             acquisition = AcquisitionResult(scores=state.scores)

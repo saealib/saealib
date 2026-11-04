@@ -19,6 +19,7 @@ from saealib.policies import (
     RatioEvaluation,
 )
 from saealib.problem import Problem
+from saealib.strategies.direct import DirectStrategy
 from saealib.strategies.ps import PreSelectionStrategy
 
 
@@ -41,13 +42,22 @@ class TestSetComponentsAreNeverOverwritten:
         opt._resolve_defaults()
         assert opt.algorithm is pso
 
-    def test_set_algorithm_after_async_scheduler_updates_scheduler_consumer(self):
+    def test_set_algorithm_after_async_scheduler_waits_for_publication(self):
+        from saealib.core.runtime import SequentialPlan
+        from saealib.execution.runtime import _OptimizerEnvironment
+
         opt = Optimizer(_problem())
         scheduler = AsyncEvaluationScheduler(SerialEvaluator())
 
         opt.set_async_evaluation_scheduler(scheduler)
         algorithm = PSO()
         opt.set_algorithm(algorithm)
+        assert scheduler.algorithm is None
+
+        opt.set_strategy(DirectStrategy())
+        plan = opt._compile_plan()
+        assert plan is not None
+        _OptimizerEnvironment(opt, SequentialPlan.from_executable_plan(plan))
 
         assert scheduler.algorithm is algorithm
 

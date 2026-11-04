@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import inspect
 import logging
 import time
@@ -993,12 +994,93 @@ def _algorithm_runtime_capabilities(
     return frozenset()
 
 
+_BINDING_SLOTS = (
+    "algorithm",
+    "strategy",
+    "surrogate_manager",
+    "acquisition",
+    "evaluation_planner",
+    "feedback_builder",
+    "evaluator",
+    "cbmanager",
+)
+
+
+@dataclass(frozen=True)
+class _BindingSnapshot:
+    """One published binding set: component identities plus a version.
+
+    Holds strong references to every bound component so identity comparison
+    at later commit points cannot be confused by object id reuse.
+    """
+
+    version: int
+    values: dict[str, object]
+    strategy_values: tuple[tuple[str, str], ...]
+
+    def unchanged_by(
+        self,
+        values: dict[str, object],
+        strategy_values: tuple[tuple[str, str], ...],
+    ) -> bool:
+        """Return True when the candidate bindings resolve to this snapshot."""
+        if set(values) != set(self.values):
+            return False
+        if any(values[name] is not bound for name, bound in self.values.items()):
+            return False
+        return strategy_values == self.strategy_values
+
+
+def _iter_plan_components(
+    plan: SequentialPlan | StructuredPlan,
+) -> Iterable[ComponentNode]:
+    if isinstance(plan, StructuredPlan):
+        for operation in plan.graph.operations:
+            if isinstance(operation, ComponentNode):
+                yield operation
+            elif isinstance(operation, RegionNode):
+                body = operation.region.body
+                if isinstance(body, StructuredGraph):
+                    yield from _iter_plan_components_from_graph(body)
+    else:
+        yield from plan.execution_nodes
+
+
+def _iter_plan_components_from_graph(
+    graph: StructuredGraph,
+) -> Iterable[ComponentNode]:
+    for operation in graph.operations:
+        if isinstance(operation, ComponentNode):
+            yield operation
+        elif isinstance(operation, RegionNode):
+            body = operation.region.body
+            if isinstance(body, StructuredGraph):
+                yield from _iter_plan_components_from_graph(body)
+
+
+def _plan_has_unfinished_async_work(
+    plan: SequentialPlan | StructuredPlan, state: OptimizationState
+) -> bool:
+    for node in _iter_plan_components(plan):
+        capability = getattr(node.component, "has_async_work", None)
+        if callable(capability) and capability(state):
+            return True
+    return False
+
+
 class _OptimizerEnvironment:
     def __init__(self, optimizer: Any, plan: SequentialPlan | StructuredPlan) -> None:
         self.optimizer = optimizer
         self.plan = plan
-        self._execution_fingerprint = self._fingerprint()
+        self._version = 0
+        self._publication_deferred = False
+        self._active_snapshot = _BindingSnapshot(
+            version=self._version,
+            values=self._bindings(),
+            strategy_values=self._strategy_values(),
+        )
         self.capabilities = _algorithm_runtime_capabilities(optimizer)
+        self._publish_scheduler()
         scheduler = getattr(optimizer, "async_evaluation_scheduler", None)
         if scheduler is not None and any(
             getattr(insertion, "adapter_name", None) == "feedback_accumulator"
@@ -1007,10 +1089,19 @@ class _OptimizerEnvironment:
             # The graph owns delivery; the seam only enables scheduler state.
             scheduler.enable_feedback_accumulator()
 
+    @property
+    def active_version(self) -> int:
+        """Version of the binding snapshot that the active plan belongs to."""
+        return self._active_snapshot.version
+
+    def binding_values(self) -> dict[str, object]:
+        """Active snapshot bindings for components resolved by the runtime."""
+        return dict(self._active_snapshot.values)
+
     def execute(
         self, plan: SequentialPlan, state: OptimizationState
     ) -> OptimizationState:
-        self._refresh_plan_if_needed()
+        self._refresh_plan_if_needed(state)
         if not isinstance(self.plan, SequentialPlan):
             raise ValidationError(
                 "sequential environment cannot execute a structured plan"
@@ -1020,7 +1111,7 @@ class _OptimizerEnvironment:
     def execute_step(
         self, plan: SequentialPlan, state: OptimizationState
     ) -> _ExecutionOutcome:
-        self._refresh_plan_if_needed()
+        self._refresh_plan_if_needed(state)
         if not isinstance(self.plan, SequentialPlan):
             raise ValidationError(
                 "sequential environment cannot execute a structured plan"
@@ -1032,54 +1123,115 @@ class _OptimizerEnvironment:
             observe=_record_history_observation,
         )
 
-    def _fingerprint(self) -> tuple[object, ...]:
-        strategy = getattr(self.optimizer, "strategy", None)
-        strategy_values = (
-            tuple(
-                (name, repr(value))
-                for name, value in vars(strategy).items()
-                if name != "pipeline"
-            )
-            if strategy is not None
-            else ()
-        )
-        provider_values = tuple(
-            (name, id(getattr(self.optimizer, name, None)))
-            for name in (
-                "surrogate_manager",
-                "acquisition",
-                "feedback_builder",
-                "evaluation_planner",
-                "evaluator",
-            )
-        )
-        return strategy_values + provider_values
+    def _bindings(self) -> dict[str, object]:
+        return {name: getattr(self.optimizer, name, None) for name in _BINDING_SLOTS}
 
-    def _refresh_plan_if_needed(self) -> None:
-        current_fingerprint = self._fingerprint()
-        if current_fingerprint == self._execution_fingerprint:
+    def _strategy_values(self) -> tuple[tuple[str, str], ...]:
+        strategy = getattr(self.optimizer, "strategy", None)
+        if strategy is None:
+            return ()
+        return tuple(
+            (name, repr(value))
+            for name, value in vars(strategy).items()
+            if name != "pipeline"
+        )
+
+    def _refresh_plan_if_needed(self, state: OptimizationState | None = None) -> None:
+        """Commit point: publish a new binding version once, or defer it.
+
+        A replacement detected between commit points is applied only here;
+        during one flow execution the active version stays untouched.
+        """
+        bindings = self._bindings()
+        strategy_values = self._strategy_values()
+        if self._active_snapshot.unchanged_by(bindings, strategy_values):
+            # A swap that was deferred while its evaluations ran may resolve
+            # back to the active bindings; a matching commit point then ends
+            # the deferral, otherwise pending-collection would stall the run.
+            self._publication_deferred = False
             return
+        if self._replacement_blocked(state):
+            self._publication_deferred = True
+            return
+        self._publication_deferred = False
+        self._publish(bindings, strategy_values)
+
+    def _replacement_blocked(self, state: OptimizationState | None) -> bool:
+        """Outstanding asynchronous work under the active version."""
+        scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
+        if scheduler is None or state is None:
+            return False
+        if state.pending_evaluations or state.evaluation_handles:
+            return True
+        return _plan_has_unfinished_async_work(self.plan, state)
+
+    def _publish(
+        self,
+        bindings: dict[str, object],
+        strategy_values: tuple[tuple[str, str], ...],
+    ) -> None:
         executable, rebuilt = self._compile_current_plan()
+        self._gate(executable)
         self.plan = rebuilt
         if hasattr(self.optimizer, "_executable_plan"):
             self.optimizer._executable_plan = executable
-        self._execution_fingerprint = current_fingerprint
+        self._version += 1
+        self._active_snapshot = _BindingSnapshot(
+            version=self._version,
+            values=bindings,
+            strategy_values=strategy_values,
+        )
+        self._publish_scheduler()
+
+    def _publish_scheduler(self) -> None:
+        """Serve the scheduler from the active snapshot, never live reads.
+
+        The feedback builder is served by the submission that opens each
+        request; requests restored from a checkpoint commit with the builder
+        the scheduler already holds.
+        """
+        scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
+        if scheduler is None:
+            return
+        values = self._active_snapshot.values
+        updated = {
+            "algorithm": values.get("algorithm"),
+            "callback_manager": values.get("cbmanager"),
+        }
+        for name, value in updated.items():
+            with contextlib.suppress(AttributeError):
+                setattr(scheduler, name, value)
+
+    def _gate(self, executable: ExecutablePlan) -> None:
+        """Run the initial-run validation gate on a candidate plan.
+
+        Raises before publication so the previous plan and active version
+        stay usable when a replacement does not compile.
+        """
+        optimizer = self.optimizer
+        validate = getattr(optimizer, "validate", None)
+        if not callable(validate):
+            return
+        has_plan = hasattr(optimizer, "_executable_plan")
+        previous = getattr(optimizer, "_executable_plan", None)
+        if has_plan:
+            optimizer._executable_plan = executable
+        try:
+            issues = validate(require_initializer=False)
+        finally:
+            if has_plan:
+                optimizer._executable_plan = previous
+        if issues:
+            raise ConfigurationError(
+                "Component replacement rejected at the commit point:\n"
+                + "\n".join(f"  - {message}" for message in issues)
+            )
 
     def recompile(
         self, plan: SequentialPlan | StructuredPlan
     ) -> SequentialPlan | StructuredPlan:
-        executable, _ = self._compile_current_plan()
-        if isinstance(plan, StructuredPlan):
-            rebuilt: SequentialPlan | StructuredPlan = (
-                StructuredPlan.from_executable_plan(executable)
-            )
-        else:
-            rebuilt = SequentialPlan.from_executable_plan(executable)
-        self.plan = rebuilt
-        if hasattr(self.optimizer, "_executable_plan"):
-            self.optimizer._executable_plan = executable
-        self._execution_fingerprint = self._fingerprint()
-        return rebuilt
+        self._publish(self._bindings(), self._strategy_values())
+        return self.plan
 
     def _compile_current_plan(
         self,
@@ -1129,7 +1281,7 @@ class _OptimizerEnvironment:
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
         if scheduler is None:
             raise ValidationError("Async runtime requires an evaluation scheduler")
-        self._refresh_plan_if_needed()
+        self._refresh_plan_if_needed(state)
         if not isinstance(self.plan, SequentialPlan):
             raise ValidationError("async environment cannot execute a structured plan")
         sequential_plan = self.plan
@@ -1174,16 +1326,18 @@ class _OptimizerEnvironment:
             return prefix_outcome.state
 
         seam = getattr(nodes[async_index].component, "execute_async")
-        builder = getattr(self.optimizer, "feedback_builder", None)
+        bindings = self._active_snapshot.values
+        builder = bindings.get("feedback_builder")
         if builder is None:
-            builder = getattr(self.optimizer.strategy, "feedback_builder", None)
+            builder = getattr(bindings.get("strategy"), "feedback_builder", None)
         kwargs = {
             "scheduler": scheduler,
             "feedback_builder": builder,
-            "algorithm": getattr(self.optimizer, "algorithm", None),
-            "callback_manager": getattr(self.optimizer, "cbmanager", None),
+            "algorithm": bindings.get("algorithm"),
+            "callback_manager": bindings.get("cbmanager"),
             "prefix": prefix,
-            "strategy": getattr(self.optimizer, "strategy", None),
+            "strategy": bindings.get("strategy"),
+            "allow_new_proposals": not self._publication_deferred,
         }
         parameters = inspect.signature(seam).parameters
         component = nodes[async_index].component
@@ -1327,6 +1481,7 @@ def execute_strategy_step(
         optimizer, SequentialPlan.from_executable_plan(plan)
     )
     sequential = SequentialPlan.from_executable_plan(plan)
+    environment.recompile(sequential)
     return environment.execute_async(sequential, state)
 
 
@@ -1450,7 +1605,7 @@ class PipelineRuntime:
             env.fatal(session.state)
             refresh = getattr(env, "_refresh_plan_if_needed", None)
             if callable(refresh) and not session.frames:
-                refresh()
+                refresh(session.state)
             plan = getattr(env, "plan", session.plan)
             if not isinstance(plan, StructuredPlan):
                 raise ValidationError(
@@ -1757,6 +1912,22 @@ class AsyncPipelineRuntime(PipelineRuntime):
         scheduler = getattr(optimizer, "async_evaluation_scheduler", None)
         if scheduler is None:
             return {}
+        snapshot_values = getattr(environment, "binding_values", None)
+        if callable(snapshot_values):
+            bindings = snapshot_values()
+            builder = bindings.get("feedback_builder")
+            if builder is None:
+                builder = getattr(bindings.get("strategy"), "feedback_builder", None)
+            return {
+                "scheduler": scheduler,
+                "feedback_builder": builder,
+                "algorithm": bindings.get("algorithm"),
+                "callback_manager": bindings.get("cbmanager"),
+                "strategy": bindings.get("strategy"),
+                "allow_new_proposals": not getattr(
+                    environment, "_publication_deferred", False
+                ),
+            }
         builder = getattr(optimizer, "feedback_builder", None)
         if builder is None:
             strategy = getattr(optimizer, "strategy", None)
@@ -1812,7 +1983,7 @@ class AsyncPipelineRuntime(PipelineRuntime):
         environment.fatal(session.state)
         refresh = getattr(environment, "_refresh_plan_if_needed", None)
         if callable(refresh) and not session.frames:
-            refresh()
+            refresh(session.state)
         plan = getattr(environment, "plan", session.plan)
         if not isinstance(plan, StructuredPlan):
             raise ValidationError(
@@ -1949,11 +2120,11 @@ class AsyncPipelineRuntime(PipelineRuntime):
     def _has_unfinished_async_work(
         plan: SequentialPlan, state: OptimizationState
     ) -> bool:
-        for node in plan.execution_nodes:
-            capability = getattr(node.component, "has_async_work", None)
-            if callable(capability) and capability(state):
-                return True
-        return False
+        return _plan_has_unfinished_async_work(plan, state)
+
+    @staticmethod
+    def _publication_deferred(environment: object) -> bool:
+        return getattr(environment, "_publication_deferred", False) is True
 
     def advance(self, session: RuntimeSession) -> RuntimeStep:
         """Poll, refill, drain, and expose asynchronous generation boundaries."""
@@ -1975,6 +2146,10 @@ class AsyncPipelineRuntime(PipelineRuntime):
         plan = session.plan
         generation_open = session.generation_open
         metadata = _ExecutionOutcome(state=state)
+        commit = getattr(env, "_refresh_plan_if_needed", None)
+        if callable(commit):
+            commit(state)
+            plan = getattr(env, "plan", plan)
 
         if state.pending_evaluations:
             if set(state.pending_evaluations) != set(state.evaluation_handles):
@@ -1987,7 +2162,7 @@ class AsyncPipelineRuntime(PipelineRuntime):
                     if not result.progressed:
                         time.sleep(0.001)
                     return self._step(session, state, generation_open)
-                if not env.can_refill(state):
+                if not env.can_refill(state) or self._publication_deferred(env):
                     return self._step(session, state, generation_open)
                 metadata = _environment_execute_async(env, plan, state)
                 state = metadata.state

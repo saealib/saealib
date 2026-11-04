@@ -55,4 +55,5 @@ pipeline = Pipeline(
    saealib.Repeat
    saealib.Loop
    saealib.Branch
+   saealib.pipeline.ComponentRef
 ```

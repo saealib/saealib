@@ -473,6 +473,13 @@ class _DeapStrategyStub:
         del population
 
 
+def _recipe_template_strategy() -> Any:
+    from saealib.pipeline import Pipeline
+    from saealib.strategies.base import TemplateStrategy
+
+    return TemplateStrategy(Pipeline())
+
+
 _RECIPES: dict[str, Callable[[], Any]] = {
     _qualified_name(
         _REGISTRY["LocalSurrogateManager"]
@@ -533,6 +540,7 @@ _RECIPES: dict[str, Callable[[], Any]] = {
         _recipe_freshened_component
     ),
     "saealib.core.compiler.adapters.AdapterComponent": _recipe_adapter_component,
+    "saealib.strategies.base.TemplateStrategy": _recipe_template_strategy,
     _qualified_name(_REGISTRY["GenerationBasedStrategy"]): lambda: build(
         {"type": "GenerationBasedStrategy", "params": {"gen_ctrl": 5}}
     ),

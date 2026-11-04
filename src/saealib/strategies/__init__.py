@@ -1,4 +1,4 @@
-from saealib.strategies.base import OptimizationStrategy
+from saealib.strategies.base import OptimizationStrategy, TemplateStrategy
 from saealib.strategies.direct import DirectStrategy, SteadyStateStrategy
 from saealib.strategies.gb import GenerationBasedStrategy
 from saealib.strategies.ib import IndividualBasedStrategy
@@ -11,4 +11,5 @@ __all__ = [
     "OptimizationStrategy",
     "PreSelectionStrategy",
     "SteadyStateStrategy",
+    "TemplateStrategy",
 ]

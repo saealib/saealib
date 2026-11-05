@@ -329,7 +329,7 @@ def test_builtin_comparator_keeps_the_default_initializer_schema():
     ctx = LHSInitializer(N_ARCHIVE, N_POP, seed=0).initialize(
         cast(Any, _MockProvider()), _make_problem()
     )
-    expected = ["x", "f", "g", "cv", "id"]
+    expected = ["x", "f", "g", "cv", "id", "objective_source"]
 
     assert [attr.name for attr in ctx.population.attrs] == expected
     assert [attr.name for attr in ctx.archive.attrs] == expected

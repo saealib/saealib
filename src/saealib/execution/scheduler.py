@@ -66,6 +66,8 @@ from saealib.policies.feedback import (
     FeedbackBuilder,
     FeedbackResult,
     _feedback_batch_from_result,
+    _set_objective_source,
+    _set_objectives_true,
 )
 from saealib.stages import deliver_feedback
 
@@ -1311,18 +1313,17 @@ class AsyncEvaluationScheduler:
             return state
         owner = self._owner(state, int(update.request_id))
         rows = self._rows(state, update.candidate_ids, int(update.request_id))
-        owner.update_rows(
-            rows,
-            {
-                name: value
-                for name, value in {
-                    "f": update.result.f,
-                    "g": update.result.g,
-                    "cv": update.result.cv,
-                }.items()
-                if name in owner.schema
-            },
-        )
+        values = {
+            name: value
+            for name, value in {
+                "f": update.result.f,
+                "g": update.result.g,
+                "cv": update.result.cv,
+            }.items()
+            if name in owner.schema
+        }
+        _set_objectives_true(owner, values, len(rows))
+        owner.update_rows(rows, values)
         return state
 
     def _apply_archive(
@@ -1438,6 +1439,7 @@ class AsyncEvaluationScheduler:
                 values["g"] = result.g
             if result.cv is not None and "cv" in owner.schema:
                 values["cv"] = result.cv
+            _set_objective_source(owner, values, result.source, len(rows))
             owner.update_rows(rows, values)
         return state.replace(feedback_result=result)
 

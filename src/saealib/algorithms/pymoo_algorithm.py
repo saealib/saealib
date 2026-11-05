@@ -33,6 +33,10 @@ from saealib.core.state import (
 from saealib.exceptions import ConfigurationError
 from saealib.identity import IDAllocator
 from saealib.population import Archive, Population, PopulationAttribute
+from saealib.population.population import (
+    OBJECTIVE_SOURCE_COLUMN,
+    UNKNOWN_SOURCE_CODE,
+)
 from saealib.problem.constraint import EqualityConstraint
 from saealib.problem.problem import Problem
 from saealib.space import BoundsService
@@ -63,6 +67,9 @@ class _PymooContext(Protocol):
 
     @property
     def population(self) -> Population: ...
+
+    @property
+    def offspring(self) -> Population | None: ...
 
     @property
     def rng(self) -> np.random.Generator: ...
@@ -548,6 +555,40 @@ class PymooAlgorithm(AskTellAlgorithm):
                     "survival must preserve saealib_candidate_id"
                 )
             new_pop_data["id"] = survivor_ids
+        if OBJECTIVE_SOURCE_COLUMN in population.schema:
+            new_pop_data[OBJECTIVE_SOURCE_COLUMN] = _survivor_objective_sources(
+                n, survivor_ids, population, ctx.offspring
+            )
 
         population.clear()
         population._extend_internal(new_pop_data, preserve_ids=True)
+
+
+def _survivor_objective_sources(
+    n: int,
+    survivor_ids: np.ndarray | None,
+    population: Population,
+    offspring: Population | None,
+) -> np.ndarray:
+    """Look up each survivor's objective source code by candidate ID."""
+    sources = np.full(n, UNKNOWN_SOURCE_CODE, dtype=np.uint8)
+    if survivor_ids is None or "id" not in population.schema:
+        return sources
+    known: dict[int, int] = {}
+    for rows in (population, offspring):
+        if (
+            rows is None
+            or "id" not in rows.schema
+            or OBJECTIVE_SOURCE_COLUMN not in rows.schema
+        ):
+            continue
+        known.update(
+            zip(
+                rows.get_array("id").tolist(),
+                rows.get_array(OBJECTIVE_SOURCE_COLUMN).tolist(),
+                strict=True,
+            )
+        )
+    for row, candidate_id in enumerate(survivor_ids.tolist()):
+        sources[row] = known.get(candidate_id, UNKNOWN_SOURCE_CODE)
+    return sources

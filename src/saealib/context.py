@@ -330,7 +330,10 @@ class OptimizationState:
     problem : Problem
         Problem instance.
     population : Population
-        Population instance.
+        Population instance.  Its ``objective_source`` column (``uint8``,
+        read with ``population.get_array("objective_source")``) records where
+        each row's ``f`` came from: ``0`` true evaluation, ``1`` surrogate
+        prediction, ``2`` imputed fallback value, ``255`` unknown.
     archive : Archive
         Archive instance.  Append-only in-place mutation is permitted.
     pareto_archive : ParetoArchive

@@ -86,6 +86,7 @@ def _make_ctx(
     n_pop: int = N_POP,
     rng_seed: int = 0,
     with_ids: bool = False,
+    with_objective_source: bool = False,
 ) -> OptimizationState:
     rng = np.random.default_rng(rng_seed)
     attrs = [
@@ -97,6 +98,8 @@ def _make_ctx(
     ]
     if with_ids:
         attrs.insert(4, PopulationAttribute("id", np.int64, (), default=-1))
+    if with_objective_source:
+        attrs.append(PopulationAttribute("objective_source", np.uint8, (), default=0))
     pop = Population(attrs, init_capacity=n_pop + 5)
     xs = rng.uniform(problem.lb, problem.ub, size=(n_pop, problem.dim))
     fs = np.array([problem.func(x) for x in xs])
@@ -374,6 +377,35 @@ class TestPymooSyncPopulationIdContinuity:
         assert set(pymoo_ids) <= set(parent_ids) | set(offspring_ids)
         expected_source = offspring_ids if offspring_objective == 0.0 else parent_ids
         assert set(pymoo_ids) == set(expected_source)
+
+    @pytest.mark.parametrize("offspring_objective", [0.0, 1_000.0])
+    def test_sync_carries_objective_source_of_each_survivor(self, offspring_objective):
+        problem = _make_problem()
+        algo = PymooAlgorithm(NSGA2(pop_size=N_POP))
+        ctx = _make_ctx(algo, problem, with_ids=True, with_objective_source=True)
+        ctx.candidate_id_allocator.allocate(N_POP)
+        parent_sources = (np.arange(N_POP) % 2).astype(np.uint8)
+        ctx.population.update_array("objective_source", parent_sources)
+        cand = algorithm_ask(algo, ctx, _DummyProvider())
+        cand.update_array(
+            "f", np.full((len(cand), 1), offspring_objective, dtype=np.float64)
+        )
+        cand.update_array("objective_source", np.full(len(cand), 2, dtype=np.uint8))
+        known = dict(
+            zip(
+                ctx.population.get_array("id").tolist(),
+                parent_sources.tolist(),
+                strict=True,
+            )
+        )
+        known.update((int(i), 2) for i in cand.get_array("id"))
+
+        algorithm_tell(algo, ctx, cand, _DummyProvider())
+
+        expected = [known[int(i)] for i in ctx.population.get_array("id")]
+        np.testing.assert_array_equal(
+            ctx.population.get_array("objective_source"), expected
+        )
 
     def test_partial_tell_scatter_preserves_noncontiguous_provenance(self):
         problem = _make_problem()

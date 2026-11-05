@@ -25,6 +25,7 @@ from saealib.core.contracts import (
 from saealib.core.state import POPULATIONS_MAIN, StatePatch, StateView
 from saealib.exceptions import ConfigurationError
 from saealib.population import Archive, Population, PopulationAttribute
+from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.problem import Problem
 from saealib.registry import register
 from saealib.space import BoundsService
@@ -327,6 +328,10 @@ class PSO(AskTellAlgorithm):
         }
         if has_id:
             new_pop_data["id"] = id_new
+        if OBJECTIVE_SOURCE_COLUMN in offspring.schema:
+            new_pop_data[OBJECTIVE_SOURCE_COLUMN] = offspring.get_array(
+                OBJECTIVE_SOURCE_COLUMN
+            )
 
         population.clear()
         population._extend_internal(new_pop_data, preserve_ids=True)

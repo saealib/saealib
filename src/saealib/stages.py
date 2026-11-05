@@ -108,7 +108,10 @@ from saealib.policies.feedback import (
     MixedFeedback,
     TrueOnlyFeedback,
     _feedback_batch_from_result,
+    _set_objective_source,
+    _set_objectives_true,
 )
+from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.space.space import encode_features
 
 if TYPE_CHECKING:
@@ -2251,6 +2254,7 @@ class EvaluationApplyStage(Stage):
                     "g": update.result.g,
                     "cv": update.result.cv,
                 }
+                _set_objectives_true(candidates, values, len(rows))
                 operations.append((np.asarray(rows, dtype=np.intp), values))
                 update_new_ids.extend(map(int, update.candidate_ids))
                 new_ids.extend(update_new_ids)
@@ -2284,13 +2288,14 @@ class EvaluationApplyStage(Stage):
                         int(np.flatnonzero(live_ids == candidate_id)[0])
                         for candidate_id in update.candidate_ids
                     ]
+                    extra_values = {
+                        "f": update.result.f,
+                        "g": update.result.g,
+                        "cv": update.result.cv,
+                    }
+                    _set_objectives_true(candidates, extra_values, len(rows))
                     candidates.update_rows(
-                        np.asarray(rows, dtype=np.intp),
-                        {
-                            "f": update.result.f,
-                            "g": update.result.g,
-                            "cv": update.result.cv,
-                        },
+                        np.asarray(rows, dtype=np.intp), extra_values
                     )
                     extra_indices.extend(rows)
                     extra_ids.extend(map(int, update.candidate_ids))
@@ -2581,9 +2586,9 @@ class TrueEvaluationStage(Stage):
         result = self._evaluator.evaluate_batch(
             candidates.genomes.take(np.arange(n)), state.problem
         )
-        candidates.update_rows(
-            np.arange(n), {"f": result.f, "g": result.g, "cv": result.cv}
-        )
+        values = {"f": result.f, "g": result.g, "cv": result.cv}
+        _set_objectives_true(candidates, values, n)
+        candidates.update_rows(np.arange(n), values)
 
         evaluated = candidates.extract(list(range(n)))
         counted = state.replace(fe=state.fe + n)
@@ -2629,6 +2634,9 @@ class ArchiveUpdateStage(Stage):
         evaluated = state.evaluated_offspring
         assert evaluated is not None
         has_id = "id" in evaluated.schema
+        has_source = OBJECTIVE_SOURCE_COLUMN in evaluated.schema
+        if has_source:
+            sources = evaluated.get_array(OBJECTIVE_SOURCE_COLUMN)
         for i in range(len(evaluated)):
             ind = evaluated[i]
             entry = {
@@ -2641,6 +2649,8 @@ class ArchiveUpdateStage(Stage):
                 entry["x"] = ind.x
             if has_id:
                 entry["id"] = int(ind.id)
+            if has_source:
+                entry[OBJECTIVE_SOURCE_COLUMN] = sources[i]
             state.archive.add(entry)
             if not has_id or int(ind.id) not in set(
                 map(int, state.pareto_archive.get_array("id"))
@@ -2737,6 +2747,7 @@ class FeedbackStage(Stage):
             values["g"] = result.g
         if result.cv is not None and "cv" in offspring.schema:
             values["cv"] = result.cv
+        _set_objective_source(offspring, values, result.source, len(rows))
         offspring.update_rows(np.asarray(rows, dtype=np.intp), values)
         return state.replace(offspring=offspring, feedback_result=result)
 

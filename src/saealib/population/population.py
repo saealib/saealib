@@ -17,6 +17,9 @@ from saealib.identity import PopulationAttribute
 from saealib.population.genome import DenseVectorBatch, GenomeBatch, ObjectBatch
 from saealib.space.services import DenseNumericView
 
+OBJECTIVE_SOURCE_COLUMN = "objective_source"
+UNKNOWN_SOURCE_CODE = 255
+
 if TYPE_CHECKING:
     pass
 

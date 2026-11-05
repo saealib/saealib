@@ -52,6 +52,7 @@ def _state(
         PopulationAttribute("f", float, (1,), default=np.nan),
         PopulationAttribute("g", float, (0,), default=0.0),
         PopulationAttribute("cv", float, (), default=0.0),
+        PopulationAttribute("objective_source", np.uint8, (), default=0),
         *algo.get_required_attrs(problem),
     ]
     population = Population(attrs, init_capacity=8)
@@ -117,6 +118,24 @@ def test_partial_tell_is_rejected_by_default():
     offspring.update_array("f", np.array([problem.func(row) for row in offspring.x]))
     with pytest.raises(ConfigurationError, match="received"):
         algorithm_tell(algo, state, offspring.extract(np.arange(len(offspring) - 1)))
+
+
+def test_tell_keeps_the_objective_source_of_told_offspring():
+    problem = _problem()
+    algo = DeapGenerateUpdateAlgorithm(
+        cma.Strategy([0.0] * problem.dim, 1.0, lambda_=8)
+    )
+    state = _state(algo, problem, 5)
+    offspring = algorithm_ask(algo, state)
+    offspring.update_array("f", np.array([problem.func(row) for row in offspring.x]))
+    sources = (np.arange(len(offspring)) % 2).astype(np.uint8)
+    offspring.update_array("objective_source", sources)
+
+    algorithm_tell(algo, state, offspring)
+
+    np.testing.assert_array_equal(
+        state.population.get_array("objective_source"), sources
+    )
 
 
 def test_missing_deap_has_install_command(monkeypatch: pytest.MonkeyPatch):

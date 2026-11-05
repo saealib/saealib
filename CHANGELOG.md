@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **History evaluation channel records `g` and `noise`**; checkpoints written without these columns load with them filled with NaN ([#303](https://github.com/saealib/saealib/issues/303))
 - **`ComponentRef` and `TemplateStrategy`**: declared Stages reference components by `(slot, role)`, and each plan resolves its own copy of the declaration without modifying it ([#308](https://github.com/saealib/saealib/issues/308))
+- **`objective_source` population column** records whether each row's objective values come from a true evaluation (`0`), a surrogate prediction (`1`), or an imputed fallback (`2`); `255` marks an unknown source. Populations and archives built by the library initializers always carry it, and `PSO` and `PymooAlgorithm` keep it when they rebuild the population
 - **`Stage.execution_boundary`**: `"transaction"` (default) runs a Stage on its declared reads, `"state"` gives the Stage and its callbacks the whole run state; any other value raises `ValidationError` when the plan is prepared ([#309](https://github.com/saealib/saealib/issues/309))
 
 ### Changed

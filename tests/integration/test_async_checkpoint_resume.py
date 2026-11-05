@@ -171,3 +171,40 @@ def test_async_npz_checkpoint_resume_matches_uninterrupted_run(
         resumed.population.get_array("id").tolist()
         == uninterrupted.population.get_array("id").tolist()
     )
+
+
+def _objective_sources(population: Any) -> list[int]:
+    return population.get_array("objective_source").tolist()
+
+
+@pytest.mark.parametrize(
+    ("strategy", "algorithm", "in_flight"),
+    [("generation_based", "ga", True), ("direct", "pso", False)],
+)
+def test_async_npz_checkpoint_resume_keeps_objective_source(
+    tmp_path, strategy: str, algorithm: str, in_flight: bool
+) -> None:
+    path = tmp_path / "checkpoint.npz"
+    saved = _optimizer(strategy, algorithm, 1, 2).run()
+    saved.save(path)
+    restored = OptimizationState.load(path, _problem())
+
+    assert bool(saved.pending_evaluations) is in_flight
+    assert _objective_sources(restored.population) == _objective_sources(
+        saved.population
+    )
+    for request_id, owner in saved.evaluation_owners.items():
+        assert _objective_sources(
+            restored.evaluation_owners[request_id]
+        ) == _objective_sources(owner)
+
+    resumed = _optimizer(strategy, algorithm, 3, 2).run_from(restored)
+    uninterrupted = _optimizer(strategy, algorithm, 3, 2).run()
+
+    assert _objective_sources(resumed.population) == _objective_sources(
+        uninterrupted.population
+    )
+    finite = np.isfinite(resumed.population.get_array("f")).all(axis=1)
+    sources = np.asarray(_objective_sources(resumed.population))
+    assert np.all(sources[finite] == 0)
+    assert np.all(sources[~finite] == 255)

@@ -7,6 +7,7 @@ import pytest
 
 from saealib.context import (
     CURRENT_CHECKPOINT_SCHEMA_VERSION,
+    SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS,
     OptimizationState,
     _collection_key,
     _validate_collection_name,
@@ -172,6 +173,7 @@ def test_named_collections_checkpoint_roundtrip(tmp_path):
 
 def test_current_schema_and_allocator_continuity(tmp_path):
     assert CURRENT_CHECKPOINT_SCHEMA_VERSION == 1
+    assert frozenset({1}) == SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS
     ctx = _state()
     path = tmp_path / "current.npz"
     ctx.save(path)

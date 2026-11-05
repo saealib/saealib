@@ -41,7 +41,12 @@ from saealib.execution.history import (
     record_initial_evaluation,
 )
 from saealib.optimizer import ComponentProvider
+from saealib.policies.feedback import _set_objectives_true
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
+from saealib.population.population import (
+    OBJECTIVE_SOURCE_COLUMN,
+    UNKNOWN_SOURCE_CODE,
+)
 from saealib.problem import Problem
 from saealib.space import BoundsService, DenseNumericView
 
@@ -109,6 +114,12 @@ def _merge_required_attrs(
     provider: ComponentProvider,
 ) -> list[PopulationAttribute]:
     merged = list(attrs)
+    if not any(attr.name == OBJECTIVE_SOURCE_COLUMN for attr in merged):
+        merged.append(
+            PopulationAttribute(
+                OBJECTIVE_SOURCE_COLUMN, np.uint8, (), default=UNKNOWN_SOURCE_CODE
+            )
+        )
     by_name = {attr.name: attr for attr in merged}
     sources: list[PopulationAttribute] = []
     if provider.algorithm is not None:
@@ -132,6 +143,14 @@ def _merge_required_attrs(
                 f"{existing} vs {attr}"
             )
     return merged
+
+
+def _mark_initial_rows_true(*collections: Population) -> None:
+    for collection in collections:
+        values: dict[str, np.ndarray] = {}
+        _set_objectives_true(collection, values, len(collection))
+        if values:
+            collection.update_rows(np.arange(len(collection)), values)
 
 
 class Initializer(ABC):
@@ -317,6 +336,7 @@ class GenomeInitializer(Initializer):
             }
             archive.add(data)
             pareto_archive.add(data)
+        _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
         ctx.count_fe(self.n_init_archive)
@@ -463,6 +483,7 @@ class LHSInitializer(Initializer):
             }
             archive.add(data)
             pareto_archive.add(data)
+        _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
         ctx.count_fe(self.n_init_archive)
@@ -609,6 +630,7 @@ class RandomInitializer(Initializer):
             }
             archive.add(data)
             pareto_archive.add(data)
+        _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
         ctx.count_fe(self.n_init_archive)
@@ -758,6 +780,7 @@ class SobolInitializer(Initializer):
             }
             archive.add(data)
             pareto_archive.add(data)
+        _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
         ctx.count_fe(self.n_init_archive)

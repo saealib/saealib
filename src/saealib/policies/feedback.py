@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from functools import cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -38,6 +38,7 @@ from saealib.core.contracts.observations import (
 )
 from saealib.exceptions import ValidationError
 from saealib.execution.evaluator import EvaluationResult
+from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.registry import register
 
 if TYPE_CHECKING:
@@ -306,6 +307,29 @@ def _metadata_numbers(
 
 
 LEGACY_SOURCE_CODES = {TRUE: 0, SURROGATE: 1, IMPUTED: 2}
+
+
+def _set_objective_source(
+    population: Population,
+    values: dict[str, Any],
+    codes: np.ndarray | int,
+    n_rows: int,
+) -> None:
+    """Add per-row objective source codes to an ``update_rows`` value mapping.
+
+    Does nothing when the population schema has no objective source column.
+    """
+    if OBJECTIVE_SOURCE_COLUMN in population.schema:
+        values[OBJECTIVE_SOURCE_COLUMN] = np.array(
+            np.broadcast_to(np.asarray(codes, dtype=np.uint8), (n_rows,))
+        )
+
+
+def _set_objectives_true(
+    population: Population, values: dict[str, Any], n_rows: int
+) -> None:
+    """Mark the rows of an ``update_rows`` mapping as truly evaluated."""
+    _set_objective_source(population, values, LEGACY_SOURCE_CODES[TRUE], n_rows)
 
 
 def _feedback_batch_from_result(

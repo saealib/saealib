@@ -51,6 +51,7 @@ The `Initializer` base provides two helper methods reusable in custom implementa
 **`_create_attrs(problem, provider)`**: Builds the `PopulationAttribute` values for `Population` and `Archive`.
 The legacy vector path uses `x`, `f`, `g`, `cv`, and `id`, then merges in auxiliary attributes required by both the Algorithm (`Algorithm.get_required_attrs`) and the Comparator (`Comparator.get_required_attrs`) — this is how, for example, `SPEA2Comparator`'s `spea2_fitness` attribute ends up in the schema.
 `GenomeInitializer` manages Genomes in a dedicated column, so its standard attributes do not include `x`.
+The `objective_source` column records the source of each row's objective values; its codes are documented in the `OptimizationState` docstring.
 
 **`_create_context(problem, archive, pareto_archive, population, rng)`**: Builds the `OptimizationState`.
 When the Comparator is an `NSGA3Comparator` without an internal random generator, this sets `rng.spawn(1)[0]`.

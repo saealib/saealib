@@ -63,10 +63,15 @@ from saealib.policies.evaluation import (
     _continue_fidelity_plan,
 )
 from saealib.policies.feedback import (
+    LEGACY_SOURCE_CODES,
+    TRUE,
     FeedbackBuilder,
     FeedbackResult,
     _feedback_batch_from_result,
+    _set_objective_source,
+    _set_objectives_true,
 )
+from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.stages import deliver_feedback
 
 logger = logging.getLogger(__name__)
@@ -1311,18 +1316,17 @@ class AsyncEvaluationScheduler:
             return state
         owner = self._owner(state, int(update.request_id))
         rows = self._rows(state, update.candidate_ids, int(update.request_id))
-        owner.update_rows(
-            rows,
-            {
-                name: value
-                for name, value in {
-                    "f": update.result.f,
-                    "g": update.result.g,
-                    "cv": update.result.cv,
-                }.items()
-                if name in owner.schema
-            },
-        )
+        values = {
+            name: value
+            for name, value in {
+                "f": update.result.f,
+                "g": update.result.g,
+                "cv": update.result.cv,
+            }.items()
+            if name in owner.schema
+        }
+        _set_objectives_true(owner, values, len(rows))
+        owner.update_rows(rows, values)
         return state
 
     def _apply_archive(
@@ -1342,6 +1346,13 @@ class AsyncEvaluationScheduler:
                     for name in archive.schema
                     if name in owner.schema
                 }
+                if (
+                    OBJECTIVE_SOURCE_COLUMN in archive.schema
+                    and OBJECTIVE_SOURCE_COLUMN not in owner.schema
+                ):
+                    values[OBJECTIVE_SOURCE_COLUMN] = np.uint8(
+                        LEGACY_SOURCE_CODES[TRUE]
+                    )
                 if "id" in archive.schema:
                     values["id"] = np.int64(candidate_id)
                 if "request_id" in archive.schema:
@@ -1438,6 +1449,7 @@ class AsyncEvaluationScheduler:
                 values["g"] = result.g
             if result.cv is not None and "cv" in owner.schema:
                 values["cv"] = result.cv
+            _set_objective_source(owner, values, result.source, len(rows))
             owner.update_rows(rows, values)
         return state.replace(feedback_result=result)
 

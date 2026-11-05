@@ -783,6 +783,57 @@ def _evaluation_status_code(status: object) -> int:
         return -1
 
 
+def _true_objectives_by_candidate(history: History) -> dict[int, np.ndarray]:
+    """Return each candidate's last truly evaluated ``f`` from the History.
+
+    Partial and completed records carry results. Failed and cancelled records
+    carry results when their evaluation count advances or any objective is
+    finite. With no count advance, an all-NaN result cannot be distinguished
+    from a placeholder and is treated as having no result. A later result for
+    the same candidate replaces an earlier one. Empty when the ``evaluation``
+    channel is not recorded in block mode.
+    """
+    if (
+        not history.is_enabled("evaluation")
+        or history._record_modes["evaluation"] != "block"
+    ):
+        return {}
+    with_result = {
+        _EVALUATION_STATUS_CODES[EvaluationStatus.PARTIAL],
+        _EVALUATION_STATUS_CODES[EvaluationStatus.COMPLETED],
+    }
+    status = np.asarray(history.channel("evaluation")["status_code"])
+    columns = history.channel("evaluation")
+    fe_before = columns.get("fe_before")
+    fe_after = columns.get("fe_after")
+    candidate_blocks = history.blocks("evaluation", "candidate_ids")
+    f_blocks = history.blocks("evaluation", "f")
+    values: dict[int, np.ndarray] = {}
+    for row, code in enumerate(status.tolist()):
+        ids = np.asarray(candidate_blocks[row]).reshape(-1)
+        if ids.size == 0:
+            continue
+        f = np.asarray(f_blocks[row]).reshape(len(ids), -1)
+        if code not in with_result:
+            is_failed_or_cancelled = code in {
+                _EVALUATION_STATUS_CODES[EvaluationStatus.FAILED],
+                _EVALUATION_STATUS_CODES[EvaluationStatus.CANCELLED],
+            }
+            count_advanced = (
+                fe_before is not None
+                and fe_after is not None
+                and int(fe_after[row]) > int(fe_before[row])
+            )
+            has_result = is_failed_or_cancelled and (
+                count_advanced or np.any(np.isfinite(f))
+            )
+            if not has_result:
+                continue
+        for position, candidate_id in enumerate(ids.tolist()):
+            values[candidate_id] = f[position]
+    return values
+
+
 def _restore_evaluation_keys(history: History) -> None:
     """Rebuild the in-memory evaluation de-duplication keys from its rows."""
     if history._evaluation_keys:

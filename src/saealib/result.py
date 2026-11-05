@@ -156,7 +156,11 @@ class Result:
 
     @property
     def population(self):
-        """Return the population referenced by the optimization state."""
+        """Return the population referenced by the optimization state.
+
+        The ``objective_source`` column tells true from predicted rows; see
+        :class:`~saealib.context.OptimizationState` for its codes.
+        """
         return self.ctx.population
 
     def history_series(

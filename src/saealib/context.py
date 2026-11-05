@@ -58,8 +58,8 @@ if TYPE_CHECKING:
     from saealib.surrogate.prediction import SurrogatePrediction
 
 
-CURRENT_CHECKPOINT_SCHEMA_VERSION = 2
-SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS = frozenset({1, 2})
+CURRENT_CHECKPOINT_SCHEMA_VERSION = 1
+SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS = frozenset({1})
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 _MISSING = object()
 
@@ -333,11 +333,10 @@ class OptimizationState:
         Population instance.  Its ``objective_source`` column (``uint8``,
         read with ``population.get_array("objective_source")``) records where
         each row's ``f`` came from: ``0`` true evaluation, ``1`` surrogate
-        prediction, ``2`` imputed fallback value, ``255`` unknown.  Loading
-        a checkpoint of schema version 1, which has no such column, marks a
-        row true when its ``f`` equals the last true evaluation of its
-        candidate ID in the History ``evaluation`` channel and unknown
-        otherwise.
+        prediction, ``2`` imputed fallback value, ``255`` unknown.  When a
+        checkpoint collection has no such column, matching rows are marked
+        true from the last true evaluation of their candidate ID in the
+        History ``evaluation`` channel; other rows are unknown.
     archive : Archive
         Archive instance.  Append-only in-place mutation is permitted.
     pareto_archive : ParetoArchive
@@ -1250,7 +1249,7 @@ class OptimizationState:
                     "supported versions are "
                     f"{sorted(SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS)}"
                 )
-            return _load_checkpoint(cls, data, problem, schema_version)
+            return _load_checkpoint(cls, data, problem)
         except CheckpointError:
             raise
         except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError) as exc:
@@ -2096,7 +2095,7 @@ def _restore_collection(
 
     When ``objective_source_targets`` is a list, a collection without an
     ``objective_source`` column gets one filled with the unknown code and is
-    appended to that list.
+    appended to that list. Stored values are preserved when the column exists.
     """
     from saealib.population import Archive, ParetoArchive, Population
     from saealib.population.archive import _validate_observation_schema
@@ -2319,15 +2318,14 @@ def _load_checkpoint(
     cls: type[OptimizationState],
     data: Any,
     problem: Problem,
-    schema_version: int = CURRENT_CHECKPOINT_SCHEMA_VERSION,
 ) -> OptimizationState:
-    """Load a checkpoint written with any supported schema version.
+    """Load a checkpoint and restore ``objective_source`` by collection schema.
 
-    Version 1 stores no ``objective_source`` column; it is added to every
-    restored population and archive and filled from the History
-    ``evaluation`` channel.
+    Stored source values are kept. Collections without the column get an
+    unknown-valued column, which is filled from the History ``evaluation``
+    channel when available.
     """
-    objective_source_targets: list[Any] | None = [] if schema_version == 1 else None
+    objective_source_targets: list[Any] = []
     genome_codec = problem.space.services.get("GenomeCodec")
     dense_numeric_view = problem.space.services.get("DenseNumericView")
     entries = _read_json(data, "_state_entries")

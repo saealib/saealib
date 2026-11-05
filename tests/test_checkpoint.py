@@ -26,16 +26,22 @@ from saealib import (
     max_gen,
 )
 from saealib.comparators import SingleObjectiveComparator
-from saealib.context import OptimizationState
+from saealib.context import CURRENT_CHECKPOINT_SCHEMA_VERSION, OptimizationState
 from saealib.exceptions import ValidationError
 from saealib.execution import (
+    AsyncEvaluationScheduler,
     EvaluationErrorInfo,
+    EvaluationHandle,
     EvaluationResult,
     EvaluationStatus,
     EvaluationUpdate,
+    Evaluator,
+    SerialEvaluator,
 )
 from saealib.execution.history import record_evaluations
+from saealib.execution.initializer import GenomeInitializer
 from saealib.problem import Problem
+from saealib.strategies import DirectStrategy
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -482,8 +488,8 @@ def _without_objective_source(value):
     return value
 
 
-def _write_as_version_1(src: Path, dst: Path) -> None:
-    """Rewrite a checkpoint in the version 1 layout, which has no source column."""
+def _write_without_objective_source(src: Path, dst: Path) -> None:
+    """Remove the source column from a checkpoint written by the current reader."""
     data = np.load(src, allow_pickle=False)
     arrays = {
         key: data[key] for key in data.files if not key.endswith("__objective_source")
@@ -501,27 +507,140 @@ def _sources(population) -> np.ndarray:
     return population.get_array("objective_source")
 
 
-def _version_1_checkpoint(tmp_path: Path, channels: tuple[str, ...]):
+def _checkpoint_without_objective_source(tmp_path: Path, channels: tuple[str, ...]):
     problem = _make_problem()
     state = _make_pso_optimizer(problem, 3, channels).run()
     written = tmp_path / "current.npz"
     state.save(written)
-    version_1 = tmp_path / "version_1.npz"
-    _write_as_version_1(written, version_1)
-    assert int(np.load(version_1)["_checkpoint_schema_version"]) == 1
-    return problem, state, version_1
+    without_source = tmp_path / "without-objective-source.npz"
+    _write_without_objective_source(written, without_source)
+    assert int(np.load(without_source)["_checkpoint_schema_version"]) == 1
+    return problem, state, without_source
 
 
-def test_version_1_checkpoint_marks_rows_matching_the_evaluation_channel_true(
+def _write_without_population_objective_source(src: Path, dst: Path) -> None:
+    data = np.load(src, allow_pickle=False)
+    arrays = {key: data[key] for key in data.files}
+    entries = json.loads(bytes(arrays["_state_entries"]).decode())
+    for index, item in enumerate(entries):
+        key = item["key"]
+        if key["namespace"] == "populations" and key["name"] == "main":
+            descriptor = item["value"]["descriptor"]
+            descriptor["schema"] = [
+                attr
+                for attr in descriptor["schema"]
+                if attr["name"] != "objective_source"
+            ]
+            arrays.pop(f"_entry_{index}__objective_source")
+            break
+    else:
+        raise AssertionError("populations/main entry was not found")
+    arrays["_state_entries"] = np.frombuffer(
+        json.dumps(entries, allow_nan=True).encode(), dtype=np.uint8
+    )
+    np.savez(dst, **arrays)
+
+
+class _PartialThenEmptyCompletionEvaluator(Evaluator):
+    def evaluate_batch(self, x, problem):
+        return SerialEvaluator().evaluate_batch(x, problem)
+
+    def submit(self, request, problem):
+        return EvaluationHandle(
+            request.request_id,
+            EvaluationStatus.PENDING,
+            backend_token=(request, problem),
+        )
+
+    def collect(self, handle, *, wait=True):
+        if handle._acknowledged_sequence >= 0:
+            return []
+        request, problem = handle.backend_token
+        result = SerialEvaluator().evaluate_batch(request.x, problem)
+        result.candidate_ids = request.candidate_ids
+        result.__post_init__()
+        handle._delivered_sequence = 1
+        return [
+            EvaluationUpdate(
+                request.request_id,
+                EvaluationStatus.PARTIAL,
+                request.candidate_ids,
+                result,
+                sequence=0,
+            ),
+            EvaluationUpdate(
+                request.request_id,
+                EvaluationStatus.COMPLETED,
+                np.empty(0, dtype=np.int64),
+                sequence=1,
+            ),
+        ]
+
+    def acknowledge(self, handle, sequence):
+        handle._acknowledged_sequence = sequence
+
+
+def test_checkpoint_without_objective_source_loads_empty_initial_evaluation(tmp_path):
+    problem = _make_problem()
+    state = (
+        Optimizer(problem, seed=7)
+        .set_initializer(GenomeInitializer(0, 0))
+        .set_strategy(DirectStrategy())
+        .set_history(["evaluation"])
+        .set_termination(Termination(max_gen(0)))
+        .run()
+    )
+    written = tmp_path / "empty-initial.npz"
+    state.save(written)
+    checkpoint = tmp_path / "empty-initial-without-source.npz"
+    _write_without_objective_source(written, checkpoint)
+
+    loaded = OptimizationState.load(checkpoint, problem)
+
+    assert len(loaded.population) == 0
+    assert loaded.population.schema["objective_source"].dtype == np.uint8
+    assert len(loaded.archive) == 0
+
+
+def test_checkpoint_without_objective_source_loads_empty_completion_after_partial(
     tmp_path,
 ):
-    problem, state, version_1 = _version_1_checkpoint(
+    problem = _make_problem()
+    evaluator = _PartialThenEmptyCompletionEvaluator()
+    state = (
+        Optimizer(problem, seed=7)
+        .set_initializer(LHSInitializer(6, 2))
+        .set_strategy(DirectStrategy())
+        .set_evaluator(evaluator)
+        .set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=1)
+        )
+        .set_history(["evaluation"])
+        .set_termination(Termination(max_gen(1)))
+        .run()
+    )
+    written = tmp_path / "empty-completion.npz"
+    state.save(written)
+    checkpoint = tmp_path / "empty-completion-without-source.npz"
+    _write_without_objective_source(written, checkpoint)
+
+    loaded = OptimizationState.load(checkpoint, problem)
+
+    assert loaded.history is not None
+    assert np.any(loaded.history.channel("evaluation")["status_code"] == 3)
+    assert np.all(_sources(loaded.population) == 0)
+
+
+def test_checkpoint_without_objective_source_marks_matching_rows_true(
+    tmp_path,
+):
+    problem, state, checkpoint = _checkpoint_without_objective_source(
         tmp_path, ("summary", "evaluation")
     )
     sources = _sources(state.population)
     assert set(sources.tolist()) == {0, 1}
 
-    loaded = OptimizationState.load(version_1, problem)
+    loaded = OptimizationState.load(checkpoint, problem)
 
     np.testing.assert_array_equal(
         _sources(loaded.population), np.where(sources == 0, 0, UNKNOWN_SOURCE)
@@ -530,12 +649,14 @@ def test_version_1_checkpoint_marks_rows_matching_the_evaluation_channel_true(
     assert np.all(_sources(loaded.pareto_archive) == 0)
 
 
-def test_version_1_checkpoint_without_evaluation_channel_marks_rows_unknown(
+def test_checkpoint_without_objective_source_or_evaluation_channel_marks_rows_unknown(
     tmp_path,
 ):
-    problem, _state, version_1 = _version_1_checkpoint(tmp_path, ("summary",))
+    problem, _state, checkpoint = _checkpoint_without_objective_source(
+        tmp_path, ("summary",)
+    )
 
-    loaded = OptimizationState.load(version_1, problem)
+    loaded = OptimizationState.load(checkpoint, problem)
 
     assert np.all(_sources(loaded.population) == UNKNOWN_SOURCE)
     assert np.all(_sources(loaded.archive) == UNKNOWN_SOURCE)
@@ -544,12 +665,16 @@ def test_version_1_checkpoint_without_evaluation_channel_marks_rows_unknown(
 @pytest.mark.parametrize(
     "channels", [("summary", "evaluation"), ("summary",)], ids=["evaluation", "none"]
 )
-def test_version_1_checkpoint_resumes_like_an_uninterrupted_run(tmp_path, channels):
-    problem, _state, version_1 = _version_1_checkpoint(tmp_path, channels)
+def test_checkpoint_without_objective_source_resumes_like_an_uninterrupted_run(
+    tmp_path, channels
+):
+    problem, _state, checkpoint = _checkpoint_without_objective_source(
+        tmp_path, channels
+    )
     uninterrupted = _make_pso_optimizer(problem, 6, channels).run()
 
     resumed = _make_pso_optimizer(problem, 6, channels).run_from(
-        OptimizationState.load(version_1, problem)
+        OptimizationState.load(checkpoint, problem)
     )
 
     assert (resumed.gen, resumed.fe) == (uninterrupted.gen, uninterrupted.fe)
@@ -580,7 +705,76 @@ def _record(state, request_id, status, candidate_id, f=None) -> None:
     record_evaluations(state)
 
 
-def test_version_1_checkpoint_uses_the_last_recorded_true_evaluation(tmp_path):
+def test_checkpoint_uses_each_collection_schema_for_objective_source(tmp_path):
+    problem = _make_problem()
+    state = _make_pso_optimizer(problem, 3, ("summary", "evaluation")).run()
+    stored_archive_sources = np.full(len(state.archive), 2, dtype=np.uint8)
+    stored_pareto_sources = np.full(len(state.pareto_archive), 255, dtype=np.uint8)
+    state.archive.update_array("objective_source", stored_archive_sources)
+    state.pareto_archive.update_array("objective_source", stored_pareto_sources)
+    written = tmp_path / "current.npz"
+    state.save(written)
+    without_population_source = tmp_path / "without-population-source.npz"
+    _write_without_population_objective_source(written, without_population_source)
+
+    loaded = OptimizationState.load(without_population_source, problem)
+
+    np.testing.assert_array_equal(
+        _sources(loaded.population), np.where(_sources(state.population) == 0, 0, 255)
+    )
+    np.testing.assert_array_equal(_sources(loaded.archive), stored_archive_sources)
+    np.testing.assert_array_equal(
+        _sources(loaded.pareto_archive), stored_pareto_sources
+    )
+
+
+@pytest.mark.parametrize(
+    "status", [EvaluationStatus.FAILED, EvaluationStatus.CANCELLED]
+)
+def test_checkpoint_counts_result_bearing_failed_or_cancelled_evaluations(
+    tmp_path, status
+):
+    problem = _make_problem()
+    state = _make_pso_optimizer(problem, 3, ("summary", "evaluation")).run()
+    ids = state.population.get_array("id")
+    f = state.population.get_array("f")
+    predicted = np.flatnonzero(_sources(state.population) == 1)
+    assert len(predicted) >= 2
+    result_row, placeholder_row = predicted[:2]
+    _record(state, 9101, status, ids[result_row], f[result_row])
+    _record(state, 9102, status, ids[placeholder_row])
+    written = tmp_path / "current.npz"
+    state.save(written)
+    without_source = tmp_path / "without-objective-source.npz"
+    _write_without_objective_source(written, without_source)
+
+    loaded = _sources(OptimizationState.load(without_source, problem).population)
+
+    assert loaded[result_row] == 0
+    assert loaded[placeholder_row] == UNKNOWN_SOURCE
+
+
+def test_checkpoint_matches_nan_true_evaluation(tmp_path):
+    problem = _make_problem()
+    state = _make_pso_optimizer(problem, 3, ("summary", "evaluation")).run()
+    row = 0
+    candidate_id = state.population.get_array("id")[row]
+    state.population.update_rows(
+        np.asarray([row], dtype=np.intp),
+        {"f": np.array([[np.nan]], dtype=np.float64)},
+    )
+    _record(state, 9103, EvaluationStatus.COMPLETED, candidate_id, np.nan)
+    written = tmp_path / "current.npz"
+    state.save(written)
+    without_source = tmp_path / "without-objective-source.npz"
+    _write_without_objective_source(written, without_source)
+
+    loaded = _sources(OptimizationState.load(without_source, problem).population)
+
+    assert loaded[row] == 0
+
+
+def test_checkpoint_without_objective_source_uses_the_last_true_evaluation(tmp_path):
     problem = _make_problem()
     state = _make_pso_optimizer(problem, 3, ("summary", "evaluation")).run()
     ids = state.population.get_array("id")
@@ -594,16 +788,16 @@ def test_version_1_checkpoint_uses_the_last_recorded_true_evaluation(tmp_path):
     _record(state, 9004, EvaluationStatus.FAILED, ids[restored])
     written = tmp_path / "current.npz"
     state.save(written)
-    version_1 = tmp_path / "version_1.npz"
-    _write_as_version_1(written, version_1)
+    checkpoint = tmp_path / "without-objective-source.npz"
+    _write_without_objective_source(written, checkpoint)
 
-    loaded = _sources(OptimizationState.load(version_1, problem).population)
+    loaded = _sources(OptimizationState.load(checkpoint, problem).population)
 
     assert loaded[replaced] == UNKNOWN_SOURCE
     assert loaded[restored] == 0
 
 
-def test_version_2_npz_checkpoint_round_trips_objective_source_and_resumes(
+def test_npz_checkpoint_round_trips_objective_source_and_resumes(
     tmp_path,
 ):
     problem = _make_problem()
@@ -613,7 +807,10 @@ def test_version_2_npz_checkpoint_round_trips_objective_source_and_resumes(
 
     loaded = OptimizationState.load(path, problem)
 
-    assert int(np.load(path)["_checkpoint_schema_version"]) == 2
+    assert (
+        int(np.load(path)["_checkpoint_schema_version"])
+        == CURRENT_CHECKPOINT_SCHEMA_VERSION
+    )
     assert set(_sources(state.population).tolist()) == {0, 1}
     np.testing.assert_array_equal(
         _sources(loaded.population), _sources(state.population)

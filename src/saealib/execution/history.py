@@ -786,9 +786,10 @@ def _evaluation_status_code(status: object) -> int:
 def _true_objectives_by_candidate(history: History) -> dict[int, np.ndarray]:
     """Return each candidate's last truly evaluated ``f`` from the History.
 
-    Completed and partial records carry results; a later record of the same
-    candidate replaces an earlier one.  Empty when the ``evaluation`` channel
-    is not recorded in block mode.
+    Partial and completed records carry results. Failed and cancelled records
+    carry results only when their evaluation count advances. A later result
+    for the same candidate replaces an earlier one. Empty when the
+    ``evaluation`` channel is not recorded in block mode.
     """
     if (
         not history.is_enabled("evaluation")
@@ -800,13 +801,29 @@ def _true_objectives_by_candidate(history: History) -> dict[int, np.ndarray]:
         _EVALUATION_STATUS_CODES[EvaluationStatus.COMPLETED],
     }
     status = np.asarray(history.channel("evaluation")["status_code"])
+    columns = history.channel("evaluation")
+    fe_before = columns.get("fe_before")
+    fe_after = columns.get("fe_after")
     candidate_blocks = history.blocks("evaluation", "candidate_ids")
     f_blocks = history.blocks("evaluation", "f")
     values: dict[int, np.ndarray] = {}
     for row, code in enumerate(status.tolist()):
-        if code not in with_result:
-            continue
         ids = np.asarray(candidate_blocks[row]).reshape(-1)
+        if ids.size == 0:
+            continue
+        if code not in with_result:
+            has_result = (
+                code
+                in {
+                    _EVALUATION_STATUS_CODES[EvaluationStatus.FAILED],
+                    _EVALUATION_STATUS_CODES[EvaluationStatus.CANCELLED],
+                }
+                and fe_before is not None
+                and fe_after is not None
+                and int(fe_after[row]) > int(fe_before[row])
+            )
+            if not has_result:
+                continue
         f = np.asarray(f_blocks[row]).reshape(len(ids), -1)
         for position, candidate_id in enumerate(ids.tolist()):
             values[candidate_id] = f[position]

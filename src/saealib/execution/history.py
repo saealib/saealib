@@ -783,6 +783,36 @@ def _evaluation_status_code(status: object) -> int:
         return -1
 
 
+def _true_objectives_by_candidate(history: History) -> dict[int, np.ndarray]:
+    """Return each candidate's last truly evaluated ``f`` from the History.
+
+    Completed and partial records carry results; a later record of the same
+    candidate replaces an earlier one.  Empty when the ``evaluation`` channel
+    is not recorded in block mode.
+    """
+    if (
+        not history.is_enabled("evaluation")
+        or history._record_modes["evaluation"] != "block"
+    ):
+        return {}
+    with_result = {
+        _EVALUATION_STATUS_CODES[EvaluationStatus.PARTIAL],
+        _EVALUATION_STATUS_CODES[EvaluationStatus.COMPLETED],
+    }
+    status = np.asarray(history.channel("evaluation")["status_code"])
+    candidate_blocks = history.blocks("evaluation", "candidate_ids")
+    f_blocks = history.blocks("evaluation", "f")
+    values: dict[int, np.ndarray] = {}
+    for row, code in enumerate(status.tolist()):
+        if code not in with_result:
+            continue
+        ids = np.asarray(candidate_blocks[row]).reshape(-1)
+        f = np.asarray(f_blocks[row]).reshape(len(ids), -1)
+        for position, candidate_id in enumerate(ids.tolist()):
+            values[candidate_id] = f[position]
+    return values
+
+
 def _restore_evaluation_keys(history: History) -> None:
     """Rebuild the in-memory evaluation de-duplication keys from its rows."""
     if history._evaluation_keys:

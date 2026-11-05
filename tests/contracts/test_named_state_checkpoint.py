@@ -171,7 +171,7 @@ def test_named_collections_checkpoint_roundtrip(tmp_path):
 
 
 def test_current_schema_and_allocator_continuity(tmp_path):
-    assert CURRENT_CHECKPOINT_SCHEMA_VERSION == 1
+    assert CURRENT_CHECKPOINT_SCHEMA_VERSION == 2
     ctx = _state()
     path = tmp_path / "current.npz"
     ctx.save(path)

@@ -58,8 +58,8 @@ if TYPE_CHECKING:
     from saealib.surrogate.prediction import SurrogatePrediction
 
 
-CURRENT_CHECKPOINT_SCHEMA_VERSION = 1
-SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS = frozenset({1})
+CURRENT_CHECKPOINT_SCHEMA_VERSION = 2
+SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS = frozenset({1, 2})
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 _MISSING = object()
 
@@ -333,7 +333,11 @@ class OptimizationState:
         Population instance.  Its ``objective_source`` column (``uint8``,
         read with ``population.get_array("objective_source")``) records where
         each row's ``f`` came from: ``0`` true evaluation, ``1`` surrogate
-        prediction, ``2`` imputed fallback value, ``255`` unknown.
+        prediction, ``2`` imputed fallback value, ``255`` unknown.  Loading
+        a checkpoint of schema version 1, which has no such column, marks a
+        row true when its ``f`` equals the last true evaluation of its
+        candidate ID in the History ``evaluation`` channel and unknown
+        otherwise.
     archive : Archive
         Archive instance.  Append-only in-place mutation is permitted.
     pareto_archive : ParetoArchive
@@ -1205,7 +1209,9 @@ class OptimizationState:
     def save(self, path: str | Path) -> None:
         """Save a portable checkpoint using the current schema version.
 
-        The current schema version is ``CURRENT_CHECKPOINT_SCHEMA_VERSION``.
+        The current schema version is ``CURRENT_CHECKPOINT_SCHEMA_VERSION``;
+        :meth:`load` also reads every version in
+        ``SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS``.
         """
         self._save_current(path)
 
@@ -1244,7 +1250,7 @@ class OptimizationState:
                     "supported versions are "
                     f"{sorted(SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS)}"
                 )
-            return _load_checkpoint(cls, data, problem)
+            return _load_checkpoint(cls, data, problem, schema_version)
         except CheckpointError:
             raise
         except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError) as exc:
@@ -1423,6 +1429,7 @@ def _decode_state_value(
     genome_codec: Any = None,
     dense_numeric_view: Any = None,
     space: Any = None,
+    objective_source_targets: list[Any] | None = None,
 ) -> Any:
     if not isinstance(encoded, dict) or not isinstance(encoded.get("codec"), str):
         raise CheckpointError(
@@ -1443,6 +1450,7 @@ def _decode_state_value(
             dense_numeric_view=dense_numeric_view,
             genome_payload=genome_payload,
             space=space,
+            objective_source_targets=objective_source_targets,
         )
     if codec == "json":
         return value
@@ -1497,6 +1505,7 @@ def _decode_state_value(
                     genome_codec=genome_codec,
                     dense_numeric_view=dense_numeric_view,
                     space=space,
+                    objective_source_targets=objective_source_targets,
                 )
         return result
     raise CheckpointError(f"unknown state value codec {codec!r}")
@@ -2081,9 +2090,21 @@ def _restore_collection(
     dense_numeric_view: Any = None,
     genome_payload: Any = None,
     space: Any = None,
+    objective_source_targets: list[Any] | None = None,
 ) -> Any:
+    """Rebuild one population or archive from its checkpoint descriptor.
+
+    When ``objective_source_targets`` is a list, a collection without an
+    ``objective_source`` column gets one filled with the unknown code and is
+    appended to that list.
+    """
     from saealib.population import Archive, ParetoArchive, Population
     from saealib.population.archive import _validate_observation_schema
+    from saealib.population.population import (
+        OBJECTIVE_SOURCE_COLUMN,
+        UNKNOWN_SOURCE_CODE,
+        PopulationAttribute,
+    )
 
     name = descriptor.get("name")
     if not isinstance(name, str):
@@ -2099,6 +2120,17 @@ def _restore_collection(
     ):
         raise CheckpointError(f"invalid size/capacity for collection {name!r}")
     attrs = _attrs_from_descriptor(descriptor)
+    stored_names = {attr.name for attr in attrs}
+    add_objective_source = (
+        objective_source_targets is not None
+        and OBJECTIVE_SOURCE_COLUMN not in stored_names
+    )
+    if add_objective_source:
+        attrs.append(
+            PopulationAttribute(
+                OBJECTIVE_SOURCE_COLUMN, np.uint8, (), default=UNKNOWN_SOURCE_CODE
+            )
+        )
     schema = {attr.name: attr for attr in attrs}
     for id_name in ("id", "request_id"):
         if id_name in schema and np.dtype(schema[id_name].dtype) != np.dtype(np.int64):
@@ -2207,6 +2239,8 @@ def _restore_collection(
     for attr in attrs:
         if kind == "population" and genome_payload is not None and attr.name == "x":
             continue
+        if attr.name not in stored_names:
+            continue
         if storage_prefix is None:
             key = f"{kind}__{encoded}__{_encoded_name(attr.name)}"
         else:
@@ -2247,13 +2281,53 @@ def _restore_collection(
                 getattr(collection, "duplicate_policy", None) == "append"
             ),
         )
+    if add_objective_source and objective_source_targets is not None:
+        objective_source_targets.append(collection)
     return collection
 
 
+def _fill_objective_source_from_history(collections: list[Any], history: Any) -> None:
+    """Mark rows whose ``f`` matches their last recorded true evaluation as true.
+
+    Every other row keeps the unknown code, as do all rows when the History
+    ``evaluation`` channel was not recorded.
+    """
+    from saealib.execution.history import _true_objectives_by_candidate
+    from saealib.policies.feedback import LEGACY_SOURCE_CODES, TRUE
+    from saealib.population.population import (
+        OBJECTIVE_SOURCE_COLUMN,
+        UNKNOWN_SOURCE_CODE,
+    )
+
+    truth = {} if history is None else _true_objectives_by_candidate(history)
+    if not truth:
+        return
+    for collection in collections:
+        if "id" not in collection.schema or "f" not in collection.schema:
+            continue
+        ids = collection.get_array("id")
+        f = collection.get_array("f")
+        codes = np.full(len(collection), UNKNOWN_SOURCE_CODE, dtype=np.uint8)
+        for row, candidate_id in enumerate(ids.tolist()):
+            value = truth.get(candidate_id)
+            if value is not None and np.array_equal(value, f[row], equal_nan=True):
+                codes[row] = LEGACY_SOURCE_CODES[TRUE]
+        collection.update_array(OBJECTIVE_SOURCE_COLUMN, codes)
+
+
 def _load_checkpoint(
-    cls: type[OptimizationState], data: Any, problem: Problem
+    cls: type[OptimizationState],
+    data: Any,
+    problem: Problem,
+    schema_version: int = CURRENT_CHECKPOINT_SCHEMA_VERSION,
 ) -> OptimizationState:
-    """Load a checkpoint in the current serialized state format."""
+    """Load a checkpoint written with any supported schema version.
+
+    Version 1 stores no ``objective_source`` column; it is added to every
+    restored population and archive and filled from the History
+    ``evaluation`` channel.
+    """
+    objective_source_targets: list[Any] | None = [] if schema_version == 1 else None
     genome_codec = problem.space.services.get("GenomeCodec")
     dense_numeric_view = problem.space.services.get("DenseNumericView")
     entries = _read_json(data, "_state_entries")
@@ -2292,6 +2366,7 @@ def _load_checkpoint(
             genome_codec=genome_codec,
             dense_numeric_view=dense_numeric_view,
             space=problem.space,
+            objective_source_targets=objective_source_targets,
         )
         if key in restored:
             raise CheckpointError(f"duplicate state entry {key.namespace}/{key.name}")
@@ -2433,6 +2508,8 @@ def _load_checkpoint(
                     history, problem.n_obj, problem.n_constraints
                 )
     kwargs["history"] = history
+    if objective_source_targets:
+        _fill_objective_source_from_history(objective_source_targets, history)
     kwargs.update(values)
     kwargs["fe"] = int(kwargs.get("fe", 0))
     kwargs["gen"] = int(kwargs.get("gen", 0))

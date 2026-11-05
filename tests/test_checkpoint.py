@@ -11,6 +11,7 @@ import pytest
 
 from saealib import (
     GA,
+    PSO,
     CheckpointCallback,
     CrossoverBLXAlpha,
     GaussianKernel,
@@ -439,3 +440,147 @@ def test_checkpoint_callback_invalid_format():
 def test_checkpoint_callback_pickle_requires_optimizer():
     with pytest.raises(ValueError, match="optimizer must be provided"):
         CheckpointCallback("/tmp", format="pickle")
+
+
+# ---------------------------------------------------------------------------
+# objective_source column across checkpoint schema versions
+# ---------------------------------------------------------------------------
+
+UNKNOWN_SOURCE = 255
+
+
+def _make_pso_optimizer(
+    problem: Problem, n_gen: int, channels: tuple[str, ...]
+) -> Optimizer:
+    return (
+        Optimizer(problem, seed=7)
+        .set_initializer(LHSInitializer(N_INIT_ARCHIVE, N_INIT_POP))
+        .set_algorithm(PSO())
+        .set_surrogate(RBFSurrogate(GaussianKernel()), n_neighbors=5)
+        .set_strategy(IndividualBasedStrategy(evaluation_ratio=0.25))
+        .set_history(list(channels))
+        .set_termination(Termination(max_gen(n_gen)))
+    )
+
+
+def _without_objective_source(value):
+    if isinstance(value, list):
+        return [
+            _without_objective_source(item)
+            for item in value
+            if not (isinstance(item, dict) and item.get("name") == "objective_source")
+        ]
+    if isinstance(value, dict):
+        return {key: _without_objective_source(item) for key, item in value.items()}
+    return value
+
+
+def _write_as_version_1(src: Path, dst: Path) -> None:
+    """Rewrite a checkpoint in the version 1 layout, which has no source column."""
+    data = np.load(src, allow_pickle=False)
+    arrays = {
+        key: data[key] for key in data.files if not key.endswith("__objective_source")
+    }
+    entries = json.loads(bytes(arrays["_state_entries"]).decode())
+    arrays["_state_entries"] = np.frombuffer(
+        json.dumps(_without_objective_source(entries), allow_nan=True).encode(),
+        dtype=np.uint8,
+    )
+    arrays["_checkpoint_schema_version"] = np.array(1, dtype=np.int64)
+    np.savez(dst, **arrays)
+
+
+def _sources(population) -> np.ndarray:
+    return population.get_array("objective_source")
+
+
+def _version_1_checkpoint(tmp_path: Path, channels: tuple[str, ...]):
+    problem = _make_problem()
+    state = _make_pso_optimizer(problem, 3, channels).run()
+    written = tmp_path / "current.npz"
+    state.save(written)
+    version_1 = tmp_path / "version_1.npz"
+    _write_as_version_1(written, version_1)
+    assert int(np.load(version_1)["_checkpoint_schema_version"]) == 1
+    return problem, state, version_1
+
+
+def test_version_1_checkpoint_marks_rows_matching_the_evaluation_channel_true(
+    tmp_path,
+):
+    problem, state, version_1 = _version_1_checkpoint(
+        tmp_path, ("summary", "evaluation")
+    )
+    sources = _sources(state.population)
+    assert set(sources.tolist()) == {0, 1}
+
+    loaded = OptimizationState.load(version_1, problem)
+
+    np.testing.assert_array_equal(
+        _sources(loaded.population), np.where(sources == 0, 0, UNKNOWN_SOURCE)
+    )
+    assert np.all(_sources(loaded.archive) == 0)
+    assert np.all(_sources(loaded.pareto_archive) == 0)
+
+
+def test_version_1_checkpoint_without_evaluation_channel_marks_rows_unknown(
+    tmp_path,
+):
+    problem, _state, version_1 = _version_1_checkpoint(tmp_path, ("summary",))
+
+    loaded = OptimizationState.load(version_1, problem)
+
+    assert np.all(_sources(loaded.population) == UNKNOWN_SOURCE)
+    assert np.all(_sources(loaded.archive) == UNKNOWN_SOURCE)
+
+
+@pytest.mark.parametrize(
+    "channels", [("summary", "evaluation"), ("summary",)], ids=["evaluation", "none"]
+)
+def test_version_1_checkpoint_resumes_like_an_uninterrupted_run(tmp_path, channels):
+    problem, _state, version_1 = _version_1_checkpoint(tmp_path, channels)
+    uninterrupted = _make_pso_optimizer(problem, 6, channels).run()
+
+    resumed = _make_pso_optimizer(problem, 6, channels).run_from(
+        OptimizationState.load(version_1, problem)
+    )
+
+    assert (resumed.gen, resumed.fe) == (uninterrupted.gen, uninterrupted.fe)
+    np.testing.assert_array_equal(resumed.population.id, uninterrupted.population.id)
+    np.testing.assert_array_equal(resumed.population.f, uninterrupted.population.f)
+    np.testing.assert_array_equal(resumed.archive.id, uninterrupted.archive.id)
+    np.testing.assert_array_equal(
+        _sources(resumed.population), _sources(uninterrupted.population)
+    )
+
+
+def test_version_2_npz_checkpoint_round_trips_objective_source(tmp_path):
+    problem = _make_problem()
+    state = _make_pso_optimizer(problem, 3, ("summary",)).run()
+    path = tmp_path / "ckpt.npz"
+    state.save(path)
+
+    loaded = OptimizationState.load(path, problem)
+
+    assert int(np.load(path)["_checkpoint_schema_version"]) == 2
+    assert set(_sources(state.population).tolist()) == {0, 1}
+    np.testing.assert_array_equal(
+        _sources(loaded.population), _sources(state.population)
+    )
+    np.testing.assert_array_equal(_sources(loaded.archive), _sources(state.archive))
+
+
+def test_pickle_checkpoint_round_trips_objective_source(tmp_path):
+    problem = _make_problem()
+    optimizer = _make_pso_optimizer(problem, 3, ("summary",))
+    state = optimizer.run()
+    path = tmp_path / "ckpt.pkl"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        optimizer.save_pickle(state, path)
+        _optimizer, loaded = Optimizer.load_pickle(path)
+
+    assert set(_sources(state.population).tolist()) == {0, 1}
+    np.testing.assert_array_equal(
+        _sources(loaded.population), _sources(state.population)
+    )

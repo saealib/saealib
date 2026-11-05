@@ -787,9 +787,11 @@ def _true_objectives_by_candidate(history: History) -> dict[int, np.ndarray]:
     """Return each candidate's last truly evaluated ``f`` from the History.
 
     Partial and completed records carry results. Failed and cancelled records
-    carry results only when their evaluation count advances. A later result
-    for the same candidate replaces an earlier one. Empty when the
-    ``evaluation`` channel is not recorded in block mode.
+    carry results when their evaluation count advances or any objective is
+    finite. With no count advance, an all-NaN result cannot be distinguished
+    from a placeholder and is treated as having no result. A later result for
+    the same candidate replaces an earlier one. Empty when the ``evaluation``
+    channel is not recorded in block mode.
     """
     if (
         not history.is_enabled("evaluation")
@@ -811,20 +813,22 @@ def _true_objectives_by_candidate(history: History) -> dict[int, np.ndarray]:
         ids = np.asarray(candidate_blocks[row]).reshape(-1)
         if ids.size == 0:
             continue
+        f = np.asarray(f_blocks[row]).reshape(len(ids), -1)
         if code not in with_result:
-            has_result = (
-                code
-                in {
-                    _EVALUATION_STATUS_CODES[EvaluationStatus.FAILED],
-                    _EVALUATION_STATUS_CODES[EvaluationStatus.CANCELLED],
-                }
-                and fe_before is not None
+            is_failed_or_cancelled = code in {
+                _EVALUATION_STATUS_CODES[EvaluationStatus.FAILED],
+                _EVALUATION_STATUS_CODES[EvaluationStatus.CANCELLED],
+            }
+            count_advanced = (
+                fe_before is not None
                 and fe_after is not None
                 and int(fe_after[row]) > int(fe_before[row])
             )
+            has_result = is_failed_or_cancelled and (
+                count_advanced or np.any(np.isfinite(f))
+            )
             if not has_result:
                 continue
-        f = np.asarray(f_blocks[row]).reshape(len(ids), -1)
         for position, candidate_id in enumerate(ids.tolist()):
             values[candidate_id] = f[position]
     return values

@@ -754,6 +754,37 @@ def test_checkpoint_counts_result_bearing_failed_or_cancelled_evaluations(
     assert loaded[placeholder_row] == UNKNOWN_SOURCE
 
 
+@pytest.mark.parametrize(
+    "status", [EvaluationStatus.FAILED, EvaluationStatus.CANCELLED]
+)
+def test_checkpoint_uses_failed_or_cancelled_result_for_repeated_request_candidate(
+    tmp_path, status
+):
+    problem = _make_problem()
+    state = _make_pso_optimizer(problem, 3, ("summary", "evaluation")).run()
+    row = int(np.flatnonzero(_sources(state.population) == 1)[0])
+    candidate_id = int(state.population.get_array("id")[row])
+    earlier_f = np.array([[-1.0]], dtype=np.float64)
+    later_f = np.array([[-2.0]], dtype=np.float64)
+    request_id = 9201
+
+    _record(state, request_id, EvaluationStatus.PARTIAL, candidate_id, earlier_f)
+    _record(state, request_id, status, candidate_id, later_f)
+    state.population.update_rows(np.asarray([row], dtype=np.intp), {"f": later_f})
+    assert state.history is not None
+    evaluation = state.history.channel("evaluation")
+    assert evaluation["fe_after"][-1] == evaluation["fe_before"][-1]
+
+    written = tmp_path / "current.npz"
+    state.save(written)
+    without_source = tmp_path / "without-objective-source.npz"
+    _write_without_objective_source(written, without_source)
+
+    loaded = _sources(OptimizationState.load(without_source, problem).population)
+
+    assert loaded[row] == 0
+
+
 def test_checkpoint_matches_nan_true_evaluation(tmp_path):
     problem = _make_problem()
     state = _make_pso_optimizer(problem, 3, ("summary", "evaluation")).run()

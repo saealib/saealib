@@ -554,7 +554,9 @@ def test_version_1_checkpoint_resumes_like_an_uninterrupted_run(tmp_path, channe
     )
 
 
-def test_version_2_npz_checkpoint_round_trips_objective_source(tmp_path):
+def test_version_2_npz_checkpoint_round_trips_objective_source_and_resumes(
+    tmp_path,
+):
     problem = _make_problem()
     state = _make_pso_optimizer(problem, 3, ("summary",)).run()
     path = tmp_path / "ckpt.npz"
@@ -568,6 +570,12 @@ def test_version_2_npz_checkpoint_round_trips_objective_source(tmp_path):
         _sources(loaded.population), _sources(state.population)
     )
     np.testing.assert_array_equal(_sources(loaded.archive), _sources(state.archive))
+    resumed = _make_pso_optimizer(problem, 6, ("summary",)).run_from(loaded)
+    uninterrupted = _make_pso_optimizer(problem, 6, ("summary",)).run()
+    np.testing.assert_array_equal(resumed.population.id, uninterrupted.population.id)
+    np.testing.assert_array_equal(
+        _sources(resumed.population), _sources(uninterrupted.population)
+    )
 
 
 def test_pickle_checkpoint_round_trips_objective_source(tmp_path):

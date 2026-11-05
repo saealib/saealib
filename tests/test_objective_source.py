@@ -219,3 +219,24 @@ def test_true_evaluation_of_a_predicted_row_marks_it_true() -> None:
     assert reevaluated is not None
     assert np.all(_sources(reevaluated) == TRUE)
     assert not np.array_equal(reevaluated.get_array("f"), predicted_f)
+
+
+def test_generation_based_with_pymoo_algorithm_keeps_predicted_survivors_marked() -> (
+    None
+):
+    pymoo_ga = pytest.importorskip("pymoo.algorithms.soo.nonconvex.ga")
+    from saealib.algorithms.pymoo_algorithm import PymooAlgorithm
+
+    optimizer = _optimizer(
+        GenerationBasedStrategy(gen_ctrl=3),
+        algorithm=PymooAlgorithm(pymoo_ga.GA(pop_size=8)),
+    )
+
+    seen: set[int] = set()
+    for state in _steps(optimizer, 6):
+        sources = _sources(state.population)
+        np.testing.assert_array_equal(
+            sources, _expected_sources(state.population, state.history)
+        )
+        seen.update(int(value) for value in sources)
+    assert seen == {TRUE, SURROGATE}

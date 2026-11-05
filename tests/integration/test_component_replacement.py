@@ -675,3 +675,163 @@ def test_async_generation_based_replacement_waits_for_in_flight_requests() -> No
     assert first_asked.isdisjoint(second_asked)
     assert all(row in first_asked for rows in first.tell_xs for row in rows)
     assert all(row in second_asked for rows in second.tell_xs for row in rows)
+
+
+# ---------------------------------------------------------------------------
+# Objective source of population rows at commit points
+# ---------------------------------------------------------------------------
+
+
+def _last_true_f_by_id(history: Any) -> dict[int, np.ndarray]:
+    status = np.asarray(history.channel("evaluation")["status_code"])
+    candidate_blocks = history.blocks("evaluation", "candidate_ids")
+    f_blocks = history.blocks("evaluation", "f")
+    values: dict[int, np.ndarray] = {}
+    for row, code in enumerate(status.tolist()):
+        if code not in (2, 3):
+            continue
+        ids = np.asarray(candidate_blocks[row]).reshape(-1)
+        f = np.asarray(f_blocks[row]).reshape(len(ids), -1)
+        for position, candidate_id in enumerate(ids.tolist()):
+            values[candidate_id] = f[position]
+    return values
+
+
+def _sources_by_id(population: Any) -> dict[int, int]:
+    return dict(
+        zip(
+            population.get_array("id").tolist(),
+            population.get_array("objective_source").tolist(),
+            strict=True,
+        )
+    )
+
+
+def _assert_sources_match_true_evaluations(state: Any) -> set[int]:
+    truth = _last_true_f_by_id(state.history)
+    population = state.population
+    for candidate_id, f, source in zip(
+        population.get_array("id").tolist(),
+        population.get_array("f"),
+        population.get_array("objective_source").tolist(),
+        strict=True,
+    ):
+        evaluated = candidate_id in truth and np.array_equal(truth[candidate_id], f)
+        assert source == (0 if evaluated else 1), candidate_id
+    return set(population.get_array("objective_source").tolist())
+
+
+def _generation_based_with_evaluation_history(seed: int = 5) -> Optimizer:
+    return (
+        _surrogate_optimizer_for_swap(GenerationBasedStrategy(4), seed=seed)
+        .set_initializer(LHSInitializer(12, 8, seed))
+        .set_history(["summary", "evaluation"])
+        .set_termination(Termination(lambda state: state.gen >= 30))
+    )
+
+
+def _assert_inherited_predictions_stay_marked(
+    before: dict[int, int], state: Any
+) -> None:
+    predicted = {cid for cid, source in before.items() if source == 1}
+    after = _sources_by_id(state.population)
+    inherited = [cid for cid in after if cid in predicted]
+    evaluated_by_direct = [cid for cid in after if cid not in before]
+    assert inherited and evaluated_by_direct
+    assert all(after[cid] == 1 for cid in inherited)
+    assert all(after[cid] == 0 for cid in evaluated_by_direct)
+    assert np.all(state.offspring.get_array("objective_source") == 0)
+    _assert_sources_match_true_evaluations(state)
+
+
+def test_rows_predicted_before_replacing_generation_based_with_direct_between_steps():
+    optimizer = _generation_based_with_evaluation_history()
+    generator = optimizer.iterate()
+    for _ in range(3):
+        state = next(generator)
+    before = _sources_by_id(state.population)
+
+    optimizer.set_strategy(DirectStrategy())
+    state = next(generator)
+
+    assert state.gen == 11
+    _assert_inherited_predictions_stay_marked(before, state)
+
+
+def test_rows_predicted_before_replacing_generation_based_with_direct_from_a_callback():
+    optimizer = _generation_based_with_evaluation_history()
+    seen: dict[int, Any] = {}
+
+    def on_generation_end(event: Any) -> None:
+        ctx = event.ctx
+        if ctx.gen == 10:
+            seen[10] = _sources_by_id(ctx.population)
+            optimizer.set_strategy(DirectStrategy())
+        elif ctx.gen == 11:
+            _assert_inherited_predictions_stay_marked(seen[10], ctx)
+            seen[11] = True
+
+    cbm = CallbackManager()
+    cbm.register(GenerationEndEvent, on_generation_end)
+    optimizer.cbmanager = cbm
+    optimizer.set_termination(Termination(lambda state: state.gen >= 12))
+    optimizer.run()
+
+    assert set(seen) == {10, 11}
+
+
+def _async_surrogate_optimizer(
+    strategy: Any, evaluator: _DeterministicEvaluator, seed: int = 5
+) -> Optimizer:
+    return (
+        _surrogate_optimizer_for_swap(strategy, seed=seed)
+        .set_initializer(LHSInitializer(12, 8, seed))
+        .set_history(["summary", "evaluation"])
+        .set_evaluator(evaluator)
+        .set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=3)
+        )
+        .set_termination(Termination(lambda state: state.gen >= 12))
+    )
+
+
+@pytest.mark.parametrize(
+    ("strategy", "asynchronous", "predicted"),
+    [
+        (DirectStrategy, True, False),
+        (lambda: GenerationBasedStrategy(2), True, True),
+        (lambda: GenerationBasedStrategy(2), False, True),
+    ],
+    ids=["direct-async", "generation-based-async", "generation-based-sync"],
+)
+def test_objective_source_matches_true_evaluations_at_every_commit_point(
+    strategy: Any, asynchronous: bool, predicted: bool
+) -> None:
+    evaluator = _DeterministicEvaluator(order="lifo", max_collects=20000)
+    if asynchronous:
+        optimizer = _async_surrogate_optimizer(strategy(), evaluator)
+    else:
+        optimizer = _generation_based_with_evaluation_history()
+        optimizer.set_strategy(strategy())
+        optimizer.set_termination(Termination(lambda state: state.gen >= 12))
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    initializer = optimizer.initializer
+    assert initializer is not None
+    state = initializer.initialize(optimizer, optimizer.problem)
+    runtime: Any = create_runtime(optimizer)
+    session: Any = runtime.initialize(resolve_plan(optimizer), state)
+
+    seen: set[int] = set()
+    for _ in range(2000):
+        seen |= _assert_sources_match_true_evaluations(session.state)
+        if session.finished:
+            break
+        session = runtime.advance(session).session
+
+    assert session.finished
+    assert seen == ({0, 1} if predicted else {0})
+    assert np.all(session.state.archive.get_array("objective_source") == 0)
+    if asynchronous:
+        acknowledged = [request_id for request_id, _ in evaluator.acks]
+        assert acknowledged != sorted(acknowledged)

@@ -28,6 +28,13 @@ from saealib import (
 from saealib.comparators import SingleObjectiveComparator
 from saealib.context import OptimizationState
 from saealib.exceptions import ValidationError
+from saealib.execution import (
+    EvaluationErrorInfo,
+    EvaluationResult,
+    EvaluationStatus,
+    EvaluationUpdate,
+)
+from saealib.execution.history import record_evaluations
 from saealib.problem import Problem
 
 # ---------------------------------------------------------------------------
@@ -552,6 +559,48 @@ def test_version_1_checkpoint_resumes_like_an_uninterrupted_run(tmp_path, channe
     np.testing.assert_array_equal(
         _sources(resumed.population), _sources(uninterrupted.population)
     )
+
+
+def _record(state, request_id, status, candidate_id, f=None) -> None:
+    result = None
+    error = None
+    if f is None:
+        error = EvaluationErrorInfo("RuntimeError", "evaluation failed")
+    else:
+        result = EvaluationResult(
+            np.atleast_2d(f),
+            np.zeros((1, 0)),
+            np.zeros(1),
+            candidate_ids=np.array([candidate_id]),
+        )
+    update = EvaluationUpdate(
+        np.int64(request_id), status, np.array([candidate_id]), result, error, 0
+    )
+    state.history._observe_evaluation(update, 0)
+    record_evaluations(state)
+
+
+def test_version_1_checkpoint_uses_the_last_recorded_true_evaluation(tmp_path):
+    problem = _make_problem()
+    state = _make_pso_optimizer(problem, 3, ("summary", "evaluation")).run()
+    ids = state.population.get_array("id")
+    f = state.population.get_array("f")
+    sources = _sources(state.population)
+    replaced = np.flatnonzero(sources == 0)[0]
+    restored = np.flatnonzero(sources == 1)[0]
+    _record(state, 9001, EvaluationStatus.COMPLETED, ids[replaced], f[replaced] + 1)
+    _record(state, 9002, EvaluationStatus.COMPLETED, ids[restored], f[restored] + 1)
+    _record(state, 9003, EvaluationStatus.PARTIAL, ids[restored], f[restored])
+    _record(state, 9004, EvaluationStatus.FAILED, ids[restored])
+    written = tmp_path / "current.npz"
+    state.save(written)
+    version_1 = tmp_path / "version_1.npz"
+    _write_as_version_1(written, version_1)
+
+    loaded = _sources(OptimizationState.load(version_1, problem).population)
+
+    assert loaded[replaced] == UNKNOWN_SOURCE
+    assert loaded[restored] == 0
 
 
 def test_version_2_npz_checkpoint_round_trips_objective_source_and_resumes(

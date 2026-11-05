@@ -1210,7 +1210,7 @@ class OptimizationState:
         """Save a portable checkpoint using the current schema version.
 
         The current schema version is ``CURRENT_CHECKPOINT_SCHEMA_VERSION``;
-        :meth:`load` also reads every version in
+        :meth:`~saealib.context.OptimizationState.load` also reads every version in
         ``SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS``.
         """
         self._save_current(path)

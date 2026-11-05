@@ -51,6 +51,7 @@ Sample (n_init_archive points)
 **`_create_attrs(problem, provider)`**：`Population`と`Archive`用の`PopulationAttribute`値を構築します。
 レガシーなベクトル経路では`x`/`f`/`g`/`cv`/`id`を使い、続けてAlgorithm（`Algorithm.get_required_attrs`）とComparator（`Comparator.get_required_attrs`）の両方が要求する補助属性を統合します——例えば`SPEA2Comparator`の`spea2_fitness`属性がスキーマに加わるのはこの仕組みによるものです。
 `GenomeInitializer`はGenomeを専用カラムで管理するため、標準属性に`x`は含まれません。
+`objective_source`列は各行の目的値の由来を記録し、コードの意味は`OptimizationState`のdocstringに記載されています。
 
 **`_create_context(problem, archive, pareto_archive, population, rng)`**：`OptimizationState` を構築します。
 Comparatorが `NSGA3Comparator` で内部乱数生成器をまだ持たない場合は、ここで `rng.spawn(1)[0]` を設定します。

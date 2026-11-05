@@ -9,6 +9,10 @@ import numpy as np
 
 from saealib.context import OptimizationState
 from saealib.exceptions import ValidationError
+from saealib.population.population import (
+    OBJECTIVE_SOURCE_COLUMN,
+    UNKNOWN_SOURCE_CODE,
+)
 
 if TYPE_CHECKING:
     from saealib.optimizer import Optimizer
@@ -216,7 +220,15 @@ class IslandModel:
     def _migration_values(source, target, indices: np.ndarray) -> dict[str, np.ndarray]:
         values: dict[str, np.ndarray] = {}
         for name, target_attr in target.schema.items():
-            if name == "id" or name not in source.schema:
+            if name == "id":
+                continue
+            if name not in source.schema:
+                if name == OBJECTIVE_SOURCE_COLUMN:
+                    values[name] = np.full(
+                        (len(indices), *target_attr.shape),
+                        UNKNOWN_SOURCE_CODE,
+                        dtype=target_attr.dtype,
+                    )
                 continue
             source_values = source.get_array(name)[indices]
             expected_shape = (len(indices), *target_attr.shape)

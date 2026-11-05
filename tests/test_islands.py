@@ -79,6 +79,31 @@ def _migration_state(values, ids):
     )
 
 
+def _migration_state_with_objective_source(values, ids, sources):
+    values = np.asarray(values, dtype=np.float64)
+    attrs = [
+        *_MIGRATION_ATTRS,
+        PopulationAttribute("objective_source", np.uint8, (), default=255),
+    ]
+    population = Population(attrs, len(values))
+    population._extend_internal(
+        {
+            "id": np.asarray(ids, dtype=np.int64),
+            "x": values[:, None],
+            "f": values[:, None],
+            "g": np.empty((len(values), 0), dtype=np.float64),
+            "cv": np.zeros(len(values), dtype=np.float64),
+            "objective_source": np.asarray(sources, dtype=np.uint8),
+        },
+        preserve_ids=True,
+    )
+    return SimpleNamespace(
+        population=population,
+        comparator=SingleObjectiveComparator(direction=-1.0),
+        gen=1,
+    )
+
+
 def _migration_model(n_islands, **kwargs):
     optimizers = tuple(SimpleNamespace(strategy=object()) for _ in range(n_islands))
     return IslandModel(cast(tuple[Optimizer, ...], optimizers), **kwargs)
@@ -156,6 +181,18 @@ def test_migration_copies_values_and_preserves_target_ids():
         )
     assert np.array_equal(target.get_array("id"), old_target.get_array("id"))
     assert model.migration_events
+
+
+def test_migration_from_population_without_objective_source_marks_target_unknown():
+    source = _migration_state([0.0, 100.0], [0, 1])
+    target = _migration_state_with_objective_source([10.0, 110.0], [10, 11], [0, 1])
+    model = _migration_model(2, migration_interval=1, migration_size=1)
+
+    model._migrate(source, target)
+
+    assert target.population.get_array("id").tolist() == [10, 11]
+    assert target.population.get_array("f")[1, 0] == 0.0
+    assert target.population.get_array("objective_source")[1] == 255
 
 
 @pytest.mark.parametrize(

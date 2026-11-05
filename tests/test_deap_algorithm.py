@@ -120,7 +120,7 @@ def test_partial_tell_is_rejected_by_default():
         algorithm_tell(algo, state, offspring.extract(np.arange(len(offspring) - 1)))
 
 
-def test_tell_keeps_the_objective_source_of_told_offspring():
+def test_deap_tell_preserves_objective_source_column():
     problem = _problem()
     algo = DeapGenerateUpdateAlgorithm(
         cma.Strategy([0.0] * problem.dim, 1.0, lambda_=8)

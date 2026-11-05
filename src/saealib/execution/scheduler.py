@@ -63,12 +63,15 @@ from saealib.policies.evaluation import (
     _continue_fidelity_plan,
 )
 from saealib.policies.feedback import (
+    LEGACY_SOURCE_CODES,
+    TRUE,
     FeedbackBuilder,
     FeedbackResult,
     _feedback_batch_from_result,
     _set_objective_source,
     _set_objectives_true,
 )
+from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.stages import deliver_feedback
 
 logger = logging.getLogger(__name__)
@@ -1343,6 +1346,13 @@ class AsyncEvaluationScheduler:
                     for name in archive.schema
                     if name in owner.schema
                 }
+                if (
+                    OBJECTIVE_SOURCE_COLUMN in archive.schema
+                    and OBJECTIVE_SOURCE_COLUMN not in owner.schema
+                ):
+                    values[OBJECTIVE_SOURCE_COLUMN] = np.uint8(
+                        LEGACY_SOURCE_CODES[TRUE]
+                    )
                 if "id" in archive.schema:
                     values["id"] = np.int64(candidate_id)
                 if "request_id" in archive.schema:

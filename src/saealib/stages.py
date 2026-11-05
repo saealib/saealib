@@ -104,6 +104,7 @@ from saealib.policies.evaluation import (
     _continue_fidelity_plan,
 )
 from saealib.policies.feedback import (
+    LEGACY_SOURCE_CODES,
     FeedbackBuilder,
     MixedFeedback,
     TrueOnlyFeedback,
@@ -2634,9 +2635,6 @@ class ArchiveUpdateStage(Stage):
         evaluated = state.evaluated_offspring
         assert evaluated is not None
         has_id = "id" in evaluated.schema
-        has_source = OBJECTIVE_SOURCE_COLUMN in evaluated.schema
-        if has_source:
-            sources = evaluated.get_array(OBJECTIVE_SOURCE_COLUMN)
         for i in range(len(evaluated)):
             ind = evaluated[i]
             entry = {
@@ -2649,13 +2647,18 @@ class ArchiveUpdateStage(Stage):
                 entry["x"] = ind.x
             if has_id:
                 entry["id"] = int(ind.id)
-            if has_source:
-                entry[OBJECTIVE_SOURCE_COLUMN] = sources[i]
+            if OBJECTIVE_SOURCE_COLUMN in state.archive.schema:
+                entry[OBJECTIVE_SOURCE_COLUMN] = np.uint8(LEGACY_SOURCE_CODES[TRUE])
             state.archive.add(entry)
             if not has_id or int(ind.id) not in set(
                 map(int, state.pareto_archive.get_array("id"))
             ):
-                state.pareto_archive.add(entry)
+                pareto_entry = dict(entry)
+                if OBJECTIVE_SOURCE_COLUMN in state.pareto_archive.schema:
+                    pareto_entry[OBJECTIVE_SOURCE_COLUMN] = np.uint8(
+                        LEGACY_SOURCE_CODES[TRUE]
+                    )
+                state.pareto_archive.add(pareto_entry)
         if has_id and len(evaluated):
             _, first = np.unique(evaluated.get_array("id"), return_index=True)
             evaluated_for_feedback = evaluated.extract(np.sort(first))

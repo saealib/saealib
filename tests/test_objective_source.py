@@ -19,12 +19,29 @@ from saealib import (
     TruncationSelection,
 )
 from saealib.acquisition import MeanPrediction
+from saealib.context import EvaluationPlanState
 from saealib.execution import SerialEvaluator
+from saealib.execution.evaluator import (
+    EvaluationRequest,
+    EvaluationResult,
+    EvaluationStatus,
+    EvaluationUpdate,
+    PendingEvaluation,
+)
 from saealib.execution.history import History
+from saealib.execution.initializer import (
+    GenomeInitializer,
+    RandomInitializer,
+    SobolInitializer,
+)
+from saealib.execution.scheduler import AsyncEvaluationScheduler
 from saealib.operators.selection import SequentialSelection
+from saealib.policies.evaluation import EvaluationPlan
+from saealib.policies.feedback import FeedbackBuilder, FeedbackResult
 from saealib.population import Population
+from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.problem import Problem
-from saealib.stages import TrueEvaluationStage
+from saealib.stages import ArchiveUpdateStage, EvaluationApplyStage, TrueEvaluationStage
 from saealib.strategies import (
     DirectStrategy,
     GenerationBasedStrategy,
@@ -61,13 +78,14 @@ def _optimizer(
     strategy: Any,
     *,
     algorithm: Any = None,
+    initializer: Any = None,
     n_archive: int = 12,
     n_population: int = 8,
     seed: int = 7,
 ) -> Optimizer:
     return (
         Optimizer(_problem(), seed=seed)
-        .set_initializer(LHSInitializer(n_archive, n_population))
+        .set_initializer(initializer or LHSInitializer(n_archive, n_population, seed))
         .set_algorithm(algorithm or _ga())
         .set_termination(Termination(lambda state: False))
         .set_history(["summary", "evaluation"])
@@ -118,6 +136,32 @@ def _sources(population: Population) -> np.ndarray:
     return population.get_array("objective_source")
 
 
+def _population_without_objective_source(
+    source: Population, candidate_id: int, x: np.ndarray, f: np.ndarray
+) -> Population:
+    attrs = [attr for attr in source.attrs if attr.name != "objective_source"]
+    population = Population(
+        attrs,
+        1,
+        dense_numeric_view=source._dense_numeric_view,
+        space=source.space,
+    )
+    values = {
+        name: source.get_array(name)[:1]
+        for name in ("g", "cv")
+        if name in source.schema
+    }
+    values.update(
+        {
+            "x": np.asarray(x, dtype=np.float64),
+            "f": np.asarray(f, dtype=np.float64),
+            "id": np.array([candidate_id], dtype=np.int64),
+        }
+    )
+    population._extend_internal(values, preserve_ids=True)
+    return population
+
+
 def _steps(optimizer: Optimizer, n: int) -> Iterator[Any]:
     """Yield the live state after each of ``n`` steps; check it before advancing."""
     iterator = optimizer.iterate()
@@ -125,12 +169,181 @@ def _steps(optimizer: Optimizer, n: int) -> Iterator[Any]:
         yield next(iterator)
 
 
-def test_initial_population_and_archive_rows_are_true() -> None:
-    state = next(_steps(_optimizer(DirectStrategy()), 1))
+@pytest.mark.parametrize(
+    "initializer",
+    [
+        GenomeInitializer(12, 8, seed=7),
+        LHSInitializer(12, 8, seed=7),
+        RandomInitializer(12, 8, seed=7),
+        SobolInitializer(12, 8, seed=7),
+    ],
+    ids=["genome", "lhs", "random", "sobol"],
+)
+def test_initial_population_and_archive_rows_are_true(initializer: Any) -> None:
+    state = next(_steps(_optimizer(DirectStrategy(), initializer=initializer), 1))
 
     assert state.population.schema["objective_source"].dtype == np.uint8
     assert np.all(_sources(state.population) == TRUE)
     assert np.all(_sources(state.archive) == TRUE)
+
+
+def test_archive_update_marks_rows_true_when_offspring_has_no_source_column() -> None:
+    state = next(_steps(_optimizer(DirectStrategy()), 1))
+    x = np.array([[0.1234567, -0.7654321]], dtype=np.float64)
+    f = np.array([[np.sum(x**2)]], dtype=np.float64)
+
+    class AlgorithmWithoutObjectiveSource:
+        def ask(self, population: Population) -> Population:
+            return _population_without_objective_source(population, 9999, x, f)
+
+    offspring = AlgorithmWithoutObjectiveSource().ask(state.population)
+    state = state.replace(
+        evaluated_offspring=offspring,
+        evaluation_plan=None,
+        evaluation_plan_state=None,
+    )
+
+    updated = ArchiveUpdateStage().execute(state)
+
+    row = int(np.flatnonzero(updated.archive.get_array("id") == 9999)[0])
+    assert updated.archive.get_array("objective_source")[row] == TRUE
+
+
+def test_async_archive_apply_marks_rows_true_when_owner_has_no_source_column() -> None:
+    state = next(_steps(_optimizer(DirectStrategy()), 1))
+    x = np.array([[0.1234567, -0.7654321]], dtype=np.float64)
+    f = np.array([[np.sum(x**2)]], dtype=np.float64)
+    owner = _population_without_objective_source(state.population, 9999, x, f)
+    request_id = np.int64(400)
+    request = EvaluationRequest(request_id, np.array([9999]), x)
+    result = EvaluationResult(
+        f,
+        np.empty((1, 0), dtype=np.float64),
+        np.zeros(1, dtype=np.float64),
+        candidate_ids=np.array([9999], dtype=np.int64),
+    )
+    update = EvaluationUpdate(
+        request_id, EvaluationStatus.COMPLETED, np.array([9999]), result
+    )
+    state = state.replace(
+        offspring=owner,
+        evaluation_owners={request_id: owner},
+        pending_evaluations={
+            request_id: PendingEvaluation(
+                request, EvaluationStatus.PENDING, np.empty(0, dtype=np.int64)
+            )
+        },
+    )
+    scheduler = AsyncEvaluationScheduler(SerialEvaluator())
+    scheduler._apply_population(state, update)
+
+    scheduler._apply_archive(state, update)
+
+    row = int(np.flatnonzero(state.archive.get_array("id") == 9999)[0])
+    assert state.archive.get_array("objective_source")[row] == TRUE
+
+
+def test_async_feedback_writes_the_feedback_result_source() -> None:
+    class NonzeroSourceFeedback(FeedbackBuilder):
+        def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+            del candidates, prediction, evaluated_indices, ctx
+            assert evaluation is not None
+            assert evaluation.candidate_ids is not None
+            size = len(evaluation.candidate_ids)
+            return FeedbackResult(
+                evaluation.candidate_ids,
+                evaluation.f,
+                evaluation.g,
+                evaluation.cv,
+                np.ones(size, dtype=bool),
+                np.full(size, 2, dtype=np.uint8),
+            )
+
+    state = next(_steps(_optimizer(DirectStrategy()), 1))
+    owner = state.population.extract(np.array([0]))
+    candidate_ids = owner.get_array("id")
+    request_id = np.int64(401)
+    request = EvaluationRequest(request_id, candidate_ids, owner.get_array("x"))
+    pending = PendingEvaluation(
+        request, EvaluationStatus.PENDING, np.empty(0, dtype=np.int64)
+    )
+    result = EvaluationResult(
+        owner.get_array("f"),
+        owner.get_array("g"),
+        owner.get_array("cv"),
+        candidate_ids=candidate_ids,
+    )
+    update = EvaluationUpdate(
+        request_id, EvaluationStatus.COMPLETED, candidate_ids, result
+    )
+    state = state.replace(
+        offspring=owner,
+        evaluation_owners={request_id: owner},
+        pending_evaluations={request_id: pending},
+    )
+    scheduler = AsyncEvaluationScheduler(
+        SerialEvaluator(), feedback_builder=NonzeroSourceFeedback()
+    )
+
+    updated = scheduler._apply_feedback(state, update)
+
+    assert updated.feedback_result is not None
+    np.testing.assert_array_equal(updated.feedback_result.source, [2])
+    np.testing.assert_array_equal(_sources(owner), [2])
+
+
+def test_evaluation_apply_marks_other_requests_in_the_plan_true() -> None:
+    state = next(_steps(_optimizer(DirectStrategy()), 1))
+    offspring = state.population.extract(np.array([0, 1]))
+    ids = offspring.get_array("id")
+    offspring.update_array(OBJECTIVE_SOURCE_COLUMN, np.ones(2, dtype=np.uint8))
+    requests = tuple(
+        EvaluationRequest(
+            np.int64(1000 + index),
+            np.array([candidate_id]),
+            offspring.x[index : index + 1],
+        )
+        for index, candidate_id in enumerate(ids)
+    )
+    updates = []
+    for index, request in enumerate(requests):
+        candidate_id = request.candidate_ids
+        result = EvaluationResult(
+            np.array([[float(index + 1)]], dtype=np.float64),
+            np.empty((1, 0), dtype=np.float64),
+            np.zeros(1, dtype=np.float64),
+            candidate_ids=candidate_id,
+        )
+        updates.append(
+            EvaluationUpdate(
+                request.request_id,
+                EvaluationStatus.COMPLETED,
+                candidate_id,
+                result,
+            )
+        )
+    first, second = requests
+    state = state.replace(
+        offspring=offspring,
+        evaluation_request=first,
+        evaluation_plan=EvaluationPlan(requests),
+        evaluation_plan_state=EvaluationPlanState(
+            submitted=tuple(int(request.request_id) for request in requests),
+            completed=tuple(int(request.request_id) for request in requests),
+        ),
+        evaluation_updates=[updates[0]],
+        evaluation_plan_updates={int(second.request_id): [updates[1]]},
+        pending_evaluations={
+            int(first.request_id): PendingEvaluation(
+                first, EvaluationStatus.PENDING, np.empty(0, dtype=np.int64)
+            )
+        },
+    )
+
+    updated = EvaluationApplyStage().execute(state)
+
+    assert updated.offspring is not None
+    np.testing.assert_array_equal(_sources(updated.offspring), [TRUE, TRUE])
 
 
 def test_direct_strategy_keeps_every_row_true() -> None:

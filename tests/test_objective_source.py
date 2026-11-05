@@ -38,7 +38,7 @@ from saealib.execution.scheduler import AsyncEvaluationScheduler
 from saealib.operators.selection import SequentialSelection
 from saealib.policies.evaluation import EvaluationPlan
 from saealib.policies.feedback import FeedbackBuilder, FeedbackResult
-from saealib.population import Population
+from saealib.population import Archive, Population
 from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.problem import Problem
 from saealib.stages import ArchiveUpdateStage, EvaluationApplyStage, TrueEvaluationStage
@@ -207,6 +207,31 @@ def test_archive_update_marks_rows_true_when_offspring_has_no_source_column() ->
 
     row = int(np.flatnonzero(updated.archive.get_array("id") == 9999)[0])
     assert updated.archive.get_array("objective_source")[row] == TRUE
+
+
+def test_archive_update_marks_pareto_rows_true_when_only_it_has_source_column() -> None:
+    state = next(_steps(_optimizer(DirectStrategy()), 1))
+    x = np.array([[0.0, 0.0]], dtype=np.float64)
+    f = np.array([[0.0]], dtype=np.float64)
+    offspring = _population_without_objective_source(state.population, 9999, x, f)
+    archive = Archive(
+        [attr for attr in state.archive.attrs if attr.name != OBJECTIVE_SOURCE_COLUMN],
+        dense_numeric_view=state.archive._dense_numeric_view,
+        space=state.archive.space,
+    )
+    state = state.replace(
+        evaluated_offspring=offspring,
+        archive=archive,
+        evaluation_plan=None,
+        evaluation_plan_state=None,
+    )
+
+    updated = ArchiveUpdateStage().execute(state)
+
+    assert OBJECTIVE_SOURCE_COLUMN not in updated.archive.schema
+    assert OBJECTIVE_SOURCE_COLUMN in updated.pareto_archive.schema
+    row = int(np.flatnonzero(updated.pareto_archive.get_array("id") == 9999)[0])
+    assert updated.pareto_archive.get_array(OBJECTIVE_SOURCE_COLUMN)[row] == TRUE
 
 
 def test_async_archive_apply_marks_rows_true_when_owner_has_no_source_column() -> None:

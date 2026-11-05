@@ -456,7 +456,7 @@ def test_checkpoint_callback_pickle_requires_optimizer():
 
 
 # ---------------------------------------------------------------------------
-# objective_source column across checkpoint schema versions
+# Checkpoints with and without the objective_source column
 # ---------------------------------------------------------------------------
 
 UNKNOWN_SOURCE = 255

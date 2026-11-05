@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.stages &#8212; saealib 0.1.1.dev22+g4ea2c695d documentation</title>
+    <title>saealib.stages &#8212; saealib 0.1.1.dev26+ge0d91babe documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=83c9f151"></script>
+    <script src="../../_static/documentation_options.js?v=0d79fe5b"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -998,7 +998,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">SurrogateEndEvent</span><span class="p">,</span>
     <span class="n">SurrogateStartEvent</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationPlanState</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationPlanState</span><span class="p">,</span> <span class="n">OptimizationState</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ComponentContract</span><span class="p">,</span>
     <span class="n">FeedbackBatch</span><span class="p">,</span>
@@ -1053,7 +1053,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">Evaluator</span><span class="p">,</span>
     <span class="n">PendingEvaluation</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Stage</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">_EXECUTION_BOUNDARIES</span><span class="p">,</span> <span class="n">ComponentRef</span><span class="p">,</span> <span class="n">Stage</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">EvaluateAll</span><span class="p">,</span>
     <span class="n">EvaluationPlan</span><span class="p">,</span>
@@ -1104,6 +1104,34 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_TransactionalExecutionContext</span><span class="p">:</span> <span class="o">...</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_state_ctx</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">Event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Event</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Rewrite a callback event ctx to the run&#39;s own state view.</span>
+
+<span class="sd">    Stage transactions limit the ctx a component reads to its declared</span>
+<span class="sd">    reads; handlers observe the run itself and read the optimization state</span>
+<span class="sd">    ctx (gen, fe, populations, archives) from the event.  Values the Stage</span>
+<span class="sd">    has already written in its transaction stay visible: the ctx reflects</span>
+<span class="sd">    the transaction&#39;s writes on top of the run state.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ctx</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="s2">&quot;ctx&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">OptimizationState</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">event</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">_StageStateProxy</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">_materialize</span><span class="p">())</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s2">&quot;_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">OptimizationState</span><span class="p">):</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s2">&quot;_context&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="s2">&quot;_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">OptimizationState</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">event</span>
+    <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_dispatch_callback</span><span class="p">(</span><span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">Event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Dispatch through ``cbmanager`` with the run&#39;s own state ctx.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">_state_ctx</span><span class="p">(</span><span class="n">event</span><span class="p">))</span>
+
+
 <span class="k">class</span><span class="w"> </span><span class="nc">_DispatchProxy</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Minimal component provider used to pass callbacks to ``Algorithm``.&quot;&quot;&quot;</span>
 
@@ -1111,8 +1139,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="n">cbmanager</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">dispatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">Event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="n">_dispatch_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span> <span class="n">event</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">algorithm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1217,6 +1244,86 @@ window.runMermaid = runMermaid;</script>
     <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">True</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_component_or_reference</span><span class="p">(</span>
+    <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">ComponentRef</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split a constructor component argument into component or reference.</span>
+
+<span class="sd">    A component explicitly passed to a Stage is a Stage-local binding and</span>
+<span class="sd">    never enters the plan&#39;s shared slot table; a reference is resolved from</span>
+<span class="sd">    the plan&#39;s binding snapshot.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ComponentRef</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">value</span>
+    <span class="k">return</span> <span class="n">value</span><span class="p">,</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_unresolved_reference_roles</span><span class="p">(</span><span class="n">stage</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the reference roles the stage has not resolved into components.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+        <span class="n">ref</span><span class="o">.</span><span class="n">role</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">ref</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="s2">&quot;_refs&quot;</span><span class="p">,</span> <span class="p">())</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s2">&quot;sentinel&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_snapshot_cbmanager</span><span class="p">(</span><span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the plan snapshot&#39;s callback manager for a reference stage.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">bindings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cbmanager&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_reference</span><span class="p">(</span>
+    <span class="n">stage</span><span class="p">:</span> <span class="n">Stage</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">fallback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="nb">object</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve one declared ``(slot, role)`` reference of *stage*.</span>
+
+<span class="sd">    Snapshot values take precedence; an empty slot falls back to a default</span>
+<span class="sd">    component created once per plan so every reference to the same</span>
+<span class="sd">    ``(slot, role)`` of one plan shares one instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ref</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">r</span> <span class="k">for</span> <span class="n">attr</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="s2">&quot;_refs&quot;</span><span class="p">,</span> <span class="p">())</span> <span class="k">if</span> <span class="n">attr</span> <span class="o">==</span> <span class="n">name</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ref</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">component</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">component</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> holds neither a component nor a &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;(slot, role) reference for </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">; pass the component or a &quot;</span>
+            <span class="s2">&quot;ComponentRef.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">component</span> <span class="o">=</span> <span class="n">bindings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">slot</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">component</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">slot</span><span class="p">,</span> <span class="n">ref</span><span class="o">.</span><span class="n">role</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">defaults</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">defaults</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    <span class="n">factory</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">stage</span><span class="p">),</span> <span class="s2">&quot;_reference_default&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="n">fallback</span>
+    <span class="k">if</span> <span class="n">factory</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> needs a component for role &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ref</span><span class="o">.</span><span class="n">role</span><span class="si">!r}</span><span class="s2"> from slot </span><span class="si">{</span><span class="n">ref</span><span class="o">.</span><span class="n">slot</span><span class="si">!r}</span><span class="s2">: bind the slot on the &quot;</span>
+            <span class="s2">&quot;optimizer or pass the component explicitly to the stage.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">defaults</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">component</span> <span class="o">=</span> <span class="n">factory</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">component</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_component_state_reads</span><span class="p">(</span><span class="n">component</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recompute the state reads a Stage opens on behalf of a component.&quot;&quot;&quot;</span>
+    <span class="n">state_reads</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;_state_reads&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">state_reads</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">contract</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;contract&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">state_reads</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">contract</span><span class="p">()</span><span class="o">.</span><span class="n">state</span> <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">contract</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">RUNTIME_RNG</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">state_reads</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_stage_contract</span><span class="p">(</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">reads</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
@@ -1227,8 +1334,15 @@ window.runMermaid = runMermaid;</script>
     <span class="n">offered_runtime_capabilities</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
     <span class="n">reads_enumerable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">writes_enumerable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">unresolved</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a Stage contract while keeping held contracts as named parts.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">unresolved</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="s2">&quot;stage holds unresolved (slot, role) reference(s) for &quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">unresolved</span><span class="p">)))</span>
+            <span class="o">+</span> <span class="s2">&quot;; resolve it against a binding snapshot before lowering.&quot;</span>
+        <span class="p">)</span>
     <span class="n">parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PartSpec</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">components</span><span class="p">:</span>
         <span class="n">contract</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;contract&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -1367,6 +1481,20 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">_patch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatePatch</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">StatePatch</span><span class="p">(</span><span class="n">writes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_writes</span><span class="p">,</span> <span class="n">deletes</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_deletes</span><span class="p">))</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_materialize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the run state with this transaction&#39;s writes applied.</span>
+
+<span class="sd">        Callback handlers observe the run itself; the ctx they see reflects</span>
+<span class="sd">        everything the Stage has written so far in its transaction.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_context</span><span class="p">,</span> <span class="s2">&quot;_state&quot;</span><span class="p">)</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_writes</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_STATE_FIELD_KEYS</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_writes</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="o">**</span><span class="n">fields</span><span class="p">)</span> <span class="k">if</span> <span class="n">fields</span> <span class="k">else</span> <span class="n">state</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">get_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
 
@@ -1403,6 +1531,12 @@ window.runMermaid = runMermaid;</script>
             <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
 
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_await_or_value</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isawaitable</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">result</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
 <span class="k">class</span><span class="w"> </span><span class="nc">_TransactionalStageExecutor</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">_TransactionalExecutionContext</span>
@@ -1414,10 +1548,22 @@ window.runMermaid = runMermaid;</script>
 
     <span class="n">_execution_mode</span> <span class="o">=</span> <span class="s2">&quot;graph-native&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="n">Stage</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">node_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">stage</span><span class="p">:</span> <span class="n">Stage</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">node_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">execution_boundary</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;transaction&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">Stage</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;StageStateViewAdapter stage must be a Stage&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">execution_boundary</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_EXECUTION_BOUNDARIES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> execution_boundary must be one of &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_EXECUTION_BOUNDARIES</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">execution_boundary</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stage</span> <span class="o">=</span> <span class="n">stage</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">execution_boundary</span> <span class="o">=</span> <span class="n">execution_boundary</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">node_path</span> <span class="o">=</span> <span class="n">node_path</span> <span class="ow">or</span> <span class="n">stage</span><span class="o">.</span><span class="n">name</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">label</span>
@@ -1455,6 +1601,29 @@ window.runMermaid = runMermaid;</script>
         <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
             <span class="s2">&quot;graph-native Stage adapter requires the Stage to return its transaction&quot;</span>
         <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the Stage at the optimization-state boundary.</span>
+
+<span class="sd">        The Stage sees the run&#39;s own state, and callback events carry that</span>
+<span class="sd">        state ctx instead of the declared-reads transaction ctx.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">stage</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">execute_async_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the Stage&#39;s async seam at the optimization-state boundary.&quot;&quot;&quot;</span>
+        <span class="n">method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stage</span><span class="p">,</span> <span class="s2">&quot;execute_async&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">method</span><span class="p">):</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">_await_or_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stage</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">state</span><span class="p">))</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">method</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="n">accepts_kwargs</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">parameter</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">VAR_KEYWORD</span>
+            <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">accepts_kwargs</span><span class="p">:</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">_await_or_value</span><span class="p">(</span><span class="n">method</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+        <span class="n">selected</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">}</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">_await_or_value</span><span class="p">(</span><span class="n">method</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="o">**</span><span class="n">selected</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">StateView</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatePatch</span><span class="p">:</span>
         <span class="n">context</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">context</span>
@@ -1494,7 +1663,11 @@ window.runMermaid = runMermaid;</script>
     <span class="n">stage</span><span class="p">:</span> <span class="n">Stage</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">node_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageStateViewAdapter</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a graph-native component from an existing Stage.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">StageStateViewAdapter</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">node_path</span><span class="o">=</span><span class="n">node_path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">StageStateViewAdapter</span><span class="p">(</span>
+        <span class="n">stage</span><span class="p">,</span>
+        <span class="n">node_path</span><span class="o">=</span><span class="n">node_path</span><span class="p">,</span>
+        <span class="n">execution_boundary</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="s2">&quot;execution_boundary&quot;</span><span class="p">,</span> <span class="s2">&quot;transaction&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
 
 
 <span class="n">wrap_stage</span> <span class="o">=</span> <span class="n">stage_component</span>
@@ -1558,7 +1731,12 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.AskStage.html#saealib.AskStage.contract">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">(</span>
+            <span class="c1"># Proposer ctx reads beyond the algorithm&#39;s declared contract: the</span>
+            <span class="c1"># proposal ctx exposes offspring and the proposal ID allocator to</span>
+            <span class="c1"># components built on the ask boundary.</span>
             <span class="n">reads</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span>
+                <span class="n">PROPOSALS_ID_ALLOCATOR</span><span class="p">,</span>
                 <span class="n">EVALUATIONS_PLAN</span><span class="p">,</span>
                 <span class="n">EVALUATIONS_PLAN_STATE</span><span class="p">,</span>
                 <span class="n">RUNTIME_CANDIDATE_ID_ALLOCATOR</span><span class="p">,</span>
@@ -1570,6 +1748,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">EVALUATED_OFFSPRING</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -1577,25 +1756,42 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.AskStage.html#saealib.AskStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span> <span class="o">|</span> <span class="n">Proposer</span><span class="p">,</span>
+        <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span> <span class="o">|</span> <span class="n">Proposer</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
         <span class="n">n_offspring</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_n_offspring</span> <span class="o">=</span> <span class="n">n_offspring</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_proxy</span> <span class="o">=</span> <span class="n">_DispatchProxy</span><span class="p">(</span><span class="n">cbmanager</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">:</span> <span class="n">Proposer</span> <span class="o">=</span> <span class="n">algorithm</span>
-        <span class="n">state_reads</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">,</span> <span class="s2">&quot;_state_reads&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">state_reads</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">contract</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">,</span> <span class="s2">&quot;contract&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="n">state_reads</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">contract</span><span class="p">()</span><span class="o">.</span><span class="n">state</span>
-                <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">contract</span><span class="p">)</span>
-                <span class="k">else</span> <span class="p">(</span><span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">RUNTIME_RNG</span><span class="p">)</span>
+        <span class="n">component</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">algorithm</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;AskStage requires an algorithm or a (slot, role) reference&quot;</span>
             <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_state_reads</span> <span class="o">=</span> <span class="n">state_reads</span></div>
+        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;AskStage takes no cbmanager next to a reference; callbacks &quot;</span>
+                <span class="s2">&quot;come from the plan&#39;s binding snapshot&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_n_offspring</span> <span class="o">=</span> <span class="n">n_offspring</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_proxy</span> <span class="o">=</span> <span class="n">_DispatchProxy</span><span class="p">(</span><span class="kc">None</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cbmanager</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span>
+        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state_reads</span> <span class="o">=</span> <span class="p">(</span><span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">RUNTIME_RNG</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state_reads</span> <span class="o">=</span> <span class="n">_component_state_reads</span><span class="p">(</span><span class="n">component</span><span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">AskStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="n">n_offspring</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_n_offspring</span><span class="p">,</span>
+            <span class="n">cbmanager</span><span class="o">=</span><span class="n">_snapshot_cbmanager</span><span class="p">(</span><span class="n">bindings</span><span class="p">),</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="AskStage.to_pseudocode">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.AskStage.html#saealib.AskStage.to_pseudocode">[docs]</a>
@@ -1684,6 +1880,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span> <span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">ARCHIVES_MAIN</span><span class="p">),</span>
             <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span> <span class="n">SURROGATES_PREDICTIONS</span><span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -1691,16 +1888,39 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogatePredictStage.html#saealib.SurrogatePredictStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">surrogate_manager</span><span class="p">:</span> <span class="n">SurrogateManager</span><span class="p">,</span>
+        <span class="n">surrogate_manager</span><span class="p">:</span> <span class="n">SurrogateManager</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
         <span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">refit</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span> <span class="o">=</span> <span class="n">surrogate_manager</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="n">cbmanager</span>
+        <span class="n">component</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">surrogate_manager</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;SurrogatePredictStage requires a surrogate manager or a &quot;</span>
+                <span class="s2">&quot;(slot, role) reference&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;SurrogatePredictStage takes no cbmanager next to a &quot;</span>
+                <span class="s2">&quot;reference; callbacks come from the plan&#39;s binding snapshot&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cbmanager</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_refit</span> <span class="o">=</span> <span class="n">refit</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">SurrogatePredictStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="n">cbmanager</span><span class="o">=</span><span class="n">_snapshot_cbmanager</span><span class="p">(</span><span class="n">bindings</span><span class="p">),</span>
+            <span class="n">refit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_refit</span><span class="p">,</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="SurrogatePredictStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogatePredictStage.html#saealib.SurrogatePredictStage.execute">[docs]</a>
@@ -1709,8 +1929,9 @@ window.runMermaid = runMermaid;</script>
         <span class="k">assert</span> <span class="n">candidates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span>
-                <span class="n">SurrogateStartEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">)</span>
+            <span class="n">_dispatch_callback</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span>
+                <span class="n">SurrogateStartEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">),</span>
             <span class="p">)</span>
 
         <span class="n">prediction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
@@ -1720,14 +1941,17 @@ window.runMermaid = runMermaid;</script>
             <span class="n">refit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_refit</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refit</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span>
+            <span class="n">_dispatch_callback</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span>
                 <span class="n">PostSurrogateFitEvent</span><span class="p">(</span>
                     <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
                     <span class="n">surrogate</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">,</span> <span class="s2">&quot;surrogate&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                <span class="p">)</span>
+                <span class="p">),</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">SurrogateEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">))</span>
+            <span class="n">_dispatch_callback</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span> <span class="n">SurrogateEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">)</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">,</span> <span class="n">predictions</span><span class="o">=</span><span class="n">prediction</span><span class="p">)</span></div>
 </div>
@@ -1805,6 +2029,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">),</span>
             <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">SCORES</span><span class="p">,</span> <span class="n">ACQUISITION_RESULT</span><span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_acquisition&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_acquisition</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -1812,12 +2037,24 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.AcquisitionStage.html#saealib.AcquisitionStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">acquisition</span><span class="p">:</span> <span class="n">AcquisitionFunction</span><span class="p">,</span>
+        <span class="n">acquisition</span><span class="p">:</span> <span class="n">AcquisitionFunction</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
         <span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_acquisition</span> <span class="o">=</span> <span class="n">acquisition</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="n">cbmanager</span>
+        <span class="n">component</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">acquisition</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;AcquisitionStage requires an acquisition function or a &quot;</span>
+                <span class="s2">&quot;(slot, role) reference&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;AcquisitionStage takes no cbmanager next to a reference; &quot;</span>
+                <span class="s2">&quot;callbacks come from the plan&#39;s binding snapshot&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_acquisition</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_acquisition&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cbmanager</span>
         <span class="c1"># Single-entry cache: id(self._acquisition) is constant for the life</span>
         <span class="c1"># of this stage instance, so only (gen, decision_count,</span>
         <span class="c1"># value_version, structure_version) actually varies -- a growing</span>
@@ -1827,6 +2064,16 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_cache_value</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">AcquisitionStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_acquisition&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="n">cbmanager</span><span class="o">=</span><span class="n">_snapshot_cbmanager</span><span class="p">(</span><span class="n">bindings</span><span class="p">),</span>
+        <span class="p">)</span>
+
 <div class="viewcode-block" id="AcquisitionStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.AcquisitionStage.html#saealib.AcquisitionStage.execute">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
@@ -1834,8 +2081,9 @@ window.runMermaid = runMermaid;</script>
         <span class="k">assert</span> <span class="n">candidates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span>
-                <span class="n">AcquisitionStartEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">)</span>
+            <span class="n">_dispatch_callback</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span>
+                <span class="n">AcquisitionStartEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">),</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -1875,8 +2123,9 @@ window.runMermaid = runMermaid;</script>
             <span class="n">result</span> <span class="o">=</span> <span class="n">AcquisitionResult</span><span class="p">(</span><span class="n">scores</span><span class="o">=</span><span class="n">scores</span><span class="p">,</span> <span class="n">artifacts</span><span class="o">=</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">artifacts</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span>
-                <span class="n">AcquisitionEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">,</span> <span class="n">result</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
+            <span class="n">_dispatch_callback</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span>
+                <span class="n">AcquisitionEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">,</span> <span class="n">result</span><span class="o">=</span><span class="n">result</span><span class="p">),</span>
             <span class="p">)</span>
 
         <span class="c1"># Keep the complete result alive until planning.  In particular,</span>
@@ -1919,6 +2168,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">ARCHIVES_MAIN</span><span class="p">),</span>
             <span class="n">writes</span><span class="o">=</span><span class="p">(),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -1926,13 +2176,35 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateFitStage.html#saealib.SurrogateFitStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">surrogate_manager</span><span class="p">:</span> <span class="n">SurrogateManager</span><span class="p">,</span>
+        <span class="n">surrogate_manager</span><span class="p">:</span> <span class="n">SurrogateManager</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
         <span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span> <span class="o">=</span> <span class="n">surrogate_manager</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="n">cbmanager</span></div>
+        <span class="n">component</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">surrogate_manager</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;SurrogateFitStage requires a surrogate manager or a &quot;</span>
+                <span class="s2">&quot;(slot, role) reference&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;SurrogateFitStage takes no cbmanager next to a reference; &quot;</span>
+                <span class="s2">&quot;callbacks come from the plan&#39;s binding snapshot&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cbmanager</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">SurrogateFitStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="n">cbmanager</span><span class="o">=</span><span class="n">_snapshot_cbmanager</span><span class="p">(</span><span class="n">bindings</span><span class="p">),</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="SurrogateFitStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateFitStage.html#saealib.SurrogateFitStage.execute">[docs]</a>
@@ -2070,6 +2342,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_planner&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_planner</span><span class="p">),),</span>
             <span class="n">reads_enumerable</span><span class="o">=</span><span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_n_eval</span><span class="p">),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -2077,15 +2350,30 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationPlanStage.html#saealib.EvaluationPlanStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">planner</span><span class="p">:</span> <span class="n">EvaluationPlanner</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">planner</span><span class="p">:</span> <span class="n">EvaluationPlanner</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">ComponentRef</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">n_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">planner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">n_eval</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;provide planner or n_eval&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_planner</span> <span class="o">=</span> <span class="n">planner</span> <span class="ow">or</span> <span class="n">EvaluateAll</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_n_eval</span> <span class="o">=</span> <span class="n">n_eval</span></div>
+        <span class="n">_</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">planner</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_planner</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="p">(</span><span class="n">planner</span> <span class="ow">or</span> <span class="n">EvaluateAll</span><span class="p">())</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_n_eval</span> <span class="o">=</span> <span class="n">n_eval</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_planner&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">EvaluationPlanStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_planner&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_n_eval</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1">#: Created once per plan when the evaluation_planner slot is empty.</span>
+    <span class="n">_reference_default</span> <span class="o">=</span> <span class="nb">staticmethod</span><span class="p">(</span><span class="n">EvaluateAll</span><span class="p">)</span>
 
 <div class="viewcode-block" id="EvaluationPlanStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationPlanStage.html#saealib.EvaluationPlanStage.execute">[docs]</a>
@@ -2175,6 +2463,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">callback_manager</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">prefix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">strategy</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">allow_new_proposals</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Submit through the public async execution seam.</span>
 
@@ -2204,6 +2493,7 @@ window.runMermaid = runMermaid;</script>
             <span class="ow">and</span> <span class="n">plan_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="ow">and</span> <span class="ow">not</span> <span class="n">plan_state</span><span class="o">.</span><span class="n">deferred</span>
             <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">max_pending</span>
+            <span class="ow">and</span> <span class="n">allow_new_proposals</span>
         <span class="p">)</span>
         <span class="n">current</span> <span class="o">=</span> <span class="n">state</span>
         <span class="k">if</span> <span class="n">refill</span><span class="p">:</span>
@@ -2212,6 +2502,10 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">evaluation_plan_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">evaluation_plan_updates</span><span class="o">=</span><span class="p">{},</span>
             <span class="p">)</span>
+        <span class="c1"># A deferred binding publication must not let the plan drain open a</span>
+        <span class="c1"># new proposal round; remaining requests of the active plan still run.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_new_proposals</span> <span class="ow">and</span> <span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">evaluation_plan</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">terminal</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">current</span>
         <span class="k">if</span> <span class="n">prefix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
             <span class="n">current</span><span class="o">.</span><span class="n">evaluation_plan</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">terminal</span> <span class="ow">or</span> <span class="n">refill</span>
         <span class="p">):</span>
@@ -2303,8 +2597,6 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">candidates</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">EvaluationProtocolError</span><span class="p">(</span><span class="s2">&quot;evaluation candidates are missing&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_scheduler</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_builder</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_scheduler</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_scheduler</span><span class="o">.</span><span class="n">callback_manager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_callback_manager</span>
         <span class="n">acquisition</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">acquisition_result</span>
         <span class="k">if</span> <span class="n">acquisition</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">state</span><span class="o">.</span><span class="n">scores</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">acquisition</span> <span class="o">=</span> <span class="n">AcquisitionResult</span><span class="p">(</span><span class="n">scores</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">scores</span><span class="p">)</span>
@@ -2473,14 +2765,95 @@ window.runMermaid = runMermaid;</script>
             <span class="p">),</span>
             <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">EVALUATIONS_PENDING</span><span class="p">,</span> <span class="n">EVALUATION_HANDLES</span><span class="p">,</span> <span class="n">EVALUATIONS_PLAN_STATE</span><span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="EvaluationSubmitStage.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationSubmitStage.html#saealib.EvaluationSubmitStage.__init__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span> <span class="o">=</span> <span class="n">evaluator</span></div>
+        <span class="n">component</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">evaluator</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;EvaluationSubmitStage requires an evaluator or a &quot;</span>
+                <span class="s2">&quot;(slot, role) reference&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">EvaluationSubmitStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="EvaluationSubmitStage.execute_async">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationSubmitStage.html#saealib.EvaluationSubmitStage.execute_async">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute_async</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">scheduler</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Submit planned requests through the scheduler seam.</span>
+
+<span class="sd">        With a scheduler bound, submission honors the scheduler&#39;s capacity</span>
+<span class="sd">        and routes through its evaluator; requests beyond capacity stay</span>
+<span class="sd">        deferred until the plan driver resubmits them as capacity frees up.</span>
+<span class="sd">        Without a scheduler the synchronous submission runs.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">del</span> <span class="n">kwargs</span>
+        <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">plan</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_plan</span>
+        <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">state</span>
+        <span class="n">plan_state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_plan_state</span>
+        <span class="n">submitted_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">plan_state</span><span class="o">.</span><span class="n">submitted</span> <span class="k">if</span> <span class="n">plan_state</span> <span class="k">else</span> <span class="p">())</span>
+        <span class="n">completed_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">plan_state</span><span class="o">.</span><span class="n">completed</span> <span class="k">if</span> <span class="n">plan_state</span> <span class="k">else</span> <span class="p">())</span>
+        <span class="n">acknowledged_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">plan_state</span><span class="o">.</span><span class="n">acknowledged</span> <span class="k">if</span> <span class="n">plan_state</span> <span class="k">else</span> <span class="p">())</span>
+        <span class="n">remaining</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">item</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">requests</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">request_id</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">submitted_ids</span>
+            <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">request_id</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">completed_ids</span>
+            <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">request_id</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">acknowledged_ids</span>
+            <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">request_id</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_handles</span>
+        <span class="p">)</span>
+        <span class="n">active_pending</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">request_id</span><span class="p">:</span> <span class="n">pending</span>
+            <span class="k">for</span> <span class="n">request_id</span><span class="p">,</span> <span class="n">pending</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">request_id</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_handles</span>
+            <span class="ow">or</span> <span class="n">request_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">request_id</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">requests</span><span class="p">}</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">active_pending</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">):</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">pending_evaluations</span><span class="o">=</span><span class="n">active_pending</span><span class="p">)</span>
+        <span class="n">capacity</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">max_pending</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">active_pending</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">capacity</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">remaining</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">state</span>
+        <span class="n">requests</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">remaining</span><span class="p">[:</span><span class="n">capacity</span><span class="p">])</span>
+        <span class="n">submitted</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">requests</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">submitted</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+            <span class="n">evaluation_request</span><span class="o">=</span><span class="n">requests</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">evaluation_plan</span><span class="o">=</span><span class="n">plan</span><span class="p">,</span>
+            <span class="n">evaluation_plan_state</span><span class="o">=</span><span class="n">EvaluationPlanState</span><span class="p">(</span>
+                <span class="n">submitted</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                    <span class="nb">sorted</span><span class="p">(</span><span class="n">submitted_ids</span> <span class="o">|</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">request_id</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">requests</span><span class="p">})</span>
+                <span class="p">),</span>
+                <span class="n">completed</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">completed_ids</span><span class="p">)),</span>
+                <span class="n">acknowledged</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">acknowledged_ids</span><span class="p">)),</span>
+                <span class="n">deferred</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                    <span class="nb">sorted</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">request_id</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">remaining</span><span class="p">[</span><span class="n">capacity</span><span class="p">:])</span>
+                <span class="p">),</span>
+                <span class="n">continuation</span><span class="o">=</span><span class="n">plan</span><span class="o">.</span><span class="n">continuation</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="EvaluationSubmitStage.execute">
@@ -2605,15 +2978,32 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">EVALUATION_NEW_IDS</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="EvaluationCollectStage.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationCollectStage.html#saealib.EvaluationCollectStage.__init__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span> <span class="o">=</span> <span class="n">evaluator</span></div>
+        <span class="n">component</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">evaluator</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;EvaluationCollectStage requires an evaluator or a &quot;</span>
+                <span class="s2">&quot;(slot, role) reference&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">EvaluationCollectStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">)</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="EvaluationCollectStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationCollectStage.html#saealib.EvaluationCollectStage.execute">[docs]</a>
@@ -3047,18 +3437,43 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">EVALUATIONS_COUNT</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="EvaluationAcknowledgeStage.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationAcknowledgeStage.html#saealib.EvaluationAcknowledgeStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
+        <span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span> <span class="o">=</span> <span class="n">evaluator</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="n">cbmanager</span></div>
+        <span class="n">component</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">evaluator</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;EvaluationAcknowledgeStage requires an evaluator or a &quot;</span>
+                <span class="s2">&quot;(slot, role) reference&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;EvaluationAcknowledgeStage takes no cbmanager next to a &quot;</span>
+                <span class="s2">&quot;reference; callbacks come from the plan&#39;s binding snapshot&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cbmanager</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">EvaluationAcknowledgeStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="n">cbmanager</span><span class="o">=</span><span class="n">_snapshot_cbmanager</span><span class="p">(</span><span class="n">bindings</span><span class="p">),</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="EvaluationAcknowledgeStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationAcknowledgeStage.html#saealib.EvaluationAcknowledgeStage.execute">[docs]</a>
@@ -3139,14 +3554,15 @@ window.runMermaid = runMermaid;</script>
                             <span class="n">row_map</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">candidate_id</span><span class="p">)]</span>
                             <span class="k">for</span> <span class="n">candidate_id</span> <span class="ow">in</span> <span class="n">update_new_ids</span>
                         <span class="p">]</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span>
+                <span class="n">_dispatch_callback</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span>
                     <span class="n">PostEvaluationEvent</span><span class="p">(</span>
                         <span class="n">ctx</span><span class="o">=</span><span class="n">current</span><span class="p">,</span>
                         <span class="n">offspring</span><span class="o">=</span><span class="n">offspring</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">rows</span><span class="p">),</span>
                         <span class="n">request_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span>
                         <span class="n">candidate_ids</span><span class="o">=</span><span class="n">update_new_ids</span><span class="p">,</span>
                         <span class="n">status</span><span class="o">=</span><span class="n">update</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
-                    <span class="p">)</span>
+                    <span class="p">),</span>
                 <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">EvaluationPlan</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">requests</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">all_updates</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_plan_updates</span>
@@ -3211,18 +3627,41 @@ window.runMermaid = runMermaid;</script>
             <span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,),</span>
             <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span> <span class="n">EVALUATED_OFFSPRING</span><span class="p">,</span> <span class="n">EVALUATIONS_COUNT</span><span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span>
+        <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
         <span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">n_eval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">OptimizationState</span><span class="p">],</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span> <span class="o">=</span> <span class="n">evaluator</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="n">cbmanager</span>
+        <span class="n">component</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">evaluator</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;TrueEvaluationStage requires an evaluator or a (slot, role) reference&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;TrueEvaluationStage takes no cbmanager next to a reference; &quot;</span>
+                <span class="s2">&quot;callbacks come from the plan&#39;s binding snapshot&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cbmanager</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_n_eval</span> <span class="o">=</span> <span class="n">n_eval</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">TrueEvaluationStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="n">cbmanager</span><span class="o">=</span><span class="n">_snapshot_cbmanager</span><span class="p">(</span><span class="n">bindings</span><span class="p">),</span>
+            <span class="n">n_eval</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_n_eval</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
         <span class="n">candidates</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">offspring</span>
@@ -3243,14 +3682,14 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
 
         <span class="n">evaluated</span> <span class="o">=</span> <span class="n">candidates</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)))</span>
+        <span class="n">counted</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">fe</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">fe</span> <span class="o">+</span> <span class="n">n</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span>
-                <span class="n">PostEvaluationEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">evaluated</span><span class="p">)</span>
+            <span class="n">_dispatch_callback</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span> <span class="n">PostEvaluationEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">offspring</span><span class="o">=</span><span class="n">evaluated</span><span class="p">)</span>
             <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
-            <span class="n">fe</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">fe</span> <span class="o">+</span> <span class="n">n</span><span class="p">,</span>
+        <span class="k">return</span> <span class="n">counted</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
             <span class="n">offspring</span><span class="o">=</span><span class="n">candidates</span><span class="p">,</span>
             <span class="n">evaluated_offspring</span><span class="o">=</span><span class="n">evaluated</span><span class="p">,</span>
         <span class="p">)</span>
@@ -3342,6 +3781,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">),</span>
             <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span> <span class="n">FEEDBACK_RESULT</span><span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_builder&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -3349,11 +3789,25 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.FeedbackStage.html#saealib.FeedbackStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">builder</span><span class="p">:</span> <span class="n">FeedbackBuilder</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">builder</span><span class="p">:</span> <span class="n">FeedbackBuilder</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">ComponentRef</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span> <span class="o">=</span> <span class="n">builder</span> <span class="ow">or</span> <span class="n">TrueOnlyFeedback</span><span class="p">()</span></div>
+        <span class="n">_</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">builder</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">builder</span> <span class="ow">or</span> <span class="n">TrueOnlyFeedback</span><span class="p">())</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_builder&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span></div>
 
+
+    <span class="c1">#: Created once per plan when the feedback_builder slot is empty.</span>
+    <span class="n">_reference_default</span> <span class="o">=</span> <span class="nb">staticmethod</span><span class="p">(</span><span class="n">TrueOnlyFeedback</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">FeedbackStage</span><span class="p">(</span><span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_builder&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">))</span>
 
 <div class="viewcode-block" id="FeedbackStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.FeedbackStage.html#saealib.FeedbackStage.execute">[docs]</a>
@@ -3438,6 +3892,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">),</span>
             <span class="n">writes</span><span class="o">=</span><span class="p">(),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -3445,26 +3900,36 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.TellStage.html#saealib.TellStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span> <span class="o">|</span> <span class="n">Proposer</span> <span class="o">|</span> <span class="n">FeedbackConsumer</span><span class="p">,</span>
+        <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span> <span class="o">|</span> <span class="n">Proposer</span> <span class="o">|</span> <span class="n">FeedbackConsumer</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">channel</span><span class="p">:</span> <span class="n">FeedbackChannel</span> <span class="o">=</span> <span class="n">TRUE</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.algorithms.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeedbackConsumer</span>
 
+        <span class="n">component</span><span class="p">,</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">_component_or_reference</span><span class="p">(</span><span class="n">algorithm</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;TellStage requires an algorithm or a (slot, role) reference&quot;</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_proxy</span> <span class="o">=</span> <span class="n">_DispatchProxy</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="n">channel</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">FeedbackConsumer</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">)</span>
-        <span class="n">state_reads</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">,</span> <span class="s2">&quot;_state_reads&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">state_reads</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">contract</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">,</span> <span class="s2">&quot;contract&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="n">state_reads</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">contract</span><span class="p">()</span><span class="o">.</span><span class="n">state</span>
-                <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">contract</span><span class="p">)</span>
-                <span class="k">else</span> <span class="p">(</span><span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">RUNTIME_RNG</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_state_reads</span> <span class="o">=</span> <span class="n">state_reads</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="n">reference</span><span class="p">),)</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span>
+        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state_reads</span> <span class="o">=</span> <span class="p">(</span><span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">RUNTIME_RNG</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state_reads</span> <span class="o">=</span> <span class="n">_component_state_reads</span><span class="p">(</span><span class="n">component</span><span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">TellStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="n">channel</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="p">,</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="TellStage.to_pseudocode">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.TellStage.html#saealib.TellStage.to_pseudocode">[docs]</a>
@@ -3528,19 +3993,25 @@ window.runMermaid = runMermaid;</script>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    algorithm : Algorithm</span>
-<span class="sd">        Evolutionary algorithm for ask/tell.</span>
-<span class="sd">    surrogate_manager : SurrogateManager</span>
+<span class="sd">    algorithm : Algorithm or ComponentRef</span>
+<span class="sd">        Evolutionary algorithm for ask/tell, or the ``(slot, role)``</span>
+<span class="sd">        reference resolved from the plan&#39;s binding snapshot.</span>
+<span class="sd">    surrogate_manager : SurrogateManager or ComponentRef</span>
 <span class="sd">        Manager used for fitting and prediction.</span>
 <span class="sd">    gen_ctrl : int</span>
 <span class="sd">        Number of surrogate-only generations.</span>
 <span class="sd">    cbmanager : CallbackManager or None</span>
-<span class="sd">        Forwarded to inner stages for event dispatching.</span>
-<span class="sd">    acquisition : AcquisitionFunction</span>
+<span class="sd">        Forwarded to inner stages for event dispatching.  Must stay ``None``</span>
+<span class="sd">        for a reference-holding loop; callbacks then come from the plan&#39;s</span>
+<span class="sd">        binding snapshot.</span>
+<span class="sd">    acquisition : AcquisitionFunction or ComponentRef</span>
 <span class="sd">        Acquisition function used to score offspring inside the inner loop.</span>
 <span class="sd">        Keyword-only so existing positional</span>
 <span class="sd">        ``SurrogateOnlyLoopStage(algorithm, surrogate_manager, gen_ctrl,</span>
 <span class="sd">        cbmanager)`` calls stay valid.</span>
+<span class="sd">    feedback_builder : FeedbackBuilder, ComponentRef, or None</span>
+<span class="sd">        Inner-loop feedback builder; ``None`` keeps the built-in</span>
+<span class="sd">        surrogate-channel default.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;surrogate_only_loop&quot;</span>
@@ -3559,6 +4030,7 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">(</span>
             <span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">ARCHIVES_MAIN</span><span class="p">,),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">),),</span>
+            <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -3566,32 +4038,98 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateOnlyLoopStage.html#saealib.SurrogateOnlyLoopStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span><span class="p">,</span>
-        <span class="n">surrogate_manager</span><span class="p">:</span> <span class="n">SurrogateManager</span><span class="p">,</span>
+        <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
+        <span class="n">surrogate_manager</span><span class="p">:</span> <span class="n">SurrogateManager</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
         <span class="n">gen_ctrl</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
-        <span class="n">acquisition</span><span class="p">:</span> <span class="n">AcquisitionFunction</span><span class="p">,</span>
-        <span class="n">feedback_builder</span><span class="p">:</span> <span class="n">FeedbackBuilder</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">acquisition</span><span class="p">:</span> <span class="n">AcquisitionFunction</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
+        <span class="n">feedback_builder</span><span class="p">:</span> <span class="n">FeedbackBuilder</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">ComponentRef</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_gen_ctrl</span> <span class="o">=</span> <span class="n">gen_ctrl</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span> <span class="o">=</span> <span class="n">surrogate_manager</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="n">cbmanager</span>
-        <span class="k">if</span> <span class="n">gen_ctrl</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">stages</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">CountGenerationStage</span><span class="p">(),</span>
-                <span class="n">AskStage</span><span class="p">(</span><span class="n">algorithm</span><span class="p">,</span> <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">),</span>
-                <span class="n">SurrogatePredictStage</span><span class="p">(</span>
-                    <span class="n">surrogate_manager</span><span class="p">,</span> <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">,</span> <span class="n">refit</span><span class="o">=</span><span class="kc">False</span>
-                <span class="p">),</span>
-                <span class="n">AcquisitionStage</span><span class="p">(</span><span class="n">acquisition</span><span class="p">,</span> <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">),</span>
-                <span class="n">FeedbackStage</span><span class="p">(</span><span class="n">feedback_builder</span> <span class="ow">or</span> <span class="n">MixedFeedback</span><span class="p">()),</span>
-                <span class="n">TellStage</span><span class="p">(</span><span class="n">algorithm</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="n">SURROGATE</span><span class="p">),</span>
-            <span class="p">]</span>
+        <span class="c1"># Reference-tracking attributes stay unset until resolution; only</span>
+        <span class="c1"># the surrogate manager enters the contract as a named part.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_acquisition</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">references</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ComponentRef</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">surrogate_manager</span><span class="p">,</span> <span class="n">ComponentRef</span><span class="p">):</span>
+            <span class="n">references</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="n">surrogate_manager</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">surrogate_manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span> <span class="o">=</span> <span class="n">surrogate_manager</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_acquisition&quot;</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_builder&quot;</span><span class="p">,</span> <span class="n">feedback_builder</span><span class="p">),</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ComponentRef</span><span class="p">):</span>
+                <span class="n">references</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">references</span><span class="p">)</span>
+        <span class="n">referenced_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">references</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="s2">&quot;_acquisition&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">referenced_names</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;SurrogateOnlyLoopStage requires </span><span class="si">{</span><span class="n">name</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="si">}</span><span class="s2"> as a component or a &quot;</span>
+                    <span class="s2">&quot;(slot, role) reference&quot;</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="n">cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;SurrogateOnlyLoopStage takes no cbmanager next to a &quot;</span>
+                <span class="s2">&quot;reference; callbacks come from the plan&#39;s binding snapshot&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="k">else</span> <span class="n">cbmanager</span>
+        <span class="k">if</span> <span class="n">gen_ctrl</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stages</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_inner_stages</span><span class="p">(</span>
+                <span class="n">algorithm</span><span class="p">,</span> <span class="n">surrogate_manager</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="n">feedback_builder</span><span class="p">,</span> <span class="n">cbmanager</span>
+            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">stages</span> <span class="o">=</span> <span class="p">[]</span></div>
 
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_inner_stages</span><span class="p">(</span>
+        <span class="n">algorithm</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">surrogate_manager</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">acquisition</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">feedback_builder</span><span class="p">:</span> <span class="n">FeedbackBuilder</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
+        <span class="n">cbmanager</span><span class="p">:</span> <span class="n">CallbackManager</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Stage</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">CountGenerationStage</span><span class="p">(),</span>
+            <span class="n">AskStage</span><span class="p">(</span><span class="n">algorithm</span><span class="p">,</span> <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">),</span>
+            <span class="n">SurrogatePredictStage</span><span class="p">(</span><span class="n">surrogate_manager</span><span class="p">,</span> <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">,</span> <span class="n">refit</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="n">AcquisitionStage</span><span class="p">(</span><span class="n">acquisition</span><span class="p">,</span> <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">),</span>
+            <span class="n">FeedbackStage</span><span class="p">(</span><span class="n">feedback_builder</span> <span class="ow">or</span> <span class="n">MixedFeedback</span><span class="p">()),</span>
+            <span class="n">TellStage</span><span class="p">(</span><span class="n">algorithm</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="n">SURROGATE</span><span class="p">),</span>
+        <span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+        <span class="n">referenced_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span><span class="p">}</span>
+        <span class="n">builder</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_builder&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">,</span> <span class="n">fallback</span><span class="o">=</span><span class="n">MixedFeedback</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;_builder&quot;</span> <span class="ow">in</span> <span class="n">referenced_names</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">SurrogateOnlyLoopStage</span><span class="p">(</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_gen_ctrl</span><span class="p">,</span>
+            <span class="n">cbmanager</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_snapshot_cbmanager</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span> <span class="k">if</span> <span class="n">referenced_names</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span>
+            <span class="p">),</span>
+            <span class="n">acquisition</span><span class="o">=</span><span class="n">_resolve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_acquisition&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">defaults</span><span class="p">),</span>
+            <span class="n">feedback_builder</span><span class="o">=</span><span class="n">builder</span><span class="p">,</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="SurrogateOnlyLoopStage.to_pseudocode">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateOnlyLoopStage.html#saealib.SurrogateOnlyLoopStage.to_pseudocode">[docs]</a>
@@ -3616,10 +4154,11 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_ctrl</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span>
+                <span class="n">_dispatch_callback</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span>
                     <span class="n">PostSurrogateFitEvent</span><span class="p">(</span>
                         <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">surrogate</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">,</span> <span class="s2">&quot;surrogate&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                    <span class="p">)</span>
+                    <span class="p">),</span>
                 <span class="p">)</span>
             <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gen_ctrl</span><span class="p">):</span>
                 <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">:</span>

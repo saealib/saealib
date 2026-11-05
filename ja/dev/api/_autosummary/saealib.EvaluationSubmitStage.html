@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.EvaluationSubmitStage &#8212; saealib 0.1.1.dev22+g4ea2c695d ドキュメント</title>
+    <title>saealib.EvaluationSubmitStage &#8212; saealib 0.1.1.dev26+ge0d91babe ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=1ad34aff"></script>
+    <script src="../../_static/documentation_options.js?v=946345f5"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -740,6 +740,7 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../strategies.html">最適化戦略</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="saealib.OptimizationStrategy.html">saealib.OptimizationStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.strategies.TemplateStrategy.html">saealib.strategies.TemplateStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.GenerationBasedStrategy.html">saealib.GenerationBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.IndividualBasedStrategy.html">saealib.IndividualBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.PreSelectionStrategy.html">saealib.PreSelectionStrategy</a></li>
@@ -813,6 +814,7 @@
 <li class="toctree-l2"><a class="reference internal" href="saealib.Repeat.html">saealib.Repeat</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Loop.html">saealib.Loop</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Branch.html">saealib.Branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.pipeline.ComponentRef.html">saealib.pipeline.ComponentRef</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../stages.html">ステージ</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
@@ -908,7 +910,7 @@
 <p>Submit the planned request to an evaluator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>evaluator</strong> (<a class="reference internal" href="saealib.Evaluator.html#saealib.Evaluator" title="saealib.Evaluator"><em>Evaluator</em></a>)</p>
+<dd class="field-odd"><p><strong>evaluator</strong> (<a class="reference internal" href="saealib.Evaluator.html#saealib.Evaluator" title="saealib.Evaluator"><em>Evaluator</em></a><em> | </em><a class="reference internal" href="saealib.pipeline.ComponentRef.html#saealib.pipeline.ComponentRef" title="saealib.pipeline.ComponentRef"><em>ComponentRef</em></a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -925,10 +927,13 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.EvaluationSubmitStage.execute" title="saealib.EvaluationSubmitStage.execute"><code class="xref py py-obj docutils literal notranslate"><span class="pre">execute</span></code></a></p></td>
 <td><p>Execute this stage and return the updated state.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.EvaluationSubmitStage.to_pseudocode" title="saealib.EvaluationSubmitStage.to_pseudocode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pseudocode</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.EvaluationSubmitStage.execute_async" title="saealib.EvaluationSubmitStage.execute_async"><code class="xref py py-obj docutils literal notranslate"><span class="pre">execute_async</span></code></a></p></td>
+<td><p>Submit planned requests through the scheduler seam.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.EvaluationSubmitStage.to_pseudocode" title="saealib.EvaluationSubmitStage.to_pseudocode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pseudocode</span></code></a></p></td>
 <td><p>Render this stage as a LaTeX algorithmic line.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.EvaluationSubmitStage.to_text" title="saealib.EvaluationSubmitStage.to_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_text</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.EvaluationSubmitStage.to_text" title="saealib.EvaluationSubmitStage.to_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_text</span></code></a></p></td>
 <td><p>Render this stage as a plain-text algorithmic line.</p></td>
 </tr>
 </tbody>
@@ -945,7 +950,7 @@
 <li><p><strong>name</strong> (<em>str</em><em>, </em><em>optional</em>) -- Override the class-level <code class="docutils literal notranslate"><span class="pre">name</span></code>.</p></li>
 <li><p><strong>label</strong> (<em>str</em><em>, </em><em>optional</em>) -- Override the class-level <code class="docutils literal notranslate"><span class="pre">label</span></code>.</p></li>
 <li><p><strong>notation</strong> (<em>str</em><em>, </em><em>optional</em>) -- Override the class-level <code class="docutils literal notranslate"><span class="pre">notation</span></code>.</p></li>
-<li><p><strong>evaluator</strong> (<a class="reference internal" href="saealib.Evaluator.html#saealib.Evaluator" title="saealib.execution.evaluator.Evaluator"><em>Evaluator</em></a>)</p></li>
+<li><p><strong>evaluator</strong> (<a class="reference internal" href="saealib.Evaluator.html#saealib.Evaluator" title="saealib.execution.evaluator.Evaluator"><em>Evaluator</em></a><em> | </em><a class="reference internal" href="saealib.pipeline.ComponentRef.html#saealib.pipeline.ComponentRef" title="saealib.pipeline.ComponentRef"><em>ComponentRef</em></a>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
@@ -978,6 +983,28 @@
 </dd>
 <dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-odd"><p>OptimizationState</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="saealib.EvaluationSubmitStage.execute_async">
+<span class="sig-prename descclassname"><span class="pre">EvaluationSubmitStage.</span></span><span class="sig-name descname"><span class="pre">execute_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheduler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/stages.html#EvaluationSubmitStage.execute_async"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.EvaluationSubmitStage.execute_async" title="Link to this definition">#</a></dt>
+<dd><p>Submit planned requests through the scheduler seam.</p>
+<p>With a scheduler bound, submission honors the scheduler's capacity
+and routes through its evaluator; requests beyond capacity stay
+deferred until the plan driver resubmits them as capacity frees up.
+Without a scheduler the synchronous submission runs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>state</strong> (<em>OptimizationState</em>)</p></li>
+<li><p><strong>scheduler</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>OptimizationState</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1072,6 +1099,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.EvaluationSubmitStage.__init__"><code class="docutils literal notranslate"><span class="pre">EvaluationSubmitStage.__init__()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.EvaluationSubmitStage.contract"><code class="docutils literal notranslate"><span class="pre">EvaluationSubmitStage.contract()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.EvaluationSubmitStage.execute"><code class="docutils literal notranslate"><span class="pre">EvaluationSubmitStage.execute()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.EvaluationSubmitStage.execute_async"><code class="docutils literal notranslate"><span class="pre">EvaluationSubmitStage.execute_async()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.EvaluationSubmitStage.to_pseudocode"><code class="docutils literal notranslate"><span class="pre">EvaluationSubmitStage.to_pseudocode()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.EvaluationSubmitStage.to_text"><code class="docutils literal notranslate"><span class="pre">EvaluationSubmitStage.to_text()</span></code></a></li>
 </ul>

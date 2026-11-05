@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.optimizer &#8212; saealib 0.1.1.dev22+g4ea2c695d ドキュメント</title>
+    <title>saealib.optimizer &#8212; saealib 0.1.1.dev26+ge0d91babe ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=1ad34aff"></script>
+    <script src="../../_static/documentation_options.js?v=946345f5"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1415,8 +1415,6 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_algorithm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the evolutionary algorithm. Returns self.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="n">algorithm</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_evaluation_scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">async_evaluation_scheduler</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="n">algorithm</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1461,8 +1459,6 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the feedback builder.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">builder</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder_explicit</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_evaluation_scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">async_evaluation_scheduler</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">builder</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -2208,6 +2204,14 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">component</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">node_by_id</span><span class="p">(</span><span class="n">component_id</span><span class="p">)</span><span class="o">.</span><span class="n">component</span>
                 <span class="n">component_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;component&quot;</span><span class="p">,</span> <span class="n">component</span><span class="p">)</span>
                 <span class="n">rejected</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">component_id</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">component_name</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">contract</span><span class="o">.</span><span class="n">parts</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">part</span><span class="o">.</span><span class="n">contract</span><span class="o">.</span><span class="n">assumptions</span><span class="p">[</span><span class="s2">&quot;state.checkpointable&quot;</span><span class="p">]:</span>
+                    <span class="n">component</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">node_by_id</span><span class="p">(</span><span class="n">component_id</span><span class="p">)</span><span class="o">.</span><span class="n">component</span>
+                    <span class="n">held</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;stage&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">part</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                    <span class="n">rejected</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">component_id</span><span class="si">}</span><span class="s2">__</span><span class="si">{</span><span class="n">part</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">held</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">)&quot;</span>
+                    <span class="p">)</span>
         <span class="k">if</span> <span class="n">rejected</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
                 <span class="s2">&quot;Portable checkpointing requires state.checkpointable=True; &quot;</span>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.EvaluationPlanStage &#8212; saealib 0.1.1.dev22+g4ea2c695d documentation</title>
+    <title>saealib.EvaluationPlanStage &#8212; saealib 0.1.1.dev26+ge0d91babe documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=83c9f151"></script>
+    <script src="../../_static/documentation_options.js?v=0d79fe5b"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -739,6 +739,7 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../strategies.html">Optimization Strategies</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="saealib.OptimizationStrategy.html">saealib.OptimizationStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.strategies.TemplateStrategy.html">saealib.strategies.TemplateStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.GenerationBasedStrategy.html">saealib.GenerationBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.IndividualBasedStrategy.html">saealib.IndividualBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.PreSelectionStrategy.html">saealib.PreSelectionStrategy</a></li>
@@ -812,6 +813,7 @@
 <li class="toctree-l2"><a class="reference internal" href="saealib.Repeat.html">saealib.Repeat</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Loop.html">saealib.Loop</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Branch.html">saealib.Branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.pipeline.ComponentRef.html">saealib.pipeline.ComponentRef</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../stages.html">Stages</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
@@ -917,7 +919,7 @@ synchronous execution; <a class="reference internal" href="saealib.AsyncEvaluati
 async/steady-state execution.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>planner</strong> (<a class="reference internal" href="saealib.EvaluationPlanner.html#saealib.EvaluationPlanner" title="saealib.EvaluationPlanner"><em>EvaluationPlanner</em></a><em> | </em><em>None</em>)</p>
+<dd class="field-odd"><p><strong>planner</strong> (<a class="reference internal" href="saealib.EvaluationPlanner.html#saealib.EvaluationPlanner" title="saealib.EvaluationPlanner"><em>EvaluationPlanner</em></a><em> | </em><em>None</em><em> | </em><a class="reference internal" href="saealib.pipeline.ComponentRef.html#saealib.pipeline.ComponentRef" title="saealib.pipeline.ComponentRef"><em>ComponentRef</em></a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -960,7 +962,7 @@ async/steady-state execution.</p>
 <li><p><strong>name</strong> (<em>str</em><em>, </em><em>optional</em>) – Override the class-level <code class="docutils literal notranslate"><span class="pre">name</span></code>.</p></li>
 <li><p><strong>label</strong> (<em>str</em><em>, </em><em>optional</em>) – Override the class-level <code class="docutils literal notranslate"><span class="pre">label</span></code>.</p></li>
 <li><p><strong>notation</strong> (<em>str</em><em>, </em><em>optional</em>) – Override the class-level <code class="docutils literal notranslate"><span class="pre">notation</span></code>.</p></li>
-<li><p><strong>planner</strong> (<a class="reference internal" href="saealib.EvaluationPlanner.html#saealib.EvaluationPlanner" title="saealib.policies.evaluation.EvaluationPlanner"><em>EvaluationPlanner</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>planner</strong> (<a class="reference internal" href="saealib.EvaluationPlanner.html#saealib.EvaluationPlanner" title="saealib.policies.evaluation.EvaluationPlanner"><em>EvaluationPlanner</em></a><em> | </em><em>None</em><em> | </em><a class="reference internal" href="saealib.pipeline.ComponentRef.html#saealib.pipeline.ComponentRef" title="saealib.pipeline.ComponentRef"><em>ComponentRef</em></a>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -999,7 +1001,7 @@ async/steady-state execution.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.EvaluationPlanStage.execute_async">
-<span class="sig-prename descclassname"><span class="pre">EvaluationPlanStage.</span></span><span class="sig-name descname"><span class="pre">execute_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheduler</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feedback_builder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">algorithm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">callback_manager</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/stages.html#EvaluationPlanStage.execute_async"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.EvaluationPlanStage.execute_async" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">EvaluationPlanStage.</span></span><span class="sig-name descname"><span class="pre">execute_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheduler</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feedback_builder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">algorithm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">callback_manager</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_new_proposals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/stages.html#EvaluationPlanStage.execute_async"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.EvaluationPlanStage.execute_async" title="Link to this definition">#</a></dt>
 <dd><p>Submit through the public async execution seam.</p>
 <p>Runtime supplies lifecycle services and a prefix callback; planning and
 refill decisions remain owned by this stage.</p>
@@ -1008,14 +1010,15 @@ refill decisions remain owned by this stage.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>state</strong> (<em>OptimizationState</em>)</p></li>
 <li><p><strong>scheduler</strong> (<em>Any</em>)</p></li>
-<li><p><strong>feedback_builder</strong> (<a class="reference internal" href="saealib.FeedbackBuilder.html#saealib.FeedbackBuilder" title="saealib.FeedbackBuilder"><em>FeedbackBuilder</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>feedback_builder</strong> (<a class="reference internal" href="saealib.FeedbackBuilder.html#saealib.FeedbackBuilder" title="saealib.policies.feedback.FeedbackBuilder"><em>FeedbackBuilder</em></a><em> | </em><em>None</em>)</p></li>
 <li><p><strong>algorithm</strong> (<em>Any</em>)</p></li>
 <li><p><strong>callback_manager</strong> (<em>Any</em>)</p></li>
 <li><p><strong>strategy</strong> (<em>Any</em>)</p></li>
+<li><p><strong>allow_new_proposals</strong> (<em>bool</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>OptimizationState</p>
+<dd class="field-even"><p><em>OptimizationState</em></p>
 </dd>
 </dl>
 </dd></dl>

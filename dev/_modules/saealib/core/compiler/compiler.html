@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.core.compiler.compiler &#8212; saealib 0.1.1.dev22+g4ea2c695d documentation</title>
+    <title>saealib.core.compiler.compiler &#8212; saealib 0.1.1.dev26+ge0d91babe documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../../_static/documentation_options.js?v=83c9f151"></script>
+    <script src="../../../../_static/documentation_options.js?v=0d79fe5b"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1969,6 +1969,49 @@ window.runMermaid = runMermaid;</script>
 
 
 
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_PreparedGraph</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Graph after structural validation and resolution, with its rule state.&quot;&quot;&quot;</span>
+
+    <span class="n">graph</span><span class="p">:</span> <span class="n">ComponentGraph</span>
+    <span class="n">context</span><span class="p">:</span> <span class="n">CompileContext</span>
+    <span class="n">diagnostics</span><span class="p">:</span> <span class="n">DiagnosticBag</span>
+    <span class="n">resolution</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RuleRegistration</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">wellformedness_failed</span><span class="p">:</span> <span class="nb">bool</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolution_registrations</span><span class="p">(</span>
+    <span class="n">registrations</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">RuleRegistration</span><span class="p">],</span> <span class="n">context</span><span class="p">:</span> <span class="n">CompileContext</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RuleRegistration</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+        <span class="n">registration</span>
+        <span class="k">for</span> <span class="n">registration</span> <span class="ow">in</span> <span class="n">registrations</span>
+        <span class="k">if</span> <span class="n">registration</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;resolution&quot;</span>
+        <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="o">==</span> <span class="s2">&quot;core&quot;</span>
+            <span class="ow">or</span> <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="ow">in</span> <span class="n">context</span><span class="o">.</span><span class="n">enabled_rule_namespaces</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_verification_registrations</span><span class="p">(</span>
+    <span class="n">registrations</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">RuleRegistration</span><span class="p">],</span>
+    <span class="n">graph</span><span class="p">:</span> <span class="n">ComponentGraph</span><span class="p">,</span>
+    <span class="n">context</span><span class="p">:</span> <span class="n">CompileContext</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RuleRegistration</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+    <span class="n">referenced</span> <span class="o">=</span> <span class="n">_rule_namespaces</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+        <span class="n">registration</span>
+        <span class="k">for</span> <span class="n">registration</span> <span class="ow">in</span> <span class="n">registrations</span>
+        <span class="k">if</span> <span class="n">registration</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;verification&quot;</span>
+        <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="o">==</span> <span class="s2">&quot;core&quot;</span>
+            <span class="ow">or</span> <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="ow">in</span> <span class="n">context</span><span class="o">.</span><span class="n">enabled_rule_namespaces</span>
+            <span class="ow">or</span> <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="ow">in</span> <span class="n">referenced</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+
 <span class="k">class</span><span class="w"> </span><span class="nc">Compiler</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compile a graph through resolution and then verification.&quot;&quot;&quot;</span>
 
@@ -2000,6 +2043,79 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span> <span class="n">graph</span><span class="p">:</span> <span class="n">ComponentGraph</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">CompileContext</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExecutablePlan</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve and verify a graph, returning an execution-free plan.&quot;&quot;&quot;</span>
+        <span class="n">prepared</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">prepared</span><span class="o">.</span><span class="n">wellformedness_failed</span><span class="p">:</span>
+            <span class="c1"># Resolution and verification rules dereference node ids and would</span>
+            <span class="c1"># crash on the very locations these diagnostics already report.</span>
+            <span class="k">return</span> <span class="n">ExecutablePlan</span><span class="p">(</span>
+                <span class="n">graph</span><span class="o">=</span><span class="n">prepared</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span>
+                <span class="n">diagnostics</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                    <span class="nb">sorted</span><span class="p">(</span>
+                        <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">_diagnostic_sort_key</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">required_runtime_capabilities</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span>
+                    <span class="n">capability</span>
+                    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">prepared</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span>
+                    <span class="k">for</span> <span class="n">capability</span> <span class="ow">in</span> <span class="p">(</span>
+                        <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">required_runtime_capabilities</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">active_rule_namespaces</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(),</span>
+                <span class="n">active_rule_names</span><span class="o">=</span><span class="p">(),</span>
+                <span class="n">contract_snapshots</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">component_id</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">prepared</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="n">diagnostics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verify</span><span class="p">(</span><span class="n">prepared</span><span class="p">)</span>
+        <span class="n">active</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="nb">sorted</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="o">*</span><span class="n">prepared</span><span class="o">.</span><span class="n">resolution</span><span class="p">,</span>
+                    <span class="o">*</span><span class="n">_verification_registrations</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">registry</span><span class="o">.</span><span class="n">registrations</span><span class="p">(),</span>
+                        <span class="n">prepared</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span>
+                        <span class="n">prepared</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">),</span>
+                <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">item</span><span class="p">:</span> <span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">phase</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="n">prepared</span><span class="o">.</span><span class="n">graph</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+            <span class="n">capability</span>
+            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">current</span><span class="o">.</span><span class="n">nodes</span>
+            <span class="k">for</span> <span class="n">capability</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">required_runtime_capabilities</span>
+        <span class="p">)</span>
+        <span class="n">inserted_adapters</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="nb">sorted</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="n">insertion</span>
+                    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">current</span><span class="o">.</span><span class="n">nodes</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">insertion</span> <span class="o">:=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;insertion&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+                    <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="p">),</span>
+                <span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ExecutablePlan</span><span class="p">(</span>
+            <span class="n">graph</span><span class="o">=</span><span class="n">current</span><span class="p">,</span>
+            <span class="n">diagnostics</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                <span class="nb">sorted</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">diagnostics</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">_diagnostic_sort_key</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">required_runtime_capabilities</span><span class="o">=</span><span class="n">required</span><span class="p">,</span>
+            <span class="n">active_rule_namespaces</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">namespace</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">active</span><span class="p">),</span>
+            <span class="n">active_rule_names</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">namespace</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">active</span><span class="p">),</span>
+            <span class="n">inserted_adapters</span><span class="o">=</span><span class="n">inserted_adapters</span><span class="p">,</span>
+            <span class="n">contract_snapshots</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">component_id</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">current</span><span class="o">.</span><span class="n">nodes</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">graph</span><span class="p">:</span> <span class="n">ComponentGraph</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">CompileContext</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_PreparedGraph</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run well-formedness checks and resolution rules to a fixed point.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">ComponentGraph</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;Compiler.compile graph must be a ComponentGraph&quot;</span><span class="p">)</span>
         <span class="c1"># Structured control is executed from its operation tree, not from the</span>
@@ -2024,36 +2140,15 @@ window.runMermaid = runMermaid;</script>
         <span class="n">graph</span> <span class="o">=</span> <span class="n">_snapshot_graph_contracts</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">structural</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">well_formedness</span><span class="p">())</span>
         <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">severity</span> <span class="ow">is</span> <span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">structural</span><span class="p">):</span>
-            <span class="c1"># Resolution and verification rules dereference node ids and would</span>
-            <span class="c1"># crash on the very locations these diagnostics already report.</span>
-            <span class="k">return</span> <span class="n">ExecutablePlan</span><span class="p">(</span>
+            <span class="k">return</span> <span class="n">_PreparedGraph</span><span class="p">(</span>
                 <span class="n">graph</span><span class="o">=</span><span class="n">graph</span><span class="p">,</span>
-                <span class="n">diagnostics</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
-                    <span class="nb">sorted</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">structural</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">_diagnostic_sort_key</span><span class="p">)</span>
-                <span class="p">),</span>
-                <span class="n">required_runtime_capabilities</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span>
-                    <span class="n">capability</span>
-                    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span>
-                    <span class="k">for</span> <span class="n">capability</span> <span class="ow">in</span> <span class="p">(</span>
-                        <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">required_runtime_capabilities</span>
-                    <span class="p">)</span>
-                <span class="p">),</span>
-                <span class="n">active_rule_namespaces</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(),</span>
-                <span class="n">active_rule_names</span><span class="o">=</span><span class="p">(),</span>
-                <span class="n">contract_snapshots</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
-                    <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">component_id</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span>
-                <span class="p">),</span>
+                <span class="n">context</span><span class="o">=</span><span class="n">compile_context</span><span class="p">,</span>
+                <span class="n">diagnostics</span><span class="o">=</span><span class="n">DiagnosticBag</span><span class="p">(</span><span class="n">structural</span><span class="p">),</span>
+                <span class="n">resolution</span><span class="o">=</span><span class="p">(),</span>
+                <span class="n">wellformedness_failed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="n">registrations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">registry</span><span class="o">.</span><span class="n">registrations</span><span class="p">()</span>
-        <span class="n">resolution</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">registration</span>
-            <span class="k">for</span> <span class="n">registration</span> <span class="ow">in</span> <span class="n">registrations</span>
-            <span class="k">if</span> <span class="n">registration</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;resolution&quot;</span>
-            <span class="ow">and</span> <span class="p">(</span>
-                <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="o">==</span> <span class="s2">&quot;core&quot;</span>
-                <span class="ow">or</span> <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="ow">in</span> <span class="n">compile_context</span><span class="o">.</span><span class="n">enabled_rule_namespaces</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">resolution</span> <span class="o">=</span> <span class="n">_resolution_registrations</span><span class="p">(</span><span class="n">registrations</span><span class="p">,</span> <span class="n">compile_context</span><span class="p">)</span>
         <span class="n">diagnostics</span> <span class="o">=</span> <span class="n">DiagnosticBag</span><span class="p">(</span><span class="n">structural</span><span class="p">)</span>
         <span class="n">current</span> <span class="o">=</span> <span class="n">graph</span>
         <span class="n">unstable_names</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
@@ -2180,26 +2275,28 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">resolutions</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Make resolution rules terminating and idempotent.&quot;</span><span class="p">,),</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-        <span class="n">referenced</span> <span class="o">=</span> <span class="n">_rule_namespaces</span><span class="p">(</span><span class="n">current</span><span class="p">)</span>
-        <span class="n">verification</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">registration</span>
-            <span class="k">for</span> <span class="n">registration</span> <span class="ow">in</span> <span class="n">registrations</span>
-            <span class="k">if</span> <span class="n">registration</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;verification&quot;</span>
-            <span class="ow">and</span> <span class="p">(</span>
-                <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="o">==</span> <span class="s2">&quot;core&quot;</span>
-                <span class="ow">or</span> <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="ow">in</span> <span class="n">compile_context</span><span class="o">.</span><span class="n">enabled_rule_namespaces</span>
-                <span class="ow">or</span> <span class="n">registration</span><span class="o">.</span><span class="n">namespace</span> <span class="ow">in</span> <span class="n">referenced</span>
-            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">_PreparedGraph</span><span class="p">(</span>
+            <span class="n">graph</span><span class="o">=</span><span class="n">current</span><span class="p">,</span>
+            <span class="n">context</span><span class="o">=</span><span class="n">compile_context</span><span class="p">,</span>
+            <span class="n">diagnostics</span><span class="o">=</span><span class="n">diagnostics</span><span class="p">,</span>
+            <span class="n">resolution</span><span class="o">=</span><span class="n">resolution</span><span class="p">,</span>
+            <span class="n">wellformedness_failed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">active</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="nb">sorted</span><span class="p">(</span>
-                <span class="p">(</span><span class="o">*</span><span class="n">resolution</span><span class="p">,</span> <span class="o">*</span><span class="n">verification</span><span class="p">),</span>
-                <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">item</span><span class="p">:</span> <span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">phase</span><span class="p">),</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">active_names</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">namespace</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">active</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">registration</span> <span class="ow">in</span> <span class="n">verification</span><span class="p">:</span>
-            <span class="n">rule_context</span> <span class="o">=</span> <span class="n">RuleContext</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">compile_context</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_verify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prepared</span><span class="p">:</span> <span class="n">_PreparedGraph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticBag</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the verification rules once over a prepared graph.</span>
+
+<span class="sd">        Verification only observes the resolved graph and never rewrites it;</span>
+<span class="sd">        the returned bag is a fresh extension of the prepared diagnostics, so</span>
+<span class="sd">        calling this twice yields the same diagnostics.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">diagnostics</span> <span class="o">=</span> <span class="n">DiagnosticBag</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">prepared</span><span class="o">.</span><span class="n">wellformedness_failed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">diagnostics</span>
+        <span class="k">for</span> <span class="n">registration</span> <span class="ow">in</span> <span class="n">_verification_registrations</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">registry</span><span class="o">.</span><span class="n">registrations</span><span class="p">(),</span> <span class="n">prepared</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">prepared</span><span class="o">.</span><span class="n">context</span>
+        <span class="p">):</span>
+            <span class="n">rule_context</span> <span class="o">=</span> <span class="n">RuleContext</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">prepared</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">)</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">registration</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">rule_context</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">VerificationResult</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
@@ -2207,35 +2304,7 @@ window.runMermaid = runMermaid;</script>
                     <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">registration</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> returned the wrong result type&quot;</span>
                 <span class="p">)</span>
             <span class="n">diagnostics</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">)</span>
-        <span class="n">required</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
-            <span class="n">capability</span>
-            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">current</span><span class="o">.</span><span class="n">nodes</span>
-            <span class="k">for</span> <span class="n">capability</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">required_runtime_capabilities</span>
-        <span class="p">)</span>
-        <span class="n">inserted_adapters</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="nb">sorted</span><span class="p">(</span>
-                <span class="p">(</span>
-                    <span class="n">insertion</span>
-                    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">current</span><span class="o">.</span><span class="n">nodes</span>
-                    <span class="k">if</span> <span class="p">(</span><span class="n">insertion</span> <span class="o">:=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;insertion&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
-                    <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="p">),</span>
-                <span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">ExecutablePlan</span><span class="p">(</span>
-            <span class="n">graph</span><span class="o">=</span><span class="n">current</span><span class="p">,</span>
-            <span class="n">diagnostics</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
-                <span class="nb">sorted</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">diagnostics</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">_diagnostic_sort_key</span><span class="p">)</span>
-            <span class="p">),</span>
-            <span class="n">required_runtime_capabilities</span><span class="o">=</span><span class="n">required</span><span class="p">,</span>
-            <span class="n">active_rule_namespaces</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">namespace</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">active</span><span class="p">),</span>
-            <span class="n">active_rule_names</span><span class="o">=</span><span class="n">active_names</span><span class="p">,</span>
-            <span class="n">inserted_adapters</span><span class="o">=</span><span class="n">inserted_adapters</span><span class="p">,</span>
-            <span class="n">contract_snapshots</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
-                <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">component_id</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">contract</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">current</span><span class="o">.</span><span class="n">nodes</span>
-            <span class="p">),</span>
-        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">diagnostics</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">compile_pipeline</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">pipeline</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">CompileContext</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>

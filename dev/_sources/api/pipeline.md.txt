@@ -55,4 +55,5 @@ In a new graph-native component, keep persistent mutable state behind declared `
    saealib.Repeat
    saealib.Loop
    saealib.Branch
+   saealib.pipeline.ComponentRef
 ```

@@ -18,7 +18,9 @@
    ~GenerationBasedStrategy.__init__
    ~GenerationBasedStrategy.build_graph
    ~GenerationBasedStrategy.build_pipeline
+   ~GenerationBasedStrategy.build_template
    ~GenerationBasedStrategy.contract
+   ~GenerationBasedStrategy.snapshot_bindings
    ~GenerationBasedStrategy.step
 
 
@@ -38,7 +40,13 @@
 .. automethod:: saealib.GenerationBasedStrategy.build_pipeline
 
 
+.. automethod:: saealib.GenerationBasedStrategy.build_template
+
+
 .. automethod:: saealib.GenerationBasedStrategy.contract
+
+
+.. automethod:: saealib.GenerationBasedStrategy.snapshot_bindings
 
 
 .. automethod:: saealib.GenerationBasedStrategy.step

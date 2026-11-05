@@ -18,7 +18,9 @@
    ~SteadyStateStrategy.__init__
    ~SteadyStateStrategy.build_graph
    ~SteadyStateStrategy.build_pipeline
+   ~SteadyStateStrategy.build_template
    ~SteadyStateStrategy.contract
+   ~SteadyStateStrategy.snapshot_bindings
    ~SteadyStateStrategy.step
 
 
@@ -38,7 +40,13 @@
 .. automethod:: saealib.SteadyStateStrategy.build_pipeline
 
 
+.. automethod:: saealib.SteadyStateStrategy.build_template
+
+
 .. automethod:: saealib.SteadyStateStrategy.contract
+
+
+.. automethod:: saealib.SteadyStateStrategy.snapshot_bindings
 
 
 .. automethod:: saealib.SteadyStateStrategy.step

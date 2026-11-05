@@ -1,0 +1,31 @@
+﻿saealib.pipeline.ComponentRef
+=============================
+
+.. currentmodule:: saealib.pipeline
+
+.. autoclass:: ComponentRef
+   :show-inheritance:
+   :no-members:
+
+
+
+.. rubric:: Methods
+
+.. autosummary::
+   :nosignatures:
+
+
+   ~ComponentRef.__init__
+
+
+
+
+
+
+.. rubric:: Method Details
+
+
+.. automethod:: saealib.pipeline.ComponentRef.__init__
+
+
+

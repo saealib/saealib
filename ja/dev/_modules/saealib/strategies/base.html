@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.base &#8212; saealib 0.1.1.dev22+g4ea2c695d ドキュメント</title>
+    <title>saealib.strategies.base &#8212; saealib 0.1.1.dev26+ge0d91babe ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=1ad34aff"></script>
+    <script src="../../../_static/documentation_options.js?v=946345f5"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -961,14 +961,21 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">cast</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentGraph</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span><span class="p">,</span> <span class="n">PortContract</span><span class="p">,</span> <span class="n">StateContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">PENDING_EVALUATIONS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">BINDING_SLOTS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentProvider</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluateAll</span><span class="p">,</span> <span class="n">EvaluationPlanner</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeedbackBuilder</span><span class="p">,</span> <span class="n">MixedFeedback</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineEntry</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">build_runtime_neutral_graph</span><span class="p">(</span>
@@ -1074,6 +1081,139 @@ window.runMermaid = runMermaid;</script>
         <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">execute_strategy_step</span>
 
         <span class="k">return</span> <span class="n">execute_strategy_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="TemplateStrategy">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy">[ドキュメント]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TemplateStrategy</span><span class="p">(</span><span class="n">OptimizationStrategy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run a declared Pipeline whose Stages reference components by ``(slot, role)``.</span>
+
+<span class="sd">    The declaration is a shareable value: it holds no components, only</span>
+<span class="sd">    :class:`~saealib.pipeline.ComponentRef` references (or explicit</span>
+<span class="sd">    Stage-local components).  Each preparation resolves the references from</span>
+<span class="sd">    one binding snapshot and rebuilds every Stage, so the same strategy —</span>
+<span class="sd">    even the same instance — can be prepared again for another Optimizer or</span>
+<span class="sd">    a new binding version without the earlier plan&#39;s components changing.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pipeline : Pipeline</span>
+<span class="sd">        Declaration to resolve and run.</span>
+<span class="sd">    requires_surrogate : bool or None, optional</span>
+<span class="sd">        Whether the declaration needs a surrogate manager.  ``None`` keeps</span>
+<span class="sd">        the class-level value.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    declaration : Pipeline</span>
+<span class="sd">        The declaration passed as *pipeline*.</span>
+<span class="sd">    pipeline : Pipeline or None</span>
+<span class="sd">        The declaration resolved for the most recent plan; ``None`` until a</span>
+<span class="sd">        plan is prepared.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="TemplateStrategy.__init__">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.__init__">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pipeline</span><span class="p">:</span> <span class="n">Pipeline</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">requires_surrogate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span> <span class="o">=</span> <span class="n">pipeline</span>
+        <span class="k">if</span> <span class="n">requires_surrogate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">requires_surrogate</span> <span class="o">=</span> <span class="n">requires_surrogate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">Pipeline</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="TemplateStrategy.build_template">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.build_template">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_template</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the declaration pipeline prepared for this run.</span>
+
+<span class="sd">        Parameterized strategies rebuild their declaration here so</span>
+<span class="sd">        in-place parameter changes take effect at the next commit point.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span></div>
+
+
+<div class="viewcode-block" id="TemplateStrategy.build_pipeline">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.build_pipeline">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the declaration resolved against the active snapshot.&quot;&quot;&quot;</span>
+        <span class="n">resolved</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_template</span><span class="p">())</span>
+        <span class="n">declared</span> <span class="o">=</span> <span class="n">resolved</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resolved</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">)</span> <span class="k">else</span> <span class="n">Pipeline</span><span class="p">([</span><span class="n">resolved</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span> <span class="o">=</span> <span class="n">declared</span>
+        <span class="k">return</span> <span class="n">declared</span></div>
+
+
+    <span class="c1">#: Node-ID naming for the lowered declaration: ``None`` qualifies nested</span>
+    <span class="c1">#: Stages under the declaration&#39;s own name; &quot;&quot; gives them their bare</span>
+    <span class="c1">#: Stage names as node IDs (``ask``, ``tell``, ...).</span>
+    <span class="n">_node_namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="TemplateStrategy.build_graph">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.build_graph">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentGraph</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Lower the declaration resolved against the active snapshot.</span>
+
+<span class="sd">        The components each Stage holds become ``(component, role)`` part</span>
+<span class="sd">        nodes with data edges between their declared ports, so the</span>
+<span class="sd">        compiler&#39;s contract rules apply to them; the Stages stay the</span>
+<span class="sd">        executable nodes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.lowerer</span><span class="w"> </span><span class="kn">import</span> <span class="n">lower_pipeline</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.graph_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">decompose_structured_graph</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">declared_components</span>
+
+        <span class="k">return</span> <span class="n">decompose_structured_graph</span><span class="p">(</span>
+            <span class="n">lower_pipeline</span><span class="p">(</span>
+                <span class="n">declared_components</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">build_pipeline</span><span class="p">(</span><span class="n">provider</span><span class="p">)),</span>
+                <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_node_namespace</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">,</span> <span class="n">declaration</span><span class="p">:</span> <span class="n">PipelineEntry</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PipelineEntry</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">resolve_declaration</span>
+
+        <span class="k">return</span> <span class="n">resolve_declaration</span><span class="p">(</span><span class="n">declaration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_bindings</span><span class="p">(</span><span class="n">provider</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_components</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Components the strategy instance provides for empty slots.</span>
+
+<span class="sd">        An explicitly bound Optimizer slot always wins; these values cover</span>
+<span class="sd">        the slots the Optimizer deliberately leaves to the strategy&#39;s own</span>
+<span class="sd">        bundled defaults.  Stage-level fallbacks only apply when neither is</span>
+<span class="sd">        configured.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="TemplateStrategy.snapshot_bindings">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.snapshot_bindings">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">snapshot_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read the slots a declaration resolves from.</span>
+
+<span class="sd">        The runtime serves slots from the active binding snapshot; a bare</span>
+<span class="sd">        provider resolves from its current slot values.  Slots the binding</span>
+<span class="sd">        leaves empty are filled from the strategy instance&#39;s own default</span>
+<span class="sd">        components before the Stages&#39; built-in fallbacks apply.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;binding_values&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">values</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">BINDING_SLOTS</span><span class="p">}</span>
+        <span class="n">defaults</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_components</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">slot</span><span class="p">:</span> <span class="n">value</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">defaults</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span></div>
 </div>
 
 </pre></div>

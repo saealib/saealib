@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.GenerationBasedStrategy &#8212; saealib 0.1.1.dev22+g4ea2c695d documentation</title>
+    <title>saealib.GenerationBasedStrategy &#8212; saealib 0.1.1.dev26+ge0d91babe documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=83c9f151"></script>
+    <script src="../../_static/documentation_options.js?v=0d79fe5b"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -65,7 +65,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="saealib.IndividualBasedStrategy" href="saealib.IndividualBasedStrategy.html" />
-    <link rel="prev" title="saealib.OptimizationStrategy" href="saealib.OptimizationStrategy.html" />
+    <link rel="prev" title="saealib.strategies.TemplateStrategy" href="saealib.strategies.TemplateStrategy.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -739,6 +739,7 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../strategies.html">Optimization Strategies</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="saealib.OptimizationStrategy.html">saealib.OptimizationStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.strategies.TemplateStrategy.html">saealib.strategies.TemplateStrategy</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">saealib.GenerationBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.IndividualBasedStrategy.html">saealib.IndividualBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.PreSelectionStrategy.html">saealib.PreSelectionStrategy</a></li>
@@ -812,6 +813,7 @@
 <li class="toctree-l2"><a class="reference internal" href="saealib.Repeat.html">saealib.Repeat</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Loop.html">saealib.Loop</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Branch.html">saealib.Branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.pipeline.ComponentRef.html">saealib.pipeline.ComponentRef</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../stages.html">Stages</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -903,7 +905,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="saealib.GenerationBasedStrategy">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">GenerationBasedStrategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gen_ctrl</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/gb.html#GenerationBasedStrategy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.GenerationBasedStrategy" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference internal" href="saealib.OptimizationStrategy.html#saealib.OptimizationStrategy" title="saealib.strategies.base.OptimizationStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="saealib.strategies.TemplateStrategy.html#saealib.strategies.TemplateStrategy" title="saealib.strategies.base.TemplateStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">TemplateStrategy</span></code></a></p>
 <p>Generation-based strategy.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -920,13 +922,19 @@ call before one generation of true objective evaluation.</p>
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.GenerationBasedStrategy.build_graph" title="saealib.GenerationBasedStrategy.build_graph"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_graph</span></code></a></p></td>
-<td><p>Lower the structured generation-based Pipeline to its graph.</p></td>
+<td><p>Lower the declaration resolved against the active snapshot.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.GenerationBasedStrategy.build_pipeline" title="saealib.GenerationBasedStrategy.build_pipeline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_pipeline</span></code></a></p></td>
-<td><p>Describe the strategy as a structured Pipeline DSL.</p></td>
+<td><p>Return the declaration resolved against the active snapshot.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.GenerationBasedStrategy.contract" title="saealib.GenerationBasedStrategy.contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.GenerationBasedStrategy.build_template" title="saealib.GenerationBasedStrategy.build_template"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_template</span></code></a></p></td>
+<td><p>Rebuild the declaration from the current <code class="docutils literal notranslate"><span class="pre">gen_ctrl</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.GenerationBasedStrategy.contract" title="saealib.GenerationBasedStrategy.contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract</span></code></a></p></td>
 <td><p>Return the strategy contract.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.GenerationBasedStrategy.snapshot_bindings" title="saealib.GenerationBasedStrategy.snapshot_bindings"><code class="xref py py-obj docutils literal notranslate"><span class="pre">snapshot_bindings</span></code></a></p></td>
+<td><p>Read the slots, keeping the true generation's feedback builder.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.GenerationBasedStrategy.step" title="saealib.GenerationBasedStrategy.step"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code></a></p></td>
 <td><p>Run <code class="docutils literal notranslate"><span class="pre">gen_ctrl</span></code> surrogate-only generations, then one true-evaluation step.</p></td>
@@ -950,28 +958,43 @@ call before one generation of true objective evaluation.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.GenerationBasedStrategy.build_graph">
-<span class="sig-prename descclassname"><span class="pre">GenerationBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/gb.html#GenerationBasedStrategy.build_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.GenerationBasedStrategy.build_graph" title="Link to this definition">#</a></dt>
-<dd><p>Lower the structured generation-based Pipeline to its graph.</p>
+<span class="sig-prename descclassname"><span class="pre">GenerationBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.GenerationBasedStrategy.build_graph" title="Link to this definition">#</a></dt>
+<dd><p>Lower the declaration resolved against the active snapshot.</p>
+<p>The components each Stage holds become <code class="docutils literal notranslate"><span class="pre">(component,</span> <span class="pre">role)</span></code> part
+nodes with data edges between their declared ports, so the
+compiler’s contract rules apply to them; the Stages stay the
+executable nodes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="saealib.core.ComponentGraph.html#saealib.core.ComponentGraph" title="saealib.core.ComponentGraph">ComponentGraph</a></p>
+<dd class="field-even"><p><a class="reference internal" href="saealib.core.ComponentGraph.html#saealib.core.ComponentGraph" title="saealib.core.compiler.graph.ComponentGraph"><em>ComponentGraph</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.GenerationBasedStrategy.build_pipeline">
-<span class="sig-prename descclassname"><span class="pre">GenerationBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">build_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/gb.html#GenerationBasedStrategy.build_pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.GenerationBasedStrategy.build_pipeline" title="Link to this definition">#</a></dt>
-<dd><p>Describe the strategy as a structured Pipeline DSL.</p>
+<span class="sig-prename descclassname"><span class="pre">GenerationBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">build_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.GenerationBasedStrategy.build_pipeline" title="Link to this definition">#</a></dt>
+<dd><p>Return the declaration resolved against the active snapshot.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.Pipeline">Pipeline</a></p>
+<dd class="field-even"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.pipeline.Pipeline"><em>Pipeline</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="saealib.GenerationBasedStrategy.build_template">
+<span class="sig-prename descclassname"><span class="pre">GenerationBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">build_template</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/gb.html#GenerationBasedStrategy.build_template"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.GenerationBasedStrategy.build_template" title="Link to this definition">#</a></dt>
+<dd><p>Rebuild the declaration from the current <code class="docutils literal notranslate"><span class="pre">gen_ctrl</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.pipeline.Pipeline"><em>Pipeline</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -983,6 +1006,23 @@ call before one generation of true objective evaluation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="saealib.core.ComponentContract.html#saealib.core.ComponentContract" title="saealib.core.contracts.contract.ComponentContract"><em>ComponentContract</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="saealib.GenerationBasedStrategy.snapshot_bindings">
+<span class="sig-prename descclassname"><span class="pre">GenerationBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">snapshot_bindings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/gb.html#GenerationBasedStrategy.snapshot_bindings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.GenerationBasedStrategy.snapshot_bindings" title="Link to this definition">#</a></dt>
+<dd><p>Read the slots, keeping the true generation’s feedback builder.</p>
+<p>The Optimizer’s <code class="docutils literal notranslate"><span class="pre">feedback_builder</span></code> reaches the true generation only
+when it was configured explicitly (<code class="docutils literal notranslate"><span class="pre">feedback_builder_explicit</span></code>);
+otherwise <code class="docutils literal notranslate"><span class="pre">true_feedback_builder</span></code> builds the true feedback.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict[str, object]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1019,12 +1059,12 @@ effect immediately.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="saealib.OptimizationStrategy.html"
+       href="saealib.strategies.TemplateStrategy.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">saealib.OptimizationStrategy</p>
+        <p class="prev-next-title">saealib.strategies.TemplateStrategy</p>
       </div>
     </a>
     <a class="right-next"
@@ -1059,7 +1099,9 @@ effect immediately.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.GenerationBasedStrategy.__init__"><code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy.__init__()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.GenerationBasedStrategy.build_graph"><code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy.build_graph()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.GenerationBasedStrategy.build_pipeline"><code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy.build_pipeline()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.GenerationBasedStrategy.build_template"><code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy.build_template()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.GenerationBasedStrategy.contract"><code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy.contract()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.GenerationBasedStrategy.snapshot_bindings"><code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy.snapshot_bindings()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.GenerationBasedStrategy.step"><code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy.step()</span></code></a></li>
 </ul>
   </nav></div>

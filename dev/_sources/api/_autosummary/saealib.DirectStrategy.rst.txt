@@ -18,7 +18,9 @@
    ~DirectStrategy.__init__
    ~DirectStrategy.build_graph
    ~DirectStrategy.build_pipeline
+   ~DirectStrategy.build_template
    ~DirectStrategy.contract
+   ~DirectStrategy.snapshot_bindings
    ~DirectStrategy.step
 
 
@@ -38,7 +40,13 @@
 .. automethod:: saealib.DirectStrategy.build_pipeline
 
 
+.. automethod:: saealib.DirectStrategy.build_template
+
+
 .. automethod:: saealib.DirectStrategy.contract
+
+
+.. automethod:: saealib.DirectStrategy.snapshot_bindings
 
 
 .. automethod:: saealib.DirectStrategy.step

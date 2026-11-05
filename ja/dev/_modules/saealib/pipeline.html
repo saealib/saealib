@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.pipeline &#8212; saealib 0.1.1.dev22+g4ea2c695d ドキュメント</title>
+    <title>saealib.pipeline &#8212; saealib 0.1.1.dev26+ge0d91babe ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=1ad34aff"></script>
+    <script src="../../_static/documentation_options.js?v=946345f5"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -962,7 +962,8 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">TypeAlias</span><span class="p">,</span> <span class="n">TypeGuard</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.regions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -975,6 +976,7 @@ window.runMermaid = runMermaid;</script>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.component</span><span class="w"> </span><span class="kn">import</span> <span class="n">Component</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span><span class="p">,</span> <span class="n">StateContract</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.roles</span><span class="w"> </span><span class="kn">import</span> <span class="n">ROLES</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
@@ -982,6 +984,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;Branch&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ComponentRef&quot;</span><span class="p">,</span>
     <span class="s2">&quot;Condition&quot;</span><span class="p">,</span>
     <span class="s2">&quot;Loop&quot;</span><span class="p">,</span>
     <span class="s2">&quot;Pipeline&quot;</span><span class="p">,</span>
@@ -989,6 +992,76 @@ window.runMermaid = runMermaid;</script>
     <span class="s2">&quot;Repeat&quot;</span><span class="p">,</span>
     <span class="s2">&quot;Stage&quot;</span><span class="p">,</span>
 <span class="p">]</span>
+
+<span class="n">_EXECUTION_BOUNDARIES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;transaction&quot;</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">)</span>
+
+<span class="c1">#: The Optimizer slot each stage-consumed role is served from when a</span>
+<span class="c1">#: declaration does not name one explicitly.  Slots not listed here have no</span>
+<span class="c1">#: well-known binding and must be named on the reference.</span>
+<span class="n">_ROLE_WELL_KNOWN_SLOT</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;proposer&quot;</span><span class="p">:</span> <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;feedback_consumer&quot;</span><span class="p">:</span> <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;fitter&quot;</span><span class="p">:</span> <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;predictor&quot;</span><span class="p">:</span> <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;acquisition&quot;</span><span class="p">:</span> <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">:</span> <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;feedback_builder&quot;</span><span class="p">:</span> <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;evaluator&quot;</span><span class="p">:</span> <span class="s2">&quot;evaluator&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="ComponentRef">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.pipeline.ComponentRef.html#saealib.ComponentRef">[ドキュメント]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">slots</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ComponentRef</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A declared Stage&#39;s ``(slot, role)`` reference to a component.</span>
+
+<span class="sd">    Declaration Stages hold this instead of a component so that the same</span>
+<span class="sd">    declaration can be prepared for many plans.  The reference is resolved</span>
+<span class="sd">    from the binding snapshot of the plan that executes the declaration,</span>
+<span class="sd">    producing a resolved Stage owned by that plan; the declaration itself is</span>
+<span class="sd">    never mutated.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    role : str</span>
+<span class="sd">        Registered ``ROLES`` name the referenced component plays.</span>
+<span class="sd">    slot : str, optional</span>
+<span class="sd">        Optimizer slot the component is read from.  Defaults to the role&#39;s</span>
+<span class="sd">        well-known slot (for example ``&quot;algorithm&quot;`` for ``&quot;proposer&quot;``).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValidationError</span>
+<span class="sd">        If *role* is not registered, or *slot* is omitted for a role without</span>
+<span class="sd">        a well-known slot.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    References are resolved in a Stage&#39;s own attributes and in the child</span>
+<span class="sd">    Stages listed in its ``stages``.  A Stage held in any other attribute</span>
+<span class="sd">    keeps its references unresolved, and preparing the plan fails.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">role</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">slot</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ROLES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="si">!r}</span><span class="s2"> is not a registered role; use one of the &quot;</span>
+                <span class="s2">&quot;names declared in saealib ROLES.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot</span><span class="p">:</span>
+            <span class="n">slot</span> <span class="o">=</span> <span class="n">_ROLE_WELL_KNOWN_SLOT</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">slot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;role </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="si">!r}</span><span class="s2"> has no well-known slot; record the &quot;</span>
+                    <span class="s2">&quot;reference with an explicit slot.&quot;</span>
+                <span class="p">)</span>
+            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;slot&quot;</span><span class="p">,</span> <span class="n">slot</span><span class="p">)</span></div>
+
 
 
 <div class="viewcode-block" id="Stage">
@@ -1012,6 +1085,16 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        LaTeX math expression used by :meth:`to_pseudocode`.</span>
 <span class="sd">    stages : list[Stage]</span>
 <span class="sd">        Sub-pipeline for composite stages.  Empty list for leaf stages.</span>
+<span class="sd">    execution_boundary : str</span>
+<span class="sd">        How the Stage runs when its Pipeline is lowered to a structured</span>
+<span class="sd">        graph.  ``&quot;transaction&quot;`` (the default) runs the Stage on a state</span>
+<span class="sd">        proxy limited to its declared reads, and callback events receive</span>
+<span class="sd">        that transaction ctx.  ``&quot;state&quot;`` runs the Stage on the run&#39;s own</span>
+<span class="sd">        optimization state, so the Stage and callback handlers see the full</span>
+<span class="sd">        run state; a node that requires the asynchronous driver still runs</span>
+<span class="sd">        as ``&quot;transaction&quot;``.  Any other value raises</span>
+<span class="sd">        :class:`~saealib.exceptions.ValidationError` when the plan is</span>
+<span class="sd">        prepared.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
@@ -1020,6 +1103,12 @@ window.runMermaid = runMermaid;</script>
     <span class="n">stages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Stage</span><span class="p">]</span>
     <span class="n">_execution_mode</span> <span class="o">=</span> <span class="s2">&quot;optimization_state&quot;</span>
     <span class="n">_saealib_stage_boundary</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1">#: ``(attribute-name, reference)`` entries a declaration Stage fills when</span>
+    <span class="c1">#: its references are resolved from a binding snapshot.</span>
+    <span class="n">_refs</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ComponentRef</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="n">execution_boundary</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;transaction&quot;</span>
 
 <div class="viewcode-block" id="Stage.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Stage.html#saealib.Stage.__init__">[ドキュメント]</a>
@@ -1124,7 +1213,23 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="n">ComponentContract</span><span class="p">(</span>
             <span class="n">state</span><span class="o">=</span><span class="n">StateContract</span><span class="p">(</span><span class="n">reads_enumerable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">writes_enumerable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="p">)</span></div>
-</div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">defaults</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Stage</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve declaration references from one binding snapshot.</span>
+
+<span class="sd">        Declaration Stages override this; a Stage subclass that records</span>
+<span class="sd">        references without supporting resolution fails loudly instead of</span>
+<span class="sd">        keeping an unresolved reference in a plan.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> records (slot, role) references but &quot;</span>
+                <span class="s2">&quot;does not support resolution against a binding snapshot.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
 
 
 

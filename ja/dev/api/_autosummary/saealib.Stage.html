@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Stage &#8212; saealib 0.1.1.dev22+g4ea2c695d ドキュメント</title>
+    <title>saealib.Stage &#8212; saealib 0.1.1.dev26+ge0d91babe ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=1ad34aff"></script>
+    <script src="../../_static/documentation_options.js?v=946345f5"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -740,6 +740,7 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../strategies.html">最適化戦略</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="saealib.OptimizationStrategy.html">saealib.OptimizationStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.strategies.TemplateStrategy.html">saealib.strategies.TemplateStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.GenerationBasedStrategy.html">saealib.GenerationBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.IndividualBasedStrategy.html">saealib.IndividualBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.PreSelectionStrategy.html">saealib.PreSelectionStrategy</a></li>
@@ -813,6 +814,7 @@
 <li class="toctree-l2"><a class="reference internal" href="saealib.Repeat.html">saealib.Repeat</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Loop.html">saealib.Loop</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Branch.html">saealib.Branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.pipeline.ComponentRef.html">saealib.pipeline.ComponentRef</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../stages.html">ステージ</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -959,6 +961,25 @@ graph execution does not accept this boundary.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>list[<a class="reference internal" href="#saealib.Stage" title="saealib.Stage">Stage</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="saealib.Stage.execution_boundary">
+<span class="sig-name descname"><span class="pre">execution_boundary</span></span><a class="headerlink" href="#saealib.Stage.execution_boundary" title="Link to this definition">#</a></dt>
+<dd><p>How the Stage runs when its Pipeline is lowered to a structured
+graph.  <code class="docutils literal notranslate"><span class="pre">&quot;transaction&quot;</span></code> (the default) runs the Stage on a state
+proxy limited to its declared reads, and callback events receive
+that transaction ctx.  <code class="docutils literal notranslate"><span class="pre">&quot;state&quot;</span></code> runs the Stage on the run's own
+optimization state, so the Stage and callback handlers see the full
+run state; a node that requires the asynchronous driver still runs
+as <code class="docutils literal notranslate"><span class="pre">&quot;transaction&quot;</span></code>.  Any other value raises
+<a class="reference internal" href="saealib.ValidationError.html#saealib.ValidationError" title="saealib.exceptions.ValidationError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code></a> when the plan is
+prepared.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1124,6 +1145,7 @@ graph execution does not accept this boundary.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Stage.label"><code class="docutils literal notranslate"><span class="pre">Stage.label</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Stage.notation"><code class="docutils literal notranslate"><span class="pre">Stage.notation</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Stage.stages"><code class="docutils literal notranslate"><span class="pre">Stage.stages</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Stage.execution_boundary"><code class="docutils literal notranslate"><span class="pre">Stage.execution_boundary</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Stage.__init__"><code class="docutils literal notranslate"><span class="pre">Stage.__init__()</span></code></a></li>

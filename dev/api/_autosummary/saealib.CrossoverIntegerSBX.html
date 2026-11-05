@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.CrossoverIntegerSBX &#8212; saealib 0.1.1.dev22+g4ea2c695d documentation</title>
+    <title>saealib.CrossoverIntegerSBX &#8212; saealib 0.1.1.dev26+ge0d91babe documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=83c9f151"></script>
+    <script src="../../_static/documentation_options.js?v=0d79fe5b"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -739,6 +739,7 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../strategies.html">Optimization Strategies</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="saealib.OptimizationStrategy.html">saealib.OptimizationStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.strategies.TemplateStrategy.html">saealib.strategies.TemplateStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.GenerationBasedStrategy.html">saealib.GenerationBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.IndividualBasedStrategy.html">saealib.IndividualBasedStrategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.PreSelectionStrategy.html">saealib.PreSelectionStrategy</a></li>
@@ -812,6 +813,7 @@
 <li class="toctree-l2"><a class="reference internal" href="saealib.Repeat.html">saealib.Repeat</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Loop.html">saealib.Loop</a></li>
 <li class="toctree-l2"><a class="reference internal" href="saealib.Branch.html">saealib.Branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saealib.pipeline.ComponentRef.html">saealib.pipeline.ComponentRef</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../stages.html">Stages</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -1009,7 +1011,7 @@ crossover for continuous search space. <em>Complex Systems</em>, 9(2), 115-148.<
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.CrossoverIntegerSBX.crossover">
-<span class="sig-prename descclassname"><span class="pre">CrossoverIntegerSBX.</span></span><span class="sig-name descname"><span class="pre">crossover</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7E7A978C4200</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.CrossoverIntegerSBX.crossover" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">CrossoverIntegerSBX.</span></span><span class="sig-name descname"><span class="pre">crossover</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7C35A3044200</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.CrossoverIntegerSBX.crossover" title="Link to this definition">#</a></dt>
 <dd><p>Execute crossover for one parent group.</p>
 <p>This method is derived from <a class="reference internal" href="#saealib.CrossoverIntegerSBX.crossover_batch" title="saealib.CrossoverIntegerSBX.crossover_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">crossover_batch()</span></code></a> by passing a
 single-pair batch.</p>
@@ -1039,7 +1041,7 @@ both modes, override <a class="reference internal" href="#saealib.CrossoverInteg
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.CrossoverIntegerSBX.crossover_batch">
-<span class="sig-prename descclassname"><span class="pre">CrossoverIntegerSBX.</span></span><span class="sig-name descname"><span class="pre">crossover_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parents_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7E7A978C5E00</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/operators/crossover.html#CrossoverIntegerSBX.crossover_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.CrossoverIntegerSBX.crossover_batch" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">CrossoverIntegerSBX.</span></span><span class="sig-name descname"><span class="pre">crossover_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parents_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng=Generator(PCG64)</span> <span class="pre">at</span> <span class="pre">0x7C35A3045E00</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/operators/crossover.html#CrossoverIntegerSBX.crossover_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.CrossoverIntegerSBX.crossover_batch" title="Link to this definition">#</a></dt>
 <dd><p>Execute integer SBX crossover on a batch of parent pairs at once.</p>
 <p>This is the primary integer SBX implementation, vectorized over the
 leading <code class="docutils literal notranslate"><span class="pre">n_pair</span></code> axis.</p>

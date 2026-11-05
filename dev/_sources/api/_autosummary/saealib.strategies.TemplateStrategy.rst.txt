@@ -1,0 +1,55 @@
+﻿saealib.strategies.TemplateStrategy
+===================================
+
+.. currentmodule:: saealib.strategies
+
+.. autoclass:: TemplateStrategy
+   :show-inheritance:
+   :no-members:
+
+
+
+.. rubric:: Methods
+
+.. autosummary::
+   :nosignatures:
+
+
+   ~TemplateStrategy.__init__
+   ~TemplateStrategy.build_graph
+   ~TemplateStrategy.build_pipeline
+   ~TemplateStrategy.build_template
+   ~TemplateStrategy.contract
+   ~TemplateStrategy.snapshot_bindings
+   ~TemplateStrategy.step
+
+
+
+
+
+
+.. rubric:: Method Details
+
+
+.. automethod:: saealib.strategies.TemplateStrategy.__init__
+
+
+.. automethod:: saealib.strategies.TemplateStrategy.build_graph
+
+
+.. automethod:: saealib.strategies.TemplateStrategy.build_pipeline
+
+
+.. automethod:: saealib.strategies.TemplateStrategy.build_template
+
+
+.. automethod:: saealib.strategies.TemplateStrategy.contract
+
+
+.. automethod:: saealib.strategies.TemplateStrategy.snapshot_bindings
+
+
+.. automethod:: saealib.strategies.TemplateStrategy.step
+
+
+

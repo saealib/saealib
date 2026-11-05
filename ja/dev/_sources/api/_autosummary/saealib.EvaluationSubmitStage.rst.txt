@@ -18,6 +18,7 @@
    ~EvaluationSubmitStage.__init__
    ~EvaluationSubmitStage.contract
    ~EvaluationSubmitStage.execute
+   ~EvaluationSubmitStage.execute_async
    ~EvaluationSubmitStage.to_pseudocode
    ~EvaluationSubmitStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.EvaluationSubmitStage.execute
+
+
+.. automethod:: saealib.EvaluationSubmitStage.execute_async
 
 
 .. automethod:: saealib.EvaluationSubmitStage.to_pseudocode

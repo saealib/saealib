@@ -2170,6 +2170,7 @@ class AsyncPipelineRuntime(PipelineRuntime):
         state = session.state
         _sync_transient_fields_from_store(state)
         generation_open = session.generation_open
+        frames = session.frames
         resume_async_driver = False
         if state.pending_evaluations:
             if set(state.pending_evaluations) != set(state.evaluation_handles):
@@ -2195,14 +2196,77 @@ class AsyncPipelineRuntime(PipelineRuntime):
                         generation_open,
                         plan=plan,
                     )
-                if not result.progressed:
-                    time.sleep(0.001)
-                return self._step(
-                    session,
-                    state,
-                    generation_open,
-                    plan=plan,
+                bindings = getattr(environment, "binding_values", None)
+                bindings = bindings() if callable(bindings) else {}
+                strategy = bindings.get("strategy")
+                can_refill = getattr(environment, "can_refill", None)
+                if (
+                    not getattr(strategy, "supports_async_refill", False)
+                    or not callable(can_refill)
+                    or not can_refill(state)
+                    or plan.graph.region_nodes
+                ):
+                    if not result.progressed:
+                        time.sleep(0.001)
+                    return self._step(
+                        session,
+                        state,
+                        generation_open,
+                        plan=plan,
+                    )
+                plan_state = state.evaluation_plan_state
+                plan_ids = (
+                    {int(item.request_id) for item in state.evaluation_plan.requests}
+                    if state.evaluation_plan is not None
+                    else set()
                 )
+                terminal_ids = (
+                    set(plan_state.completed) | set(plan_state.acknowledged)
+                    if plan_state is not None
+                    else set()
+                )
+                active_plan_complete = state.evaluation_plan is None or (
+                    plan_state is not None and plan_ids <= terminal_ids
+                )
+                active_plan_progressed = bool(
+                    plan_state is not None
+                    and (plan_state.completed or plan_state.acknowledged)
+                )
+                has_deferred_requests = bool(
+                    plan_state is not None and plan_state.deferred
+                )
+                if self._publication_deferred(environment):
+                    if has_deferred_requests:
+                        resume_async_driver = True
+                    else:
+                        if not result.progressed:
+                            time.sleep(0.001)
+                        return self._step(
+                            session,
+                            state,
+                            generation_open,
+                            plan=plan,
+                        )
+                elif active_plan_complete or (
+                    active_plan_progressed and not has_deferred_requests
+                ):
+                    state = state.replace(
+                        evaluation_plan=None,
+                        evaluation_plan_state=None,
+                        evaluation_plan_updates={},
+                    )
+                    frames = ()
+                elif has_deferred_requests:
+                    resume_async_driver = True
+                else:
+                    if not result.progressed:
+                        time.sleep(0.001)
+                    return self._step(
+                        session,
+                        state,
+                        generation_open,
+                        plan=plan,
+                    )
         if environment.is_terminated(state):
             # Region-bound flows end the run here even while the last delivery
             # or a blocked frame still owes work.
@@ -2248,7 +2312,7 @@ class AsyncPipelineRuntime(PipelineRuntime):
         metadata = _execute_structured(
             plan,
             state,
-            session.frames,
+            frames,
             dispatch=environment.dispatch,
             observe=_record_history_observation,
             leaf_executor=_structured_async_leaf_executor(

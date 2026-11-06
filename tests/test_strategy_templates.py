@@ -21,7 +21,7 @@ from saealib import (
     TruncationSelection,
 )
 from saealib.acquisition import MeanPrediction
-from saealib.callback import CallbackManager, GenerationEndEvent
+from saealib.callback import CallbackManager, GenerationEndEvent, PostAskEvent
 from saealib.callback.events import Event
 from saealib.context import OptimizationState
 from saealib.core.compiler.structured import StructuredGraph
@@ -34,11 +34,21 @@ from saealib.execution import (
     Evaluator,
     SerialEvaluator,
 )
-from saealib.policies.evaluation import RatioEvaluation, TopKEvaluation
+from saealib.execution.runtime import create_runtime, resolve_plan
+from saealib.policies.evaluation import (
+    EvaluateAll,
+    RatioEvaluation,
+    RepeatedEvaluation,
+    TopKEvaluation,
+)
 from saealib.policies.feedback import MixedFeedback, TrueOnlyFeedback
 from saealib.problem import Problem
 from saealib.registry import build, to_spec
-from saealib.strategies import DirectStrategy, GenerationBasedStrategy
+from saealib.strategies import (
+    DirectStrategy,
+    GenerationBasedStrategy,
+    SteadyStateStrategy,
+)
 from saealib.surrogate.manager import LocalSurrogateManager
 from saealib.surrogate.rbf import RBFSurrogate
 from saealib.surrogate.rbf_kernels import GaussianKernel
@@ -47,11 +57,16 @@ from saealib.surrogate.rbf_kernels import GaussianKernel
 class _Evaluator(Evaluator):
     def __init__(self) -> None:
         self.delivered: dict[int, EvaluationUpdate] = {}
+        self.submitted: list[EvaluationRequest] = []
+        self._delivered: set[int] = set()
+        self._seen_in_pass: set[int] = set()
+        self._released_in_pass = False
 
     def evaluate_batch(self, x, problem):
         return SerialEvaluator().evaluate_batch(x, problem)
 
     def submit(self, request: EvaluationRequest, problem: Problem):
+        self.submitted.append(request)
         return EvaluationHandle(
             request.request_id,
             EvaluationStatus.PENDING,
@@ -63,6 +78,19 @@ class _Evaluator(Evaluator):
             return []
         request, problem = handle.backend_token
         request_id = int(request.request_id)
+        if request_id in self._seen_in_pass:
+            self._seen_in_pass.clear()
+            self._released_in_pass = False
+        self._seen_in_pass.add(request_id)
+        if self._released_in_pass:
+            return []
+        outstanding = [
+            int(item.request_id)
+            for item in self.submitted
+            if int(item.request_id) not in self._delivered
+        ]
+        if not outstanding or request_id != min(outstanding):
+            return []
         update = self.delivered.get(request_id)
         if update is None:
             result = SerialEvaluator().evaluate_request(request, problem)
@@ -77,6 +105,8 @@ class _Evaluator(Evaluator):
                 0,
             )
             self.delivered[request_id] = update
+            self._delivered.add(request_id)
+        self._released_in_pass = True
         handle._delivered_sequence = update.sequence
         return [update]
 
@@ -91,11 +121,45 @@ class _Evaluator(Evaluator):
         return True
 
     def reattach(self, pending: Any, problem: Problem):
+        if pending.request not in self.submitted:
+            self.submitted.append(pending.request)
         return EvaluationHandle(
             pending.request.request_id,
             EvaluationStatus.PENDING,
             backend_token=(pending.request, problem),
         )
+
+
+class _ControlledEvaluator(_Evaluator):
+    def __init__(self) -> None:
+        super().__init__()
+        self.released_request_ids: set[int] = set()
+        self.release_all = False
+
+    def collect(self, handle: EvaluationHandle, *, wait: bool = True):
+        if handle._acknowledged_sequence >= 0:
+            return []
+        request, problem = handle.backend_token
+        request_id = int(request.request_id)
+        if request_id in self._delivered or not (
+            self.release_all or request_id in self.released_request_ids
+        ):
+            return []
+        result = SerialEvaluator().evaluate_request(request, problem)
+        result.candidate_ids = request.candidate_ids
+        result.__post_init__()
+        update = EvaluationUpdate(
+            request.request_id,
+            EvaluationStatus.COMPLETED,
+            request.candidate_ids,
+            result,
+            None,
+            0,
+        )
+        self.delivered[request_id] = update
+        self._delivered.add(request_id)
+        handle._delivered_sequence = update.sequence
+        return [update]
 
 
 def _sphere(x):
@@ -114,7 +178,13 @@ def _four_generations(state):
     return state.gen >= 4
 
 
-def _assert_checkpoint_matches(actual, expected):
+def _twelve_evaluations(state):
+    return state.fe >= 12
+
+
+def _assert_checkpoint_matches(
+    actual, expected, *, in_flight_request_ids=(), portable_checkpoint=False
+):
     assert (actual.gen, actual.fe) == (expected.gen, expected.fe)
     for collection_name in ("population", "archive"):
         actual_collection = getattr(actual, collection_name)
@@ -132,7 +202,34 @@ def _assert_checkpoint_matches(actual, expected):
         expected_columns = expected.history.channel(channel)
         assert actual_columns.keys() == expected_columns.keys()
         for name, expected_values in expected_columns.items():
-            np.testing.assert_array_equal(actual_columns[name], expected_values)
+            if (
+                portable_checkpoint
+                and name in {"origin_decision_count", "origin_gen"}
+                and in_flight_request_ids
+            ):
+                request_ids = actual_columns.get("request_id")
+                if request_ids is not None:
+                    # Portable checkpoints do not store in-memory request origins.
+                    mask = np.isin(request_ids, tuple(in_flight_request_ids))
+                    expected_values = np.array(expected_values, copy=True)
+                    expected_values[mask] = -1
+            np.testing.assert_array_equal(
+                actual_columns[name], expected_values, err_msg=f"{channel}.{name}"
+            )
+
+
+def _assert_history_matches_evaluations(state):
+    assert state.history is not None
+    assert state.history.is_enabled("summary")
+    assert state.history.is_enabled("evaluation")
+    assert int(state.history.channel("summary")["fe"][-1]) == state.fe
+    candidate_ids = np.concatenate(
+        [
+            np.asarray(block).reshape(-1)
+            for block in state.history.blocks("evaluation", "candidate_ids")
+        ]
+    )
+    assert len(np.unique(candidate_ids)) == len(candidate_ids)
 
 
 def _problem() -> Problem:
@@ -155,7 +252,13 @@ def _algorithm() -> GA:
     )
 
 
-def _optimizer(strategy: Any, *, asynchronous: bool = False) -> Optimizer:
+def _optimizer(
+    strategy: Any,
+    *,
+    asynchronous: bool = False,
+    evaluator: Evaluator | None = None,
+    max_pending: int = 1,
+) -> Optimizer:
     optimizer = (
         Optimizer(_problem(), seed=9)
         .set_initializer(LHSInitializer(6, 4, 9))
@@ -167,10 +270,10 @@ def _optimizer(strategy: Any, *, asynchronous: bool = False) -> Optimizer:
         LocalSurrogateManager(RBFSurrogate(GaussianKernel()))
     ).set_acquisition(MeanPrediction())
     if asynchronous:
-        evaluator = _Evaluator()
+        evaluator = evaluator or _Evaluator()
         optimizer.set_evaluator(evaluator)
         optimizer.set_async_evaluation_scheduler(
-            AsyncEvaluationScheduler(evaluator, max_pending=1)
+            AsyncEvaluationScheduler(evaluator, max_pending=max_pending)
         )
     return optimizer
 
@@ -263,15 +366,150 @@ def test_user_preset_policies_are_bound_for_each_strategy(
     assert resolved.find("feedback")._builder is optimizer.feedback_builder
 
 
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_steady_state_policy_precedence_is_consistent(asynchronous):
+    default_strategy = SteadyStateStrategy()
+    default_optimizer = _optimizer(default_strategy, asynchronous=asynchronous)
+    default_optimizer.run()
+    default_pipeline = default_strategy.pipeline
+    assert default_pipeline is not None
+    default_plan = cast(Any, default_pipeline.find("evaluation_plan"))
+    default_feedback = cast(Any, default_pipeline.find("feedback"))
+    default_ask = cast(Any, default_pipeline.find("ask"))
+    assert isinstance(default_plan._planner, EvaluateAll)
+    assert isinstance(default_feedback._builder, TrueOnlyFeedback)
+    assert default_ask._n_offspring == 1
+
+    preset_strategy = SteadyStateStrategy()
+    preset_optimizer = _optimizer(preset_strategy, asynchronous=asynchronous)
+    preset_optimizer.set_preset(
+        {
+            "evaluation_planner": {
+                "type": "RepeatedEvaluation",
+                "params": {"replicates": 2},
+            },
+            "feedback_builder": {"type": "MixedFeedback", "params": {}},
+        }
+    )
+    preset_optimizer.run()
+    preset_pipeline = preset_strategy.pipeline
+    assert preset_pipeline is not None
+    preset_plan = cast(Any, preset_pipeline.find("evaluation_plan"))
+    preset_feedback = cast(Any, preset_pipeline.find("feedback"))
+    assert preset_plan._planner is preset_optimizer.evaluation_planner
+    assert preset_plan._planner.replicates == 2
+    assert preset_feedback._builder is preset_optimizer.feedback_builder
+
+    explicit_strategy = SteadyStateStrategy()
+    explicit_optimizer = _optimizer(explicit_strategy, asynchronous=asynchronous)
+    planner = RepeatedEvaluation(replicates=3)
+    builder = MixedFeedback()
+    explicit_optimizer.set_preset(
+        {
+            "evaluation_planner": {
+                "type": "RepeatedEvaluation",
+                "params": {"replicates": 2},
+            },
+            "feedback_builder": {"type": "TrueOnlyFeedback", "params": {}},
+        }
+    )
+    explicit_optimizer.set_evaluation_planner(planner).set_feedback_builder(builder)
+    explicit_optimizer.run()
+    explicit_pipeline = explicit_strategy.pipeline
+    assert explicit_pipeline is not None
+    explicit_plan = cast(Any, explicit_pipeline.find("evaluation_plan"))
+    explicit_feedback = cast(Any, explicit_pipeline.find("feedback"))
+    assert explicit_plan._planner is planner
+    assert explicit_feedback._builder is builder
+
+
+def test_steady_state_refills_after_no_delivery_with_active_repeated_plan():
+    evaluator = _ControlledEvaluator()
+    optimizer = _optimizer(
+        SteadyStateStrategy(),
+        asynchronous=True,
+        evaluator=evaluator,
+        max_pending=2,
+    ).set_history(["summary", "evaluation"])
+    optimizer.set_evaluation_planner(RepeatedEvaluation(replicates=2))
+    optimizer.set_termination(Termination(lambda state: state.fe >= 50))
+    post_ask_events = []
+    callbacks = CallbackManager()
+    callbacks.register(PostAskEvent, lambda event: post_ask_events.append(event.ctx.fe))
+    optimizer.cbmanager = callbacks
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    initializer = optimizer.initializer
+    assert initializer is not None
+    state = initializer.initialize(optimizer, optimizer.problem)
+    runtime = create_runtime(optimizer)
+    session = runtime.initialize(resolve_plan(optimizer), state)
+    assert session is not None
+
+    for _ in range(10):
+        if len(evaluator.submitted) == 2:
+            break
+        session = runtime.advance(session).session
+        assert session is not None
+    assert len(evaluator.submitted) == 2
+    assert len(session.state.pending_evaluations) == 2
+    assert len(post_ask_events) == 1
+
+    first_request_id = int(evaluator.submitted[0].request_id)
+    evaluator.released_request_ids = {first_request_id}
+    session = runtime.advance(session).session
+    assert session is not None
+    assert len(evaluator.submitted) == 3
+    assert len(session.state.pending_evaluations) == 2
+    assert len(post_ask_events) == 2
+
+    remaining_initial_id = int(evaluator.submitted[1].request_id)
+    second_candidate_id = int(evaluator.submitted[2].request_id)
+    evaluator.released_request_ids = {remaining_initial_id, second_candidate_id}
+    session = runtime.advance(session).session
+    assert session is not None
+    active_plan = session.state.evaluation_plan
+    active_plan_state = session.state.evaluation_plan_state
+    assert active_plan is not None
+    assert active_plan_state is not None
+    active_request_ids = {int(request.request_id) for request in active_plan.requests}
+    assert len(active_request_ids & set(active_plan_state.completed)) == 1
+    pending_active_ids = active_request_ids & set(session.state.pending_evaluations)
+    assert len(pending_active_ids) == 1
+    assert len(post_ask_events) == 2
+
+    submitted_before = len(evaluator.submitted)
+    evaluator.released_request_ids.clear()
+    session = runtime.advance(session).session
+    assert session is not None
+
+    assert len(evaluator.submitted) == submitted_before + 1
+    assert len(post_ask_events) == 3
+    assert pending_active_ids <= set(session.state.pending_evaluations)
+
+    evaluator.release_all = True
+    for _ in range(1000):
+        if session.finished:
+            break
+        session = runtime.advance(session).session
+        assert session is not None
+    assert session.finished
+
+
 @pytest.mark.parametrize(
-    "strategy", [IndividualBasedStrategy(0.4), PreSelectionStrategy(7, 3)]
+    "strategy",
+    [
+        IndividualBasedStrategy(0.4),
+        PreSelectionStrategy(7, 3),
+        SteadyStateStrategy(),
+    ],
 )
 def test_strategy_specs_round_trip(strategy):
     rebuilt = build(to_spec(strategy))
     assert type(rebuilt) is type(strategy)
     if isinstance(strategy, IndividualBasedStrategy):
         assert rebuilt.evaluation_ratio == strategy.evaluation_ratio
-    else:
+    elif isinstance(strategy, PreSelectionStrategy):
         assert rebuilt.n_candidates == strategy.n_candidates
         assert rebuilt.n_select == strategy.n_select
 
@@ -279,7 +517,11 @@ def test_strategy_specs_round_trip(strategy):
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize(
     "strategy_factory",
-    [lambda: IndividualBasedStrategy(0.5), lambda: PreSelectionStrategy(7, 3)],
+    [
+        lambda: IndividualBasedStrategy(0.5),
+        lambda: PreSelectionStrategy(7, 3),
+        SteadyStateStrategy,
+    ],
 )
 def test_all_emitted_strategy_events_receive_optimization_state(
     asynchronous, strategy_factory
@@ -359,6 +601,14 @@ def test_strategy_parameter_change_rebuilds_next_commit(
         (lambda: PreSelectionStrategy(5, 2), lambda: GenerationBasedStrategy(0)),
         (DirectStrategy, lambda: IndividualBasedStrategy(0.5)),
         (lambda: GenerationBasedStrategy(0), lambda: PreSelectionStrategy(5, 2)),
+        (SteadyStateStrategy, DirectStrategy),
+        (DirectStrategy, SteadyStateStrategy),
+        (SteadyStateStrategy, lambda: GenerationBasedStrategy(0)),
+        (lambda: GenerationBasedStrategy(0), SteadyStateStrategy),
+        (SteadyStateStrategy, lambda: IndividualBasedStrategy(0.5)),
+        (lambda: IndividualBasedStrategy(0.5), SteadyStateStrategy),
+        (SteadyStateStrategy, lambda: PreSelectionStrategy(5, 2)),
+        (lambda: PreSelectionStrategy(5, 2), SteadyStateStrategy),
     ],
 )
 @pytest.mark.parametrize("asynchronous", [False, True])
@@ -368,7 +618,9 @@ def test_strategy_replacement_from_callback_keeps_running(
 ):
     first = first_factory()
     second = second_factory()
-    optimizer = _optimizer(first, asynchronous=asynchronous)
+    optimizer = _optimizer(first, asynchronous=asynchronous).set_history(
+        ["summary", "evaluation"]
+    )
     optimizer.set_termination(Termination(_four_generations))
     replaced: list[int] = []
     fe_at_replacement: list[int] = []
@@ -399,19 +651,48 @@ def test_strategy_replacement_from_callback_keeps_running(
     assert cast(Any, second).pipeline is not None
     assert completed_after_switch
     assert state.fe > fe_at_replacement[0]
+    _assert_history_matches_evaluations(state)
 
 
 @pytest.mark.parametrize(
     "strategy_factory",
-    [lambda: IndividualBasedStrategy(0.5), lambda: PreSelectionStrategy(5, 2)],
+    [
+        lambda: IndividualBasedStrategy(0.5),
+        lambda: PreSelectionStrategy(5, 2),
+        SteadyStateStrategy,
+    ],
 )
-def test_surrogate_strategy_build_graph_returns_structured_graph(strategy_factory):
-    optimizer = _optimizer(strategy_factory())
+def test_template_strategy_build_graph_returns_structured_graph(strategy_factory):
+    strategy = strategy_factory()
+    optimizer = _optimizer(strategy)
     optimizer._resolve_defaults()
 
-    graph = cast(Any, optimizer.strategy).build_graph(optimizer)
+    graph = cast(Any, strategy).build_graph(optimizer)
 
     assert isinstance(graph, StructuredGraph)
+    if isinstance(strategy, SteadyStateStrategy):
+        expected = (
+            "count_generation",
+            "ask",
+            "evaluation_plan",
+            "evaluation_submit",
+            "evaluation_collect",
+            "evaluation_apply",
+            "archive_update",
+            "feedback",
+            "tell",
+            "evaluation_acknowledge",
+        )
+        node_ids = {node.component_id for node in graph.nodes}
+        assert set(expected) <= node_ids
+        pipeline = strategy.pipeline
+        assert pipeline is not None
+        assert tuple(step.name for step in pipeline.steps) == expected
+        assert all(pipeline.find(name) is not None for name in expected)
+        optimizer.run()
+        prepared = strategy.pipeline
+        assert prepared is not None
+        assert all(prepared.find(name) is not None for name in expected)
 
 
 @pytest.mark.parametrize(
@@ -421,22 +702,36 @@ def test_surrogate_strategy_build_graph_returns_structured_graph(strategy_factor
         (lambda: PreSelectionStrategy(5, 2), lambda: GenerationBasedStrategy(0)),
         (DirectStrategy, lambda: IndividualBasedStrategy(0.5)),
         (lambda: GenerationBasedStrategy(0), lambda: PreSelectionStrategy(5, 2)),
+        (SteadyStateStrategy, DirectStrategy),
+        (DirectStrategy, SteadyStateStrategy),
+        (SteadyStateStrategy, lambda: GenerationBasedStrategy(0)),
+        (lambda: GenerationBasedStrategy(0), SteadyStateStrategy),
+        (SteadyStateStrategy, lambda: IndividualBasedStrategy(0.5)),
+        (lambda: IndividualBasedStrategy(0.5), SteadyStateStrategy),
+        (SteadyStateStrategy, lambda: PreSelectionStrategy(5, 2)),
+        (lambda: PreSelectionStrategy(5, 2), SteadyStateStrategy),
     ],
 )
 @pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("use_setter", [False, True])
 def test_strategy_replacement_between_iteration_yields_runs_replacement_flow(
-    first_factory, second_factory, asynchronous
+    first_factory, second_factory, asynchronous, use_setter
 ):
     first = first_factory()
     second = second_factory()
-    optimizer = _optimizer(first, asynchronous=asynchronous)
+    optimizer = _optimizer(first, asynchronous=asynchronous).set_history(
+        ["summary", "evaluation"]
+    )
     optimizer.set_termination(Termination(_four_generations))
     iterator = optimizer.iterate()
     next(iterator)
     observed = next(iterator)
     generation_at_switch = observed.gen
     fe_at_switch = observed.fe
-    optimizer.set_strategy(second)
+    if use_setter:
+        optimizer.set_strategy(second)
+    else:
+        optimizer.strategy = second
 
     states = list(iterator)
     final = states[-1]
@@ -445,6 +740,7 @@ def test_strategy_replacement_between_iteration_yields_runs_replacement_flow(
     assert final.gen == 4
     assert final.gen > generation_at_switch
     assert final.fe > fe_at_switch
+    _assert_history_matches_evaluations(final)
     resolved = cast(Any, optimizer.strategy).pipeline
     assert resolved is not None
     if isinstance(second, GenerationBasedStrategy):
@@ -456,7 +752,11 @@ def test_strategy_replacement_between_iteration_yields_runs_replacement_flow(
 @pytest.mark.parametrize("checkpoint_format", ["npz", "pickle"])
 @pytest.mark.parametrize(
     "strategy_factory",
-    [lambda: PreSelectionStrategy(5, 2), lambda: IndividualBasedStrategy(0.5)],
+    [
+        lambda: PreSelectionStrategy(5, 2),
+        lambda: IndividualBasedStrategy(0.5),
+        SteadyStateStrategy,
+    ],
 )
 def test_sync_checkpoint_resume_matches_uninterrupted_run(
     tmp_path, checkpoint_format: str, strategy_factory
@@ -487,7 +787,11 @@ def test_sync_checkpoint_resume_matches_uninterrupted_run(
 @pytest.mark.parametrize("checkpoint_format", ["npz", "pickle"])
 @pytest.mark.parametrize(
     "strategy_factory",
-    [lambda: IndividualBasedStrategy(0.5), lambda: PreSelectionStrategy(5, 2)],
+    [
+        lambda: IndividualBasedStrategy(0.5),
+        lambda: PreSelectionStrategy(5, 2),
+        SteadyStateStrategy,
+    ],
 )
 def test_async_checkpoint_resume_matches_uninterrupted_run(
     tmp_path, checkpoint_format: str, strategy_factory
@@ -518,3 +822,65 @@ def test_async_checkpoint_resume_matches_uninterrupted_run(
     expected = uninterrupted_optimizer.run()
 
     _assert_checkpoint_matches(resumed, expected)
+
+
+@pytest.mark.parametrize("checkpoint_format", ["npz", "pickle"])
+def test_steady_state_async_checkpoint_resume_with_requests_in_flight(
+    tmp_path, checkpoint_format: str
+):
+    history_channels = ["summary", "population", "evaluation"]
+    checkpoint_path = tmp_path / f"steady-state.{checkpoint_format}"
+
+    def configured_optimizer():
+        optimizer = _optimizer(
+            SteadyStateStrategy(), asynchronous=True, max_pending=3
+        ).set_history(history_channels)
+        optimizer.set_evaluation_planner(RepeatedEvaluation(replicates=3))
+        optimizer.set_termination(Termination(_twelve_evaluations))
+        return optimizer
+
+    partial = configured_optimizer()
+    partial.resolve_defaults()
+    partial._compile_plan()
+    state = partial.initializer.initialize(partial, partial.problem)
+    runtime = create_runtime(partial)
+    session = runtime.initialize(resolve_plan(partial), state)
+    for _ in range(100):
+        if session.state.pending_evaluations:
+            break
+        step = runtime.advance(session)
+        assert step.session is not None
+        session = step.session
+    assert session.state.pending_evaluations
+    assert len(session.state.evaluation_handles) == len(
+        session.state.pending_evaluations
+    )
+    in_flight_request_ids = set(session.state.pending_evaluations)
+    saved = session.state
+    if checkpoint_format == "npz":
+        saved.save(checkpoint_path)
+    else:
+        partial.save_pickle(saved, checkpoint_path)
+
+    for _ in range(10000):
+        if session.finished:
+            break
+        step = runtime.advance(session)
+        assert step.session is not None
+        session = step.session
+    assert session.finished
+    expected = session.state
+
+    if checkpoint_format == "npz":
+        resumed_optimizer = configured_optimizer()
+        restored = OptimizationState.load(checkpoint_path, _problem())
+    else:
+        resumed_optimizer, restored = Optimizer.load_pickle(checkpoint_path)
+    actual = resumed_optimizer.run_from(restored)
+
+    _assert_checkpoint_matches(
+        actual,
+        expected,
+        in_flight_request_ids=in_flight_request_ids,
+        portable_checkpoint=checkpoint_format == "npz",
+    )

@@ -9,17 +9,11 @@ as the other built-in strategies (a structured plan without regions).
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING
 
-from saealib.core.graph_builder import (
-    NodeAdapterSpec,
-    StageContractNodeAdapter,
-    build_decomposed_component_graph_from_specs,
-)
 from saealib.exceptions import ValidationError
 from saealib.pipeline import ComponentRef, Pipeline
-from saealib.policies.evaluation import EvaluateAll, EvaluationPlanner
-from saealib.policies.feedback import FeedbackBuilder, TrueOnlyFeedback
+from saealib.policies.evaluation import EvaluateAll
+from saealib.policies.feedback import TrueOnlyFeedback
 from saealib.registry import register
 from saealib.stages import (
     ArchiveUpdateStage,
@@ -34,60 +28,6 @@ from saealib.stages import (
     TellStage,
 )
 from saealib.strategies.base import TemplateStrategy
-
-if TYPE_CHECKING:
-    from typing import Any
-
-    from saealib.core.compiler.graph import ComponentGraph
-    from saealib.optimizer import ComponentProvider
-
-
-def _provider_or(value: Any, provider: ComponentProvider, slot: str) -> Any:
-    """Return the bound Optimizer slot, or ``value`` when the slot is empty.
-
-    An explicitly bound Optimizer slot wins; an empty slot falls to the
-    strategy instance's own component.
-    """
-    return getattr(provider, slot, None) or value
-
-
-def _steady_state_component_graph(
-    provider: ComponentProvider,
-    *,
-    evaluation_planner: EvaluationPlanner,
-    feedback_builder: FeedbackBuilder,
-) -> ComponentGraph:
-    """Build the steady-state component graph as a sequential stage chain.
-
-    The refill flow runs one stage after another through the sequential
-    execution seam instead of lowering to a declarative structured plan.
-    """
-    cbmanager = getattr(provider, "cbmanager", None)
-    evaluation_planner = _provider_or(
-        evaluation_planner, provider, "evaluation_planner"
-    )
-    feedback_builder = _provider_or(feedback_builder, provider, "feedback_builder")
-    stages = (
-        CountGenerationStage(),
-        AskStage(provider.algorithm, n_offspring=1, cbmanager=cbmanager),
-        EvaluationPlanStage(evaluation_planner),
-        EvaluationSubmitStage(provider.evaluator),
-        EvaluationCollectStage(provider.evaluator),
-        EvaluationApplyStage(),
-        ArchiveUpdateStage(),
-        FeedbackStage(feedback_builder),
-        TellStage(provider.algorithm),
-        EvaluationAcknowledgeStage(provider.evaluator, cbmanager),
-    )
-    stage_ids = tuple(stage.name for stage in stages)
-    specs = tuple(
-        NodeAdapterSpec(
-            component_id=stage_id,
-            adapter=StageContractNodeAdapter(stage, node_path=stage_id),
-        )
-        for stage_id, stage in zip(stage_ids, stages)
-    )
-    return build_decomposed_component_graph_from_specs(specs)
 
 
 def build_direct_template(n_offspring: int | None = None) -> Pipeline:
@@ -160,18 +100,7 @@ class SteadyStateStrategy(DirectStrategy):
     def __init__(self) -> None:
         super().__init__(n_offspring=1)
 
-    def build_graph(self, provider: ComponentProvider) -> ComponentGraph:
-        """Build the steady-state flow as a sequential stage chain."""
-        return _steady_state_component_graph(
-            provider,
-            evaluation_planner=self.evaluation_planner,
-            feedback_builder=self.feedback_builder,
-        )
-
-    def build_pipeline(self, provider: ComponentProvider) -> Pipeline:
-        """Recover the pipeline facade from the sequential graph."""
-        from saealib.strategies.base import build_pipeline_from_graph
-
-        facade = build_pipeline_from_graph(self.build_graph(provider))
-        self.pipeline = facade
-        return facade
+    def build_template(self) -> Pipeline:
+        """Keep the flow at one candidate per step."""
+        self.declaration = build_direct_template(1)
+        return self.declaration

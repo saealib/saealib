@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`GenerationBasedStrategy` rejects a non-checkpointable algorithm before the run** when npz checkpointing is requested ([#309](https://github.com/saealib/saealib/issues/309))
 - **`DirectStrategy.build_graph()` returns a `StructuredGraph`**; GenerationBased and template graphs get component part nodes, the adapters the compiler chooses, and contract diagnostics, so an algorithm requiring an unoffered runtime capability now stops a GenerationBased run before it starts ([#309](https://github.com/saealib/saealib/issues/309))
 - **`IndividualBasedStrategy.build_graph()` and `PreSelectionStrategy.build_graph()` return a `StructuredGraph`**; node IDs are unchanged ([#314](https://github.com/saealib/saealib/issues/314))
+- **`SteadyStateStrategy.build_graph()` returns a `StructuredGraph`**; node IDs are unchanged ([#315](https://github.com/saealib/saealib/issues/315))
+- **`SteadyStateStrategy.pipeline` holds the most recently prepared `Pipeline`** ([#315](https://github.com/saealib/saealib/issues/315))
+- **Asynchronous structured flows without regions refill available evaluation slots whenever their strategy opts into `supports_async_refill`**, including advances with no newly delivered result ([#315](https://github.com/saealib/saealib/issues/315))
 - **`IndividualBasedStrategy` and `PreSelectionStrategy` honor subclass `build_pipeline()` overrides when running**; `strategy.pipeline` holds the most recently prepared `Pipeline` ([#314](https://github.com/saealib/saealib/issues/314))
 
 ### Fixed
@@ -38,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Components replaced during `run()` / `iterate()`** take effect at the next commit point in sync and async runs: replacing the algorithm (with `set_algorithm()` or by assignment) or another component switches ask and tell together, so they never use different algorithms ([#286](https://github.com/saealib/saealib/issues/286))
 - **Replacing `DirectStrategy` with `GenerationBasedStrategy`, or the reverse, during a run** works ([#309](https://github.com/saealib/saealib/issues/309))
 - **Replacing `IndividualBasedStrategy` or `PreSelectionStrategy` with `DirectStrategy` or `GenerationBasedStrategy`, or the reverse, during a run** no longer stops with a `ValidationError`, in sync and async runs ([#314](https://github.com/saealib/saealib/issues/314))
+- **Replacing `SteadyStateStrategy` with another built-in strategy, or the reverse, during a run** no longer stops with a `ValidationError`, in sync and async runs ([#315](https://github.com/saealib/saealib/issues/315))
+- **`SteadyStateStrategy` resumes npz checkpoints loaded with a different `Problem` instance** without a `BoundsService` conflict ([#315](https://github.com/saealib/saealib/issues/315))
 - **The GenerationBased true-evaluation generation uses the Optimizer's feedback builder only when it is set explicitly**, in sync and async runs alike; async runs used an attribute-assigned builder ([#309](https://github.com/saealib/saealib/issues/309))
 - **GenerationBased async runs respect `AsyncEvaluationScheduler.max_pending`** instead of submitting a whole generation at once; results change where the limit binds ([#309](https://github.com/saealib/saealib/issues/309))
 - **Async runs of a `TemplateStrategy` without regions** continue until the termination condition ([#309](https://github.com/saealib/saealib/issues/309))

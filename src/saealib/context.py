@@ -103,6 +103,18 @@ def _collection_key(kind: str, name: str) -> StateKey[object]:
     return StateKey(namespace=kind, name=name, schema_version=1)
 
 
+def _custom_state_from_store(
+    values: dict[StateKey[Any], Any],
+) -> dict[StateKey[Any], object]:
+    """Select store entries represented by ``_custom_state`` in checkpoints."""
+    return {
+        key: value
+        for key, value in values.items()
+        if key not in _STORE_FIELDS.values()
+        and key.namespace not in {"populations", "archives"}
+    }
+
+
 class _NamedCollection(dict[str, Any]):
     def __init__(self, kind: str, values: dict[str, Any]) -> None:
         self._kind = kind
@@ -840,6 +852,7 @@ class OptimizationState:
             for item in dataclasses.fields(self)
             if item.init
         }
+        state["_custom_state"] = _custom_state_from_store(self._store._values)
         state["evaluation_handles"] = {}
         state["evaluation_request"] = None
         state["evaluation_updates"] = []
@@ -2416,12 +2429,7 @@ def _load_checkpoint(
             )
             for request_id, owner in owners.items()
         }
-    custom = {
-        key: value
-        for key, value in restored.items()
-        if key not in _STORE_FIELDS.values()
-        and key.namespace not in {"populations", "archives"}
-    }
+    custom = _custom_state_from_store(restored)
     kwargs: dict[str, Any] = {
         "problem": problem,
         "populations": populations,

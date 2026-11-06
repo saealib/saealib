@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import pickle
 import warnings
 from pathlib import Path
 
@@ -27,11 +28,13 @@ from saealib import (
 )
 from saealib.comparators import SingleObjectiveComparator
 from saealib.context import CURRENT_CHECKPOINT_SCHEMA_VERSION, OptimizationState
+from saealib.core.state.keys import PROPOSALS_CURRENT
 from saealib.exceptions import ValidationError
 from saealib.execution import (
     AsyncEvaluationScheduler,
     EvaluationErrorInfo,
     EvaluationHandle,
+    EvaluationRequest,
     EvaluationResult,
     EvaluationStatus,
     EvaluationUpdate,
@@ -40,8 +43,10 @@ from saealib.execution import (
 )
 from saealib.execution.history import record_evaluations
 from saealib.execution.initializer import GenomeInitializer
+from saealib.policies.evaluation import EvaluationPlan
+from saealib.population.genome import DenseVectorBatch
 from saealib.problem import Problem
-from saealib.strategies import DirectStrategy
+from saealib.strategies import DirectStrategy, GenerationBasedStrategy
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -368,6 +373,210 @@ def test_run_from_pickle_matches_full_run(tmp_path):
 
     np.testing.assert_array_equal(ctx_full.archive.x, ctx_resumed.archive.x)
     np.testing.assert_array_equal(ctx_full.archive.f, ctx_resumed.archive.f)
+
+
+def _assert_history_equal(actual: OptimizationState, expected: OptimizationState):
+    assert actual.history is not None
+    assert expected.history is not None
+    assert actual.history.enabled == expected.history.enabled
+    for channel in sorted(expected.history.enabled):
+        actual_columns = actual.history.channel(channel)
+        expected_columns = expected.history.channel(channel)
+        assert actual_columns.keys() == expected_columns.keys()
+        for name, expected_values in expected_columns.items():
+            np.testing.assert_array_equal(actual_columns[name], expected_values)
+
+
+def _assert_run_results_equal(actual: OptimizationState, expected: OptimizationState):
+    assert (actual.gen, actual.fe) == (expected.gen, expected.fe)
+    for collection_name in ("population", "archive"):
+        actual_collection = getattr(actual, collection_name)
+        expected_collection = getattr(expected, collection_name)
+        for column in ("id", "x", "f", "g", "cv", "objective_source"):
+            np.testing.assert_array_equal(
+                actual_collection.get_array(column),
+                expected_collection.get_array(column),
+            )
+    _assert_history_equal(actual, expected)
+
+
+def _make_async_direct_optimizer(
+    problem: Problem, *, seed: int, n_gen: int
+) -> Optimizer:
+    evaluator = SerialEvaluator()
+    return (
+        Optimizer(problem, seed=seed)
+        .set_initializer(LHSInitializer(N_INIT_ARCHIVE, N_INIT_POP))
+        .set_algorithm(
+            GA(
+                crossover=CrossoverBLXAlpha(prob=0.9, alpha=0.5),
+                mutation=MutationUniform(prob_var=0.1),
+                parent_selection=SequentialSelection(),
+                survivor_selection=TruncationSelection(),
+            )
+        )
+        .set_strategy(DirectStrategy())
+        .set_evaluator(evaluator)
+        .set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=1)
+        )
+        .set_termination(Termination(max_gen(n_gen)))
+    )
+
+
+class _ReplayEvaluator(Evaluator):
+    def __init__(self) -> None:
+        self.unacknowledged: dict[int, EvaluationUpdate] = {}
+
+    def evaluate_batch(self, x, problem):
+        return SerialEvaluator().evaluate_batch(x, problem)
+
+    def submit(self, request: EvaluationRequest, problem: Problem):
+        return EvaluationHandle(
+            request.request_id,
+            EvaluationStatus.PENDING,
+            backend_token=(request, problem),
+        )
+
+    def collect(self, handle: EvaluationHandle, *, wait: bool = True):
+        if handle._acknowledged_sequence >= 0:
+            return []
+        request, problem = handle.backend_token
+        request_id = int(request.request_id)
+        update = self.unacknowledged.get(request_id)
+        if update is None:
+            result = SerialEvaluator().evaluate_request(request, problem)
+            result.candidate_ids = request.candidate_ids
+            result.__post_init__()
+            update = EvaluationUpdate(
+                request.request_id,
+                EvaluationStatus.COMPLETED,
+                request.candidate_ids,
+                result,
+                sequence=0,
+            )
+            self.unacknowledged[request_id] = update
+        handle._delivered_sequence = update.sequence
+        return [update]
+
+    def acknowledge(self, handle: EvaluationHandle, sequence: int) -> None:
+        handle._acknowledged_sequence = sequence
+        self.unacknowledged.pop(int(handle.request_id), None)
+
+    def supports_batch_rollback(self) -> bool:
+        return True
+
+    def can_reattach(self, pending) -> bool:
+        return True
+
+    def reattach(self, pending, problem: Problem):
+        return self.submit(pending.request, problem)
+
+
+def _make_async_generation_based_optimizer(
+    problem: Problem, *, seed: int, n_gen: int, gen_ctrl: int
+) -> Optimizer:
+    evaluator = _ReplayEvaluator()
+    return (
+        _make_optimizer(problem, seed=seed, n_gen=n_gen)
+        .set_strategy(GenerationBasedStrategy(gen_ctrl))
+        .set_evaluator(evaluator)
+        .set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=1)
+        )
+        .set_history(["summary", "population", "evaluation"])
+    )
+
+
+def test_async_direct_pickle_checkpoint_matches_uninterrupted_run(tmp_path):
+    problem = _make_problem()
+    uninterrupted_optimizer = _make_async_direct_optimizer(
+        problem, seed=42, n_gen=4
+    ).set_history(["summary", "population", "evaluation"])
+    uninterrupted = uninterrupted_optimizer.run()
+
+    partial_optimizer = _make_async_direct_optimizer(
+        problem, seed=42, n_gen=2
+    ).set_history(["summary", "population", "evaluation"])
+    partial = partial_optimizer.run()
+    path = tmp_path / "async-direct-checkpoint.pkl"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        partial_optimizer.save_pickle(partial, path)
+        resumed_optimizer, restored = Optimizer.load_pickle(path)
+
+    resumed_optimizer.set_termination(Termination(max_gen(4)))
+    resumed = resumed_optimizer.run_from(restored)
+
+    _assert_run_results_equal(resumed, uninterrupted)
+    np.testing.assert_array_equal(
+        resumed.population.get_array("id"), uninterrupted.population.get_array("id")
+    )
+
+
+@pytest.mark.parametrize("gen_ctrl", [0, 1])
+def test_async_generation_based_pickle_resume_with_inflight_request_matches_full_run(
+    tmp_path, gen_ctrl
+):
+    problem = _make_problem()
+    uninterrupted = _make_async_generation_based_optimizer(
+        problem, seed=42, n_gen=4, gen_ctrl=gen_ctrl
+    ).run()
+
+    partial_optimizer = _make_async_generation_based_optimizer(
+        problem, seed=42, n_gen=2, gen_ctrl=gen_ctrl
+    )
+    partial = partial_optimizer.run()
+    assert partial.gen == 2
+    assert len(partial.pending_evaluations) == 1
+    proposal_id = partial.get_state(PROPOSALS_CURRENT)
+    path = tmp_path / f"generation-based-{gen_ctrl}.pkl"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        partial_optimizer.save_pickle(partial, path)
+        resumed_optimizer, restored = Optimizer.load_pickle(path)
+
+    assert len(restored.pending_evaluations) == 1
+    resumed_optimizer.set_termination(Termination(max_gen(4)))
+    resumed = resumed_optimizer.run_from(restored)
+
+    assert restored.get_state(PROPOSALS_CURRENT) == proposal_id
+    _assert_run_results_equal(resumed, uninterrupted)
+
+
+def test_evaluation_plan_pickle_roundtrip_preserves_immutable_artifacts():
+    request = EvaluationRequest(
+        np.int64(7),
+        np.array([11, 12], dtype=np.int64),
+        np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float64),
+        metadata={"purpose": "evaluation"},
+    )
+    plan = EvaluationPlan(
+        (request,),
+        completion_rule={"mode": "all"},
+        continuation={"next_request": 8},
+        artifacts={"summary": {"count": 2, "complete": True}},
+    )
+
+    restored = pickle.loads(pickle.dumps(plan))
+
+    assert len(restored.requests) == len(plan.requests)
+    assert restored.requests[0].request_id == request.request_id
+    np.testing.assert_array_equal(
+        restored.requests[0].candidate_ids, request.candidate_ids
+    )
+    assert isinstance(restored.requests[0].payload, DenseVectorBatch)
+    assert isinstance(request.payload, DenseVectorBatch)
+    np.testing.assert_array_equal(
+        restored.requests[0].payload.array, request.payload.array
+    )
+    assert restored.requests[0].outputs == request.outputs
+    assert restored.requests[0].metadata == request.metadata
+    assert restored.completion_rule == plan.completion_rule
+    assert restored.continuation == plan.continuation
+    assert restored.artifacts == plan.artifacts
+    with pytest.raises(TypeError):
+        restored.artifacts["extra"] = "value"
 
 
 def test_iterate_from_yields_correct_gen(tmp_path):

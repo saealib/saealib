@@ -58,6 +58,18 @@ class EvaluationPlan:
         object.__setattr__(self, "requests", requests)
         object.__setattr__(self, "artifacts", MappingProxyType(dict(self.artifacts)))
 
+    def __reduce__(self):
+        """Restore the immutable artifact mapping when pickling a plan."""
+        return (
+            type(self),
+            (
+                self.requests,
+                self.completion_rule,
+                self.continuation,
+                dict(self.artifacts),
+            ),
+        )
+
 
 class EvaluationPlanner(ABC):
     """Public contract for planners that may produce multiple requests."""

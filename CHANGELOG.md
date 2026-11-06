@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`strategy.pipeline` holds the most recently prepared Pipeline** ([#309](https://github.com/saealib/saealib/issues/309))
 - **`GenerationBasedStrategy` rejects a non-checkpointable algorithm before the run** when npz checkpointing is requested ([#309](https://github.com/saealib/saealib/issues/309))
 - **`DirectStrategy.build_graph()` returns a `StructuredGraph`**; GenerationBased and template graphs get component part nodes, the adapters the compiler chooses, and contract diagnostics, so an algorithm requiring an unoffered runtime capability now stops a GenerationBased run before it starts ([#309](https://github.com/saealib/saealib/issues/309))
+- **`IndividualBasedStrategy.build_graph()` and `PreSelectionStrategy.build_graph()` return a `StructuredGraph`**; node IDs are unchanged ([#314](https://github.com/saealib/saealib/issues/314))
+- **`IndividualBasedStrategy` and `PreSelectionStrategy` honor subclass `build_pipeline()` overrides when running**; `strategy.pipeline` holds the most recently prepared `Pipeline` ([#314](https://github.com/saealib/saealib/issues/314))
 
 ### Fixed
 
@@ -35,10 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Comparator sort caches** are keyed by the full comparison criterion, and per instance for NSGA-III, so another comparator, an in-place `eps_cv` change or built-in dominator setting, or an independent NSGA-III random stream no longer returns a stale order ([#302](https://github.com/saealib/saealib/issues/302))
 - **Components replaced during `run()` / `iterate()`** take effect at the next commit point in sync and async runs: replacing the algorithm (with `set_algorithm()` or by assignment) or another component switches ask and tell together, so they never use different algorithms ([#286](https://github.com/saealib/saealib/issues/286))
 - **Replacing `DirectStrategy` with `GenerationBasedStrategy`, or the reverse, during a run** works ([#309](https://github.com/saealib/saealib/issues/309))
+- **Replacing `IndividualBasedStrategy` or `PreSelectionStrategy` with `DirectStrategy` or `GenerationBasedStrategy`, or the reverse, during a run** no longer stops with a `ValidationError`, in sync and async runs ([#314](https://github.com/saealib/saealib/issues/314))
 - **The GenerationBased true-evaluation generation uses the Optimizer's feedback builder only when it is set explicitly**, in sync and async runs alike; async runs used an attribute-assigned builder ([#309](https://github.com/saealib/saealib/issues/309))
 - **GenerationBased async runs respect `AsyncEvaluationScheduler.max_pending`** instead of submitting a whole generation at once; results change where the limit binds ([#309](https://github.com/saealib/saealib/issues/309))
 - **Async runs of a `TemplateStrategy` without regions** continue until the termination condition ([#309](https://github.com/saealib/saealib/issues/309))
 - **Direct async runs resume from an npz checkpoint**; restoring one failed with a conflicting `BoundsService` binding ([#309](https://github.com/saealib/saealib/issues/309))
+- **`IndividualBasedStrategy` and `PreSelectionStrategy` resume from npz checkpoints attached to a different `Problem` instance** without a `BoundsService` conflict ([#314](https://github.com/saealib/saealib/issues/314))
 
 ## [0.1.0] - 2026-09-03
 

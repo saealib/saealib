@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.ib &#8212; saealib 0.1.1.dev27+g5af7e776f documentation</title>
+    <title>saealib.strategies.ib &#8212; saealib 0.1.1.dev30+g4103ffd87 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=596df4b4"></script>
+    <script src="../../../_static/documentation_options.js?v=d9b413aa"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -956,26 +956,16 @@ window.runMermaid = runMermaid;</script>
                 <article class="bd-article">
                   
   <h1>Source code for saealib.strategies.ib</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Individual-based / Pre-selection / Local-modeling.</span>
-
-<span class="sd">For each offspring, the surrogate manager scores candidates using a local</span>
-<span class="sd">surrogate model. The top-evaluation_ratio fraction are selected for true evaluation.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">&quot;&quot;&quot;Individual-based surrogate-assisted optimization strategy.&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentGraph</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.graph_builder</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">NodeAdapterSpec</span><span class="p">,</span>
-    <span class="n">StageContractNodeAdapter</span><span class="p">,</span>
-    <span class="n">build_decomposed_component_graph_from_specs</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentRef</span><span class="p">,</span> <span class="n">Pipeline</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">RatioEvaluation</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeedbackBuilder</span><span class="p">,</span> <span class="n">MixedFeedback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">MixedFeedback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AcquisitionStage</span><span class="p">,</span>
@@ -991,96 +981,83 @@ window.runMermaid = runMermaid;</script>
     <span class="n">SurrogatePredictStage</span><span class="p">,</span>
     <span class="n">TellStage</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies.base</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">OptimizationStrategy</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemplateStrategy</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentProvider</span>
 
-<span class="n">_MISSING</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">build_ib_template</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the individual-based flow declaration.&quot;&quot;&quot;</span>
+    <span class="n">steps</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">CountGenerationStage</span><span class="p">(),</span>
+        <span class="n">AskStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;proposer&quot;</span><span class="p">)),</span>
+        <span class="n">SurrogatePredictStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;predictor&quot;</span><span class="p">)),</span>
+        <span class="n">AcquisitionStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;acquisition&quot;</span><span class="p">)),</span>
+        <span class="n">EvaluationPlanStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;evaluation_planner&quot;</span><span class="p">)),</span>
+        <span class="n">EvaluationSubmitStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">)),</span>
+        <span class="n">EvaluationCollectStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">)),</span>
+        <span class="n">EvaluationApplyStage</span><span class="p">(),</span>
+        <span class="n">ArchiveUpdateStage</span><span class="p">(),</span>
+        <span class="n">FeedbackStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">)),</span>
+        <span class="n">TellStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;feedback_consumer&quot;</span><span class="p">)),</span>
+        <span class="n">EvaluationAcknowledgeStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">)),</span>
+    <span class="p">]</span>
+    <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">steps</span><span class="p">:</span>
+        <span class="n">stage</span><span class="o">.</span><span class="n">execution_boundary</span> <span class="o">=</span> <span class="s2">&quot;state&quot;</span>
+    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;individual_based&quot;</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="n">steps</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="IndividualBasedStrategy">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.IndividualBasedStrategy.html#saealib.IndividualBasedStrategy">[docs]</a>
 <span class="nd">@register</span><span class="p">()</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">IndividualBasedStrategy</span><span class="p">(</span><span class="n">OptimizationStrategy</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Individual-based strategy.&quot;&quot;&quot;</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">IndividualBasedStrategy</span><span class="p">(</span><span class="n">TemplateStrategy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Individual-based strategy with surrogate scoring of every offspring.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    evaluation_ratio : float, optional</span>
+<span class="sd">        Fraction of offspring selected for true objective evaluation.</span>
+<span class="sd">        Every offspring is passed to ``algorithm.tell()``; candidates without</span>
+<span class="sd">        true evaluations use their surrogate-predicted objective values.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Use ``state.archive`` or ``state.pareto_archive`` when only truly</span>
+<span class="sd">    evaluated solutions are needed. Local surrogate fitting size is</span>
+<span class="sd">    configured on the :class:`~saealib.surrogate.manager.SurrogateManager`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">requires_surrogate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">MixedFeedback</span><span class="p">()</span>
+    <span class="n">_node_namespace</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 
 <div class="viewcode-block" id="IndividualBasedStrategy.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.IndividualBasedStrategy.html#saealib.IndividualBasedStrategy.__init__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluation_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Initialize IndividualBasedStrategy.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        evaluation_ratio : float</span>
-<span class="sd">            Ratio of offspring selected for true objective evaluation.</span>
-<span class="sd">            The top ``evaluation_ratio`` fraction of offspring are evaluated</span>
-<span class="sd">            with the real objective function; every offspring is still passed</span>
-<span class="sd">            to ``algorithm.tell()``, and the ones not evaluated carry their</span>
-<span class="sd">            surrogate-predicted objective values. When only truly evaluated</span>
-<span class="sd">            solutions are needed, use ``state.archive`` or</span>
-<span class="sd">            ``state.pareto_archive`` instead of ``state.population``.</span>
-<span class="sd">            The number of neighbors for local surrogate fitting is now</span>
-<span class="sd">            configured on the SurrogateManager (e.g. LocalSurrogateManager).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluation_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_ratio</span> <span class="o">=</span> <span class="n">evaluation_ratio</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">Pipeline</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">build_ib_template</span><span class="p">())</span></div>
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluation_planner</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the current ratio planner.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluation_planner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RatioEvaluation</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the ratio planner for the current evaluation ratio.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">RatioEvaluation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluation_ratio</span><span class="p">,</span> <span class="n">sanitize_nonfinite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">MixedFeedback</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_components</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return policy components used when their Optimizer slots are empty.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span><span class="p">,</span>
+            <span class="s2">&quot;feedback_builder&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span><span class="p">,</span>
+        <span class="p">}</span>
 
-<div class="viewcode-block" id="IndividualBasedStrategy.build_graph">
-<a class="viewcode-back" href="../../../api/_autosummary/saealib.IndividualBasedStrategy.html#saealib.IndividualBasedStrategy.build_graph">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentGraph</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the canonical individual-based strategy graph.&quot;&quot;&quot;</span>
-        <span class="n">cbmanager</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;cbmanager&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">evaluation_planner</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span>
-        <span class="p">)</span>
-        <span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
-            <span class="n">FeedbackBuilder</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">feedback_builder</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">feedback_builder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span>
-        <span class="n">evaluation_tail</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">EvaluationPlanStage</span><span class="p">(</span><span class="n">evaluation_planner</span><span class="p">),</span>
-            <span class="n">EvaluationSubmitStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">evaluator</span><span class="p">),</span>
-            <span class="n">EvaluationCollectStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">evaluator</span><span class="p">),</span>
-            <span class="n">EvaluationApplyStage</span><span class="p">(),</span>
-            <span class="n">ArchiveUpdateStage</span><span class="p">(),</span>
-            <span class="n">FeedbackStage</span><span class="p">(</span><span class="n">feedback_builder</span><span class="p">),</span>
-            <span class="n">TellStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="p">),</span>
-            <span class="n">EvaluationAcknowledgeStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">cbmanager</span><span class="p">),</span>
-        <span class="p">]</span>
-        <span class="n">stages</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">CountGenerationStage</span><span class="p">(),</span>
-            <span class="n">AskStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="p">,</span> <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">),</span>
-            <span class="n">SurrogatePredictStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">surrogate_manager</span><span class="p">,</span> <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">),</span>
-            <span class="n">AcquisitionStage</span><span class="p">(</span>
-                <span class="n">provider</span><span class="o">.</span><span class="n">acquisition</span><span class="p">,</span>
-                <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">,</span>
-            <span class="p">),</span>
-            <span class="o">*</span><span class="n">evaluation_tail</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">specs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">NodeAdapterSpec</span><span class="p">(</span>
-                <span class="n">component_id</span><span class="o">=</span><span class="n">stage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-                <span class="n">adapter</span><span class="o">=</span><span class="n">StageContractNodeAdapter</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">node_path</span><span class="o">=</span><span class="n">stage</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
-            <span class="p">)</span>
-            <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">stages</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">build_decomposed_component_graph_from_specs</span><span class="p">(</span><span class="n">specs</span><span class="p">)</span></div>
+<div class="viewcode-block" id="IndividualBasedStrategy.build_template">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.IndividualBasedStrategy.html#saealib.IndividualBasedStrategy.build_template">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_template</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a fresh declaration for the current evaluation ratio.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span> <span class="o">=</span> <span class="n">build_ib_template</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span></div>
 
 
 <div class="viewcode-block" id="IndividualBasedStrategy.step">
@@ -1088,11 +1065,7 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Score all offspring with the surrogate, then true-evaluate the top fraction.</span>
-
-<span class="sd">        Rebuilds the pipeline each call so component/parameter changes take</span>
-<span class="sd">        effect immediately.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Score each offspring, then evaluate the selected fraction truly.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1100,6 +1073,11 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            Current optimization context.</span>
 <span class="sd">        provider : ComponentProvider</span>
 <span class="sd">            Component provider.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        OptimizationState</span>
+<span class="sd">            Updated state after one generation step.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span></div>
 </div>

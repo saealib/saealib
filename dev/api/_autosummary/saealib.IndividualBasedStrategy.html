@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.IndividualBasedStrategy &#8212; saealib 0.1.1.dev27+g5af7e776f documentation</title>
+    <title>saealib.IndividualBasedStrategy &#8212; saealib 0.1.1.dev30+g4103ffd87 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=596df4b4"></script>
+    <script src="../../_static/documentation_options.js?v=d9b413aa"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -905,32 +905,44 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="saealib.IndividualBasedStrategy">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">IndividualBasedStrategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">evaluation_ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ib.html#IndividualBasedStrategy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.IndividualBasedStrategy" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference internal" href="saealib.OptimizationStrategy.html#saealib.OptimizationStrategy" title="saealib.strategies.base.OptimizationStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code></a></p>
-<p>Individual-based strategy.</p>
+<dd><p>Bases: <a class="reference internal" href="saealib.strategies.TemplateStrategy.html#saealib.strategies.TemplateStrategy" title="saealib.strategies.base.TemplateStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">TemplateStrategy</span></code></a></p>
+<p>Individual-based strategy with surrogate scoring of every offspring.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>evaluation_ratio</strong> (<em>float</em>)</p>
+<dd class="field-odd"><p><strong>evaluation_ratio</strong> (<em>float</em><em>, </em><em>optional</em>) – Fraction of offspring selected for true objective evaluation.
+Every offspring is passed to <code class="docutils literal notranslate"><span class="pre">algorithm.tell()</span></code>; candidates without
+true evaluations use their surrogate-predicted objective values.</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">state.archive</span></code> or <code class="docutils literal notranslate"><span class="pre">state.pareto_archive</span></code> when only truly
+evaluated solutions are needed. Local surrogate fitting size is
+configured on the <a class="reference internal" href="saealib.SurrogateManager.html#saealib.SurrogateManager" title="saealib.surrogate.manager.SurrogateManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">SurrogateManager</span></code></a>.</p>
 </dd></dl>
 
 <p class="rubric">Methods</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.IndividualBasedStrategy.__init__" title="saealib.IndividualBasedStrategy.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a></p></td>
-<td><p>Initialize IndividualBasedStrategy.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.IndividualBasedStrategy.build_graph" title="saealib.IndividualBasedStrategy.build_graph"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_graph</span></code></a></p></td>
-<td><p>Build the canonical individual-based strategy graph.</p></td>
+<td><p>Lower the declaration resolved against the active snapshot.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.IndividualBasedStrategy.build_pipeline" title="saealib.IndividualBasedStrategy.build_pipeline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_pipeline</span></code></a></p></td>
-<td><p>Return the strategy's high-level Pipeline description.</p></td>
+<td><p>Return the declaration resolved against the active snapshot.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.IndividualBasedStrategy.contract" title="saealib.IndividualBasedStrategy.contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.IndividualBasedStrategy.build_template" title="saealib.IndividualBasedStrategy.build_template"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_template</span></code></a></p></td>
+<td><p>Return a fresh declaration for the current evaluation ratio.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.IndividualBasedStrategy.contract" title="saealib.IndividualBasedStrategy.contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract</span></code></a></p></td>
 <td><p>Return the strategy contract.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.IndividualBasedStrategy.snapshot_bindings" title="saealib.IndividualBasedStrategy.snapshot_bindings"><code class="xref py py-obj docutils literal notranslate"><span class="pre">snapshot_bindings</span></code></a></p></td>
+<td><p>Read the slots a declaration resolves from.</p></td>
+</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.IndividualBasedStrategy.step" title="saealib.IndividualBasedStrategy.step"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code></a></p></td>
-<td><p>Score all offspring with the surrogate, then true-evaluate the top fraction.</p></td>
+<td><p>Score each offspring, then evaluate the selected fraction truly.</p></td>
 </tr>
 </tbody>
 </table>
@@ -939,32 +951,30 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.IndividualBasedStrategy.__init__">
 <span class="sig-prename descclassname"><span class="pre">IndividualBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">evaluation_ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ib.html#IndividualBasedStrategy.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.IndividualBasedStrategy.__init__" title="Link to this definition">#</a></dt>
-<dd><p>Initialize IndividualBasedStrategy.</p>
-<dl class="field-list simple">
+<dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>evaluation_ratio</strong> (<em>float</em>) – Ratio of offspring selected for true objective evaluation.
-The top <code class="docutils literal notranslate"><span class="pre">evaluation_ratio</span></code> fraction of offspring are evaluated
-with the real objective function; every offspring is still passed
-to <code class="docutils literal notranslate"><span class="pre">algorithm.tell()</span></code>, and the ones not evaluated carry their
-surrogate-predicted objective values. When only truly evaluated
-solutions are needed, use <code class="docutils literal notranslate"><span class="pre">state.archive</span></code> or
-<code class="docutils literal notranslate"><span class="pre">state.pareto_archive</span></code> instead of <code class="docutils literal notranslate"><span class="pre">state.population</span></code>.
-The number of neighbors for local surrogate fitting is now
-configured on the SurrogateManager (e.g. LocalSurrogateManager).</p>
+<dd class="field-odd"><p><strong>evaluation_ratio</strong> (<em>float</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.IndividualBasedStrategy.build_graph">
-<span class="sig-prename descclassname"><span class="pre">IndividualBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ib.html#IndividualBasedStrategy.build_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.IndividualBasedStrategy.build_graph" title="Link to this definition">#</a></dt>
-<dd><p>Build the canonical individual-based strategy graph.</p>
+<span class="sig-prename descclassname"><span class="pre">IndividualBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.IndividualBasedStrategy.build_graph" title="Link to this definition">#</a></dt>
+<dd><p>Lower the declaration resolved against the active snapshot.</p>
+<p>The components each Stage holds become <code class="docutils literal notranslate"><span class="pre">(component,</span> <span class="pre">role)</span></code> part
+nodes with data edges between their declared ports, so the
+compiler’s contract rules apply to them; the Stages stay the
+executable nodes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="saealib.core.ComponentGraph.html#saealib.core.ComponentGraph" title="saealib.core.ComponentGraph">ComponentGraph</a></p>
+<dd class="field-even"><p><a class="reference internal" href="saealib.core.ComponentGraph.html#saealib.core.ComponentGraph" title="saealib.core.compiler.graph.ComponentGraph"><em>ComponentGraph</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -972,13 +982,24 @@ configured on the SurrogateManager (e.g. LocalSurrogateManager).</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.IndividualBasedStrategy.build_pipeline">
 <span class="sig-prename descclassname"><span class="pre">IndividualBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">build_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.IndividualBasedStrategy.build_pipeline" title="Link to this definition">#</a></dt>
-<dd><p>Return the strategy’s high-level Pipeline description.</p>
+<dd><p>Return the declaration resolved against the active snapshot.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.pipeline.Pipeline"><em>Pipeline</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="saealib.IndividualBasedStrategy.build_template">
+<span class="sig-prename descclassname"><span class="pre">IndividualBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">build_template</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ib.html#IndividualBasedStrategy.build_template"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.IndividualBasedStrategy.build_template" title="Link to this definition">#</a></dt>
+<dd><p>Return a fresh declaration for the current evaluation ratio.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.pipeline.Pipeline"><em>Pipeline</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -995,11 +1016,27 @@ configured on the SurrogateManager (e.g. LocalSurrogateManager).</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="saealib.IndividualBasedStrategy.snapshot_bindings">
+<span class="sig-prename descclassname"><span class="pre">IndividualBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">snapshot_bindings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.IndividualBasedStrategy.snapshot_bindings" title="Link to this definition">#</a></dt>
+<dd><p>Read the slots a declaration resolves from.</p>
+<p>The runtime serves slots from the active binding snapshot; a bare
+provider resolves from its current slot values.  Slots the binding
+leaves empty are filled from the strategy instance’s own default
+components before the Stages’ built-in fallbacks apply.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict[str, object]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="saealib.IndividualBasedStrategy.step">
 <span class="sig-prename descclassname"><span class="pre">IndividualBasedStrategy.</span></span><span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ib.html#IndividualBasedStrategy.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.IndividualBasedStrategy.step" title="Link to this definition">#</a></dt>
-<dd><p>Score all offspring with the surrogate, then true-evaluate the top fraction.</p>
-<p>Rebuilds the pipeline each call so component/parameter changes take
-effect immediately.</p>
+<dd><p>Score each offspring, then evaluate the selected fraction truly.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1007,8 +1044,11 @@ effect immediately.</p>
 <li><p><strong>provider</strong> (<em>ComponentProvider</em>) – Component provider.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>OptimizationState</p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Updated state after one generation step.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>OptimizationState</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1066,7 +1106,9 @@ effect immediately.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.IndividualBasedStrategy.__init__"><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy.__init__()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.IndividualBasedStrategy.build_graph"><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy.build_graph()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.IndividualBasedStrategy.build_pipeline"><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy.build_pipeline()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.IndividualBasedStrategy.build_template"><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy.build_template()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.IndividualBasedStrategy.contract"><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy.contract()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.IndividualBasedStrategy.snapshot_bindings"><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy.snapshot_bindings()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.IndividualBasedStrategy.step"><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy.step()</span></code></a></li>
 </ul>
   </nav></div>

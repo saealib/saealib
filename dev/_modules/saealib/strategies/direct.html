@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.direct &#8212; saealib 0.1.1.dev27+g5af7e776f documentation</title>
+    <title>saealib.strategies.direct &#8212; saealib 0.1.1.dev30+g4103ffd87 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=596df4b4"></script>
+    <script src="../../../_static/documentation_options.js?v=d9b413aa"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -967,17 +967,11 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.graph_builder</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">NodeAdapterSpec</span><span class="p">,</span>
-    <span class="n">StageContractNodeAdapter</span><span class="p">,</span>
-    <span class="n">build_decomposed_component_graph_from_specs</span><span class="p">,</span>
-<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentRef</span><span class="p">,</span> <span class="n">Pipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluateAll</span><span class="p">,</span> <span class="n">EvaluationPlanner</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeedbackBuilder</span><span class="p">,</span> <span class="n">TrueOnlyFeedback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluateAll</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrueOnlyFeedback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ArchiveUpdateStage</span><span class="p">,</span>
@@ -992,60 +986,6 @@ window.runMermaid = runMermaid;</script>
     <span class="n">TellStage</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemplateStrategy</span>
-
-<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
-
-    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentGraph</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentProvider</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_provider_or</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">,</span> <span class="n">slot</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the bound Optimizer slot, or ``value`` when the slot is empty.</span>
-
-<span class="sd">    An explicitly bound Optimizer slot wins; an empty slot falls to the</span>
-<span class="sd">    strategy instance&#39;s own component.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="n">value</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_steady_state_component_graph</span><span class="p">(</span>
-    <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">,</span>
-    <span class="o">*</span><span class="p">,</span>
-    <span class="n">evaluation_planner</span><span class="p">:</span> <span class="n">EvaluationPlanner</span><span class="p">,</span>
-    <span class="n">feedback_builder</span><span class="p">:</span> <span class="n">FeedbackBuilder</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentGraph</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the steady-state component graph as a sequential stage chain.</span>
-
-<span class="sd">    The refill flow runs one stage after another through the sequential</span>
-<span class="sd">    execution seam instead of lowering to a declarative structured plan.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">cbmanager</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;cbmanager&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="n">evaluation_planner</span> <span class="o">=</span> <span class="n">_provider_or</span><span class="p">(</span>
-        <span class="n">evaluation_planner</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;evaluation_planner&quot;</span>
-    <span class="p">)</span>
-    <span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">_provider_or</span><span class="p">(</span><span class="n">feedback_builder</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;feedback_builder&quot;</span><span class="p">)</span>
-    <span class="n">stages</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">CountGenerationStage</span><span class="p">(),</span>
-        <span class="n">AskStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="p">,</span> <span class="n">n_offspring</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cbmanager</span><span class="o">=</span><span class="n">cbmanager</span><span class="p">),</span>
-        <span class="n">EvaluationPlanStage</span><span class="p">(</span><span class="n">evaluation_planner</span><span class="p">),</span>
-        <span class="n">EvaluationSubmitStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">evaluator</span><span class="p">),</span>
-        <span class="n">EvaluationCollectStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">evaluator</span><span class="p">),</span>
-        <span class="n">EvaluationApplyStage</span><span class="p">(),</span>
-        <span class="n">ArchiveUpdateStage</span><span class="p">(),</span>
-        <span class="n">FeedbackStage</span><span class="p">(</span><span class="n">feedback_builder</span><span class="p">),</span>
-        <span class="n">TellStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="p">),</span>
-        <span class="n">EvaluationAcknowledgeStage</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">cbmanager</span><span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">stage_ids</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">stage</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">stages</span><span class="p">)</span>
-    <span class="n">specs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-        <span class="n">NodeAdapterSpec</span><span class="p">(</span>
-            <span class="n">component_id</span><span class="o">=</span><span class="n">stage_id</span><span class="p">,</span>
-            <span class="n">adapter</span><span class="o">=</span><span class="n">StageContractNodeAdapter</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">node_path</span><span class="o">=</span><span class="n">stage_id</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">stage_id</span><span class="p">,</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">stage_ids</span><span class="p">,</span> <span class="n">stages</span><span class="p">)</span>
-    <span class="p">)</span>
-    <span class="k">return</span> <span class="n">build_decomposed_component_graph_from_specs</span><span class="p">(</span><span class="n">specs</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">build_direct_template</span><span class="p">(</span><span class="n">n_offspring</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
@@ -1132,26 +1072,12 @@ window.runMermaid = runMermaid;</script>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">n_offspring</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="SteadyStateStrategy.build_graph">
-<a class="viewcode-back" href="../../../api/_autosummary/saealib.SteadyStateStrategy.html#saealib.SteadyStateStrategy.build_graph">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentGraph</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the steady-state flow as a sequential stage chain.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">_steady_state_component_graph</span><span class="p">(</span>
-            <span class="n">provider</span><span class="p">,</span>
-            <span class="n">evaluation_planner</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span><span class="p">,</span>
-            <span class="n">feedback_builder</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span><span class="p">,</span>
-        <span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="SteadyStateStrategy.build_pipeline">
-<a class="viewcode-back" href="../../../api/_autosummary/saealib.SteadyStateStrategy.html#saealib.SteadyStateStrategy.build_pipeline">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Recover the pipeline facade from the sequential graph.&quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_pipeline_from_graph</span>
-
-        <span class="n">facade</span> <span class="o">=</span> <span class="n">build_pipeline_from_graph</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">build_graph</span><span class="p">(</span><span class="n">provider</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span> <span class="o">=</span> <span class="n">facade</span>
-        <span class="k">return</span> <span class="n">facade</span></div>
+<div class="viewcode-block" id="SteadyStateStrategy.build_template">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.SteadyStateStrategy.html#saealib.SteadyStateStrategy.build_template">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_template</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Keep the flow at one candidate per step.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span> <span class="o">=</span> <span class="n">build_direct_template</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span></div>
 </div>
 
 </pre></div>

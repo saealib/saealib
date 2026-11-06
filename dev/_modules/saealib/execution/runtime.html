@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev27+g5af7e776f documentation</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev30+g4103ffd87 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=596df4b4"></script>
+    <script src="../../../_static/documentation_options.js?v=d9b413aa"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -3128,6 +3128,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">state</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">state</span>
         <span class="n">_sync_transient_fields_from_store</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">generation_open</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">generation_open</span>
+        <span class="n">frames</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">frames</span>
         <span class="n">resume_async_driver</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">evaluation_handles</span><span class="p">):</span>
@@ -3153,14 +3154,77 @@ window.runMermaid = runMermaid;</script>
                         <span class="n">generation_open</span><span class="p">,</span>
                         <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="p">,</span>
                     <span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">progressed</span><span class="p">:</span>
-                    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.001</span><span class="p">)</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">(</span>
-                    <span class="n">session</span><span class="p">,</span>
-                    <span class="n">state</span><span class="p">,</span>
-                    <span class="n">generation_open</span><span class="p">,</span>
-                    <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="p">,</span>
+                <span class="n">bindings</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;binding_values&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">bindings</span> <span class="o">=</span> <span class="n">bindings</span><span class="p">()</span> <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+                <span class="n">strategy</span> <span class="o">=</span> <span class="n">bindings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;strategy&quot;</span><span class="p">)</span>
+                <span class="n">can_refill</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;can_refill&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;supports_async_refill&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">can_refill</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="ow">not</span> <span class="n">can_refill</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">region_nodes</span>
+                <span class="p">):</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">progressed</span><span class="p">:</span>
+                        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.001</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">(</span>
+                        <span class="n">session</span><span class="p">,</span>
+                        <span class="n">state</span><span class="p">,</span>
+                        <span class="n">generation_open</span><span class="p">,</span>
+                        <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="n">plan_state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_plan_state</span>
+                <span class="n">plan_ids</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">request_id</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_plan</span><span class="o">.</span><span class="n">requests</span><span class="p">}</span>
+                    <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="nb">set</span><span class="p">()</span>
                 <span class="p">)</span>
+                <span class="n">terminal_ids</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="nb">set</span><span class="p">(</span><span class="n">plan_state</span><span class="o">.</span><span class="n">completed</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">plan_state</span><span class="o">.</span><span class="n">acknowledged</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">plan_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="p">)</span>
+                <span class="n">active_plan_complete</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_plan</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span>
+                    <span class="n">plan_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">plan_ids</span> <span class="o">&lt;=</span> <span class="n">terminal_ids</span>
+                <span class="p">)</span>
+                <span class="n">active_plan_progressed</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span>
+                    <span class="n">plan_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="ow">and</span> <span class="p">(</span><span class="n">plan_state</span><span class="o">.</span><span class="n">completed</span> <span class="ow">or</span> <span class="n">plan_state</span><span class="o">.</span><span class="n">acknowledged</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">has_deferred_requests</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span>
+                    <span class="n">plan_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">plan_state</span><span class="o">.</span><span class="n">deferred</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span><span class="p">(</span><span class="n">environment</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">has_deferred_requests</span><span class="p">:</span>
+                        <span class="n">resume_async_driver</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">progressed</span><span class="p">:</span>
+                            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.001</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">(</span>
+                            <span class="n">session</span><span class="p">,</span>
+                            <span class="n">state</span><span class="p">,</span>
+                            <span class="n">generation_open</span><span class="p">,</span>
+                            <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="p">,</span>
+                        <span class="p">)</span>
+                <span class="k">elif</span> <span class="n">active_plan_complete</span> <span class="ow">or</span> <span class="p">(</span>
+                    <span class="n">active_plan_progressed</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">has_deferred_requests</span>
+                <span class="p">):</span>
+                    <span class="n">state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+                        <span class="n">evaluation_plan</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">evaluation_plan_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">evaluation_plan_updates</span><span class="o">=</span><span class="p">{},</span>
+                    <span class="p">)</span>
+                    <span class="n">frames</span> <span class="o">=</span> <span class="p">()</span>
+                <span class="k">elif</span> <span class="n">has_deferred_requests</span><span class="p">:</span>
+                    <span class="n">resume_async_driver</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">progressed</span><span class="p">:</span>
+                        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.001</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">(</span>
+                        <span class="n">session</span><span class="p">,</span>
+                        <span class="n">state</span><span class="p">,</span>
+                        <span class="n">generation_open</span><span class="p">,</span>
+                        <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="p">,</span>
+                    <span class="p">)</span>
         <span class="k">if</span> <span class="n">environment</span><span class="o">.</span><span class="n">is_terminated</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
             <span class="c1"># Region-bound flows end the run here even while the last delivery</span>
             <span class="c1"># or a blocked frame still owes work.</span>
@@ -3206,7 +3270,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">metadata</span> <span class="o">=</span> <span class="n">_execute_structured</span><span class="p">(</span>
             <span class="n">plan</span><span class="p">,</span>
             <span class="n">state</span><span class="p">,</span>
-            <span class="n">session</span><span class="o">.</span><span class="n">frames</span><span class="p">,</span>
+            <span class="n">frames</span><span class="p">,</span>
             <span class="n">dispatch</span><span class="o">=</span><span class="n">environment</span><span class="o">.</span><span class="n">dispatch</span><span class="p">,</span>
             <span class="n">observe</span><span class="o">=</span><span class="n">_record_history_observation</span><span class="p">,</span>
             <span class="n">leaf_executor</span><span class="o">=</span><span class="n">_structured_async_leaf_executor</span><span class="p">(</span>

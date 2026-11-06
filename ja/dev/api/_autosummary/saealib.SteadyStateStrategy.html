@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.SteadyStateStrategy &#8212; saealib 0.1.1.dev27+g5af7e776f ドキュメント</title>
+    <title>saealib.SteadyStateStrategy &#8212; saealib 0.1.1.dev30+g4103ffd87 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=c0774f1a"></script>
+    <script src="../../_static/documentation_options.js?v=40aea804"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -919,13 +919,13 @@
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.SteadyStateStrategy.build_graph" title="saealib.SteadyStateStrategy.build_graph"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_graph</span></code></a></p></td>
-<td><p>Build the steady-state flow as a sequential stage chain.</p></td>
+<td><p>Lower the declaration resolved against the active snapshot.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.SteadyStateStrategy.build_pipeline" title="saealib.SteadyStateStrategy.build_pipeline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_pipeline</span></code></a></p></td>
-<td><p>Recover the pipeline facade from the sequential graph.</p></td>
+<td><p>Return the declaration resolved against the active snapshot.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.SteadyStateStrategy.build_template" title="saealib.SteadyStateStrategy.build_template"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_template</span></code></a></p></td>
-<td><p>Rebuild the declaration from the current <code class="docutils literal notranslate"><span class="pre">n_offspring</span></code>.</p></td>
+<td><p>Keep the flow at one candidate per step.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.SteadyStateStrategy.contract" title="saealib.SteadyStateStrategy.contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract</span></code></a></p></td>
 <td><p>Return the strategy contract.</p></td>
@@ -952,36 +952,40 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.SteadyStateStrategy.build_graph">
-<span class="sig-prename descclassname"><span class="pre">SteadyStateStrategy.</span></span><span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/direct.html#SteadyStateStrategy.build_graph"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.SteadyStateStrategy.build_graph" title="Link to this definition">#</a></dt>
-<dd><p>Build the steady-state flow as a sequential stage chain.</p>
+<span class="sig-prename descclassname"><span class="pre">SteadyStateStrategy.</span></span><span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.SteadyStateStrategy.build_graph" title="Link to this definition">#</a></dt>
+<dd><p>Lower the declaration resolved against the active snapshot.</p>
+<p>The components each Stage holds become <code class="docutils literal notranslate"><span class="pre">(component,</span> <span class="pre">role)</span></code> part
+nodes with data edges between their declared ports, so the
+compiler's contract rules apply to them; the Stages stay the
+executable nodes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="saealib.core.ComponentGraph.html#saealib.core.ComponentGraph" title="saealib.core.ComponentGraph">ComponentGraph</a></p>
+<dd class="field-even"><p><a class="reference internal" href="saealib.core.ComponentGraph.html#saealib.core.ComponentGraph" title="saealib.core.compiler.graph.ComponentGraph"><em>ComponentGraph</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.SteadyStateStrategy.build_pipeline">
-<span class="sig-prename descclassname"><span class="pre">SteadyStateStrategy.</span></span><span class="sig-name descname"><span class="pre">build_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/direct.html#SteadyStateStrategy.build_pipeline"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.SteadyStateStrategy.build_pipeline" title="Link to this definition">#</a></dt>
-<dd><p>Recover the pipeline facade from the sequential graph.</p>
+<span class="sig-prename descclassname"><span class="pre">SteadyStateStrategy.</span></span><span class="sig-name descname"><span class="pre">build_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.SteadyStateStrategy.build_pipeline" title="Link to this definition">#</a></dt>
+<dd><p>Return the declaration resolved against the active snapshot.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.Pipeline">Pipeline</a></p>
+<dd class="field-even"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.pipeline.Pipeline"><em>Pipeline</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.SteadyStateStrategy.build_template">
-<span class="sig-prename descclassname"><span class="pre">SteadyStateStrategy.</span></span><span class="sig-name descname"><span class="pre">build_template</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#saealib.SteadyStateStrategy.build_template" title="Link to this definition">#</a></dt>
-<dd><p>Rebuild the declaration from the current <code class="docutils literal notranslate"><span class="pre">n_offspring</span></code>.</p>
+<span class="sig-prename descclassname"><span class="pre">SteadyStateStrategy.</span></span><span class="sig-name descname"><span class="pre">build_template</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/direct.html#SteadyStateStrategy.build_template"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.SteadyStateStrategy.build_template" title="Link to this definition">#</a></dt>
+<dd><p>Keep the flow at one candidate per step.</p>
 <dl class="field-list simple">
 <dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.pipeline.Pipeline"><em>Pipeline</em></a></p>

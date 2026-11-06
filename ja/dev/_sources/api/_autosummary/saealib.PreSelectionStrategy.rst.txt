@@ -18,7 +18,9 @@
    ~PreSelectionStrategy.__init__
    ~PreSelectionStrategy.build_graph
    ~PreSelectionStrategy.build_pipeline
+   ~PreSelectionStrategy.build_template
    ~PreSelectionStrategy.contract
+   ~PreSelectionStrategy.snapshot_bindings
    ~PreSelectionStrategy.step
 
 
@@ -38,7 +40,13 @@
 .. automethod:: saealib.PreSelectionStrategy.build_pipeline
 
 
+.. automethod:: saealib.PreSelectionStrategy.build_template
+
+
 .. automethod:: saealib.PreSelectionStrategy.contract
+
+
+.. automethod:: saealib.PreSelectionStrategy.snapshot_bindings
 
 
 .. automethod:: saealib.PreSelectionStrategy.step

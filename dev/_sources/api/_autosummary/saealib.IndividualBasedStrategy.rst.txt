@@ -18,7 +18,9 @@
    ~IndividualBasedStrategy.__init__
    ~IndividualBasedStrategy.build_graph
    ~IndividualBasedStrategy.build_pipeline
+   ~IndividualBasedStrategy.build_template
    ~IndividualBasedStrategy.contract
+   ~IndividualBasedStrategy.snapshot_bindings
    ~IndividualBasedStrategy.step
 
 
@@ -38,7 +40,13 @@
 .. automethod:: saealib.IndividualBasedStrategy.build_pipeline
 
 
+.. automethod:: saealib.IndividualBasedStrategy.build_template
+
+
 .. automethod:: saealib.IndividualBasedStrategy.contract
+
+
+.. automethod:: saealib.IndividualBasedStrategy.snapshot_bindings
 
 
 .. automethod:: saealib.IndividualBasedStrategy.step

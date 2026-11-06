@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.PreSelectionStrategy &#8212; saealib 0.1.1.dev27+g5af7e776f ドキュメント</title>
+    <title>saealib.PreSelectionStrategy &#8212; saealib 0.1.1.dev30+g4103ffd87 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=c0774f1a"></script>
+    <script src="../../_static/documentation_options.js?v=40aea804"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -906,16 +906,13 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="saealib.PreSelectionStrategy">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">PreSelectionStrategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_candidates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_select</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ps.html#PreSelectionStrategy"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.PreSelectionStrategy" title="Link to this definition">#</a></dt>
-<dd><p>ベースクラス: <a class="reference internal" href="saealib.OptimizationStrategy.html#saealib.OptimizationStrategy" title="saealib.strategies.base.OptimizationStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code></a></p>
-<p>Pre-selection strategy.</p>
-<p>Generates <code class="docutils literal notranslate"><span class="pre">n_candidates</span></code> offspring, scores them with the surrogate,
-and true-evaluates only the top <code class="docutils literal notranslate"><span class="pre">n_select</span></code> candidates.</p>
+<dd><p>ベースクラス: <a class="reference internal" href="saealib.strategies.TemplateStrategy.html#saealib.strategies.TemplateStrategy" title="saealib.strategies.base.TemplateStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">TemplateStrategy</span></code></a></p>
+<p>Generate a candidate pool and truly evaluate its top-scoring members.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>n_candidates</strong> (<em>int</em>) -- Number of candidates to generate and score with the surrogate.</p></li>
-<li><p><strong>n_select</strong> (<em>int</em>) -- Number of top-scoring candidates to evaluate with the true
-objective function.</p></li>
+<li><p><strong>n_select</strong> (<em>int</em>) -- Number of top-scoring candidates to evaluate with the true objective.</p></li>
 </ul>
 </dd>
 </dl>
@@ -925,19 +922,25 @@ objective function.</p></li>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.PreSelectionStrategy.__init__" title="saealib.PreSelectionStrategy.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a></p></td>
-<td><p>Initialize PreSelectionStrategy.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.PreSelectionStrategy.build_graph" title="saealib.PreSelectionStrategy.build_graph"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_graph</span></code></a></p></td>
-<td><p>Build the canonical pre-selection strategy graph.</p></td>
+<td><p>Lower the declaration resolved against the active snapshot.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.PreSelectionStrategy.build_pipeline" title="saealib.PreSelectionStrategy.build_pipeline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_pipeline</span></code></a></p></td>
-<td><p>Return the strategy's high-level Pipeline description.</p></td>
+<td><p>Return the declaration resolved against the active snapshot.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.PreSelectionStrategy.contract" title="saealib.PreSelectionStrategy.contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.PreSelectionStrategy.build_template" title="saealib.PreSelectionStrategy.build_template"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_template</span></code></a></p></td>
+<td><p>Return a fresh declaration for the current candidate count.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.PreSelectionStrategy.contract" title="saealib.PreSelectionStrategy.contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract</span></code></a></p></td>
 <td><p>Return the strategy contract.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.PreSelectionStrategy.snapshot_bindings" title="saealib.PreSelectionStrategy.snapshot_bindings"><code class="xref py py-obj docutils literal notranslate"><span class="pre">snapshot_bindings</span></code></a></p></td>
+<td><p>Read the slots a declaration resolves from.</p></td>
+</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.PreSelectionStrategy.step" title="saealib.PreSelectionStrategy.step"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code></a></p></td>
-<td><p>Generate a large candidate pool, screen with surrogate, true-evaluate top-k.</p></td>
+<td><p>Generate a candidate pool, then evaluate its selected members truly.</p></td>
 </tr>
 </tbody>
 </table>
@@ -946,28 +949,33 @@ objective function.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.PreSelectionStrategy.__init__">
 <span class="sig-prename descclassname"><span class="pre">PreSelectionStrategy.</span></span><span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_candidates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_select</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ps.html#PreSelectionStrategy.__init__"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.PreSelectionStrategy.__init__" title="Link to this definition">#</a></dt>
-<dd><p>Initialize PreSelectionStrategy.</p>
-<dl class="field-list simple">
+<dd><dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>n_candidates</strong> (<em>int</em>) -- Number of candidates to generate and score with the surrogate.</p></li>
-<li><p><strong>n_select</strong> (<em>int</em>) -- Number of top-scoring candidates to evaluate with the true
-objective function.</p></li>
+<li><p><strong>n_candidates</strong> (<em>int</em>)</p></li>
+<li><p><strong>n_select</strong> (<em>int</em>)</p></li>
 </ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.PreSelectionStrategy.build_graph">
-<span class="sig-prename descclassname"><span class="pre">PreSelectionStrategy.</span></span><span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ps.html#PreSelectionStrategy.build_graph"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.PreSelectionStrategy.build_graph" title="Link to this definition">#</a></dt>
-<dd><p>Build the canonical pre-selection strategy graph.</p>
+<span class="sig-prename descclassname"><span class="pre">PreSelectionStrategy.</span></span><span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.PreSelectionStrategy.build_graph" title="Link to this definition">#</a></dt>
+<dd><p>Lower the declaration resolved against the active snapshot.</p>
+<p>The components each Stage holds become <code class="docutils literal notranslate"><span class="pre">(component,</span> <span class="pre">role)</span></code> part
+nodes with data edges between their declared ports, so the
+compiler's contract rules apply to them; the Stages stay the
+executable nodes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="saealib.core.ComponentGraph.html#saealib.core.ComponentGraph" title="saealib.core.ComponentGraph">ComponentGraph</a></p>
+<dd class="field-even"><p><a class="reference internal" href="saealib.core.ComponentGraph.html#saealib.core.ComponentGraph" title="saealib.core.compiler.graph.ComponentGraph"><em>ComponentGraph</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -975,13 +983,24 @@ objective function.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.PreSelectionStrategy.build_pipeline">
 <span class="sig-prename descclassname"><span class="pre">PreSelectionStrategy.</span></span><span class="sig-name descname"><span class="pre">build_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.PreSelectionStrategy.build_pipeline" title="Link to this definition">#</a></dt>
-<dd><p>Return the strategy's high-level Pipeline description.</p>
+<dd><p>Return the declaration resolved against the active snapshot.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.pipeline.Pipeline"><em>Pipeline</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="saealib.PreSelectionStrategy.build_template">
+<span class="sig-prename descclassname"><span class="pre">PreSelectionStrategy.</span></span><span class="sig-name descname"><span class="pre">build_template</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ps.html#PreSelectionStrategy.build_template"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.PreSelectionStrategy.build_template" title="Link to this definition">#</a></dt>
+<dd><p>Return a fresh declaration for the current candidate count.</p>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.pipeline.Pipeline"><em>Pipeline</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -998,11 +1017,27 @@ objective function.</p></li>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="saealib.PreSelectionStrategy.snapshot_bindings">
+<span class="sig-prename descclassname"><span class="pre">PreSelectionStrategy.</span></span><span class="sig-name descname"><span class="pre">snapshot_bindings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.PreSelectionStrategy.snapshot_bindings" title="Link to this definition">#</a></dt>
+<dd><p>Read the slots a declaration resolves from.</p>
+<p>The runtime serves slots from the active binding snapshot; a bare
+provider resolves from its current slot values.  Slots the binding
+leaves empty are filled from the strategy instance's own default
+components before the Stages' built-in fallbacks apply.</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict[str, object]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="saealib.PreSelectionStrategy.step">
 <span class="sig-prename descclassname"><span class="pre">PreSelectionStrategy.</span></span><span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/ps.html#PreSelectionStrategy.step"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.PreSelectionStrategy.step" title="Link to this definition">#</a></dt>
-<dd><p>Generate a large candidate pool, screen with surrogate, true-evaluate top-k.</p>
-<p>Rebuilds the pipeline each call so component/parameter changes take
-effect immediately.</p>
+<dd><p>Generate a candidate pool, then evaluate its selected members truly.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1072,7 +1107,9 @@ effect immediately.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.PreSelectionStrategy.__init__"><code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy.__init__()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.PreSelectionStrategy.build_graph"><code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy.build_graph()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.PreSelectionStrategy.build_pipeline"><code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy.build_pipeline()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.PreSelectionStrategy.build_template"><code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy.build_template()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.PreSelectionStrategy.contract"><code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy.contract()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.PreSelectionStrategy.snapshot_bindings"><code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy.snapshot_bindings()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.PreSelectionStrategy.step"><code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy.step()</span></code></a></li>
 </ul>
   </nav></div>

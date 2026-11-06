@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Initializer &#8212; saealib 0.1.1.dev26+ge0d91babe documentation</title>
+    <title>Initializer &#8212; saealib 0.1.1.dev27+g5af7e776f documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=0d79fe5b"></script>
+    <script src="../../_static/documentation_options.js?v=596df4b4"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -644,7 +644,8 @@ For a Comparator like <code class="docutils literal notranslate"><span class="pr
 <p>The <code class="docutils literal notranslate"><span class="pre">Initializer</span></code> base provides two helper methods reusable in custom implementations.</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">_create_attrs(problem,</span> <span class="pre">provider)</span></code></strong>: Builds the <code class="docutils literal notranslate"><span class="pre">PopulationAttribute</span></code> values for <code class="docutils literal notranslate"><span class="pre">Population</span></code> and <code class="docutils literal notranslate"><span class="pre">Archive</span></code>.
 The legacy vector path uses <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">f</span></code>, <code class="docutils literal notranslate"><span class="pre">g</span></code>, <code class="docutils literal notranslate"><span class="pre">cv</span></code>, and <code class="docutils literal notranslate"><span class="pre">id</span></code>, then merges in auxiliary attributes required by both the Algorithm (<code class="docutils literal notranslate"><span class="pre">Algorithm.get_required_attrs</span></code>) and the Comparator (<code class="docutils literal notranslate"><span class="pre">Comparator.get_required_attrs</span></code>) — this is how, for example, <code class="docutils literal notranslate"><span class="pre">SPEA2Comparator</span></code>’s <code class="docutils literal notranslate"><span class="pre">spea2_fitness</span></code> attribute ends up in the schema.
-<code class="docutils literal notranslate"><span class="pre">GenomeInitializer</span></code> manages Genomes in a dedicated column, so its standard attributes do not include <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">GenomeInitializer</span></code> manages Genomes in a dedicated column, so its standard attributes do not include <code class="docutils literal notranslate"><span class="pre">x</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">objective_source</span></code> column records the source of each row’s objective values; its codes are documented in the <code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code> docstring.</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">_create_context(problem,</span> <span class="pre">archive,</span> <span class="pre">pareto_archive,</span> <span class="pre">population,</span> <span class="pre">rng)</span></code></strong>: Builds the <code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code>.
 When the Comparator is an <code class="docutils literal notranslate"><span class="pre">NSGA3Comparator</span></code> without an internal random generator, this sets <code class="docutils literal notranslate"><span class="pre">rng.spawn(1)[0]</span></code>.</p>
 </section>

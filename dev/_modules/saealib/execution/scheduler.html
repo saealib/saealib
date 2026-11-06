@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev26+ge0d91babe documentation</title>
+    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev27+g5af7e776f documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=0d79fe5b"></script>
+    <script src="../../../_static/documentation_options.js?v=596df4b4"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1021,10 +1021,15 @@ window.runMermaid = runMermaid;</script>
     <span class="n">_continue_fidelity_plan</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">LEGACY_SOURCE_CODES</span><span class="p">,</span>
+    <span class="n">TRUE</span><span class="p">,</span>
     <span class="n">FeedbackBuilder</span><span class="p">,</span>
     <span class="n">FeedbackResult</span><span class="p">,</span>
     <span class="n">_feedback_batch_from_result</span><span class="p">,</span>
+    <span class="n">_set_objective_source</span><span class="p">,</span>
+    <span class="n">_set_objectives_true</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">OBJECTIVE_SOURCE_COLUMN</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">deliver_feedback</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -2307,18 +2312,17 @@ window.runMermaid = runMermaid;</script>
             <span class="k">return</span> <span class="n">state</span>
         <span class="n">owner</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_owner</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">))</span>
         <span class="n">rows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rows</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">))</span>
-        <span class="n">owner</span><span class="o">.</span><span class="n">update_rows</span><span class="p">(</span>
-            <span class="n">rows</span><span class="p">,</span>
-            <span class="p">{</span>
-                <span class="n">name</span><span class="p">:</span> <span class="n">value</span>
-                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">{</span>
-                    <span class="s2">&quot;f&quot;</span><span class="p">:</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">f</span><span class="p">,</span>
-                    <span class="s2">&quot;g&quot;</span><span class="p">:</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">g</span><span class="p">,</span>
-                    <span class="s2">&quot;cv&quot;</span><span class="p">:</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span>
-                <span class="p">}</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-                <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">owner</span><span class="o">.</span><span class="n">schema</span>
-            <span class="p">},</span>
-        <span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">value</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">{</span>
+                <span class="s2">&quot;f&quot;</span><span class="p">:</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">f</span><span class="p">,</span>
+                <span class="s2">&quot;g&quot;</span><span class="p">:</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">g</span><span class="p">,</span>
+                <span class="s2">&quot;cv&quot;</span><span class="p">:</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span>
+            <span class="p">}</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">owner</span><span class="o">.</span><span class="n">schema</span>
+        <span class="p">}</span>
+        <span class="n">_set_objectives_true</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
+        <span class="n">owner</span><span class="o">.</span><span class="n">update_rows</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">state</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_archive</span><span class="p">(</span>
@@ -2338,6 +2342,13 @@ window.runMermaid = runMermaid;</script>
                     <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span>
                     <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">owner</span><span class="o">.</span><span class="n">schema</span>
                 <span class="p">}</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">OBJECTIVE_SOURCE_COLUMN</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span>
+                    <span class="ow">and</span> <span class="n">OBJECTIVE_SOURCE_COLUMN</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">owner</span><span class="o">.</span><span class="n">schema</span>
+                <span class="p">):</span>
+                    <span class="n">values</span><span class="p">[</span><span class="n">OBJECTIVE_SOURCE_COLUMN</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">(</span>
+                        <span class="n">LEGACY_SOURCE_CODES</span><span class="p">[</span><span class="n">TRUE</span><span class="p">]</span>
+                    <span class="p">)</span>
                 <span class="k">if</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
                     <span class="n">values</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">candidate_id</span><span class="p">)</span>
                 <span class="k">if</span> <span class="s2">&quot;request_id&quot;</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
@@ -2434,6 +2445,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">values</span><span class="p">[</span><span class="s2">&quot;g&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">g</span>
             <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">cv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;cv&quot;</span> <span class="ow">in</span> <span class="n">owner</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
                 <span class="n">values</span><span class="p">[</span><span class="s2">&quot;cv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">cv</span>
+            <span class="n">_set_objective_source</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
             <span class="n">owner</span><span class="o">.</span><span class="n">update_rows</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">feedback_result</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
 

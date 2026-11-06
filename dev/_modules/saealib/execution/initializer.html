@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev26+ge0d91babe documentation</title>
+    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev27+g5af7e776f documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=0d79fe5b"></script>
+    <script src="../../../_static/documentation_options.js?v=596df4b4"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -999,7 +999,12 @@ window.runMermaid = runMermaid;</script>
     <span class="n">record_initial_evaluation</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentProvider</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">_set_objectives_true</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span><span class="p">,</span> <span class="n">ParetoArchive</span><span class="p">,</span> <span class="n">Population</span><span class="p">,</span> <span class="n">PopulationAttribute</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.population</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OBJECTIVE_SOURCE_COLUMN</span><span class="p">,</span>
+    <span class="n">UNKNOWN_SOURCE_CODE</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">BoundsService</span><span class="p">,</span> <span class="n">DenseNumericView</span>
 
@@ -1067,6 +1072,12 @@ window.runMermaid = runMermaid;</script>
     <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">]:</span>
     <span class="n">merged</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">attrs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">attr</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">OBJECTIVE_SOURCE_COLUMN</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">merged</span><span class="p">):</span>
+        <span class="n">merged</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">PopulationAttribute</span><span class="p">(</span>
+                <span class="n">OBJECTIVE_SOURCE_COLUMN</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span> <span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">UNKNOWN_SOURCE_CODE</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
     <span class="n">by_name</span> <span class="o">=</span> <span class="p">{</span><span class="n">attr</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">attr</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">merged</span><span class="p">}</span>
     <span class="n">sources</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1090,6 +1101,14 @@ window.runMermaid = runMermaid;</script>
                 <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">existing</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
     <span class="k">return</span> <span class="n">merged</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_mark_initial_rows_true</span><span class="p">(</span><span class="o">*</span><span class="n">collections</span><span class="p">:</span> <span class="n">Population</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">:</span>
+        <span class="n">values</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">_set_objectives_true</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">collection</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">values</span><span class="p">:</span>
+            <span class="n">collection</span><span class="o">.</span><span class="n">update_rows</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">collection</span><span class="p">)),</span> <span class="n">values</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="Initializer">
@@ -1291,6 +1310,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">}</span>
             <span class="n">archive</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
             <span class="n">pareto_archive</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
         <span class="n">ctx</span><span class="o">.</span><span class="n">count_fe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">)</span>
@@ -1449,6 +1469,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">}</span>
             <span class="n">archive</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
             <span class="n">pareto_archive</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
         <span class="n">ctx</span><span class="o">.</span><span class="n">count_fe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">)</span>
@@ -1607,6 +1628,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">}</span>
             <span class="n">archive</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
             <span class="n">pareto_archive</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
         <span class="n">ctx</span><span class="o">.</span><span class="n">count_fe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">)</span>
@@ -1768,6 +1790,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">}</span>
             <span class="n">archive</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
             <span class="n">pareto_archive</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
         <span class="n">ctx</span><span class="o">.</span><span class="n">count_fe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">)</span>

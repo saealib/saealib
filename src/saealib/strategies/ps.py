@@ -1,22 +1,13 @@
-"""Pre-selection strategy.
-
-Generates a large pool of candidates, screens them with the surrogate,
-and selects the top-k for true objective evaluation.
-"""
+"""Pre-selection surrogate-assisted optimization strategy."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
-from saealib.core.compiler.graph import ComponentGraph
-from saealib.core.graph_builder import (
-    NodeAdapterSpec,
-    StageContractNodeAdapter,
-    build_decomposed_component_graph_from_specs,
-)
-from saealib.pipeline import Pipeline
+from saealib.pipeline import ComponentRef, Pipeline
 from saealib.policies.evaluation import TopKEvaluation
-from saealib.policies.feedback import FeedbackBuilder, TrueOnlyFeedback
+from saealib.policies.feedback import TrueOnlyFeedback
 from saealib.registry import register
 from saealib.stages import (
     AcquisitionStage,
@@ -32,112 +23,78 @@ from saealib.stages import (
     SurrogatePredictStage,
     TellStage,
 )
-from saealib.strategies.base import (
-    OptimizationStrategy,
-)
+from saealib.strategies.base import TemplateStrategy
 
 if TYPE_CHECKING:
     from saealib.context import OptimizationState
     from saealib.optimizer import ComponentProvider
 
-_MISSING = object()
+
+def build_ps_template(n_candidates: int) -> Pipeline:
+    """Build the pre-selection flow declaration for *n_candidates*."""
+    steps = [
+        CountGenerationStage(),
+        AskStage(ComponentRef("proposer"), n_offspring=n_candidates),
+        SurrogatePredictStage(ComponentRef("predictor")),
+        AcquisitionStage(ComponentRef("acquisition")),
+        EvaluationPlanStage(ComponentRef("evaluation_planner")),
+        EvaluationSubmitStage(ComponentRef("evaluator")),
+        EvaluationCollectStage(ComponentRef("evaluator")),
+        EvaluationApplyStage(),
+        ArchiveUpdateStage(),
+        FeedbackStage(ComponentRef("feedback_builder")),
+        TellStage(ComponentRef("feedback_consumer")),
+        EvaluationAcknowledgeStage(ComponentRef("evaluator")),
+    ]
+    for stage in steps:
+        stage.execution_boundary = "state"
+    return Pipeline(name="pre_selection", steps=steps)
 
 
 @register()
-class PreSelectionStrategy(OptimizationStrategy):
-    """Pre-selection strategy.
-
-    Generates ``n_candidates`` offspring, scores them with the surrogate,
-    and true-evaluates only the top ``n_select`` candidates.
+class PreSelectionStrategy(TemplateStrategy):
+    """Generate a candidate pool and truly evaluate its top-scoring members.
 
     Parameters
     ----------
     n_candidates : int
         Number of candidates to generate and score with the surrogate.
     n_select : int
-        Number of top-scoring candidates to evaluate with the true
-        objective function.
+        Number of top-scoring candidates to evaluate with the true objective.
     """
 
     requires_surrogate: bool = True
+    feedback_builder = TrueOnlyFeedback()
+    _node_namespace = ""
 
-    def __init__(self, n_candidates: int, n_select: int):
-        """
-        Initialize PreSelectionStrategy.
-
-        Parameters
-        ----------
-        n_candidates : int
-            Number of candidates to generate and score with the surrogate.
-        n_select : int
-            Number of top-scoring candidates to evaluate with the true
-            objective function.
-        """
+    def __init__(self, n_candidates: int, n_select: int) -> None:
         self.n_candidates = n_candidates
         self.n_select = n_select
-        self.pipeline: Pipeline | None = None
+        super().__init__(build_ps_template(n_candidates))
 
     @property
-    def evaluation_planner(self):
-        """Return the current top-k planner."""
+    def evaluation_planner(self) -> TopKEvaluation:
+        """Return the top-k planner for the current candidate counts."""
         return TopKEvaluation(
             min(self.n_select, self.n_candidates), sanitize_nonfinite=True
         )
 
-    feedback_builder = TrueOnlyFeedback()
+    def _default_components(self) -> Mapping[str, object]:
+        """Return policy components used when their Optimizer slots are empty."""
+        return {
+            "evaluation_planner": self.evaluation_planner,
+            "feedback_builder": self.feedback_builder,
+        }
 
-    def build_graph(self, provider: ComponentProvider) -> ComponentGraph:
-        """Build the canonical pre-selection strategy graph."""
-        cbmanager = getattr(provider, "cbmanager", None)
-        evaluation_planner = (
-            getattr(provider, "evaluation_planner", None) or self.evaluation_planner
-        )
-        feedback_builder = cast(
-            FeedbackBuilder | None, getattr(provider, "feedback_builder", None)
-        )
-        if feedback_builder is None:
-            feedback_builder = self.feedback_builder
-        evaluation_tail = [
-            EvaluationPlanStage(evaluation_planner),
-            EvaluationSubmitStage(provider.evaluator),
-            EvaluationCollectStage(provider.evaluator),
-            EvaluationApplyStage(),
-            ArchiveUpdateStage(),
-            FeedbackStage(feedback_builder),
-            TellStage(provider.algorithm),
-            EvaluationAcknowledgeStage(provider.evaluator, cbmanager),
-        ]
-        stages = (
-            CountGenerationStage(),
-            AskStage(
-                provider.algorithm,
-                n_offspring=self.n_candidates,
-                cbmanager=cbmanager,
-            ),
-            SurrogatePredictStage(provider.surrogate_manager, cbmanager=cbmanager),
-            AcquisitionStage(
-                provider.acquisition,
-                cbmanager=cbmanager,
-            ),
-            *evaluation_tail,
-        )
-        specs = tuple(
-            NodeAdapterSpec(
-                component_id=stage.name,
-                adapter=StageContractNodeAdapter(stage, node_path=stage.name),
-            )
-            for stage in stages
-        )
-        return build_decomposed_component_graph_from_specs(specs)
+    def build_template(self) -> Pipeline:
+        """Return a fresh declaration for the current candidate count."""
+        self.declaration = build_ps_template(self.n_candidates)
+        return self.declaration
 
     def step(
         self, ctx: OptimizationState, provider: ComponentProvider
     ) -> OptimizationState:
-        """
-        Generate a large candidate pool, screen with surrogate, true-evaluate top-k.
-
-        Rebuilds the pipeline each call so component/parameter changes take
-        effect immediately.
+        """Generate a candidate pool, then evaluate its selected members truly.
 
         Parameters
         ----------

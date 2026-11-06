@@ -36,11 +36,14 @@ from saealib.execution import (
 )
 from saealib.execution.runner import Runner
 from saealib.execution.runtime import create_runtime, resolve_plan
-from saealib.policies.feedback import TrueOnlyFeedback
+from saealib.policies.evaluation import RepeatedEvaluation
+from saealib.policies.feedback import MixedFeedback, TrueOnlyFeedback
 from saealib.problem import Problem
 from saealib.strategies import (
     DirectStrategy,
     GenerationBasedStrategy,
+    IndividualBasedStrategy,
+    PreSelectionStrategy,
     SteadyStateStrategy,
 )
 
@@ -792,6 +795,89 @@ def _async_surrogate_optimizer(
             AsyncEvaluationScheduler(evaluator, max_pending=3)
         )
         .set_termination(Termination(lambda state: state.gen >= 12))
+    )
+
+
+@pytest.mark.parametrize("use_setter", [False, True])
+@pytest.mark.parametrize(
+    ("source_factory", "replacement_factory"),
+    [
+        (SteadyStateStrategy, DirectStrategy),
+        (SteadyStateStrategy, lambda: GenerationBasedStrategy(1)),
+        (SteadyStateStrategy, lambda: IndividualBasedStrategy(0.5)),
+        (SteadyStateStrategy, lambda: PreSelectionStrategy(5, 2)),
+        (DirectStrategy, SteadyStateStrategy),
+    ],
+)
+def test_async_strategy_replacement_drains_in_flight_requests(
+    source_factory: Any, replacement_factory: Any, use_setter: bool
+) -> None:
+    algorithm = _RecordingGA()
+    evaluator = _DeterministicEvaluator(order="lifo", max_collects=50_000)
+    optimizer = (
+        _surrogate_optimizer_for_swap(source_factory(), seed=37)
+        .set_algorithm(algorithm)
+        .set_evaluator(evaluator)
+        .set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=3)
+        )
+        .set_evaluation_planner(RepeatedEvaluation(replicates=2))
+        .set_feedback_builder(MixedFeedback())
+        .set_history(["summary", "evaluation"])
+        .set_termination(
+            Termination(lambda state: state.fe + len(state.pending_evaluations) >= 30)
+        )
+    )
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    initializer = optimizer.initializer
+    assert initializer is not None
+    state = initializer.initialize(optimizer, optimizer.problem)
+    runtime: Any = create_runtime(optimizer)
+    environment = runtime.environment
+    session: Any = runtime.initialize(resolve_plan(optimizer), state)
+
+    for _ in range(1000):
+        if len(session.state.pending_evaluations) >= 2:
+            break
+        session = runtime.advance(session).session
+    assert len(session.state.pending_evaluations) >= 2
+    pending_at_switch = set(session.state.pending_evaluations)
+    submissions_at_switch = len(evaluator.submitted)
+    asks_at_switch = len(algorithm.asks)
+    replacement = replacement_factory()
+    if use_setter:
+        optimizer.set_strategy(replacement)
+    else:
+        optimizer.strategy = replacement
+
+    for _ in range(10_000):
+        if session.finished:
+            break
+        session = runtime.advance(session).session
+
+    assert session.finished
+    final = session.state
+    assert not final.pending_evaluations
+    assert not final.evaluation_handles
+    assert final.fe >= 30
+    assert len(evaluator.submitted) > submissions_at_switch
+    assert len(algorithm.asks) > asks_at_switch
+    assert replacement.pipeline is not None
+    assert environment.binding_values()["strategy"] is replacement
+    acked = [int(request_id) for request_id, _ in evaluator.acks]
+    submitted = [int(request.request_id) for request in evaluator.submitted]
+    assert len(acked) == len(submitted)
+    assert sorted(acked) == sorted(submitted)
+    assert pending_at_switch <= set(submitted)
+    assert final.history is not None
+    summary = final.history.channel("summary")
+    evaluation = final.history.channel("evaluation")
+    assert int(summary["fe"][-1]) == final.fe
+    assert set(submitted) <= set(np.asarray(evaluation["request_id"], dtype=int))
+    assert all(
+        np.count_nonzero(np.asarray(evaluation["request_id"]) == request_id) == 1
+        for request_id in submitted
     )
 
 

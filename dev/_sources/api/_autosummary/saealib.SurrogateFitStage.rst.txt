@@ -18,6 +18,7 @@
    ~SurrogateFitStage.__init__
    ~SurrogateFitStage.contract
    ~SurrogateFitStage.execute
+   ~SurrogateFitStage.flow_summary
    ~SurrogateFitStage.to_pseudocode
    ~SurrogateFitStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.SurrogateFitStage.execute
+
+
+.. automethod:: saealib.SurrogateFitStage.flow_summary
 
 
 .. automethod:: saealib.SurrogateFitStage.to_pseudocode

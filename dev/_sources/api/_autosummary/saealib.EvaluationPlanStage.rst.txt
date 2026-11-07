@@ -19,6 +19,7 @@
    ~EvaluationPlanStage.contract
    ~EvaluationPlanStage.execute
    ~EvaluationPlanStage.execute_async
+   ~EvaluationPlanStage.flow_summary
    ~EvaluationPlanStage.has_async_work
    ~EvaluationPlanStage.to_pseudocode
    ~EvaluationPlanStage.to_text
@@ -41,6 +42,9 @@
 
 
 .. automethod:: saealib.EvaluationPlanStage.execute_async
+
+
+.. automethod:: saealib.EvaluationPlanStage.flow_summary
 
 
 .. automethod:: saealib.EvaluationPlanStage.has_async_work

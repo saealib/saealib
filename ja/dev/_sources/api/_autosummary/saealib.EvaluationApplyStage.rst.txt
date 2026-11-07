@@ -18,6 +18,7 @@
    ~EvaluationApplyStage.__init__
    ~EvaluationApplyStage.contract
    ~EvaluationApplyStage.execute
+   ~EvaluationApplyStage.flow_summary
    ~EvaluationApplyStage.to_pseudocode
    ~EvaluationApplyStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.EvaluationApplyStage.execute
+
+
+.. automethod:: saealib.EvaluationApplyStage.flow_summary
 
 
 .. automethod:: saealib.EvaluationApplyStage.to_pseudocode

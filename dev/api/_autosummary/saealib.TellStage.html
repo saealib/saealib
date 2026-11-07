@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.TellStage &#8212; saealib 0.1.1.dev32+gcb44f7f65 documentation</title>
+    <title>saealib.TellStage &#8212; saealib 0.1.1.dev33+gb97d11523 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=f803545c"></script>
+    <script src="../../_static/documentation_options.js?v=f4ad96e3"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -932,10 +932,13 @@ expects) and calls <code class="docutils literal notranslate"><span class="pre">
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.TellStage.execute" title="saealib.TellStage.execute"><code class="xref py py-obj docutils literal notranslate"><span class="pre">execute</span></code></a></p></td>
 <td><p>Execute this stage and return the updated state.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.TellStage.to_pseudocode" title="saealib.TellStage.to_pseudocode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pseudocode</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.TellStage.flow_summary" title="saealib.TellStage.flow_summary"><code class="xref py py-obj docutils literal notranslate"><span class="pre">flow_summary</span></code></a></p></td>
+<td><p>Declare the feedback input to the algorithm.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.TellStage.to_pseudocode" title="saealib.TellStage.to_pseudocode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pseudocode</span></code></a></p></td>
 <td><p>Expand into per-step lines via <code class="docutils literal notranslate"><span class="pre">Algorithm.tell_notation</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.TellStage.to_text" title="saealib.TellStage.to_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_text</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.TellStage.to_text" title="saealib.TellStage.to_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_text</span></code></a></p></td>
 <td><p>Render this stage as a plain-text algorithmic line.</p></td>
 </tr>
 </tbody>
@@ -986,6 +989,17 @@ expects) and calls <code class="docutils literal notranslate"><span class="pre">
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>OptimizationState</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="saealib.TellStage.flow_summary">
+<span class="sig-prename descclassname"><span class="pre">TellStage.</span></span><span class="sig-name descname"><span class="pre">flow_summary</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/stages.html#TellStage.flow_summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.TellStage.flow_summary" title="Link to this definition">#</a></dt>
+<dd><p>Declare the feedback input to the algorithm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>StageFlowSummary</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1077,6 +1091,7 @@ expects) and calls <code class="docutils literal notranslate"><span class="pre">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.TellStage.__init__"><code class="docutils literal notranslate"><span class="pre">TellStage.__init__()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.TellStage.contract"><code class="docutils literal notranslate"><span class="pre">TellStage.contract()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.TellStage.execute"><code class="docutils literal notranslate"><span class="pre">TellStage.execute()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.TellStage.flow_summary"><code class="docutils literal notranslate"><span class="pre">TellStage.flow_summary()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.TellStage.to_pseudocode"><code class="docutils literal notranslate"><span class="pre">TellStage.to_pseudocode()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.TellStage.to_text"><code class="docutils literal notranslate"><span class="pre">TellStage.to_text()</span></code></a></li>
 </ul>

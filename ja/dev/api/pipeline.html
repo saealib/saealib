@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>パイプライン &#8212; saealib 0.1.1.dev32+gcb44f7f65 ドキュメント</title>
+    <title>パイプライン &#8212; saealib 0.1.1.dev33+gb97d11523 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=6119eff2"></script>
+    <script src="../_static/documentation_options.js?v=6db72d4d"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -929,9 +929,22 @@
 <p>コンパイル時、必須入力ポートは制御順序に従って上流の互換出力と照合されます。
 一意に一致した接続は<code class="docutils literal notranslate"><span class="pre">DataEdge</span></code>になり、一致しない場合や候補が複数ある場合はCompiler診断が生成されます。
 あいまいな接続を解決する必要がある場合は、明示的なGraphを使います。</p>
-<p><code class="docutils literal notranslate"><span class="pre">stage_component(stage)</span></code>は移行用アダプターです。
-トランザクションプロキシ経由の状態書き込みは<code class="docutils literal notranslate"><span class="pre">StatePatch</span></code>値になりますが、アダプターはServicesまたはContext機能として公開された可変オブジェクトの所有権を保持します。
-新しいグラフネイティブコンポーネントでは、永続的な可変状態を宣言済みの<code class="docutils literal notranslate"><span class="pre">StateKey</span></code>値とパッチの背後に保持します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">Stage.flow_summary()</span></code>はコンポーネント呼び出しとデータ接続を宣言します。
+戻り値が<code class="docutils literal notranslate"><span class="pre">None</span></code>の場合、Stageのflowは不明です。
+空のsummaryは状態だけを扱い、コンポーネント間のデータ接続を持たないflowを表します。
+Compilerは次の変換名と入出力のデータ型を検証します。</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">encode_features</span></code></strong>：<code class="docutils literal notranslate"><span class="pre">Population</span></code>から<code class="docutils literal notranslate"><span class="pre">FeatureBatch</span></code>へ変換します。</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">extract_population_genomes</span></code></strong>：<code class="docutils literal notranslate"><span class="pre">Population</span></code>から<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>を取り出します。</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">apply_observations</span></code></strong>：<code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code>を<code class="docutils literal notranslate"><span class="pre">Population</span></code>へ適用します。</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">extract_evaluation_observations</span></code></strong>：<code class="docutils literal notranslate"><span class="pre">Population</span></code>から<code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code>を取り出します。</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">select_requested_candidates</span></code></strong>：<code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code>から<code class="docutils literal notranslate"><span class="pre">CandidateSelection</span></code>を作ります。</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">extract_genomes</span></code></strong>：<code class="docutils literal notranslate"><span class="pre">CandidateSelection</span></code>から<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>を取り出します。</p></li>
+</ul>
+<p>Stageからグラフを作る独自Strategyでは、<code class="docutils literal notranslate"><span class="pre">StructuredGraph</span></code>を<code class="docutils literal notranslate"><span class="pre">decompose_structured_graph()</span></code>へ渡すと、Stageのflow接続がCompilerの検証対象に加わります。</p>
+<p><code class="docutils literal notranslate"><span class="pre">stage_component(stage)</span></code>はStageの実行を<code class="docutils literal notranslate"><span class="pre">StateView</span></code>上のトランザクションへ適合させます。
+トランザクションプロキシ経由の状態書き込みは<code class="docutils literal notranslate"><span class="pre">StatePatch</span></code>になり、ServicesまたはContext機能として公開された可変オブジェクトはStageが所有します。
+グラフネイティブなコンポーネントでは、永続的な可変状態を宣言済みの<code class="docutils literal notranslate"><span class="pre">StateKey</span></code>とパッチで管理します。</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/saealib.Stage.html#saealib.Stage" title="saealib.Stage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.Stage</span></code></a></p></td>

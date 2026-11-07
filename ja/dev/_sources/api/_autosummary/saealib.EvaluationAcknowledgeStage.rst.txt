@@ -18,6 +18,7 @@
    ~EvaluationAcknowledgeStage.__init__
    ~EvaluationAcknowledgeStage.contract
    ~EvaluationAcknowledgeStage.execute
+   ~EvaluationAcknowledgeStage.flow_summary
    ~EvaluationAcknowledgeStage.to_pseudocode
    ~EvaluationAcknowledgeStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.EvaluationAcknowledgeStage.execute
+
+
+.. automethod:: saealib.EvaluationAcknowledgeStage.flow_summary
 
 
 .. automethod:: saealib.EvaluationAcknowledgeStage.to_pseudocode

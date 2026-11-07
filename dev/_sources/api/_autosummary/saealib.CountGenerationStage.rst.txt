@@ -18,6 +18,7 @@
    ~CountGenerationStage.__init__
    ~CountGenerationStage.contract
    ~CountGenerationStage.execute
+   ~CountGenerationStage.flow_summary
    ~CountGenerationStage.to_pseudocode
    ~CountGenerationStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.CountGenerationStage.execute
+
+
+.. automethod:: saealib.CountGenerationStage.flow_summary
 
 
 .. automethod:: saealib.CountGenerationStage.to_pseudocode

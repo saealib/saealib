@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.stages &#8212; saealib 0.1.1.dev32+gcb44f7f65 documentation</title>
+    <title>saealib.stages &#8212; saealib 0.1.1.dev33+gb97d11523 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=f803545c"></script>
+    <script src="../../_static/documentation_options.js?v=f4ad96e3"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1000,10 +1000,17 @@ window.runMermaid = runMermaid;</script>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationPlanState</span><span class="p">,</span> <span class="n">OptimizationState</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CallInput</span><span class="p">,</span>
+    <span class="n">CallOutput</span><span class="p">,</span>
+    <span class="n">ComponentCall</span><span class="p">,</span>
     <span class="n">ComponentContract</span><span class="p">,</span>
     <span class="n">FeedbackBatch</span><span class="p">,</span>
+    <span class="n">FlowEdge</span><span class="p">,</span>
     <span class="n">PartSpec</span><span class="p">,</span>
+    <span class="n">StageFlowSummary</span><span class="p">,</span>
     <span class="n">StateContract</span><span class="p">,</span>
+    <span class="n">StateValue</span><span class="p">,</span>
+    <span class="n">Transform</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.execution</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeedbackChannel</span>
@@ -1040,6 +1047,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">SCORES</span><span class="p">,</span>
     <span class="n">SURROGATES_PREDICTIONS</span><span class="p">,</span>
     <span class="n">USER_DATA</span><span class="p">,</span>
+    <span class="n">StateKey</span><span class="p">,</span>
     <span class="n">StatePatch</span><span class="p">,</span>
     <span class="n">StateStore</span><span class="p">,</span>
     <span class="n">StateView</span><span class="p">,</span>
@@ -1368,6 +1376,30 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_flow_call</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">role</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">attribute</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentCall</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">ComponentCall</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span> <span class="n">attribute</span><span class="o">=</span><span class="n">attribute</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_state_input</span><span class="p">(</span>
+    <span class="n">call</span><span class="p">:</span> <span class="n">ComponentCall</span><span class="p">,</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">key</span><span class="p">:</span> <span class="n">StateKey</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span>
+    <span class="n">transforms</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Transform</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FlowEdge</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">FlowEdge</span><span class="p">(</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">StateValue</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">),</span>
+        <span class="n">target</span><span class="o">=</span><span class="n">CallInput</span><span class="p">(</span><span class="n">call</span><span class="o">=</span><span class="n">call</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">),</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">transforms</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_state_output</span><span class="p">(</span><span class="n">call</span><span class="p">:</span> <span class="n">ComponentCall</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">StateKey</span><span class="p">[</span><span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">FlowEdge</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">FlowEdge</span><span class="p">(</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">CallOutput</span><span class="p">(</span><span class="n">call</span><span class="o">=</span><span class="n">call</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">),</span>
+        <span class="n">target</span><span class="o">=</span><span class="n">StateValue</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">),</span>
+    <span class="p">)</span>
+
+
 <span class="n">_STATE_FIELD_KEYS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;population&quot;</span><span class="p">:</span> <span class="n">POPULATIONS_MAIN</span><span class="p">,</span>
     <span class="s2">&quot;archive&quot;</span><span class="p">:</span> <span class="n">ARCHIVES_MAIN</span><span class="p">,</span>
@@ -1575,20 +1607,34 @@ window.runMermaid = runMermaid;</script>
         <span class="n">direct</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">contract</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">direct</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;Stage.contract() must return ComponentContract&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_contract</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">analysis_contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the Stage declaration used to verify graph flow.&quot;&quot;&quot;</span>
+        <span class="n">direct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stage</span><span class="o">.</span><span class="n">contract</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">direct</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;Stage.contract() must return ComponentContract&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">direct</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">runtime_contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the execution contract after resolving held components.&quot;&quot;&quot;</span>
+        <span class="n">direct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stage</span><span class="o">.</span><span class="n">contract</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">direct</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;Stage.contract() must return ComponentContract&quot;</span><span class="p">)</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.graph_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">StageNodeAdapter</span>
 
-        <span class="n">held</span> <span class="o">=</span> <span class="n">StageNodeAdapter</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="n">contract</span><span class="p">()</span><span class="o">.</span><span class="n">state</span>
-        <span class="n">state</span> <span class="o">=</span> <span class="n">StateContract</span><span class="p">(</span>
+        <span class="n">held</span> <span class="o">=</span> <span class="n">StageNodeAdapter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="n">contract</span><span class="p">()</span><span class="o">.</span><span class="n">state</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span>
+            <span class="n">direct</span><span class="o">.</span><span class="n">state</span><span class="p">,</span>
             <span class="n">reads</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">((</span><span class="o">*</span><span class="n">direct</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">reads</span><span class="p">,</span> <span class="o">*</span><span class="n">held</span><span class="o">.</span><span class="n">reads</span><span class="p">))),</span>
             <span class="n">writes</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">((</span><span class="o">*</span><span class="n">direct</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">writes</span><span class="p">,</span> <span class="o">*</span><span class="n">held</span><span class="o">.</span><span class="n">writes</span><span class="p">))),</span>
             <span class="n">exports</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">((</span><span class="o">*</span><span class="n">direct</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">exports</span><span class="p">,</span> <span class="o">*</span><span class="n">held</span><span class="o">.</span><span class="n">exports</span><span class="p">))),</span>
             <span class="n">reads_enumerable</span><span class="o">=</span><span class="n">direct</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">reads_enumerable</span> <span class="ow">and</span> <span class="n">held</span><span class="o">.</span><span class="n">reads_enumerable</span><span class="p">,</span>
             <span class="n">writes_enumerable</span><span class="o">=</span><span class="n">direct</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">writes_enumerable</span> <span class="ow">and</span> <span class="n">held</span><span class="o">.</span><span class="n">writes_enumerable</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_contract</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="n">direct</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_contract</span>
+        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="n">direct</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_to_patch</span><span class="p">(</span><span class="n">proxy</span><span class="p">:</span> <span class="n">_StageStateProxy</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatePatch</span><span class="p">:</span>
@@ -1695,6 +1741,13 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="CountGenerationStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.CountGenerationStage.html#saealib.CountGenerationStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare this stage&#39;s state-only flow.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">()</span></div>
+
+
 <div class="viewcode-block" id="CountGenerationStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.CountGenerationStage.html#saealib.CountGenerationStage.execute">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
@@ -1753,6 +1806,17 @@ window.runMermaid = runMermaid;</script>
             <span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">),),</span>
             <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AskStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.AskStage.html#saealib.AskStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare the proposer invocation and its produced population.&quot;&quot;&quot;</span>
+        <span class="n">proposer</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;proposer&quot;</span><span class="p">,</span> <span class="s2">&quot;proposer&quot;</span><span class="p">,</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">proposer</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span><span class="n">_state_output</span><span class="p">(</span><span class="n">proposer</span><span class="p">,</span> <span class="s2">&quot;genomes&quot;</span><span class="p">,</span> <span class="n">PROPOSALS_OFFSPRING</span><span class="p">),),</span>
         <span class="p">)</span></div>
 
 
@@ -1888,6 +1952,26 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="SurrogatePredictStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogatePredictStage.html#saealib.SurrogatePredictStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare prediction inputs and output.&quot;&quot;&quot;</span>
+        <span class="n">predictor</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;predictor&quot;</span><span class="p">,</span> <span class="s2">&quot;predictor&quot;</span><span class="p">,</span> <span class="s2">&quot;_sm&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">predictor</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_state_input</span><span class="p">(</span>
+                    <span class="n">predictor</span><span class="p">,</span>
+                    <span class="s2">&quot;candidates&quot;</span><span class="p">,</span>
+                    <span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">Transform</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;encode_features&quot;</span><span class="p">),),</span>
+                <span class="p">),</span>
+                <span class="n">_state_input</span><span class="p">(</span><span class="n">predictor</span><span class="p">,</span> <span class="s2">&quot;archive&quot;</span><span class="p">,</span> <span class="n">ARCHIVES_MAIN</span><span class="p">),</span>
+                <span class="n">_state_output</span><span class="p">(</span><span class="n">predictor</span><span class="p">,</span> <span class="s2">&quot;prediction&quot;</span><span class="p">,</span> <span class="n">SURROGATES_PREDICTIONS</span><span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="SurrogatePredictStage.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogatePredictStage.html#saealib.SurrogatePredictStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -1972,6 +2056,10 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">()</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare this stage&#39;s state-only flow.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">()</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scheduler</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_scheduler</span> <span class="o">=</span> <span class="n">scheduler</span>
@@ -2034,6 +2122,20 @@ window.runMermaid = runMermaid;</script>
             <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">SCORES</span><span class="p">,</span> <span class="n">ACQUISITION_RESULT</span><span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_acquisition&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_acquisition</span><span class="p">),),</span>
             <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AcquisitionStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.AcquisitionStage.html#saealib.AcquisitionStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare acquisition prediction input and score output.&quot;&quot;&quot;</span>
+        <span class="n">acquisition</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="s2">&quot;_acquisition&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">acquisition</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_state_input</span><span class="p">(</span><span class="n">acquisition</span><span class="p">,</span> <span class="s2">&quot;prediction&quot;</span><span class="p">,</span> <span class="n">SURROGATES_PREDICTIONS</span><span class="p">),</span>
+                <span class="n">_state_output</span><span class="p">(</span><span class="n">acquisition</span><span class="p">,</span> <span class="s2">&quot;scores&quot;</span><span class="p">,</span> <span class="n">SCORES</span><span class="p">),</span>
+            <span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -2176,6 +2278,17 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="SurrogateFitStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateFitStage.html#saealib.SurrogateFitStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare the archive input used to fit the surrogate.&quot;&quot;&quot;</span>
+        <span class="n">fitter</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;fitter&quot;</span><span class="p">,</span> <span class="s2">&quot;fitter&quot;</span><span class="p">,</span> <span class="s2">&quot;_sm&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">fitter</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span><span class="n">_state_input</span><span class="p">(</span><span class="n">fitter</span><span class="p">,</span> <span class="s2">&quot;archive&quot;</span><span class="p">,</span> <span class="n">ARCHIVES_MAIN</span><span class="p">),),</span>
+        <span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="SurrogateFitStage.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateFitStage.html#saealib.SurrogateFitStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -2246,6 +2359,10 @@ window.runMermaid = runMermaid;</script>
             <span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span> <span class="n">SCORES</span><span class="p">),</span> <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,)</span>
         <span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare this stage&#39;s state-only flow.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">()</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_k</span> <span class="o">=</span> <span class="n">k</span>
@@ -2278,6 +2395,10 @@ window.runMermaid = runMermaid;</script>
             <span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span> <span class="n">SCORES</span><span class="p">),</span>
             <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span> <span class="n">SCORES</span><span class="p">),</span>
         <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare this stage&#39;s state-only flow.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
         <span class="k">assert</span> <span class="n">state</span><span class="o">.</span><span class="n">offspring</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -2347,6 +2468,21 @@ window.runMermaid = runMermaid;</script>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_planner&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_planner</span><span class="p">),),</span>
             <span class="n">reads_enumerable</span><span class="o">=</span><span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_n_eval</span><span class="p">),</span>
             <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EvaluationPlanStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationPlanStage.html#saealib.EvaluationPlanStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare planning inputs and the selected evaluation request.&quot;&quot;&quot;</span>
+        <span class="n">planner</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;planner&quot;</span><span class="p">,</span> <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">,</span> <span class="s2">&quot;_planner&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">planner</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_state_input</span><span class="p">(</span><span class="n">planner</span><span class="p">,</span> <span class="s2">&quot;candidates&quot;</span><span class="p">,</span> <span class="n">PROPOSALS_OFFSPRING</span><span class="p">),</span>
+                <span class="n">_state_input</span><span class="p">(</span><span class="n">planner</span><span class="p">,</span> <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="n">SCORES</span><span class="p">),</span>
+                <span class="n">_state_output</span><span class="p">(</span><span class="n">planner</span><span class="p">,</span> <span class="s2">&quot;evaluation_requests&quot;</span><span class="p">,</span> <span class="n">EVALUATION_REQUEST</span><span class="p">),</span>
+            <span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -2576,6 +2712,22 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="AsyncEvaluationSubmitStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.AsyncEvaluationSubmitStage.html#saealib.AsyncEvaluationSubmitStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare planning and asynchronous scheduling invocations.&quot;&quot;&quot;</span>
+        <span class="n">planner</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;planner&quot;</span><span class="p">,</span> <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">,</span> <span class="s2">&quot;_planner&quot;</span><span class="p">)</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;scheduler&quot;</span><span class="p">,</span> <span class="s2">&quot;scheduler&quot;</span><span class="p">,</span> <span class="s2">&quot;_scheduler&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">planner</span><span class="p">,</span> <span class="n">scheduler</span><span class="p">),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_state_input</span><span class="p">(</span><span class="n">planner</span><span class="p">,</span> <span class="s2">&quot;candidates&quot;</span><span class="p">,</span> <span class="n">PROPOSALS_OFFSPRING</span><span class="p">),</span>
+                <span class="n">_state_input</span><span class="p">(</span><span class="n">planner</span><span class="p">,</span> <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="n">SCORES</span><span class="p">),</span>
+                <span class="n">_state_output</span><span class="p">(</span><span class="n">planner</span><span class="p">,</span> <span class="s2">&quot;evaluation_requests&quot;</span><span class="p">,</span> <span class="n">EVALUATION_REQUEST</span><span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="AsyncEvaluationSubmitStage.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.AsyncEvaluationSubmitStage.html#saealib.AsyncEvaluationSubmitStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -2770,6 +2922,27 @@ window.runMermaid = runMermaid;</script>
             <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">EVALUATIONS_PENDING</span><span class="p">,</span> <span class="n">EVALUATION_HANDLES</span><span class="p">,</span> <span class="n">EVALUATIONS_PLAN_STATE</span><span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="p">),),</span>
             <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EvaluationSubmitStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationSubmitStage.html#saealib.EvaluationSubmitStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare the request conversion and evaluator input.&quot;&quot;&quot;</span>
+        <span class="n">evaluator</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_state_input</span><span class="p">(</span>
+                    <span class="n">evaluator</span><span class="p">,</span>
+                    <span class="s2">&quot;genomes&quot;</span><span class="p">,</span>
+                    <span class="n">EVALUATION_REQUEST</span><span class="p">,</span>
+                    <span class="p">(</span>
+                        <span class="n">Transform</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;select_requested_candidates&quot;</span><span class="p">),</span>
+                        <span class="n">Transform</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;extract_genomes&quot;</span><span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -2986,6 +3159,22 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="EvaluationCollectStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationCollectStage.html#saealib.EvaluationCollectStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare the evaluator used to collect completed requests.&quot;&quot;&quot;</span>
+        <span class="n">evaluator</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">FlowEdge</span><span class="p">(</span>
+                    <span class="n">source</span><span class="o">=</span><span class="n">CallOutput</span><span class="p">(</span><span class="n">call</span><span class="o">=</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;observations&quot;</span><span class="p">),</span>
+                    <span class="n">target</span><span class="o">=</span><span class="n">StateValue</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">EVALUATION_UPDATES</span><span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="EvaluationCollectStage.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationCollectStage.html#saealib.EvaluationCollectStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -3190,6 +3379,21 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">EVALUATION_UPDATE_NEW_IDS</span><span class="p">,</span>
                 <span class="n">EVALUATIONS_PENDING</span><span class="p">,</span>
             <span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EvaluationApplyStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationApplyStage.html#saealib.EvaluationApplyStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare this stage&#39;s state-only flow.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">FlowEdge</span><span class="p">(</span>
+                    <span class="n">source</span><span class="o">=</span><span class="n">StateValue</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">EVALUATION_UPDATES</span><span class="p">),</span>
+                    <span class="n">target</span><span class="o">=</span><span class="n">StateValue</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">EVALUATED_OFFSPRING</span><span class="p">),</span>
+                    <span class="n">transforms</span><span class="o">=</span><span class="p">(</span><span class="n">Transform</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;apply_observations&quot;</span><span class="p">),),</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
         <span class="p">)</span></div>
 
 
@@ -3447,6 +3651,14 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="EvaluationAcknowledgeStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationAcknowledgeStage.html#saealib.EvaluationAcknowledgeStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare the evaluator used to acknowledge committed updates.&quot;&quot;&quot;</span>
+        <span class="n">evaluator</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span><span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,))</span></div>
+
+
 <div class="viewcode-block" id="EvaluationAcknowledgeStage.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.EvaluationAcknowledgeStage.html#saealib.EvaluationAcknowledgeStage.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -3636,6 +3848,26 @@ window.runMermaid = runMermaid;</script>
             <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
         <span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare the genome input and observation output.&quot;&quot;&quot;</span>
+        <span class="n">evaluator</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_state_input</span><span class="p">(</span>
+                    <span class="n">evaluator</span><span class="p">,</span>
+                    <span class="s2">&quot;genomes&quot;</span><span class="p">,</span>
+                    <span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">Transform</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;extract_population_genomes&quot;</span><span class="p">),),</span>
+                <span class="p">),</span>
+                <span class="n">FlowEdge</span><span class="p">(</span>
+                    <span class="n">source</span><span class="o">=</span><span class="n">CallOutput</span><span class="p">(</span><span class="n">call</span><span class="o">=</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;observations&quot;</span><span class="p">),</span>
+                    <span class="n">target</span><span class="o">=</span><span class="n">StateValue</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">EVALUATED_OFFSPRING</span><span class="p">),</span>
+                    <span class="n">transforms</span><span class="o">=</span><span class="p">(</span><span class="n">Transform</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;apply_observations&quot;</span><span class="p">),),</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span> <span class="o">|</span> <span class="n">ComponentRef</span><span class="p">,</span>
@@ -3730,6 +3962,13 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="ArchiveUpdateStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.ArchiveUpdateStage.html#saealib.ArchiveUpdateStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare this stage&#39;s state-only flow.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">()</span></div>
+
+
 <div class="viewcode-block" id="ArchiveUpdateStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.ArchiveUpdateStage.html#saealib.ArchiveUpdateStage.execute">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
@@ -3795,6 +4034,28 @@ window.runMermaid = runMermaid;</script>
             <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">PROPOSALS_OFFSPRING</span><span class="p">,</span> <span class="n">FEEDBACK_RESULT</span><span class="p">),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_builder&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="p">),),</span>
             <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FeedbackStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.FeedbackStage.html#saealib.FeedbackStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare feedback inputs and output.&quot;&quot;&quot;</span>
+        <span class="n">builder</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;builder&quot;</span><span class="p">,</span> <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span> <span class="s2">&quot;_builder&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">builder</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_state_input</span><span class="p">(</span><span class="n">builder</span><span class="p">,</span> <span class="s2">&quot;candidates&quot;</span><span class="p">,</span> <span class="n">PROPOSALS_OFFSPRING</span><span class="p">),</span>
+                <span class="n">_state_input</span><span class="p">(</span><span class="n">builder</span><span class="p">,</span> <span class="s2">&quot;prediction&quot;</span><span class="p">,</span> <span class="n">SURROGATES_PREDICTIONS</span><span class="p">),</span>
+                <span class="n">_state_input</span><span class="p">(</span>
+                    <span class="n">builder</span><span class="p">,</span>
+                    <span class="s2">&quot;evaluation&quot;</span><span class="p">,</span>
+                    <span class="n">EVALUATED_OFFSPRING</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">Transform</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;extract_evaluation_observations&quot;</span><span class="p">),),</span>
+                <span class="p">),</span>
+                <span class="n">_state_input</span><span class="p">(</span><span class="n">builder</span><span class="p">,</span> <span class="s2">&quot;evaluated_indices&quot;</span><span class="p">,</span> <span class="n">EVALUATION_NEW_IDS</span><span class="p">),</span>
+                <span class="n">_state_output</span><span class="p">(</span><span class="n">builder</span><span class="p">,</span> <span class="s2">&quot;feedback&quot;</span><span class="p">,</span> <span class="n">FEEDBACK_RESULT</span><span class="p">),</span>
+            <span class="p">),</span>
         <span class="p">)</span></div>
 
 
@@ -3907,6 +4168,17 @@ window.runMermaid = runMermaid;</script>
             <span class="n">writes</span><span class="o">=</span><span class="p">(),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">),),</span>
             <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TellStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.TellStage.html#saealib.TellStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare the feedback input to the algorithm.&quot;&quot;&quot;</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="s2">&quot;feedback_consumer&quot;</span><span class="p">,</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">consumer</span><span class="p">,),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span><span class="n">_state_input</span><span class="p">(</span><span class="n">consumer</span><span class="p">,</span> <span class="s2">&quot;feedback&quot;</span><span class="p">,</span> <span class="n">FEEDBACK_RESULT</span><span class="p">),),</span>
         <span class="p">)</span></div>
 
 
@@ -4039,12 +4311,44 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="SurrogateOnlyLoopStage.contract">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateOnlyLoopStage.html#saealib.SurrogateOnlyLoopStage.contract">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
-        <span class="c1"># The nested stages are separate graph units.  This declaration covers</span>
-        <span class="c1"># only the loop&#39;s direct fit/read access and avoids double counting.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_ctrl</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">(</span><span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">ARCHIVES_MAIN</span><span class="p">,))</span>
+        <span class="n">components</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_acquisition&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_acquisition</span><span class="p">),</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;_builder&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">(</span>
             <span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">ARCHIVES_MAIN</span><span class="p">,),</span>
-            <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">),),</span>
+            <span class="n">components</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">components</span><span class="p">),</span>
             <span class="n">unresolved</span><span class="o">=</span><span class="n">_unresolved_reference_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SurrogateOnlyLoopStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateOnlyLoopStage.html#saealib.SurrogateOnlyLoopStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare the calls made by the surrogate-only generations.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_ctrl</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">()</span>
+        <span class="n">fitter</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;fitter&quot;</span><span class="p">,</span> <span class="s2">&quot;fitter&quot;</span><span class="p">,</span> <span class="s2">&quot;_sm&quot;</span><span class="p">)</span>
+        <span class="n">calls</span> <span class="o">=</span> <span class="p">[</span><span class="n">fitter</span><span class="p">,</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;predictor&quot;</span><span class="p">,</span> <span class="s2">&quot;predictor&quot;</span><span class="p">,</span> <span class="s2">&quot;_sm&quot;</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">role</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="s2">&quot;proposer&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="s2">&quot;acquisition&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;builder&quot;</span><span class="p">,</span> <span class="s2">&quot;feedback_builder&quot;</span><span class="p">),</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">calls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_flow_call</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">calls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;feedback_consumer&quot;</span><span class="p">,</span> <span class="s2">&quot;feedback_consumer&quot;</span><span class="p">,</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span>
+            <span class="n">calls</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">calls</span><span class="p">),</span>
+            <span class="n">edges</span><span class="o">=</span><span class="p">(</span><span class="n">_state_input</span><span class="p">(</span><span class="n">fitter</span><span class="p">,</span> <span class="s2">&quot;archive&quot;</span><span class="p">,</span> <span class="n">ARCHIVES_MAIN</span><span class="p">),),</span>
         <span class="p">)</span></div>
 
 
@@ -4084,6 +4388,8 @@ window.runMermaid = runMermaid;</script>
                 <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">references</span><span class="p">)</span>
         <span class="n">referenced_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">references</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">feedback_builder</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span> <span class="o">=</span> <span class="n">MixedFeedback</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="s2">&quot;_acquisition&quot;</span><span class="p">):</span>
             <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">referenced_names</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
@@ -4098,7 +4404,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span> <span class="k">else</span> <span class="n">cbmanager</span>
         <span class="k">if</span> <span class="n">gen_ctrl</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refs</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">stages</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_inner_stages</span><span class="p">(</span>
-                <span class="n">algorithm</span><span class="p">,</span> <span class="n">surrogate_manager</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="n">feedback_builder</span><span class="p">,</span> <span class="n">cbmanager</span>
+                <span class="n">algorithm</span><span class="p">,</span> <span class="n">surrogate_manager</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="p">,</span> <span class="n">cbmanager</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">stages</span> <span class="o">=</span> <span class="p">[]</span></div>
@@ -4219,6 +4525,14 @@ window.runMermaid = runMermaid;</script>
             <span class="n">writes</span><span class="o">=</span><span class="p">(),</span>
             <span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_initializer&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initializer</span><span class="p">),),</span>
         <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="InitializationStage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.InitializationStage.html#saealib.InitializationStage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare the initializer invocation.&quot;&quot;&quot;</span>
+        <span class="n">initializer</span> <span class="o">=</span> <span class="n">_flow_call</span><span class="p">(</span><span class="s2">&quot;initializer&quot;</span><span class="p">,</span> <span class="s2">&quot;initializer&quot;</span><span class="p">,</span> <span class="s2">&quot;_initializer&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">StageFlowSummary</span><span class="p">(</span><span class="n">calls</span><span class="o">=</span><span class="p">(</span><span class="n">initializer</span><span class="p">,))</span></div>
 
 
 <div class="viewcode-block" id="InitializationStage.__init__">

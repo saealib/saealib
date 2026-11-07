@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Pipeline &#8212; saealib 0.1.1.dev32+gcb44f7f65 documentation</title>
+    <title>Pipeline &#8212; saealib 0.1.1.dev33+gb97d11523 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=f803545c"></script>
+    <script src="../_static/documentation_options.js?v=f4ad96e3"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -928,9 +928,21 @@ When placing an existing Stage in a structured Pipeline, wrap it explicitly with
 <p>During compilation, required input ports are matched to compatible outputs upstream in control order.
 A uniquely matched connection becomes a <code class="docutils literal notranslate"><span class="pre">DataEdge</span></code>; no match or multiple candidates produces a Compiler diagnostic.
 Use an explicit Graph when an ambiguous connection must be resolved.</p>
-<p><code class="docutils literal notranslate"><span class="pre">stage_component(stage)</span></code> is a migration adapter.
-State writes through the transaction proxy become <code class="docutils literal notranslate"><span class="pre">StatePatch</span></code> values, but the adapter retains ownership of mutable objects exposed as Services or Context capabilities.
-In a new graph-native component, keep persistent mutable state behind declared <code class="docutils literal notranslate"><span class="pre">StateKey</span></code> values and patches.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Stage.flow_summary()</span></code> declares component calls and their data connections.
+Returning <code class="docutils literal notranslate"><span class="pre">None</span></code> means that the Stage flow is unknown; an empty summary declares state-only flow.
+The compiler validates these transform names and their input and output kinds:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">encode_features</span></code>: <code class="docutils literal notranslate"><span class="pre">Population</span></code> to <code class="docutils literal notranslate"><span class="pre">FeatureBatch</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extract_population_genomes</span></code>: <code class="docutils literal notranslate"><span class="pre">Population</span></code> to <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">apply_observations</span></code>: <code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code> to <code class="docutils literal notranslate"><span class="pre">Population</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extract_evaluation_observations</span></code>: <code class="docutils literal notranslate"><span class="pre">Population</span></code> to <code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">select_requested_candidates</span></code>: <code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code> to <code class="docutils literal notranslate"><span class="pre">CandidateSelection</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extract_genomes</span></code>: <code class="docutils literal notranslate"><span class="pre">CandidateSelection</span></code> to <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code></p></li>
+</ul>
+<p>Custom strategies that lower Stages should pass the <code class="docutils literal notranslate"><span class="pre">StructuredGraph</span></code> through <code class="docutils literal notranslate"><span class="pre">decompose_structured_graph()</span></code> to include Stage flow connections in compiler verification.</p>
+<p><code class="docutils literal notranslate"><span class="pre">stage_component(stage)</span></code> adapts Stage execution to <code class="docutils literal notranslate"><span class="pre">StateView</span></code> transactions.
+State writes through its transaction proxy become <code class="docutils literal notranslate"><span class="pre">StatePatch</span></code> values, while mutable objects exposed as Services or Context capabilities remain owned by the Stage.
+For graph-native components, keep persistent mutable state behind declared <code class="docutils literal notranslate"><span class="pre">StateKey</span></code> values and patches.</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/saealib.Stage.html#saealib.Stage" title="saealib.Stage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.Stage</span></code></a></p></td>

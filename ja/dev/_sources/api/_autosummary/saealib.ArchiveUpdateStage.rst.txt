@@ -18,6 +18,7 @@
    ~ArchiveUpdateStage.__init__
    ~ArchiveUpdateStage.contract
    ~ArchiveUpdateStage.execute
+   ~ArchiveUpdateStage.flow_summary
    ~ArchiveUpdateStage.to_pseudocode
    ~ArchiveUpdateStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.ArchiveUpdateStage.execute
+
+
+.. automethod:: saealib.ArchiveUpdateStage.flow_summary
 
 
 .. automethod:: saealib.ArchiveUpdateStage.to_pseudocode

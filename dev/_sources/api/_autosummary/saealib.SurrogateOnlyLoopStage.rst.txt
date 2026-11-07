@@ -18,6 +18,7 @@
    ~SurrogateOnlyLoopStage.__init__
    ~SurrogateOnlyLoopStage.contract
    ~SurrogateOnlyLoopStage.execute
+   ~SurrogateOnlyLoopStage.flow_summary
    ~SurrogateOnlyLoopStage.to_pseudocode
    ~SurrogateOnlyLoopStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.SurrogateOnlyLoopStage.execute
+
+
+.. automethod:: saealib.SurrogateOnlyLoopStage.flow_summary
 
 
 .. automethod:: saealib.SurrogateOnlyLoopStage.to_pseudocode

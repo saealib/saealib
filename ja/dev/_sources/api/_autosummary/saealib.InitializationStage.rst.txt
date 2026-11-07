@@ -18,6 +18,7 @@
    ~InitializationStage.__init__
    ~InitializationStage.contract
    ~InitializationStage.execute
+   ~InitializationStage.flow_summary
    ~InitializationStage.to_pseudocode
    ~InitializationStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.InitializationStage.execute
+
+
+.. automethod:: saealib.InitializationStage.flow_summary
 
 
 .. automethod:: saealib.InitializationStage.to_pseudocode

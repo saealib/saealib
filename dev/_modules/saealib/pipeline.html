@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.pipeline &#8212; saealib 0.1.1.dev32+gcb44f7f65 documentation</title>
+    <title>saealib.pipeline &#8212; saealib 0.1.1.dev33+gb97d11523 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=f803545c"></script>
+    <script src="../../_static/documentation_options.js?v=f4ad96e3"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -974,7 +974,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">_structural_stages</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.component</span><span class="w"> </span><span class="kn">import</span> <span class="n">Component</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span><span class="p">,</span> <span class="n">StateContract</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span><span class="p">,</span> <span class="n">StageFlowSummary</span><span class="p">,</span> <span class="n">StateContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.roles</span><span class="w"> </span><span class="kn">import</span> <span class="n">ROLES</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 
@@ -1212,6 +1212,18 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="n">ComponentContract</span><span class="p">(</span>
             <span class="n">state</span><span class="o">=</span><span class="n">StateContract</span><span class="p">(</span><span class="n">reads_enumerable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">writes_enumerable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Stage.flow_summary">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.Stage.html#saealib.Stage.flow_summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the declared component and data flow, when available.</span>
+
+<span class="sd">        ``None`` means that the Stage&#39;s flow is unknown and is reported as a</span>
+<span class="sd">        verification warning.  An empty :class:`StageFlowSummary` means the</span>
+<span class="sd">        Stage has a state-only flow with no component data edges.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_stage</span><span class="p">(</span>

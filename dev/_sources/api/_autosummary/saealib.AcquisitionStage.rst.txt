@@ -18,6 +18,7 @@
    ~AcquisitionStage.__init__
    ~AcquisitionStage.contract
    ~AcquisitionStage.execute
+   ~AcquisitionStage.flow_summary
    ~AcquisitionStage.to_pseudocode
    ~AcquisitionStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.AcquisitionStage.execute
+
+
+.. automethod:: saealib.AcquisitionStage.flow_summary
 
 
 .. automethod:: saealib.AcquisitionStage.to_pseudocode

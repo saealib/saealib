@@ -18,6 +18,7 @@
    ~SurrogatePredictStage.__init__
    ~SurrogatePredictStage.contract
    ~SurrogatePredictStage.execute
+   ~SurrogatePredictStage.flow_summary
    ~SurrogatePredictStage.to_pseudocode
    ~SurrogatePredictStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.SurrogatePredictStage.execute
+
+
+.. automethod:: saealib.SurrogatePredictStage.flow_summary
 
 
 .. automethod:: saealib.SurrogatePredictStage.to_pseudocode

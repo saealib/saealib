@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.core.compiler.compiler &#8212; saealib 0.1.1.dev32+gcb44f7f65 ドキュメント</title>
+    <title>saealib.core.compiler.compiler &#8212; saealib 0.1.1.dev33+gb97d11523 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../../_static/documentation_options.js?v=6119eff2"></script>
+    <script src="../../../../_static/documentation_options.js?v=6db72d4d"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -993,6 +993,7 @@ window.runMermaid = runMermaid;</script>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.contract</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.execution</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeCapability</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.flow</span><span class="w"> </span><span class="kn">import</span> <span class="n">Transform</span><span class="p">,</span> <span class="n">_apply_transforms</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.ports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">SERVICE_VOCABULARY</span><span class="p">,</span>
     <span class="n">PortCompatibility</span><span class="p">,</span>
@@ -1504,9 +1505,10 @@ window.runMermaid = runMermaid;</script>
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">_PortResolution</span><span class="p">:</span>
-    <span class="n">status</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;resolved&quot;</span><span class="p">,</span> <span class="s2">&quot;missing&quot;</span><span class="p">,</span> <span class="s2">&quot;ambiguous&quot;</span><span class="p">]</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;resolved&quot;</span><span class="p">,</span> <span class="s2">&quot;missing&quot;</span><span class="p">,</span> <span class="s2">&quot;ambiguous&quot;</span><span class="p">,</span> <span class="s2">&quot;invalid_transform&quot;</span><span class="p">]</span>
     <span class="n">role</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">spec</span><span class="p">:</span> <span class="n">PortSpec</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">error</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_port</span><span class="p">(</span>
@@ -1514,6 +1516,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">reference</span><span class="p">:</span> <span class="n">NodeRef</span><span class="p">,</span>
     <span class="n">port_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">direction</span><span class="p">:</span> <span class="n">PortDirection</span><span class="p">,</span>
+    <span class="n">transforms</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Transform</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_PortResolution</span><span class="p">:</span>
     <span class="n">selected_role</span> <span class="o">=</span> <span class="n">reference</span><span class="o">.</span><span class="n">role</span>
     <span class="k">if</span> <span class="n">selected_role</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1534,6 +1537,13 @@ window.runMermaid = runMermaid;</script>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_PortResolution</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="s2">&quot;ambiguous&quot;</span><span class="p">)</span>
     <span class="n">role</span><span class="p">,</span> <span class="n">spec</span> <span class="o">=</span> <span class="n">candidates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">direction</span> <span class="ow">is</span> <span class="n">PortDirection</span><span class="o">.</span><span class="n">OUTPUT</span> <span class="ow">and</span> <span class="n">transforms</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">error</span> <span class="o">=</span> <span class="n">_apply_transforms</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">transforms</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_PortResolution</span><span class="p">(</span>
+                <span class="n">status</span><span class="o">=</span><span class="s2">&quot;invalid_transform&quot;</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="n">spec</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">error</span>
+            <span class="p">)</span>
+        <span class="n">spec</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_PortResolution</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="s2">&quot;resolved&quot;</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="n">spec</span><span class="p">)</span>
 
 
@@ -1574,7 +1584,11 @@ window.runMermaid = runMermaid;</script>
                 <span class="c1"># ComponentGraph.well_formedness already reports missing nodes.</span>
                 <span class="k">continue</span>
             <span class="n">producer_port</span> <span class="o">=</span> <span class="n">_resolve_port</span><span class="p">(</span>
-                <span class="n">producer</span><span class="p">,</span> <span class="n">edge</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">edge</span><span class="o">.</span><span class="n">source_port</span><span class="p">,</span> <span class="n">PortDirection</span><span class="o">.</span><span class="n">OUTPUT</span>
+                <span class="n">producer</span><span class="p">,</span>
+                <span class="n">edge</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+                <span class="n">edge</span><span class="o">.</span><span class="n">source_port</span><span class="p">,</span>
+                <span class="n">PortDirection</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">,</span>
+                <span class="n">edge</span><span class="o">.</span><span class="n">transforms</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">consumer_port</span> <span class="o">=</span> <span class="n">_resolve_port</span><span class="p">(</span>
                 <span class="n">consumer</span><span class="p">,</span> <span class="n">edge</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">edge</span><span class="o">.</span><span class="n">target_port</span><span class="p">,</span> <span class="n">PortDirection</span><span class="o">.</span><span class="n">INPUT</span>
@@ -1584,6 +1598,24 @@ window.runMermaid = runMermaid;</script>
             <span class="n">source_path</span> <span class="o">=</span> <span class="n">_endpoint_path</span><span class="p">(</span><span class="n">edge</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">source_role</span><span class="p">,</span> <span class="n">edge</span><span class="o">.</span><span class="n">source_port</span><span class="p">)</span>
             <span class="n">target_path</span> <span class="o">=</span> <span class="n">_endpoint_path</span><span class="p">(</span><span class="n">edge</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">target_role</span><span class="p">,</span> <span class="n">edge</span><span class="o">.</span><span class="n">target_port</span><span class="p">)</span>
             <span class="n">connection</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">source_path</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">target_path</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">producer_port</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;invalid_transform&quot;</span><span class="p">:</span>
+                <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">Diagnostic</span><span class="p">(</span>
+                        <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                        <span class="n">code</span><span class="o">=</span><span class="s2">&quot;invalid_flow_transform&quot;</span><span class="p">,</span>
+                        <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Connection </span><span class="si">{</span><span class="n">connection</span><span class="si">}</span><span class="s2"> has an invalid transform: &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">producer_port</span><span class="o">.</span><span class="n">error</span><span class="si">}</span><span class="s2">.&quot;</span>
+                        <span class="p">),</span>
+                        <span class="n">path</span><span class="o">=</span><span class="n">source_path</span><span class="p">,</span>
+                        <span class="n">related</span><span class="o">=</span><span class="p">(</span><span class="n">target_path</span><span class="p">,),</span>
+                        <span class="n">resolutions</span><span class="o">=</span><span class="p">(</span>
+                            <span class="s2">&quot;Use a registered transform chain whose input kind &quot;</span>
+                            <span class="s2">&quot;matches the producer output.&quot;</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
             <span class="n">unresolved</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="p">(</span><span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="n">producer_port</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">producer_port</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="s2">&quot;resolved&quot;</span>
@@ -1738,10 +1770,11 @@ window.runMermaid = runMermaid;</script>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_data_edge_key</span><span class="p">(</span><span class="n">edge</span><span class="p">:</span> <span class="n">DataEdge</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-    <span class="k">return</span> <span class="p">(</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="p">(</span>
         <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_node_ref_key</span><span class="p">(</span><span class="n">edge</span><span class="o">.</span><span class="n">source</span><span class="p">)</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">edge</span><span class="o">.</span><span class="n">source_port</span><span class="si">}</span><span class="s2">-&gt;&quot;</span>
         <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_node_ref_key</span><span class="p">(</span><span class="n">edge</span><span class="o">.</span><span class="n">target</span><span class="p">)</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">edge</span><span class="o">.</span><span class="n">target_port</span><span class="si">}</span><span class="s2">&quot;</span>
     <span class="p">)</span>
+    <span class="k">return</span> <span class="n">base</span> <span class="o">+</span> <span class="s2">&quot;|&quot;</span> <span class="o">+</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">edge</span><span class="o">.</span><span class="n">transforms</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_control_edge_key</span><span class="p">(</span><span class="n">edge</span><span class="p">:</span> <span class="n">ControlEdge</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>

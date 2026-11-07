@@ -18,6 +18,7 @@
    ~TellStage.__init__
    ~TellStage.contract
    ~TellStage.execute
+   ~TellStage.flow_summary
    ~TellStage.to_pseudocode
    ~TellStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.TellStage.execute
+
+
+.. automethod:: saealib.TellStage.flow_summary
 
 
 .. automethod:: saealib.TellStage.to_pseudocode

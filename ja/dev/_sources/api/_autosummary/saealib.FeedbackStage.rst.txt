@@ -18,6 +18,7 @@
    ~FeedbackStage.__init__
    ~FeedbackStage.contract
    ~FeedbackStage.execute
+   ~FeedbackStage.flow_summary
    ~FeedbackStage.to_pseudocode
    ~FeedbackStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.FeedbackStage.execute
+
+
+.. automethod:: saealib.FeedbackStage.flow_summary
 
 
 .. automethod:: saealib.FeedbackStage.to_pseudocode

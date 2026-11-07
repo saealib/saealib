@@ -18,6 +18,7 @@
    ~AskStage.__init__
    ~AskStage.contract
    ~AskStage.execute
+   ~AskStage.flow_summary
    ~AskStage.to_pseudocode
    ~AskStage.to_text
 
@@ -36,6 +37,9 @@
 
 
 .. automethod:: saealib.AskStage.execute
+
+
+.. automethod:: saealib.AskStage.flow_summary
 
 
 .. automethod:: saealib.AskStage.to_pseudocode

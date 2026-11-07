@@ -34,6 +34,7 @@ from saealib.core.compiler.structured import (
 )
 from saealib.core.contracts.contract import ComponentContract
 from saealib.core.contracts.execution import RuntimeCapability
+from saealib.core.contracts.flow import Transform, _apply_transforms
 from saealib.core.contracts.ports import (
     SERVICE_VOCABULARY,
     PortCompatibility,
@@ -539,9 +540,10 @@ def _endpoint_path(reference: NodeRef, role: str | None, port: str) -> ContractP
 
 @dataclass(frozen=True, kw_only=True)
 class _PortResolution:
-    status: Literal["resolved", "missing", "ambiguous"]
+    status: Literal["resolved", "missing", "ambiguous", "invalid_transform"]
     role: str | None = None
     spec: PortSpec | None = None
+    error: str | None = None
 
 
 def _resolve_port(
@@ -549,6 +551,7 @@ def _resolve_port(
     reference: NodeRef,
     port_name: str,
     direction: PortDirection,
+    transforms: tuple[Transform, ...] = (),
 ) -> _PortResolution:
     selected_role = reference.role
     if selected_role is not None:
@@ -569,6 +572,13 @@ def _resolve_port(
     if len(candidates) > 1:
         return _PortResolution(status="ambiguous")
     role, spec = candidates[0]
+    if direction is PortDirection.OUTPUT and transforms:
+        data, error = _apply_transforms(spec.data, transforms)
+        if error is not None or data is None:
+            return _PortResolution(
+                status="invalid_transform", role=role, spec=spec, error=error
+            )
+        spec = replace(spec, data=data)
     return _PortResolution(status="resolved", role=role, spec=spec)
 
 
@@ -609,7 +619,11 @@ class PortCompatibilityRule:
                 # ComponentGraph.well_formedness already reports missing nodes.
                 continue
             producer_port = _resolve_port(
-                producer, edge.source, edge.source_port, PortDirection.OUTPUT
+                producer,
+                edge.source,
+                edge.source_port,
+                PortDirection.OUTPUT,
+                edge.transforms,
             )
             consumer_port = _resolve_port(
                 consumer, edge.target, edge.target_port, PortDirection.INPUT
@@ -619,6 +633,24 @@ class PortCompatibilityRule:
             source_path = _endpoint_path(edge.source, source_role, edge.source_port)
             target_path = _endpoint_path(edge.target, target_role, edge.target_port)
             connection = f"{source_path} -> {target_path}"
+            if producer_port.status == "invalid_transform":
+                findings.append(
+                    Diagnostic(
+                        severity=Severity.ERROR,
+                        code="invalid_flow_transform",
+                        message=(
+                            f"Connection {connection} has an invalid transform: "
+                            f"{producer_port.error}."
+                        ),
+                        path=source_path,
+                        related=(target_path,),
+                        resolutions=(
+                            "Use a registered transform chain whose input kind "
+                            "matches the producer output.",
+                        ),
+                    )
+                )
+                continue
             unresolved = (
                 ("source", producer_port)
                 if producer_port.status != "resolved"
@@ -773,10 +805,11 @@ def _node_ref_key(reference: NodeRef) -> str:
 
 
 def _data_edge_key(edge: DataEdge) -> str:
-    return (
+    base = (
         f"{_node_ref_key(edge.source)}.{edge.source_port}->"
         f"{_node_ref_key(edge.target)}.{edge.target_port}"
     )
+    return base + "|" + ",".join(item.name for item in edge.transforms)
 
 
 def _control_edge_key(edge: ControlEdge) -> str:

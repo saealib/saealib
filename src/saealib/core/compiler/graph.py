@@ -15,6 +15,7 @@ from saealib.core.compiler.diagnostics import (
     Severity,
 )
 from saealib.core.contracts.contract import ComponentContract
+from saealib.core.contracts.flow import Transform
 from saealib.core.contracts.roles import RoleName
 from saealib.core.contracts.vocabulary import validate_name
 from saealib.core.state.keys import StateKey
@@ -97,6 +98,12 @@ class ComponentNode:
     _contract_snapshot: ComponentContract | None = field(
         init=False, default=None, repr=False, compare=False
     )
+    _analysis_contract_snapshot: ComponentContract | None = field(
+        init=False, default=None, repr=False, compare=False
+    )
+    _verification_only: bool = field(
+        init=False, default=False, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         _component_name(self.component_id, "ComponentNode component_id")
@@ -116,7 +123,7 @@ class ComponentNode:
 
     @property
     def contract(self) -> ComponentContract:
-        """Return the cached contract, taking a compatibility snapshot on demand.
+        """Return the cached execution contract, taking a snapshot on demand.
 
         Compilation calls :meth:`with_contract_snapshot` before any compiler rule
         can read this property.  The fallback keeps the graph vocabulary usable
@@ -129,14 +136,41 @@ class ComponentNode:
             object.__setattr__(self, "_contract_snapshot", contract)
         return contract
 
+    @property
+    def analysis_contract(self) -> ComponentContract:
+        """Return the contract used to verify the component's graph behavior."""
+        contract = self._analysis_contract_snapshot
+        if contract is None:
+            contract = self._read_analysis_contract()
+            object.__setattr__(self, "_analysis_contract_snapshot", contract)
+        return contract
+
     def _read_contract(self) -> ComponentContract:
-        contract_method = getattr(self.component, "contract", None)
+        contract_method = getattr(self.component, "runtime_contract", None)
+        if not callable(contract_method):
+            contract_method = getattr(self.component, "contract", None)
         if not callable(contract_method):
             raise ValidationError("ComponentNode component must provide contract()")
         contract = contract_method()
         if not isinstance(contract, ComponentContract):
             raise ValidationError(
                 "ComponentNode contract() must return ComponentContract"
+            )
+        return contract
+
+    def _read_analysis_contract(
+        self, *, fallback: ComponentContract | None = None
+    ) -> ComponentContract:
+        contract_method = getattr(self.component, "analysis_contract", None)
+        if callable(contract_method):
+            contract = contract_method()
+        elif fallback is not None:
+            contract = fallback
+        else:
+            contract = self._read_contract()
+        if not isinstance(contract, ComponentContract):
+            raise ValidationError(
+                "ComponentNode analysis_contract() must return ComponentContract"
             )
         return contract
 
@@ -147,10 +181,20 @@ class ComponentNode:
         subsequent resolution pass preserves the snapshot already attached to
         the node, including when resolution only changes service bindings.
         """
-        if not refresh and self._contract_snapshot is not None:
+        if (
+            not refresh
+            and self._contract_snapshot is not None
+            and self._analysis_contract_snapshot is not None
+        ):
             return self
         result = copy(self)
-        object.__setattr__(result, "_contract_snapshot", self._read_contract())
+        contract = self._read_contract()
+        object.__setattr__(result, "_contract_snapshot", contract)
+        object.__setattr__(
+            result,
+            "_analysis_contract_snapshot",
+            self._read_analysis_contract(fallback=contract),
+        )
         return result
 
     def with_resolved_services(
@@ -177,12 +221,17 @@ class DataEdge:
     target: NodeRef
     source_port: str
     target_port: str
+    transforms: tuple[Transform, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source", NodeRef.from_value(self.source))
         object.__setattr__(self, "target", NodeRef.from_value(self.target))
         object.__setattr__(self, "source_port", _name(self.source_port, "source_port"))
         object.__setattr__(self, "target_port", _name(self.target_port, "target_port"))
+        transforms = tuple(self.transforms)
+        if any(not isinstance(item, Transform) for item in transforms):
+            raise ValidationError("DataEdge transforms must contain Transform values")
+        object.__setattr__(self, "transforms", transforms)
 
 
 @dataclass(frozen=True, kw_only=True)

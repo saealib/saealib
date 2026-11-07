@@ -9,6 +9,9 @@ def test_initial_data_spec_kinds_are_registered_with_carries_descriptions() -> N
         "EvaluationRequestBatch": (
             "evaluation payloads with the ids and fidelity they were issued at"
         ),
+        "CandidateSelection": (
+            "candidate IDs paired with the rows selected for evaluation"
+        ),
         "ObservationBatch": "schema + observation records",
         "FeedbackBatch": "observations delivered against a proposal",
         "FeatureBatch": "surrogate model inputs",

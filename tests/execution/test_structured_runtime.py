@@ -908,10 +908,11 @@ def test_opaque_stage_writes_any_key_without_rejection() -> None:
         ),
     )
     assert [
-        diagnostic.code
+        (diagnostic.severity.name, diagnostic.code)
         for diagnostic in plan.diagnostics
-        if diagnostic.code == "opaque_state_effects"
-    ]
+        if diagnostic.code in {"cannot_verify_stage_flow", "opaque_state_effects"}
+    ] == [("WARNING", "cannot_verify_stage_flow")]
+    assert not plan.graph.data_edges
     assert not [
         diagnostic
         for diagnostic in plan.diagnostics

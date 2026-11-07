@@ -8,6 +8,10 @@ for _name, _description in (
         "EvaluationRequestBatch",
         "evaluation payloads with the ids and fidelity they were issued at",
     ),
+    (
+        "CandidateSelection",
+        "candidate IDs paired with the rows selected for evaluation",
+    ),
     ("ObservationBatch", "schema + observation records"),
     ("FeedbackBatch", "observations delivered against a proposal"),
     ("FeatureBatch", "surrogate model inputs"),

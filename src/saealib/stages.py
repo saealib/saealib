@@ -42,10 +42,17 @@ from saealib.callback import (
 )
 from saealib.context import EvaluationPlanState, OptimizationState
 from saealib.core.contracts import (
+    CallInput,
+    CallOutput,
+    ComponentCall,
     ComponentContract,
     FeedbackBatch,
+    FlowEdge,
     PartSpec,
+    StageFlowSummary,
     StateContract,
+    StateValue,
+    Transform,
 )
 from saealib.core.contracts.execution import ExecutionContract
 from saealib.core.contracts.feedback import FeedbackChannel
@@ -82,6 +89,7 @@ from saealib.core.state import (
     SCORES,
     SURROGATES_PREDICTIONS,
     USER_DATA,
+    StateKey,
     StatePatch,
     StateStore,
     StateView,
@@ -410,6 +418,30 @@ def _stage_contract(
     )
 
 
+def _flow_call(name: str, role: str, attribute: str) -> ComponentCall:
+    return ComponentCall(name=name, role=role, attribute=attribute)
+
+
+def _state_input(
+    call: ComponentCall,
+    port: str,
+    key: StateKey[object],
+    transforms: tuple[Transform, ...] = (),
+) -> FlowEdge:
+    return FlowEdge(
+        source=StateValue(key=key),
+        target=CallInput(call=call, port=port),
+        transforms=transforms,
+    )
+
+
+def _state_output(call: ComponentCall, port: str, key: StateKey[object]) -> FlowEdge:
+    return FlowEdge(
+        source=CallOutput(call=call, port=port),
+        target=StateValue(key=key),
+    )
+
+
 _STATE_FIELD_KEYS: dict[str, Any] = {
     "population": POPULATIONS_MAIN,
     "archive": ARCHIVES_MAIN,
@@ -617,20 +649,34 @@ class StageStateViewAdapter:
         direct = stage.contract()
         if not isinstance(direct, ComponentContract):
             raise ValidationError("Stage.contract() must return ComponentContract")
+
+    def contract(self) -> ComponentContract:
+        return self.runtime_contract()
+
+    def analysis_contract(self) -> ComponentContract:
+        """Return the Stage declaration used to verify graph flow."""
+        direct = self.stage.contract()
+        if not isinstance(direct, ComponentContract):
+            raise ValidationError("Stage.contract() must return ComponentContract")
+        return direct
+
+    def runtime_contract(self) -> ComponentContract:
+        """Return the execution contract after resolving held components."""
+        direct = self.stage.contract()
+        if not isinstance(direct, ComponentContract):
+            raise ValidationError("Stage.contract() must return ComponentContract")
         from saealib.core.graph_builder import StageNodeAdapter
 
-        held = StageNodeAdapter(stage).contract().state
-        state = StateContract(
+        held = StageNodeAdapter(self.stage).contract().state
+        state = replace(
+            direct.state,
             reads=tuple(dict.fromkeys((*direct.state.reads, *held.reads))),
             writes=tuple(dict.fromkeys((*direct.state.writes, *held.writes))),
             exports=tuple(dict.fromkeys((*direct.state.exports, *held.exports))),
             reads_enumerable=direct.state.reads_enumerable and held.reads_enumerable,
             writes_enumerable=direct.state.writes_enumerable and held.writes_enumerable,
         )
-        self._contract = replace(direct, state=state)
-
-    def contract(self) -> ComponentContract:
-        return self._contract
+        return replace(direct, state=state)
 
     @staticmethod
     def _to_patch(proxy: _StageStateProxy, result: object, stage: object) -> StatePatch:
@@ -732,6 +778,10 @@ class CountGenerationStage(Stage):
             writes=(RUNTIME_GENERATION,),
         )
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare this stage's state-only flow."""
+        return StageFlowSummary()
+
     def execute(self, state: OptimizationState) -> OptimizationState:
         # Async steady-state refill calls strategy.step() while an earlier
         # generation is still open.  Those calls are insertions, not new
@@ -782,6 +832,14 @@ class AskStage(Stage):
             ),
             components=(("_algorithm", self._algorithm),),
             unresolved=_unresolved_reference_roles(self),
+        )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare the proposer invocation and its produced population."""
+        proposer = _flow_call("proposer", "proposer", "_algorithm")
+        return StageFlowSummary(
+            calls=(proposer,),
+            edges=(_state_output(proposer, "genomes", PROPOSALS_OFFSPRING),),
         )
 
     def __init__(
@@ -901,6 +959,23 @@ class SurrogatePredictStage(Stage):
             unresolved=_unresolved_reference_roles(self),
         )
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare prediction inputs and output."""
+        predictor = _flow_call("predictor", "predictor", "_sm")
+        return StageFlowSummary(
+            calls=(predictor,),
+            edges=(
+                _state_input(
+                    predictor,
+                    "candidates",
+                    PROPOSALS_OFFSPRING,
+                    (Transform(name="encode_features"),),
+                ),
+                _state_input(predictor, "archive", ARCHIVES_MAIN),
+                _state_output(predictor, "prediction", SURROGATES_PREDICTIONS),
+            ),
+        )
+
     def __init__(
         self,
         surrogate_manager: SurrogateManager | ComponentRef,
@@ -978,6 +1053,10 @@ class PendingEvaluationContextStage(Stage):
     def contract(self) -> ComponentContract:
         return _stage_contract()
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare this stage's state-only flow."""
+        return StageFlowSummary()
+
     def __init__(self, scheduler: Any) -> None:
         super().__init__()
         self._scheduler = scheduler
@@ -1036,6 +1115,17 @@ class AcquisitionStage(Stage):
             writes=(SCORES, ACQUISITION_RESULT),
             components=(("_acquisition", self._acquisition),),
             unresolved=_unresolved_reference_roles(self),
+        )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare acquisition prediction input and score output."""
+        acquisition = _flow_call("acquisition", "acquisition", "_acquisition")
+        return StageFlowSummary(
+            calls=(acquisition,),
+            edges=(
+                _state_input(acquisition, "prediction", SURROGATES_PREDICTIONS),
+                _state_output(acquisition, "scores", SCORES),
+            ),
         )
 
     def __init__(
@@ -1165,6 +1255,14 @@ class SurrogateFitStage(Stage):
             unresolved=_unresolved_reference_roles(self),
         )
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare the archive input used to fit the surrogate."""
+        fitter = _flow_call("fitter", "fitter", "_sm")
+        return StageFlowSummary(
+            calls=(fitter,),
+            edges=(_state_input(fitter, "archive", ARCHIVES_MAIN),),
+        )
+
     def __init__(
         self,
         surrogate_manager: SurrogateManager | ComponentRef,
@@ -1228,6 +1326,10 @@ class TopKSelectionStage(Stage):
             reads=(PROPOSALS_OFFSPRING, SCORES), writes=(PROPOSALS_OFFSPRING,)
         )
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare this stage's state-only flow."""
+        return StageFlowSummary()
+
     def __init__(self, k: int) -> None:
         super().__init__()
         self._k = k
@@ -1260,6 +1362,10 @@ class SortByScoreStage(Stage):
             reads=(PROPOSALS_OFFSPRING, SCORES),
             writes=(PROPOSALS_OFFSPRING, SCORES),
         )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare this stage's state-only flow."""
+        return StageFlowSummary()
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         assert state.offspring is not None
@@ -1325,6 +1431,18 @@ class EvaluationPlanStage(Stage):
             components=(("_planner", self._planner),),
             reads_enumerable=not callable(self._n_eval),
             unresolved=_unresolved_reference_roles(self),
+        )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare planning inputs and the selected evaluation request."""
+        planner = _flow_call("planner", "evaluation_planner", "_planner")
+        return StageFlowSummary(
+            calls=(planner,),
+            edges=(
+                _state_input(planner, "candidates", PROPOSALS_OFFSPRING),
+                _state_input(planner, "acquisition", SCORES),
+                _state_output(planner, "evaluation_requests", EVALUATION_REQUEST),
+            ),
         )
 
     def __init__(
@@ -1535,6 +1653,19 @@ class AsyncEvaluationSubmitStage(Stage):
             required_runtime_capabilities=("partial_feedback",),
         )
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare planning and asynchronous scheduling invocations."""
+        planner = _flow_call("planner", "evaluation_planner", "_planner")
+        scheduler = _flow_call("scheduler", "scheduler", "_scheduler")
+        return StageFlowSummary(
+            calls=(planner, scheduler),
+            edges=(
+                _state_input(planner, "candidates", PROPOSALS_OFFSPRING),
+                _state_input(planner, "acquisition", SCORES),
+                _state_output(planner, "evaluation_requests", EVALUATION_REQUEST),
+            ),
+        )
+
     def __init__(
         self,
         scheduler: Any,
@@ -1718,6 +1849,24 @@ class EvaluationSubmitStage(Stage):
             writes=(EVALUATIONS_PENDING, EVALUATION_HANDLES, EVALUATIONS_PLAN_STATE),
             components=(("_evaluator", self._evaluator),),
             unresolved=_unresolved_reference_roles(self),
+        )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare the request conversion and evaluator input."""
+        evaluator = _flow_call("evaluator", "evaluator", "_evaluator")
+        return StageFlowSummary(
+            calls=(evaluator,),
+            edges=(
+                _state_input(
+                    evaluator,
+                    "genomes",
+                    EVALUATION_REQUEST,
+                    (
+                        Transform(name="select_requested_candidates"),
+                        Transform(name="extract_genomes"),
+                    ),
+                ),
+            ),
         )
 
     def __init__(self, evaluator: Evaluator | ComponentRef) -> None:
@@ -1918,6 +2067,19 @@ class EvaluationCollectStage(Stage):
             unresolved=_unresolved_reference_roles(self),
         )
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare the evaluator used to collect completed requests."""
+        evaluator = _flow_call("evaluator", "evaluator", "_evaluator")
+        return StageFlowSummary(
+            calls=(evaluator,),
+            edges=(
+                FlowEdge(
+                    source=CallOutput(call=evaluator, port="observations"),
+                    target=StateValue(key=EVALUATION_UPDATES),
+                ),
+            ),
+        )
+
     def __init__(self, evaluator: Evaluator | ComponentRef) -> None:
         super().__init__()
         component, reference = _component_or_reference(evaluator)
@@ -2111,6 +2273,18 @@ class EvaluationApplyStage(Stage):
                 EVALUATION_UPDATE_NEW_IDS,
                 EVALUATIONS_PENDING,
             ),
+        )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare this stage's state-only flow."""
+        return StageFlowSummary(
+            edges=(
+                FlowEdge(
+                    source=StateValue(key=EVALUATION_UPDATES),
+                    target=StateValue(key=EVALUATED_OFFSPRING),
+                    transforms=(Transform(name="apply_observations"),),
+                ),
+            )
         )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
@@ -2358,6 +2532,11 @@ class EvaluationAcknowledgeStage(Stage):
             unresolved=_unresolved_reference_roles(self),
         )
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare the evaluator used to acknowledge committed updates."""
+        evaluator = _flow_call("evaluator", "evaluator", "_evaluator")
+        return StageFlowSummary(calls=(evaluator,))
+
     def __init__(
         self,
         evaluator: Evaluator | ComponentRef,
@@ -2540,6 +2719,26 @@ class TrueEvaluationStage(Stage):
             unresolved=_unresolved_reference_roles(self),
         )
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare the genome input and observation output."""
+        evaluator = _flow_call("evaluator", "evaluator", "_evaluator")
+        return StageFlowSummary(
+            calls=(evaluator,),
+            edges=(
+                _state_input(
+                    evaluator,
+                    "genomes",
+                    PROPOSALS_OFFSPRING,
+                    (Transform(name="extract_population_genomes"),),
+                ),
+                FlowEdge(
+                    source=CallOutput(call=evaluator, port="observations"),
+                    target=StateValue(key=EVALUATED_OFFSPRING),
+                    transforms=(Transform(name="apply_observations"),),
+                ),
+            ),
+        )
+
     def __init__(
         self,
         evaluator: Evaluator | ComponentRef,
@@ -2629,6 +2828,10 @@ class ArchiveUpdateStage(Stage):
             writes=(ARCHIVES_MAIN, ARCHIVES_PARETO, EVALUATED_OFFSPRING),
         )
 
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare this stage's state-only flow."""
+        return StageFlowSummary()
+
     def execute(self, state: OptimizationState) -> OptimizationState:
         if _plan_incomplete(state):
             return state
@@ -2686,6 +2889,25 @@ class FeedbackStage(Stage):
             writes=(PROPOSALS_OFFSPRING, FEEDBACK_RESULT),
             components=(("_builder", self._builder),),
             unresolved=_unresolved_reference_roles(self),
+        )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare feedback inputs and output."""
+        builder = _flow_call("builder", "feedback_builder", "_builder")
+        return StageFlowSummary(
+            calls=(builder,),
+            edges=(
+                _state_input(builder, "candidates", PROPOSALS_OFFSPRING),
+                _state_input(builder, "prediction", SURROGATES_PREDICTIONS),
+                _state_input(
+                    builder,
+                    "evaluation",
+                    EVALUATED_OFFSPRING,
+                    (Transform(name="extract_evaluation_observations"),),
+                ),
+                _state_input(builder, "evaluated_indices", EVALUATION_NEW_IDS),
+                _state_output(builder, "feedback", FEEDBACK_RESULT),
+            ),
         )
 
     def __init__(
@@ -2786,6 +3008,14 @@ class TellStage(Stage):
             writes=(),
             components=(("_algorithm", self._algorithm),),
             unresolved=_unresolved_reference_roles(self),
+        )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare the feedback input to the algorithm."""
+        consumer = _flow_call("algorithm", "feedback_consumer", "_algorithm")
+        return StageFlowSummary(
+            calls=(consumer,),
+            edges=(_state_input(consumer, "feedback", FEEDBACK_RESULT),),
         )
 
     def __init__(
@@ -2903,12 +3133,41 @@ class SurrogateOnlyLoopStage(Stage):
     )
 
     def contract(self) -> ComponentContract:
-        # The nested stages are separate graph units.  This declaration covers
-        # only the loop's direct fit/read access and avoids double counting.
+        if self._gen_ctrl == 0:
+            return _stage_contract(reads=(ARCHIVES_MAIN,))
+        components = [
+            ("_sm", self._sm),
+            ("_algorithm", self._algorithm),
+            ("_acquisition", self._acquisition),
+        ]
+        if self._builder is not None:
+            components.append(("_builder", self._builder))
         return _stage_contract(
             reads=(ARCHIVES_MAIN,),
-            components=(("_sm", self._sm),),
+            components=tuple(components),
             unresolved=_unresolved_reference_roles(self),
+        )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare the calls made by the surrogate-only generations."""
+        if self._gen_ctrl == 0:
+            return StageFlowSummary()
+        fitter = _flow_call("fitter", "fitter", "_sm")
+        calls = [fitter, _flow_call("predictor", "predictor", "_sm")]
+        for name, role in (
+            ("algorithm", "proposer"),
+            ("acquisition", "acquisition"),
+            ("builder", "feedback_builder"),
+        ):
+            if getattr(self, f"_{name}", None) is not None:
+                calls.append(_flow_call(name, role, f"_{name}"))
+        if self._algorithm is not None:
+            calls.append(
+                _flow_call("feedback_consumer", "feedback_consumer", "_algorithm")
+            )
+        return StageFlowSummary(
+            calls=tuple(calls),
+            edges=(_state_input(fitter, "archive", ARCHIVES_MAIN),),
         )
 
     def __init__(
@@ -2945,6 +3204,8 @@ class SurrogateOnlyLoopStage(Stage):
                 setattr(self, name, value)
         self._refs = tuple(references)
         referenced_names = {name for name, _ in references}
+        if feedback_builder is None:
+            self._builder = MixedFeedback()
         for name in ("_sm", "_algorithm", "_acquisition"):
             if getattr(self, name) is None and name not in referenced_names:
                 raise ValidationError(
@@ -2959,7 +3220,7 @@ class SurrogateOnlyLoopStage(Stage):
         self._cbmanager = None if self._refs else cbmanager
         if gen_ctrl > 0 and not self._refs:
             self.stages = self._build_inner_stages(
-                algorithm, surrogate_manager, acquisition, feedback_builder, cbmanager
+                algorithm, surrogate_manager, acquisition, self._builder, cbmanager
             )
         else:
             self.stages = []
@@ -3068,6 +3329,11 @@ class InitializationStage(Stage):
             writes=(),
             components=(("_initializer", self._initializer),),
         )
+
+    def flow_summary(self) -> StageFlowSummary:
+        """Declare the initializer invocation."""
+        initializer = _flow_call("initializer", "initializer", "_initializer")
+        return StageFlowSummary(calls=(initializer,))
 
     def __init__(
         self,

@@ -430,12 +430,6 @@ def _recipe_stage_part_node_adapter() -> Any:
     return StagePartNodeAdapter(_StageHeldComponent(), ComponentContract())
 
 
-def _recipe_freshened_component() -> Any:
-    from saealib.core.compiler.schema_rules import _FreshenedComponent
-
-    return _FreshenedComponent(object(), ComponentContract())
-
-
 def _recipe_adapter_component() -> Any:
     from saealib.core.compiler.adapters import Adapter, AdapterComponent
 
@@ -535,9 +529,6 @@ _RECIPES: dict[str, Callable[[], Any]] = {
     ): _recipe_stage_contract_node_adapter,
     "saealib.core.graph_builder.StagePartNodeAdapter": (
         _recipe_stage_part_node_adapter
-    ),
-    "saealib.core.compiler.schema_rules._FreshenedComponent": (
-        _recipe_freshened_component
     ),
     "saealib.core.compiler.adapters.AdapterComponent": _recipe_adapter_component,
     "saealib.strategies.base.TemplateStrategy": _recipe_template_strategy,

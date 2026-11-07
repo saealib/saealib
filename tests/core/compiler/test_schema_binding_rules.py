@@ -133,21 +133,31 @@ def _compile_actual_optimizer(optimizer: Optimizer):
     return graph, plan
 
 
-def test_actual_default_graph_resolves_the_vector_profile_mismatch() -> None:
+def test_actual_default_graph_uses_declared_surrogate_input_transform() -> None:
     problem = _problem()
-    graph, plan = _compile_actual_optimizer(Optimizer(problem))
+    _, plan = _compile_actual_optimizer(Optimizer(problem))
 
-    assert len(graph.data_edges) == 5
+    assert any(
+        edge.source.role == "state"
+        and edge.target.role == "predictor"
+        and edge.target_port == "candidates"
+        and tuple(transform.name for transform in edge.transforms)
+        == ("encode_features",)
+        for edge in plan.graph.data_edges
+    )
     assert not [
         diagnostic
         for diagnostic in plan.diagnostics
         if diagnostic.severity.value == "error"
     ]
-    assert {item.adapter_name for item in plan.inserted_adapters} == {
-        "dense_numeric_view",
-    }
-    description = plan.describe()
-    assert "dense_numeric_view" in description
+    assert any(
+        tuple(transform.name for transform in edge.transforms) == ("encode_features",)
+        for edge in plan.graph.data_edges
+    )
+    assert not any(
+        getattr(item, "adapter_name", None) == "feature_encoder"
+        for item in plan.inserted_adapters
+    )
 
 
 def test_object_space_does_not_activate_vector_profile_adapter() -> None:
@@ -297,19 +307,23 @@ def test_adapter_category_must_be_registered() -> None:
         )
 
 
-def test_schema_variables_are_freshened_per_node() -> None:
+def test_schema_variables_are_isolated_per_node_without_wrapping_components() -> None:
     variable = Var(name="representation")
+    producer_a = _Endpoint(
+        data=DataSpec(kind="Population", bindings={"representation": variable}),
+        direction=PortDirection.OUTPUT,
+        cardinality=ONE,
+    )
+    producer_b = _Endpoint(
+        data=DataSpec(kind="Population", bindings={"representation": variable}),
+        direction=PortDirection.OUTPUT,
+        cardinality=ONE,
+    )
     graph = ComponentGraph(
         nodes=(
             ComponentNode(
                 component_id="producer_a",
-                component=_Endpoint(
-                    data=DataSpec(
-                        kind="Population", bindings={"representation": variable}
-                    ),
-                    direction=PortDirection.OUTPUT,
-                    cardinality=ONE,
-                ),
+                component=producer_a,
             ),
             ComponentNode(
                 component_id="consumer_a",
@@ -323,13 +337,7 @@ def test_schema_variables_are_freshened_per_node() -> None:
             ),
             ComponentNode(
                 component_id="producer_b",
-                component=_Endpoint(
-                    data=DataSpec(
-                        kind="Population", bindings={"representation": variable}
-                    ),
-                    direction=PortDirection.OUTPUT,
-                    cardinality=ONE,
-                ),
+                component=producer_b,
             ),
             ComponentNode(
                 component_id="consumer_b",
@@ -368,6 +376,8 @@ def test_schema_variables_are_freshened_per_node() -> None:
         for diagnostic in plan.diagnostics
         if diagnostic.severity.value == "error"
     ]
+    assert plan.graph.node_by_id("producer_a").component is producer_a
+    assert plan.graph.node_by_id("producer_b").component is producer_b
     names = [
         plan.graph.node_by_id(node_id)
         .contract.ports["role"]
@@ -377,8 +387,8 @@ def test_schema_variables_are_freshened_per_node() -> None:
     ]
     assert all(isinstance(binding, Var) for binding in names)
     assert [binding.name for binding in names if isinstance(binding, Var)] == [
-        "producer_a__representation",
-        "producer_b__representation",
+        "representation",
+        "representation",
     ]
 
 

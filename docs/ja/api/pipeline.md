@@ -41,9 +41,23 @@ pipeline = Pipeline(
 一意に一致した接続は`DataEdge`になり、一致しない場合や候補が複数ある場合はCompiler診断が生成されます。
 あいまいな接続を解決する必要がある場合は、明示的なGraphを使います。
 
-`stage_component(stage)`は移行用アダプターです。
-トランザクションプロキシ経由の状態書き込みは`StatePatch`値になりますが、アダプターはServicesまたはContext機能として公開された可変オブジェクトの所有権を保持します。
-新しいグラフネイティブコンポーネントでは、永続的な可変状態を宣言済みの`StateKey`値とパッチの背後に保持します。
+`Stage.flow_summary()`はコンポーネント呼び出しとデータ接続を宣言します。
+戻り値が`None`の場合、Stageのflowは不明です。
+空のsummaryは状態だけを扱い、コンポーネント間のデータ接続を持たないflowを表します。
+Compilerは次の変換名と入出力のデータ型を検証します。
+
+- **`encode_features`**：`Population`から`FeatureBatch`へ変換します。
+- **`extract_population_genomes`**：`Population`から`GenomeBatch`を取り出します。
+- **`apply_observations`**：`ObservationBatch`を`Population`へ適用します。
+- **`extract_evaluation_observations`**：`Population`から`ObservationBatch`を取り出します。
+- **`select_requested_candidates`**：`EvaluationRequestBatch`から`CandidateSelection`を作ります。
+- **`extract_genomes`**：`CandidateSelection`から`GenomeBatch`を取り出します。
+
+Stageからグラフを作る独自Strategyでは、`StructuredGraph`を`decompose_structured_graph()`へ渡すと、Stageのflow接続がCompilerの検証対象に加わります。
+
+`stage_component(stage)`はStageの実行を`StateView`上のトランザクションへ適合させます。
+トランザクションプロキシ経由の状態書き込みは`StatePatch`になり、ServicesまたはContext機能として公開された可変オブジェクトはStageが所有します。
+グラフネイティブなコンポーネントでは、永続的な可変状態を宣言済みの`StateKey`とパッチで管理します。
 
 ```{eval-rst}
 .. autosummary::

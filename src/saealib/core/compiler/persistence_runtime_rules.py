@@ -48,7 +48,7 @@ def _exported_state_keys(
 def _population_state_names(graph: ComponentGraph) -> dict[ContractPath, set[str]]:
     names: dict[ContractPath, set[str]] = {}
     for node in graph.nodes:
-        for part_path, key in _exported_state_keys(node.contract):
+        for part_path, key in _exported_state_keys(node.analysis_contract):
             if key.namespace == "populations":
                 names.setdefault(_node_path(node, part_path), set()).add(key.name)
 

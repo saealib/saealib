@@ -88,6 +88,7 @@ def _lower_sequence_with_exits(
     bindings: list[StateBinding] = []
     previous: tuple[ComponentNode, ...] = ()
     first_entries: tuple[ComponentNode, ...] = ()
+    used_names: set[str] = set()
     for index, item in enumerate(items):
         entries: tuple[ComponentNode, ...] = ()
         exits: tuple[ComponentNode, ...] = ()
@@ -97,6 +98,12 @@ def _lower_sequence_with_exits(
         local_id = (
             item_name if isinstance(item_name, str) and item_name else f"node{index}"
         )
+        base_id = local_id
+        occurrence = 2
+        while local_id in used_names:
+            local_id = f"{base_id}_{occurrence}"
+            occurrence += 1
+        used_names.add(local_id)
         child_namespace = f"{namespace}.{local_id}" if namespace else local_id
         nested_items = _pipeline_items(item)
         if _is_repeat(item):
@@ -230,7 +237,10 @@ def _lower_sequence_with_exits(
                     "Structured lowering requires components with contract(); "
                     "pipeline values must contain components with contract()"
                 )
-            contract = item.contract()
+            contract_method = getattr(item, "analysis_contract", None)
+            if not callable(contract_method):
+                contract_method = item.contract
+            contract = contract_method()
             if not isinstance(contract, ComponentContract):
                 raise ValidationError(
                     "Component contract() must return ComponentContract"

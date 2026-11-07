@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from itertools import pairwise
+from types import SimpleNamespace
 from typing import Any, cast
 
+from saealib.core.compiler.contract_diagnostics import check_component_contract
 from saealib.core.compiler.graph import (
     ComponentGraph,
     ComponentNode,
@@ -24,12 +25,25 @@ from saealib.core.compiler.structured import StructuredGraph
 from saealib.core.contracts import (
     AssumptionSet,
     ComponentContract,
+    DataSpec,
     ExecutionContract,
     LifecycleContract,
     PortContract,
     PortDirection,
     StateContract,
 )
+from saealib.core.contracts.flow import (
+    CallInput,
+    CallOutput,
+    ComponentCall,
+    FlowEdge,
+    StageFlowSummary,
+    StateValue,
+    Transform,
+    _apply_transforms,
+    _transform_input_data,
+)
+from saealib.core.contracts.ports import PortSpec
 from saealib.core.state import StateKey
 from saealib.exceptions import ValidationError
 from saealib.pipeline import ComponentRef, Pipeline, Stage
@@ -46,7 +60,6 @@ __all__ = [
     "decompose_structured_graph",
 ]
 
-_MAX_CACHED_EXECUTION_UNWRAPS = 8
 _MISSING = object()
 
 
@@ -61,7 +74,9 @@ class _HeldComponent:
 def _component_contract(value: object) -> ComponentContract | None:
     if isinstance(value, Stage):
         return None
-    method = getattr(value, "contract", None)
+    method = getattr(value, "analysis_contract", None)
+    if not callable(method):
+        method = getattr(value, "contract", None)
     if not callable(method):
         return None
     contract = method()
@@ -319,32 +334,6 @@ class StageNodeAdapter:
         return tuple(bindings)
 
 
-def cached_execution_target(component: object) -> object:
-    """Return the cached target for a Stage adapter hidden by freshening.
-
-    Schema freshening is deliberately transparent at the component boundary,
-    but its ``execute`` fallback would otherwise call the adapter wrapper on
-    every execution.  Only the known freshening wrapper is traversed; custom
-    components retain normal dynamic ``execute`` dispatch.  The bound is a
-    guard against malformed wrapper cycles or unexpectedly deep nesting.
-    """
-    current = component
-    for _ in range(_MAX_CACHED_EXECUTION_UNWRAPS):
-        if isinstance(current, StageNodeAdapter):
-            return current._execute_target
-        if not getattr(current, "_saealib_schema_freshened", False):
-            break
-        nested = getattr(current, "_component", _MISSING)
-        if nested is _MISSING:
-            break
-        current = nested
-    else:
-        raise ValidationError(
-            "Stage execution target wrapper nesting exceeds the supported bound"
-        )
-    return getattr(component, "execute", None)
-
-
 class StageContractNodeAdapter(StageNodeAdapter):
     """Executable Stage node carrying the Stage's direct contract."""
 
@@ -356,21 +345,23 @@ class StageContractNodeAdapter(StageNodeAdapter):
         if not callable(self._execute_target):
             raise ValidationError("StageNodeAdapter stage must be executable")
         self.node_path = node_path or stage.name or type(stage).__name__
-        self._held = _held_components(stage)
-        self._contract = stage.contract()
+        self._held = ()
+        contract = stage.contract()
+        if not isinstance(contract, ComponentContract):
+            raise ValidationError("Stage.contract() must return ComponentContract")
+        self._contract = contract
 
     def contract(self) -> ComponentContract:
-        """Return the direct Stage contract, excluding held parts."""
+        """Return the Stage's declared contract."""
         return self._contract
 
 
 class StagePartNodeAdapter:
-    """Expose one declared Stage part as an independently discoverable node.
+    """Expose one Stage-held component as a verification-only node.
 
     Parts deliberately do not implement ``execute``. The Stage remains
-    the executable owner until the runtime migration unit; these nodes provide
-    the contract and data-dependency identity without executing a component a
-    second time.
+    the executable owner; these nodes provide contract and data-dependency
+    identity without executing a component a second time.
     """
 
     def __init__(self, component: object, contract: ComponentContract) -> None:
@@ -406,84 +397,20 @@ class NodeAdapterSpec:
             )
 
 
-_DATA_PORTS: tuple[tuple[str, str, str, str, str, str], ...] = (
-    ("ask", "proposer", "genomes", "surrogate_predict", "predictor", "candidates"),
-    (
-        "ask",
-        "proposer",
-        "genomes",
-        "evaluation_plan",
-        "evaluation_planner",
-        "candidates",
-    ),
-    (
-        "ask",
-        "proposer",
-        "genomes",
-        "async_evaluation_submit",
-        "evaluation_planner",
-        "candidates",
-    ),
-    (
-        "surrogate_predict",
-        "predictor",
-        "prediction",
-        "acquisition",
-        "acquisition",
-        "prediction",
-    ),
-    (
-        "acquisition",
-        "acquisition",
-        "scores",
-        "evaluation_plan",
-        "evaluation_planner",
-        "acquisition",
-    ),
-    (
-        "acquisition",
-        "acquisition",
-        "scores",
-        "async_evaluation_submit",
-        "evaluation_planner",
-        "acquisition",
-    ),
-    (
-        "feedback",
-        "feedback_builder",
-        "feedback",
-        "tell",
-        "feedback_consumer",
-        "feedback",
-    ),
-)
-
-
-def _has_port(
-    contract: ComponentContract,
-    role: str,
-    name: str,
-    direction: PortDirection,
-) -> bool:
-    port_contract = contract.ports.get(role)
-    if port_contract is None:
-        return False
-    matches = tuple(
-        port
-        for port in (*port_contract.inputs, *port_contract.outputs)
-        if port.name == name and port.direction is direction
-    )
-    return len(matches) == 1
-
-
 def _unique_node_ids(stages: Sequence[Stage]) -> tuple[str, ...]:
     counts: dict[str, int] = {}
+    used: set[str] = set()
     ids: list[str] = []
     for index, stage in enumerate(stages):
         base = stage.name or f"stage_{index}"
-        count = counts.get(base, 0) + 1
-        counts[base] = count
-        ids.append(base if count == 1 else f"{base}_{count}")
+        count = counts.get(base, 1)
+        candidate = base if count == 1 else f"{base}_{count}"
+        while candidate in used:
+            count += 1
+            candidate = f"{base}_{count}"
+        counts[base] = count + 1
+        used.add(candidate)
+        ids.append(candidate)
     return tuple(ids)
 
 
@@ -496,297 +423,771 @@ def _pipeline_stages(pipeline: Pipeline) -> tuple[Stage, ...]:
 
 
 def build_component_graph(pipeline: Pipeline) -> ComponentGraph:
-    """Build a graph with the same top-level stages as *pipeline*.
-
-    Adjacent stages always receive a control edge. Data edges are emitted only
-    when both endpoints expose the declared role, name, and direction.
-    """
+    """Build a component graph from the flow declarations in *pipeline*."""
     if not isinstance(pipeline, Pipeline):
         raise ValidationError("build_component_graph requires a Pipeline")
-    stages = _pipeline_stages(pipeline)
-    node_ids = _unique_node_ids(stages)
-    adapters = tuple(
-        StageNodeAdapter(stage, node_path=node_id)
-        for stage, node_id in zip(stages, node_ids)
-    )
-    nodes = tuple(
-        ComponentNode(component_id=node_id, component=adapter)
-        for node_id, adapter in zip(node_ids, adapters)
-    )
-    control_edges = tuple(
-        ControlEdge(
-            source=NodeRef(component_id=node_ids[index]),
-            target=NodeRef(component_id=node_ids[index + 1]),
-        )
-        for index in range(len(node_ids) - 1)
-    )
-
-    data_edges: list[DataEdge] = []
-    for (
-        source_name,
-        source_role,
-        source_port,
-        target_name,
-        target_role,
-        target_port,
-    ) in _DATA_PORTS:
-        source_indices = [
-            index for index, stage in enumerate(stages) if stage.name == source_name
-        ]
-        target_indices = [
-            index for index, stage in enumerate(stages) if stage.name == target_name
-        ]
-        for source_index in source_indices:
-            for target_index in target_indices:
-                if source_index < target_index:
-                    source_node = nodes[source_index]
-                    target_node = nodes[target_index]
-                    if not (
-                        _has_port(
-                            source_node.contract,
-                            source_role,
-                            source_port,
-                            PortDirection.OUTPUT,
-                        )
-                        and _has_port(
-                            target_node.contract,
-                            target_role,
-                            target_port,
-                            PortDirection.INPUT,
-                        )
-                    ):
-                        continue
-                    data_edges.append(
-                        DataEdge(
-                            source=NodeRef(
-                                component_id=node_ids[source_index], role=source_role
-                            ),
-                            target=NodeRef(
-                                component_id=node_ids[target_index], role=target_role
-                            ),
-                            source_port=source_port,
-                            target_port=target_port,
-                        )
-                    )
-
-    bindings: list[StateBinding] = []
-    for node_id, adapter in zip(node_ids, adapters):
-        bindings.extend(adapter.state_bindings(node_id))
-
-    return ComponentGraph(
-        nodes=nodes,
-        data_edges=tuple(data_edges),
-        control_edges=control_edges,
-        state_bindings=tuple(bindings),
-        entry_points=(NodeRef(component_id=node_ids[0]),) if node_ids else (),
-    )
-
-
-def _declared_part_component(stage: Stage, name: str) -> object | None:
-    for candidate in (f"_{name}", name):
-        if hasattr(stage, candidate):
-            return getattr(stage, candidate)
-    return None
-
-
-def _decomposed_role_node(
-    stage_node: str,
-    role: str,
-    part_nodes: Mapping[str, tuple[str, ComponentNode]],
-    stage: ComponentNode,
-    direction: PortDirection,
-    port: str,
-) -> NodeRef | None:
-    declared_matches: list[NodeRef] = []
-    held_matches: list[NodeRef] = []
-    for part_name, (part_node, node) in part_nodes.items():
-        if _has_port(node.contract, role, port, direction):
-            target = (
-                declared_matches if not part_name.startswith("held_") else held_matches
-            )
-            target.append(NodeRef(component_id=part_node, role=role))
-    if declared_matches:
-        return declared_matches[0] if len(declared_matches) == 1 else None
-    if held_matches:
-        return held_matches[0] if len(held_matches) == 1 else None
-    if _has_port(stage.contract, role, port, direction):
-        return NodeRef(component_id=stage_node, role=role)
-    return None
+    return build_decomposed_component_graph_from_stages(_pipeline_stages(pipeline))
 
 
 @dataclass(frozen=True)
 class _StageDecomposition:
-    """Part nodes, part edges, and part bindings of an ordered Stage sequence.
-
-    ``part_nodes[i]`` maps part names of the ``i``-th Stage to their
-    ``(node id, node)`` pairs in declaration order.  ``control_edges`` chain
-    each Stage through its own parts to the next Stage; ``data_edges`` connect
-    the declared ports of parts held by an earlier Stage to a later one.
-    """
+    """Component-call nodes and edges for an ordered Stage sequence."""
 
     part_nodes: tuple[Mapping[str, tuple[str, ComponentNode]], ...]
     control_edges: tuple[ControlEdge, ...]
     data_edges: tuple[DataEdge, ...]
     state_bindings: tuple[StateBinding, ...]
+    extra_nodes: tuple[ComponentNode, ...] = ()
 
     @property
     def nodes(self) -> tuple[ComponentNode, ...]:
-        """Every part node, Stage by Stage."""
-        return tuple(
-            node for parts in self.part_nodes for _part_id, node in parts.values()
+        """Every declared component-call and external state node."""
+        return (
+            tuple(
+                node for parts in self.part_nodes for _part_id, node in parts.values()
+            )
+            + self.extra_nodes
         )
+
+
+def _unique_id(base: str, used: set[str]) -> str:
+    candidate = base
+    occurrence = 2
+    while candidate in used:
+        candidate = f"{base}_{occurrence}"
+        occurrence += 1
+    used.add(candidate)
+    return candidate
+
+
+def _state_source_id(key: StateKey[object], target_id: str) -> str:
+    namespace = key.namespace.encode("utf-8").hex()
+    name = key.name.encode("utf-8").hex()
+    target = target_id.encode("utf-8").hex()
+    return f"__state_{namespace}_{name}_{key.schema_version}_{target}"
+
+
+def _state_source_node(
+    key: StateKey[object],
+    target_id: str,
+    target_port: PortSpec,
+    transforms=(),
+    *,
+    used_ids: set[str] | None = None,
+) -> ComponentNode:
+    source_base = _state_source_id(key, target_id)
+    source_id = (
+        _unique_id(source_base, used_ids) if used_ids is not None else source_base
+    )
+    source_contract = ComponentContract(
+        ports={
+            "state": PortContract(
+                outputs=(
+                    PortSpec(
+                        name="value",
+                        direction=PortDirection.OUTPUT,
+                        data=_transform_input_data(target_port.data, tuple(transforms)),
+                        cardinality=target_port.cardinality,
+                    ),
+                )
+            )
+        }
+    )
+    component = SimpleNamespace(
+        state_key=key,
+        target_id=target_id,
+        contract=lambda: source_contract,
+    )
+    return ComponentNode(
+        component_id=source_id,
+        component=component,
+        role="state",
+    )
+
+
+def _state_flow_node(
+    key: StateKey[object],
+    node_id: str,
+    data: DataSpec,
+    *,
+    used_ids: set[str],
+) -> ComponentNode:
+    component_id = _unique_id(_state_source_id(key, node_id) + "__flow", used_ids)
+    contract = ComponentContract(
+        ports={
+            "state": PortContract(
+                inputs=(
+                    PortSpec(
+                        name="value",
+                        direction=PortDirection.INPUT,
+                        data=data,
+                        cardinality="MANY",
+                    ),
+                ),
+                outputs=(
+                    PortSpec(
+                        name="value",
+                        direction=PortDirection.OUTPUT,
+                        data=data,
+                        cardinality="MANY",
+                    ),
+                ),
+            )
+        }
+    )
+    component = SimpleNamespace(
+        state_key=key, flow_origin=node_id, contract=lambda: contract
+    )
+    return ComponentNode(component_id=component_id, component=component, role="state")
+
+
+def _mark_verification_only(node: ComponentNode) -> None:
+    """Mark a builder-created call or state node as non-executable."""
+    object.__setattr__(node, "_verification_only", True)
+
+
+def _call_port(
+    node: ComponentNode, call: ComponentCall, port_name: str, direction: PortDirection
+) -> PortSpec:
+    role_contract = node.contract.ports.get(call.role)
+    if role_contract is None:
+        flow_contract = getattr(node.component, "flow_contract", None)
+        if callable(flow_contract):
+            role_contract = flow_contract().ports.get(call.role)
+    ports = (
+        ()
+        if role_contract is None
+        else (
+            role_contract.outputs
+            if direction is PortDirection.OUTPUT
+            else role_contract.inputs
+        )
+    )
+    matches = tuple(port for port in ports if port.name == port_name)
+    if len(matches) != 1:
+        raise ValidationError(
+            f"Stage flow call {call.name!r} does not declare its "
+            f"{direction.value} port {port_name!r} for role {call.role!r}"
+        )
+    return matches[0]
+
+
+def _summary_call_contract(
+    call: ComponentCall, summary: StageFlowSummary
+) -> ComponentContract:
+    """Describe only the directional ports named by a call summary."""
+    unknown = DataSpec(kind="UnverifiedFlowValue")
+    input_data: dict[str, DataSpec] = {}
+    output_data: dict[str, DataSpec] = {}
+    for edge in summary.edges:
+        if isinstance(edge.target, CallInput) and edge.target.call == call:
+            data = unknown
+            if edge.transforms:
+                first_input = _transform_input_data(unknown, edge.transforms)
+                data, error = _apply_transforms(first_input, edge.transforms)
+                if error is not None or data is None:
+                    data = unknown
+            input_data.setdefault(edge.target.port, data)
+        if isinstance(edge.source, CallOutput) and edge.source.call == call:
+            data = (
+                _transform_input_data(unknown, edge.transforms)
+                if edge.transforms
+                else unknown
+            )
+            output_data.setdefault(edge.source.port, data)
+    input_names = set(input_data)
+    output_names = set(output_data)
+    return ComponentContract(
+        ports={
+            call.role: PortContract(
+                inputs=tuple(
+                    PortSpec(
+                        name=name,
+                        direction=PortDirection.INPUT,
+                        data=input_data[name],
+                        cardinality="MANY",
+                    )
+                    for name in sorted(input_names)
+                ),
+                outputs=tuple(
+                    PortSpec(
+                        name=name,
+                        direction=PortDirection.OUTPUT,
+                        data=output_data[name],
+                        cardinality="MANY",
+                    )
+                    for name in sorted(output_names)
+                ),
+            )
+        }
+    )
+
+
+def _stage_flow_calls(
+    stage_id: str,
+    stage: Stage,
+    used_ids: set[str],
+) -> dict[str, tuple[str, ComponentNode]]:
+    summary = stage.flow_summary()
+    if summary is None:
+        calls: dict[str, tuple[str, ComponentNode]] = {}
+        stage_contract = stage.contract()
+        if not isinstance(stage_contract, ComponentContract):
+            raise ValidationError("Stage.contract() must return ComponentContract")
+        declared_parts = stage_contract.parts
+        held = list(_held_components(stage))
+        parts: list[tuple[str, object, ComponentContract]] = []
+        if declared_parts:
+            for part in declared_parts:
+                component = getattr(stage, part.name, _MISSING)
+                if component is not _MISSING:
+                    actual_contract = _component_contract(component)
+                    if actual_contract != part.contract:
+                        raise ValidationError(
+                            f"{type(stage).__name__} component {part.name!r} "
+                            "does not match its declared contract"
+                        )
+                    held = [item for item in held if item.component is not component]
+                else:
+                    candidates = [
+                        item
+                        for item in held
+                        if item.contract == part.contract
+                        and _path_piece(item.path[-1]) == _path_piece(part.name)
+                    ]
+                    if not candidates:
+                        candidates = [
+                            item for item in held if item.contract == part.contract
+                        ]
+                    if not candidates:
+                        component = _MISSING
+                    else:
+                        matched = candidates[0]
+                        component = matched.component
+                        held.remove(matched)
+                parts.append((part.name, component, part.contract))
+        else:
+            parts.extend(
+                (item.path[-1], item.component, item.contract) for item in held
+            )
+        for name, component, contract in parts:
+            if component is _MISSING:
+                raise ValidationError(
+                    f"{type(stage).__name__} declares missing Stage component {name!r}"
+                )
+            suffix = _path_piece(name)
+            component_id = _unique_id(f"{stage_id}__{suffix}", used_ids)
+            calls[name] = (
+                component_id,
+                ComponentNode(
+                    component_id=component_id,
+                    component=StagePartNodeAdapter(component, contract),
+                    role=None,
+                ),
+            )
+        return calls
+    if not isinstance(summary, StageFlowSummary):
+        raise ValidationError(
+            "Stage.flow_summary() must return StageFlowSummary or None"
+        )
+
+    stage_contract = stage.contract()
+    parts_by_name = {part.name: part for part in stage_contract.parts}
+    calls: dict[str, tuple[str, ComponentNode]] = {}
+    for call in summary.calls:
+        component = getattr(stage, call.attribute, _MISSING)
+        if component is _MISSING:
+            raise ValidationError(
+                f"{type(stage).__name__} flow call {call.name!r} refers to "
+                f"missing attribute {call.attribute!r}"
+            )
+        contract = _component_contract(component)
+        declared_contract = contract
+        node_component = component
+        if contract is None:
+            contract = _summary_call_contract(call, summary)
+            node_component = SimpleNamespace(
+                original_component=component,
+                contract=lambda contract=contract: contract,
+            )
+        part = parts_by_name.get(call.attribute)
+        if declared_contract is not None and call.role not in declared_contract.ports:
+            nested_part_mismatch = part is not None and any(
+                diagnostic.code == "part_contract_mismatch"
+                for diagnostic in check_component_contract(
+                    declared_contract, component=component
+                )
+            )
+            if not nested_part_mismatch:
+                raise ValidationError(
+                    f"{type(stage).__name__} flow call {call.name!r} uses unknown "
+                    f"role {call.role!r}"
+                )
+            flow_contract = _summary_call_contract(call, summary)
+            node_component = SimpleNamespace(
+                original_component=component,
+                contract=lambda contract=declared_contract: contract,
+                flow_contract=lambda contract=flow_contract: contract,
+            )
+        if declared_contract is not None and parts_by_name and part is None:
+            raise ValidationError(
+                f"{type(stage).__name__} flow call {call.name!r} is not a "
+                "declared Stage component"
+            )
+        if part is not None and part.contract != contract:
+            raise ValidationError(
+                f"{type(stage).__name__} flow call {call.name!r} does not "
+                "match the component contract held by the Stage"
+            )
+        component_id = _unique_id(f"{stage_id}__{call.name}", used_ids)
+        calls[call.name] = (
+            component_id,
+            ComponentNode(
+                component_id=component_id,
+                component=node_component,
+                role=call.role,
+            ),
+        )
+
+    missing_parts = set(parts_by_name) - {call.attribute for call in summary.calls}
+    if missing_parts:
+        raise ValidationError(
+            f"{type(stage).__name__} flow summary omits declared components: "
+            + ", ".join(sorted(missing_parts))
+        )
+
+    for edge in summary.edges:
+        if isinstance(edge.source, CallOutput):
+            source = calls.get(edge.source.call.name)
+            if source is None:
+                raise ValidationError("Stage flow edge refers to an unavailable call")
+            _call_port(
+                source[1], edge.source.call, edge.source.port, PortDirection.OUTPUT
+            )
+        if isinstance(edge.target, CallInput):
+            target = calls.get(edge.target.call.name)
+            if target is None:
+                raise ValidationError("Stage flow edge refers to an unavailable call")
+            _call_port(
+                target[1], edge.target.call, edge.target.port, PortDirection.INPUT
+            )
+    return calls
+
+
+def _validate_state_edge(stage: Stage, edge: FlowEdge) -> None:
+    state = stage.contract().state
+    if isinstance(edge.source, StateValue) and edge.source.key not in state.reads:
+        raise ValidationError(
+            f"{type(stage).__name__} flow reads undeclared state key "
+            f"{edge.source.key.namespace}:{edge.source.key.name}"
+        )
+    if isinstance(edge.target, StateValue) and edge.target.key not in state.writes:
+        raise ValidationError(
+            f"{type(stage).__name__} flow writes undeclared state key "
+            f"{edge.target.key.namespace}:{edge.target.key.name}"
+        )
+
+
+def _linear_state_edges(
+    stage_ids: Sequence[str],
+    stages: Sequence[Stage],
+    calls_by_stage: Sequence[Mapping[str, tuple[str, ComponentNode]]],
+    extra_nodes: dict[str, ComponentNode],
+    state_flow_inputs: set[tuple[str, str, str]],
+) -> list[DataEdge]:
+    producers: dict[
+        StateKey[object],
+        tuple[
+            NodeRef | None,
+            StateKey[object] | None,
+            str,
+            tuple[Transform, ...],
+        ]
+        | None,
+    ] = {}
+    source_nodes: dict[tuple[StateKey[object], str], ComponentNode] = {}
+    for node in extra_nodes.values():
+        state_key = getattr(node.component, "state_key", None)
+        target_id = getattr(node.component, "target_id", None)
+        if isinstance(state_key, StateKey) and isinstance(target_id, str):
+            source_nodes[(state_key, target_id)] = node
+    edges: list[DataEdge] = []
+    for stage_id, stage, calls in zip(stage_ids, stages, calls_by_stage):
+        summary = stage.flow_summary()
+        if summary is None:
+            state = stage.contract().state
+            unknown_keys = (
+                set(producers) if not state.writes_enumerable else set(state.writes)
+            )
+            for key in unknown_keys:
+                producers[key] = None
+            continue
+        for item in summary.edges:
+            if isinstance(item.source, StateValue) and isinstance(
+                item.target, CallInput
+            ):
+                if (
+                    stage_id,
+                    item.target.call.name,
+                    item.target.port,
+                ) in state_flow_inputs:
+                    continue
+                target_id, target_node = calls[item.target.call.name]
+                target_port = _call_port(
+                    target_node,
+                    item.target.call,
+                    item.target.port,
+                    PortDirection.INPUT,
+                )
+                producer = producers.get(item.source.key)
+                if producer is None:
+                    producer = (None, item.source.key, "value", ())
+                source_ref, state_key, source_port, prior_transforms = producer
+                transforms = (*prior_transforms, *item.transforms)
+                if source_ref is None:
+                    source_key = state_key or item.source.key
+                    source_node = source_nodes.get((source_key, target_id))
+                    if source_node is None:
+                        used_ids = {
+                            *stage_ids,
+                            *(
+                                component_id
+                                for calls in calls_by_stage
+                                for component_id, _node in calls.values()
+                            ),
+                            *extra_nodes,
+                        }
+                        source_node = _state_source_node(
+                            source_key,
+                            target_id,
+                            target_port,
+                            transforms,
+                            used_ids=used_ids,
+                        )
+                        source_nodes[(source_key, target_id)] = source_node
+                        extra_nodes[source_node.component_id] = source_node
+                    source_ref = NodeRef(
+                        component_id=source_node.component_id,
+                        role="state",
+                    )
+                edges.append(
+                    DataEdge(
+                        source=source_ref,
+                        target=NodeRef(
+                            component_id=target_id,
+                            role=item.target.call.role,
+                        ),
+                        source_port=source_port,
+                        target_port=target_port.name,
+                        transforms=transforms,
+                    )
+                )
+        for item in summary.edges:
+            if isinstance(item.source, StateValue) and isinstance(
+                item.target, StateValue
+            ):
+                prior = producers.get(item.source.key)
+                if prior is None:
+                    prior = (None, item.source.key, "value", ())
+                source, state_key, port, transforms = prior
+                producers[item.target.key] = (
+                    source,
+                    state_key or item.source.key,
+                    port,
+                    (*transforms, *item.transforms),
+                )
+            elif isinstance(item.source, CallOutput) and isinstance(
+                item.target, StateValue
+            ):
+                call_id, _node = calls[item.source.call.name]
+                producers[item.target.key] = (
+                    NodeRef(component_id=call_id, role=item.source.call.role),
+                    None,
+                    item.source.port,
+                    item.transforms,
+                )
+        explicit_writes = {
+            item.target.key
+            for item in summary.edges
+            if isinstance(item.target, StateValue)
+        }
+        for key in set(stage.contract().state.writes) - explicit_writes:
+            producers[key] = (None, key, "value", ())
+    return edges
 
 
 def _decompose_stages(
     stage_ids: Sequence[str],
     stages: Sequence[Stage],
     stage_nodes: Sequence[ComponentNode],
-    held_by_stage: Sequence[tuple[_HeldComponent, ...]],
+    *,
+    resolve_state: bool = True,
+    used_ids: set[str] | None = None,
 ) -> _StageDecomposition:
-    """Expand ordered Stage nodes into ``(component, role)`` part nodes.
-
-    Each Stage stays the sole executable node of its parts.  Every declared
-    part gets its own contract-bearing node; a held component that the
-    Stage contract does not declare is exposed as a ``held_N`` part so its
-    ports stay visible to the compiler.
-    """
-    part_nodes_by_stage: list[dict[str, tuple[str, ComponentNode]]] = []
-    for stage_id, stage, stage_node, held in zip(
-        stage_ids, stages, stage_nodes, held_by_stage
-    ):
-        declared = stage_node.contract
-        stage_parts: dict[str, tuple[str, ComponentNode]] = {}
-        declared_components: set[int] = set()
-        for part in declared.parts:
-            component = _declared_part_component(stage, part.name)
-            if component is None:
-                if part.optional:
-                    continue
-                raise ValidationError(
-                    f"{type(stage).__name__} declares missing part {part.name!r}"
-                )
-            part_id = f"{stage_id}__{part.name}"
-            part_node = ComponentNode(
-                component_id=part_id,
-                component=StagePartNodeAdapter(component, part.contract),
-            )
-            stage_parts[part.name] = (part_id, part_node)
-            declared_components.add(id(component))
-        for item_index, item in enumerate(held, start=1):
-            if id(item.component) in declared_components:
-                continue
-            part_name = f"held_{item_index}"
-            while part_name in stage_parts:
-                part_name = f"{part_name}_1"
-            part_id = f"{stage_id}__{part_name}"
-            part_node = ComponentNode(
-                component_id=part_id,
-                component=StagePartNodeAdapter(item.component, item.contract),
-            )
-            stage_parts[part_name] = (part_id, part_node)
-        part_nodes_by_stage.append(stage_parts)
-
+    """Build verification nodes from Stage summaries without changing execution."""
+    used = set(stage_ids) if used_ids is None else used_ids
+    calls_by_stage = tuple(
+        _stage_flow_calls(stage_id, stage, used)
+        for stage_id, stage in zip(stage_ids, stages)
+    )
+    part_nodes_by_stage = [dict(calls) for calls in calls_by_stage]
     control_edges: list[ControlEdge] = []
     for index, stage_id in enumerate(stage_ids):
-        owned = tuple(part_nodes_by_stage[index].values())
-        chain = [stage_id, *(part_id for part_id, _ in owned)]
-        if index + 1 < len(stage_ids):
-            chain.append(stage_ids[index + 1])
+        call_ids = tuple(
+            component_id for component_id, _node in calls_by_stage[index].values()
+        )
+        if not call_ids:
+            if index + 1 < len(stage_ids):
+                control_edges.append(
+                    ControlEdge(
+                        source=NodeRef(component_id=stage_id),
+                        target=NodeRef(component_id=stage_ids[index + 1]),
+                    )
+                )
+            continue
         control_edges.extend(
             ControlEdge(
-                source=NodeRef(component_id=source),
-                target=NodeRef(component_id=target),
+                source=NodeRef(component_id=stage_id),
+                target=NodeRef(component_id=call_id),
             )
-            for source, target in pairwise(chain)
+            for call_id in call_ids
         )
+        if index + 1 < len(stage_ids):
+            control_edges.extend(
+                ControlEdge(
+                    source=NodeRef(component_id=call_id),
+                    target=NodeRef(component_id=stage_ids[index + 1]),
+                )
+                for call_id in call_ids
+            )
+
+    extra_nodes_by_id: dict[str, ComponentNode] = {}
+    for stage_id, stage, calls in zip(stage_ids, stages, calls_by_stage):
+        summary = stage.flow_summary()
+        if summary is not None:
+            for edge in summary.edges:
+                _validate_state_edge(stage, edge)
+                if (
+                    resolve_state
+                    and isinstance(edge.source, StateValue)
+                    and isinstance(edge.target, CallInput)
+                ):
+                    target_id, target_node = calls[edge.target.call.name]
+                    target_port = _call_port(
+                        target_node,
+                        edge.target.call,
+                        edge.target.port,
+                        PortDirection.INPUT,
+                    )
+                    source_node = _state_source_node(
+                        edge.source.key,
+                        target_id,
+                        target_port,
+                        edge.transforms,
+                        used_ids=used,
+                    )
+                    extra_nodes_by_id[source_node.component_id] = source_node
 
     data_edges: list[DataEdge] = []
-    for (
-        source_name,
-        source_role,
-        source_port,
-        target_name,
-        target_role,
-        target_port,
-    ) in _DATA_PORTS:
-        for source_index, source_stage in enumerate(stages):
-            if source_stage.name != source_name:
-                continue
-            for target_index, target_stage in enumerate(stages):
-                if target_stage.name != target_name or source_index >= target_index:
-                    continue
-                source_ref = _decomposed_role_node(
-                    stage_ids[source_index],
-                    source_role,
-                    part_nodes_by_stage[source_index],
-                    stage_nodes[source_index],
-                    PortDirection.OUTPUT,
-                    source_port,
+    state_flow_nodes: dict[StateKey[object], ComponentNode] = {}
+    state_flow_inputs: set[tuple[str, str, str]] = set()
+    for stage_id, stage, calls in zip(stage_ids, stages, calls_by_stage):
+        summary = stage.flow_summary()
+        if summary is None:
+            if resolve_state:
+                state = stage.contract().state
+                invalidated = (
+                    tuple(state_flow_nodes)
+                    if not state.writes_enumerable
+                    else state.writes
                 )
-                target_ref = _decomposed_role_node(
-                    stage_ids[target_index],
-                    target_role,
-                    part_nodes_by_stage[target_index],
-                    stage_nodes[target_index],
-                    PortDirection.INPUT,
-                    target_port,
-                )
-                if source_ref is not None and target_ref is not None:
-                    data_edges.append(
-                        DataEdge(
-                            source=source_ref,
-                            target=target_ref,
-                            source_port=source_port,
-                            target_port=target_port,
-                        )
+                for key in invalidated:
+                    state_flow_nodes.pop(key, None)
+            continue
+        for edge in summary.edges:
+            if isinstance(edge.source, CallOutput) and isinstance(
+                edge.target, CallInput
+            ):
+                source_id, _source_node = calls[edge.source.call.name]
+                target_id, _target_node = calls[edge.target.call.name]
+                data_edges.append(
+                    DataEdge(
+                        source=NodeRef(
+                            component_id=source_id,
+                            role=edge.source.call.role,
+                        ),
+                        target=NodeRef(
+                            component_id=target_id,
+                            role=edge.target.call.role,
+                        ),
+                        source_port=edge.source.port,
+                        target_port=edge.target.port,
+                        transforms=edge.transforms,
                     )
+                )
+            elif (
+                resolve_state
+                and isinstance(edge.source, CallOutput)
+                and isinstance(edge.target, StateValue)
+            ):
+                source_id, source_node = calls[edge.source.call.name]
+                source_port = _call_port(
+                    source_node,
+                    edge.source.call,
+                    edge.source.port,
+                    PortDirection.OUTPUT,
+                )
+                data, error = _apply_transforms(source_port.data, edge.transforms)
+                if error is not None or data is None:
+                    data = source_port.data
+                sink = _state_flow_node(
+                    edge.target.key,
+                    f"{stage_id}__{edge.source.call.name}",
+                    data,
+                    used_ids=used,
+                )
+                state_flow_nodes[edge.target.key] = sink
+                extra_nodes_by_id[sink.component_id] = sink
+                data_edges.append(
+                    DataEdge(
+                        source=NodeRef(
+                            component_id=source_id,
+                            role=edge.source.call.role,
+                        ),
+                        target=NodeRef(component_id=sink.component_id, role="state"),
+                        source_port=edge.source.port,
+                        target_port="value",
+                        transforms=edge.transforms,
+                    )
+                )
+            elif (
+                resolve_state
+                and isinstance(edge.source, StateValue)
+                and isinstance(edge.target, StateValue)
+            ):
+                source = state_flow_nodes.get(edge.source.key)
+                if source is None:
+                    continue
+                source_data = source.contract.ports["state"].outputs[0].data
+                data, error = _apply_transforms(source_data, edge.transforms)
+                if error is not None or data is None:
+                    data = source_data
+                target = _state_flow_node(
+                    edge.target.key,
+                    f"{stage_id}__state",
+                    data,
+                    used_ids=used,
+                )
+                state_flow_nodes[edge.target.key] = target
+                extra_nodes_by_id[target.component_id] = target
+                data_edges.append(
+                    DataEdge(
+                        source=NodeRef(component_id=source.component_id, role="state"),
+                        target=NodeRef(component_id=target.component_id, role="state"),
+                        source_port="value",
+                        target_port="value",
+                        transforms=edge.transforms,
+                    )
+                )
+            elif (
+                resolve_state
+                and isinstance(edge.source, StateValue)
+                and isinstance(edge.target, CallInput)
+            ):
+                source = state_flow_nodes.get(edge.source.key)
+                if source is None:
+                    continue
+                target_id, target_node = calls[edge.target.call.name]
+                target_port = _call_port(
+                    target_node,
+                    edge.target.call,
+                    edge.target.port,
+                    PortDirection.INPUT,
+                )
+                source_port = source.contract.ports["state"].outputs[0]
+                if target_port.name != edge.target.port:
+                    raise ValidationError("Stage flow input does not match its port")
+                data_edges.append(
+                    DataEdge(
+                        source=NodeRef(component_id=source.component_id, role="state"),
+                        target=NodeRef(
+                            component_id=target_id, role=edge.target.call.role
+                        ),
+                        source_port=source_port.name,
+                        target_port=edge.target.port,
+                        transforms=edge.transforms,
+                    )
+                )
+                state_flow_inputs.add(
+                    (stage_id, edge.target.call.name, edge.target.port)
+                )
+
+        if resolve_state:
+            explicit_writes = {
+                edge.target.key
+                for edge in summary.edges
+                if isinstance(edge.target, StateValue)
+            }
+            for key in set(stage.contract().state.writes) - explicit_writes:
+                state_flow_nodes.pop(key, None)
+
+    if resolve_state:
+        data_edges.extend(
+            _linear_state_edges(
+                stage_ids,
+                stages,
+                calls_by_stage,
+                extra_nodes_by_id,
+                state_flow_inputs,
+            )
+        )
+
+    used_state_nodes = {
+        reference.component_id
+        for edge in data_edges
+        for reference in (edge.source, edge.target)
+        if reference.component_id in extra_nodes_by_id
+    }
+    extra_nodes_by_id = {
+        component_id: node
+        for component_id, node in extra_nodes_by_id.items()
+        if component_id in used_state_nodes
+    }
 
     bindings: list[StateBinding] = []
-    seen_bindings: set[tuple[str, StateKey[object]]] = set()
-    for index, held in enumerate(held_by_stage):
-        for part_id, part_node in part_nodes_by_stage[index].values():
-            part_adapter = cast(StagePartNodeAdapter, part_node.component)
-            component = part_adapter.component
-            for item in held:
-                if item.component is not component:
+    for index, calls in enumerate(calls_by_stage):
+        for call_name, (call_id, node) in calls.items():
+            for key in node.contract.state.exports:
+                if key.namespace != "surrogates":
                     continue
-                for key in item.contract.state.exports:
-                    if key.namespace == "surrogates":
-                        qualified = StateKey[object](
-                            namespace=key.namespace,
-                            name=_surrogate_key_name(stage_ids[index], item),
-                            schema_version=key.schema_version,
-                        )
-                        marker = (part_id, qualified)
-                        if marker in seen_bindings:
-                            continue
-                        seen_bindings.add(marker)
-                        bindings.append(
-                            StateBinding(
-                                node=NodeRef(component_id=part_id),
-                                state_key=qualified,
-                            )
-                        )
+                qualified = StateKey[object](
+                    namespace=key.namespace,
+                    name=f"{stage_ids[index].replace('.', '__')}:{call_name}",
+                    schema_version=key.schema_version,
+                )
+                bindings.append(
+                    StateBinding(
+                        node=NodeRef(component_id=call_id, role=node.role),
+                        state_key=qualified,
+                    )
+                )
 
     return _StageDecomposition(
         part_nodes=tuple(part_nodes_by_stage),
         control_edges=tuple(control_edges),
         data_edges=tuple(data_edges),
         state_bindings=tuple(bindings),
+        extra_nodes=tuple(extra_nodes_by_id.values()),
     )
 
 
 def build_decomposed_component_graph_from_specs(
     specs: Sequence[NodeAdapterSpec],
 ) -> ComponentGraph:
-    """Build the canonical graph from ordered component/adapter specs.
+    """Build a graph from ordered Stage adapters.
 
-    ``build_component_graph`` remains the Stage bridge.  This function is an
-    opt-in decomposed path: each Stage is retained as the sole executable node,
-    while every declared part gets its own contract-bearing node.  Part nodes are
-    connected into the Stage control chain so ordering remains unique; data
-    edges target the part that owns the declared port and never encode control
-    side effects.
+    Stage nodes own execution. Declared call and state nodes provide contract
+    checks and data-dependency verification without running the held objects.
     """
     specs = tuple(specs)
     if any(not isinstance(spec, NodeAdapterSpec) for spec in specs):
@@ -803,34 +1204,35 @@ def build_decomposed_component_graph_from_specs(
         stage_ids,
         tuple(adapter.stage for adapter in stage_adapters),
         stage_nodes,
-        tuple(adapter._held for adapter in stage_adapters),
     )
+    for node in decomposition.nodes:
+        _mark_verification_only(node)
     return ComponentGraph(
         nodes=(*stage_nodes, *decomposition.nodes),
         data_edges=decomposition.data_edges,
         control_edges=decomposition.control_edges,
         state_bindings=decomposition.state_bindings,
-        entry_points=(NodeRef(component_id=stage_ids[0]),) if stage_ids else (),
+        entry_points=(
+            *((NodeRef(component_id=stage_ids[0]),) if stage_ids else ()),
+            *(
+                NodeRef(component_id=node.component_id, role="state")
+                for node in decomposition.extra_nodes
+            ),
+        ),
     )
 
 
 def decompose_structured_graph(graph: StructuredGraph) -> StructuredGraph:
-    """Add the ``(component, role)`` part nodes of a lowered structured graph.
+    """Add Stage call and state verification nodes to a lowered graph.
 
-    Every Stage the graph runs is expanded as
-    :func:`build_decomposed_component_graph_from_specs` expands a Stage
-    sequence: its parts are chained between the Stage and the Stage's control
-    successors, and data edges join the declared ports of Stages that run in
-    the same sequence.  Operations are left unchanged, so the Stages stay the
-    executable nodes and the part nodes are verification-only.
-
-    Data edges are not added between Stages in different sequences, such as
-    a Stage inside a region and a Stage in the enclosing sequence, so the
-    port contracts between them are not checked.
+    Custom strategies must call this function after ``lower_pipeline`` when
+    they want Stage flow edges included in compiler verification.
     """
     sequences: list[tuple[ComponentNode, ...]] = []
+    used_ids: set[str] = set()
 
     def collect(current: StructuredGraph) -> None:
+        used_ids.update(node.component_id for node in current.nodes)
         leaves = tuple(
             operation
             for operation in current.operations
@@ -849,46 +1251,67 @@ def decompose_structured_graph(graph: StructuredGraph) -> StructuredGraph:
     part_nodes: list[ComponentNode] = []
     data_edges: list[DataEdge] = []
     bindings: list[StateBinding] = []
-    chains: dict[str, tuple[str, ...]] = {}
+    control_edges: list[ControlEdge] = []
+    flow_call_ids: dict[str, dict[str, str]] = {}
     for leaves in sequences:
         stages = tuple(cast(Stage, getattr(node.component, "stage")) for node in leaves)
         decomposition = _decompose_stages(
             tuple(node.component_id for node in leaves),
             stages,
             leaves,
-            tuple(_held_components(stage) for stage in stages),
+            resolve_state=False,
+            used_ids=used_ids,
         )
         part_nodes.extend(decomposition.nodes)
         data_edges.extend(decomposition.data_edges)
         bindings.extend(decomposition.state_bindings)
-        for node, parts in zip(leaves, decomposition.part_nodes):
-            if parts:
-                chains[node.component_id] = tuple(
-                    part_id for part_id, _ in parts.values()
-                )
+        control_edges.extend(decomposition.control_edges)
+        for node, calls in zip(leaves, decomposition.part_nodes):
+            flow_call_ids[node.component_id] = {
+                name: component_id for name, (component_id, _call_node) in calls.items()
+            }
     if not part_nodes:
         return graph
-    control_edges: list[ControlEdge] = []
-    for edge in graph.control_edges:
-        chain = chains.get(edge.source.component_id)
-        if chain is None:
-            control_edges.append(edge)
-        else:
-            control_edges.append(replace(edge, source=NodeRef(component_id=chain[-1])))
-    for stage_id, chain in chains.items():
-        control_edges.extend(
-            ControlEdge(
-                source=NodeRef(component_id=source),
-                target=NodeRef(component_id=target),
+    control_edges = list(dict.fromkeys((*graph.control_edges, *control_edges)))
+    unique_nodes: dict[str, ComponentNode] = {
+        node.component_id: node for node in graph.nodes
+    }
+    unique_nodes.update((node.component_id, node) for node in part_nodes)
+    for node in part_nodes:
+        _mark_verification_only(node)
+    metadata = dict(graph.metadata)
+    metadata["stage_flow_calls"] = flow_call_ids
+    existing_verification_nodes = metadata.get("verification_only_nodes", ())
+    if not isinstance(existing_verification_nodes, (tuple, list)):
+        existing_verification_nodes = ()
+    metadata["verification_only_nodes"] = tuple(
+        dict.fromkeys(
+            (
+                *existing_verification_nodes,
+                *(node.component_id for node in part_nodes),
             )
-            for source, target in pairwise((stage_id, *chain))
         )
+    )
     return replace(
         graph,
-        nodes=(*graph.nodes, *part_nodes),
+        nodes=tuple(unique_nodes.values()),
         data_edges=(*graph.data_edges, *data_edges),
         control_edges=tuple(control_edges),
         state_bindings=tuple(dict.fromkeys((*graph.state_bindings, *bindings))),
+        entry_points=tuple(
+            dict.fromkeys(
+                (
+                    *graph.entry_points,
+                    *(
+                        NodeRef(component_id=node.component_id, role="state")
+                        for node in part_nodes
+                        if getattr(node.component, "state_key", None) is not None
+                    ),
+                )
+            )
+        ),
+        operations=graph.operations,
+        metadata=metadata,
     )
 
 

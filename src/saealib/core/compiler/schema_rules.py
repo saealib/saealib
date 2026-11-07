@@ -1,4 +1,4 @@
-"""Schema-variable freshening and graph-wide schema resolution."""
+"""Resolve schema variables on declared graph connections."""
 
 from __future__ import annotations
 
@@ -16,12 +16,12 @@ from saealib.core.contracts import (
     SCHEMA_VARIABLES,
     ComponentContract,
     DataSpec,
-    PartSpec,
     Product,
     SchemaBinding,
     Var,
 )
-from saealib.core.contracts.ports import PortContract, PortSpec
+from saealib.core.contracts.flow import _apply_transforms
+from saealib.core.contracts.ports import PortSpec
 from saealib.core.contracts.schema import (
     SchemaConstraint,
     Substitution,
@@ -52,59 +52,12 @@ def _fresh_spec(spec: DataSpec, prefix: str) -> DataSpec:
     )
 
 
-def _fresh_contract(contract: ComponentContract, prefix: str) -> ComponentContract:
-    ports: dict[str, PortContract] = {}
-    for role, role_contract in contract.ports.items():
-        ports[role] = PortContract(
-            inputs=tuple(
-                replace(port, data=_fresh_spec(port.data, prefix))
-                for port in role_contract.inputs
-            ),
-            outputs=tuple(
-                replace(port, data=_fresh_spec(port.data, prefix))
-                for port in role_contract.outputs
-            ),
-        )
-    parts = tuple(
-        PartSpec(
-            name=part.name,
-            contract=_fresh_contract(part.contract, prefix),
-            optional=part.optional,
-        )
-        for part in contract.parts
-    )
-    return replace(contract, ports=ports, parts=parts)
-
-
-class _FreshenedComponent:
-    _saealib_schema_freshened = True
-
-    def __init__(self, component: object, contract: ComponentContract) -> None:
-        self._component = component
-        self._contract = contract
-
-    def contract(self) -> ComponentContract:
-        return self._contract
-
-    def __getattr__(self, name: str) -> object:
-        return getattr(self._component, name)
-
-
 def _contains_var(binding: object) -> bool:
     if isinstance(binding, Var):
         return True
     if isinstance(binding, Product):
         return any(_contains_var(item) for item in binding.elements)
     return False
-
-
-def _contract_contains_var(contract: ComponentContract) -> bool:
-    return any(
-        _contains_var(port.data.bindings.get(name))
-        for role in contract.ports.values()
-        for port in (*role.inputs, *role.outputs)
-        for name in port.data.bindings
-    ) or any(_contract_contains_var(part.contract) for part in contract.parts)
 
 
 def _declared_service_names(contract: ComponentContract) -> set[str]:
@@ -168,45 +121,31 @@ def _port(
 
 
 class SchemaBindingRule:
-    """Freshen variables per node and unify every data edge deterministically."""
+    """Freshen edge-local variable names and unify declared data edges."""
 
     namespace = "core"
     name = "schema_binding"
     phase = "resolution"
 
     def apply(self, context: RuleContext):
-        """Freshen contracts once, then resolve graph-wide schema constraints."""
+        """Resolve schema constraints for each declared data connection."""
         from saealib.core.compiler.compiler import (
             ResolutionResult,
             _resolvable_service_names,
         )
 
         graph = context.graph
-        # ServiceResolutionRule owns the same node claim.  A node whose
-        # declared services still resolve is rewritten by it in this same
-        # iteration, so it is freshened only after services settle.
+        # ServiceResolutionRule owns the same node claim. Defer schema
+        # unification until declared service bindings settle.
         resolvable = _resolvable_service_names(context.compile_context)
         awaiting = frozenset(
             node.component_id
             for node in graph.nodes
             if _awaits_service_resolution(node, resolvable)
         )
-        nodes = tuple(
-            node if node.component_id in awaiting else _freshen_node(node)
-            for node in graph.nodes
-        )
-        current = replace(graph, nodes=nodes)
-        claims = frozenset(
-            context.claim("node", node.component_id)
-            for old, node in zip(graph.nodes, current.nodes)
-            if old != node
-        )
         if awaiting:
-            # An awaiting node is not freshened yet, so its unqualified
-            # variables would merge across independent nodes in the shared
-            # substitution below. Defer graph-wide unification to the next
-            # iteration, after service resolution has settled.
-            return ResolutionResult(graph=current, claims=claims, diagnostics=())
+            return ResolutionResult(graph=graph, diagnostics=())
+        current = graph
         substitution = Substitution()
         findings: list[Diagnostic] = []
         deferred: list[tuple[ContractPath, SchemaConstraint, SchemaBinding]] = []
@@ -217,6 +156,21 @@ class SchemaBindingRule:
             target_port = _port(target, edge.target, edge.target_port, False)
             if source_port is None or target_port is None:
                 continue
+            if edge.transforms:
+                transformed, error = _apply_transforms(
+                    source_port.data, edge.transforms
+                )
+                if error is not None or transformed is None:
+                    continue
+                source_port = replace(source_port, data=transformed)
+            source_port = replace(
+                source_port,
+                data=_fresh_spec(source_port.data, edge.source.component_id),
+            )
+            target_port = replace(
+                target_port,
+                data=_fresh_spec(target_port.data, edge.target.component_id),
+            )
             result = unify_data_specs(
                 source_port.data, target_port.data, substitution=substitution
             )
@@ -282,33 +236,17 @@ class SchemaBindingRule:
                         ),
                     )
                 )
-        return ResolutionResult(
-            graph=current, claims=claims, diagnostics=tuple(findings)
-        )
-
-
-def _freshen_node(node: ComponentNode) -> ComponentNode:
-    if getattr(node.component, "_saealib_schema_freshened", False):
-        return node
-    if not _contract_contains_var(node.contract):
-        return node
-    return ComponentNode(
-        component_id=node.component_id,
-        role=node.role,
-        component=_FreshenedComponent(
-            node.component, _fresh_contract(node.contract, node.component_id)
-        ),
-        resolved_services=node.resolved_services,
-    )
+        return ResolutionResult(graph=current, diagnostics=tuple(findings))
 
 
 def _edge_key(edge: DataEdge) -> str:
     def ref(value: NodeRef) -> str:
         return value.component_id + (f"[{value.role}]" if value.role else "")
 
-    return (
+    base = (
         f"{ref(edge.source)}.{edge.source_port}->{ref(edge.target)}.{edge.target_port}"
     )
+    return base + "|" + ",".join(item.name for item in edge.transforms)
 
 
 __all__ = ["SchemaBindingRule"]

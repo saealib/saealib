@@ -114,6 +114,31 @@ def _is_callable_ref(value: Any) -> bool:
     return isinstance(value, dict) and "callable" in value and "type" not in value
 
 
+def _build_value(value: Any) -> Any:
+    if _is_callable_ref(value) or _is_spec(value):
+        return build(value)
+    if isinstance(value, list):
+        return [_build_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_build_value(item) for item in value)
+    if isinstance(value, dict):
+        return {key: _build_value(item) for key, item in value.items()}
+    return value
+
+
+def _restore_metadata(result: Any, metadata: Any, type_name: str) -> Any:
+    if metadata is None:
+        return result
+    for name, value in metadata.items():
+        try:
+            setattr(result, name, value)
+        except Exception as exc:
+            raise ValidationError(
+                f"Cannot restore {name!r} metadata for {type_name!r}: {exc}"
+            ) from exc
+    return result
+
+
 def build(spec: Any) -> Any:
     """Recursively construct an object from a spec; non-spec values pass through.
 
@@ -127,22 +152,22 @@ def build(spec: Any) -> Any:
     if _is_spec(spec):
         cls = get(spec["type"])
         params = spec.get("params", {})
+        metadata = spec.get("_registry_stage_metadata")
         if isinstance(params, list):
-            args = [
-                build(v) if _is_spec(v) or _is_callable_ref(v) else v for v in params
-            ]
+            args = [_build_value(v) for v in params]
             try:
-                return cls(*args)
+                result = cls(*args)
             except TypeError as e:
                 raise ValidationError(f"Cannot construct {spec['type']!r}: {e}") from e
-        built_params = {
-            k: build(v) if _is_spec(v) or _is_callable_ref(v) else v
-            for k, v in params.items()
-        }
+            return _restore_metadata(result, metadata, spec["type"])
+        built_params = {k: _build_value(v) for k, v in params.items()}
         try:
-            return cls(**built_params)
+            result = cls(**built_params)
         except TypeError as e:
             raise ValidationError(f"Cannot construct {spec['type']!r}: {e}") from e
+        return _restore_metadata(result, metadata, spec["type"])
+    if isinstance(spec, (list, tuple, dict)):
+        return _build_value(spec)
     return spec
 
 
@@ -157,119 +182,664 @@ def _find_registered_name(cls: Any) -> str | None:
     return None
 
 
-def to_spec(obj: Any) -> Any:
-    """Recursively serialize ``obj`` into a spec (the reverse of ``build()``).
+def _path_text(path: tuple[object, ...], root: str = "value") -> str:
+    return root + "".join(f"[{part!r}]" for part in path)
 
-    Primitives, ``None``, lists/tuples, and dicts pass through structurally
-    (numpy arrays become lists). Functions/builtins become a
-    ``{"callable": "dotted.path"}`` marker. Other objects are reflected via
-    their constructor signature: for each ``__init__`` parameter, the
-    same-named attribute on ``obj`` is read and serialized recursively. A
-    single ``*args`` (``VAR_POSITIONAL``) parameter is serialized as a
-    params *list* instead of a dict, so it round-trips through ``build()``'s
-    positional-call path. A ``**kwargs`` (``VAR_KEYWORD``) parameter's
-    same-named mapping attribute is serialized item by item and merged into
-    ``params``. The params-list form cannot carry keyword settings, so a
-    class holding a non-empty same-named mapping attribute for its
-    ``**kwargs`` parameter alongside ``*args`` cannot be serialized and
-    raises :exc:`ValidationError` instead of dropping them.
-    """
-    if obj is None or isinstance(obj, bool | int | float | str):
-        return obj
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, list | tuple):
-        return [to_spec(v) for v in obj]
-    if isinstance(obj, dict):
-        return {k: to_spec(v) for k, v in obj.items()}
-    if inspect.isfunction(obj) or inspect.isbuiltin(obj):
-        path = _dotted_path(obj)
+
+def _validate_importable_type(
+    cls: type, path: tuple[object, ...], root: str = "value"
+) -> None:
+    if _find_registered_name(cls) is not None:
+        return
+    type_path = _dotted_path(cls)
+    try:
+        importable = get(type_path) is cls
+    except ValidationError:
+        importable = False
+    if not importable:
+        raise ValidationError(
+            f"Cannot serialize {_path_text(path, root)}: "
+            f"type {type_path!r} is not importable"
+        )
+
+
+_MISSING = object()
+_OMIT = object()
+
+_BUILTIN_STAGE_FIELDS = {
+    "AskStage": {
+        "algorithm": "_algorithm",
+        "n_offspring": "_n_offspring",
+        "cbmanager": ("_proxy", "_cbmanager"),
+    },
+    "SurrogatePredictStage": {
+        "surrogate_manager": "_sm",
+        "refit": "_refit",
+        "cbmanager": "_cbmanager",
+    },
+    "AcquisitionStage": {
+        "acquisition": "_acquisition",
+        "cbmanager": "_cbmanager",
+    },
+    "SurrogateFitStage": {
+        "surrogate_manager": "_sm",
+        "cbmanager": "_cbmanager",
+    },
+    "TopKSelectionStage": {"k": "_k"},
+    "EvaluationPlanStage": {"planner": "_planner", "n_eval": "_n_eval"},
+    "PendingEvaluationContextStage": {"scheduler": "_scheduler"},
+    "AsyncEvaluationSubmitStage": {
+        "scheduler": "_scheduler",
+        "planner": "_planner",
+        "feedback_builder": "_feedback_builder",
+        "algorithm": "_algorithm",
+        "callback_manager": "_callback_manager",
+    },
+    "EvaluationSubmitStage": {"evaluator": "_evaluator"},
+    "EvaluationCollectStage": {"evaluator": "_evaluator"},
+    "EvaluationAcknowledgeStage": {
+        "evaluator": "_evaluator",
+        "cbmanager": "_cbmanager",
+    },
+    "TrueEvaluationStage": {
+        "evaluator": "_evaluator",
+        "n_eval": "_n_eval",
+        "cbmanager": "_cbmanager",
+    },
+    "FeedbackStage": {"builder": "_builder"},
+    "TellStage": {"algorithm": "_algorithm", "channel": "_channel"},
+    "SurrogateOnlyLoopStage": {
+        "algorithm": "_algorithm",
+        "surrogate_manager": "_sm",
+        "gen_ctrl": "_gen_ctrl",
+        "acquisition": "_acquisition",
+        "feedback_builder": "_builder",
+        "cbmanager": "_cbmanager",
+    },
+    "InitializationStage": {
+        "initializer": "_initializer",
+        "provider": "_provider",
+        "problem": "_problem",
+    },
+}
+
+
+def _builtin_stage_fields(stage: Any) -> dict[str, Any]:
+    for base in type(stage).__mro__:
+        if base.__module__ == "saealib.stages" and type(
+            stage
+        ).__init__ is base.__dict__.get("__init__"):
+            return _BUILTIN_STAGE_FIELDS.get(base.__name__, {})
+    return {}
+
+
+def _constructor_value(
+    obj: Any,
+    name: str,
+    parameter_names: set[str],
+    stage_fields: Mapping[str, Any],
+    source_declaration: bool,
+    *,
+    allow_private: bool,
+) -> Any:
+    from saealib.pipeline import Branch, Loop, Pipeline, Repeat, Stage
+
+    if isinstance(obj, Pipeline):
+        if name == "steps" and "stages" in parameter_names:
+            return _OMIT
+        structural = {
+            "stages": obj.stages,
+            "steps": obj.steps,
+            "name": obj.name,
+            "label": obj.label,
+            "notation": obj.notation,
+        }
+        if name in structural:
+            return structural[name]
+    elif isinstance(obj, Repeat):
+        structural = {
+            "body": obj.body,
+            "count": obj.count,
+            "name": obj.name,
+            "label": obj.label,
+            "notation": obj.notation,
+        }
+        if name in structural:
+            return structural[name]
+    elif isinstance(obj, Loop):
+        structural = {
+            "body": obj.body,
+            "until": obj.until,
+            "name": obj.name,
+            "label": obj.label,
+            "notation": obj.notation,
+        }
+        if name in structural:
+            return structural[name]
+    elif isinstance(obj, Branch):
+        structural = {
+            "condition": obj.condition,
+            "then": obj.then,
+            "else_": obj.else_,
+            "name": obj.name,
+            "label": obj.label,
+            "notation": obj.notation,
+        }
+        if name in structural:
+            return structural[name]
+
+    if source_declaration and name == "pipeline":
+        return obj.declaration
+
+    alias = stage_fields.get(name)
+    if alias is not None:
+        instance_values = getattr(obj, "__dict__", {})
+        refs = dict(instance_values.get("_refs", ()))
+        if alias in refs and refs[alias] is not None:
+            return refs[alias]
+        if isinstance(alias, tuple):
+            parent = instance_values.get(alias[0], _MISSING)
+            value = getattr(parent, alias[1], _MISSING)
+        else:
+            value = instance_values.get(alias, _MISSING)
+            if value is _MISSING:
+                value = getattr(obj, alias, _MISSING)
+        if value is not _MISSING:
+            return value
+
+    try:
+        return getattr(obj, name)
+    except AttributeError:
+        pass
+    if allow_private:
+        instance_values = getattr(obj, "__dict__", {})
+        private_name = f"_{name}"
+        refs = dict(instance_values.get("_refs", ()))
+        if (
+            instance_values.get(private_name, _MISSING) is None
+            and refs.get(private_name) is not None
+        ):
+            return _MISSING
+        if isinstance(obj, Stage) and not stage_fields:
+            parent_fields = {
+                private_name
+                for base in type(obj).__mro__
+                if base.__module__ == "saealib.stages"
+                for alias in _BUILTIN_STAGE_FIELDS.get(base.__name__, {}).values()
+                for private_name in (alias if isinstance(alias, tuple) else (alias,))
+            }
+            if private_name in parent_fields:
+                return _MISSING
+        return instance_values.get(private_name, _MISSING)
+    return _MISSING
+
+
+def _identity_default(obj: Any, field: str) -> Any:
+    from saealib.pipeline import Branch, Loop, Pipeline, Repeat
+
+    if isinstance(obj, Pipeline):
+        return ""
+    if isinstance(obj, Repeat | Loop | Branch):
+        if field == "name":
+            return type(obj).__name__.lower()
+        if field == "label":
+            if isinstance(obj, Repeat):
+                return f"Repeat {obj.count} times"
+            if isinstance(obj, Loop):
+                return "Loop"
+            return "Branch"
+        return ""
+    return getattr(type(obj), field, "")
+
+
+def _identity_metadata(obj: Any, parameter_names: set[str]) -> dict[str, Any]:
+    metadata = {}
+    for field in ("name", "label", "notation"):
+        if field in parameter_names:
+            continue
+        descriptor = inspect.getattr_static(type(obj), field, _MISSING)
+        if isinstance(descriptor, property) and descriptor.fset is None:
+            continue
         try:
-            resolved = get(path)
-        except ValidationError:
-            resolved = None
-        if resolved is not obj:
-            raise ValidationError(
-                f"Cannot serialize {obj!r} as {path!r}: lambdas and nested "
-                "functions cannot be serialized; use a module-level function."
-            )
-        return {"callable": path}
+            value = getattr(obj, field)
+        except AttributeError:
+            continue
+        if value != _identity_default(obj, field):
+            metadata[field] = value
+    return metadata
 
-    if hasattr(obj, "_registry_spec"):
-        spec = obj._registry_spec
-        if spec is None:
-            raise ValidationError(
-                f"{type(obj).__name__} instance has no recorded spec and "
-                "cannot be serialized."
-            )
-        return spec
+
+def _constructor_spec(
+    obj: Any,
+    path: tuple[object, ...],
+    active: set[int],
+    seen: dict[int, tuple[Any, str, bool]],
+    root: str,
+    *,
+    strict: bool,
+    source_declaration: bool = False,
+) -> dict[str, Any]:
+    from saealib.pipeline import Branch, Loop, Pipeline, Repeat, Stage
+    from saealib.stages import EvaluationPlanStage
 
     cls = type(obj)
     type_name = _find_registered_name(cls) or _dotted_path(cls)
     if cls.__init__ is object.__init__:
         return {"type": type_name, "params": {}}
+
     parameters = [
-        p
-        for name, p in inspect.signature(cls.__init__).parameters.items()
+        parameter
+        for name, parameter in inspect.signature(cls.__init__).parameters.items()
         if name != "self"
     ]
+    parameter_names = {
+        p.name for p in parameters if p.kind not in {p.VAR_KEYWORD, p.VAR_POSITIONAL}
+    }
+    stage_fields = _builtin_stage_fields(obj) if isinstance(obj, Stage) else {}
+    allow_private = strict or isinstance(obj, Stage)
 
-    var_positional = [p for p in parameters if p.kind is p.VAR_POSITIONAL]
-    if var_positional:
-        (param,) = var_positional
-        if not hasattr(obj, param.name):
+    def unavailable(name: str, required: bool) -> None:
+        if strict:
             raise ValidationError(
-                f"Cannot serialize {type_name!r}: no attribute {param.name!r} "
-                f"matching *{param.name} constructor parameter."
+                f"Cannot serialize {_path_text(path, root)}[{name!r}]: "
+                "constructor value is unavailable"
             )
-        var_keyword = next((p for p in parameters if p.kind is p.VAR_KEYWORD), None)
-        if var_keyword is not None and hasattr(obj, var_keyword.name):
-            mapping = getattr(obj, var_keyword.name)
-            if isinstance(mapping, Mapping) and mapping:
-                raise ValidationError(
-                    f"Cannot serialize {type_name!r}: *{param.name} form cannot "
-                    f"represent the {len(mapping)} keyword setting(s) held in "
-                    f"the attribute {var_keyword.name!r} matching "
-                    f"**{var_keyword.name} constructor parameter."
-                )
-        return {
-            "type": type_name,
-            "params": [to_spec(v) for v in getattr(obj, param.name)],
-        }
+        raise ValidationError(
+            f"Cannot serialize {_path_text(path, root)} ({type_name!r}): "
+            f"no attribute {name!r} matching "
+            f"{'required' if required else 'optional'} constructor parameter."
+        )
 
-    params: dict[str, Any] = {}
-    for param in parameters:
-        if param.kind is param.VAR_KEYWORD:
-            if not hasattr(obj, param.name):
-                raise ValidationError(
-                    f"Cannot serialize {type_name!r}: no attribute {param.name!r} "
-                    f"matching **{param.name} constructor parameter."
-                )
-            mapping = getattr(obj, param.name)
-            if not isinstance(mapping, Mapping):
-                raise ValidationError(
-                    f"Cannot serialize {type_name!r}: attribute {param.name!r} "
-                    f"matching **{param.name} constructor parameter is not a "
-                    "mapping."
-                )
-            for key, value in mapping.items():
-                if key in params:
-                    raise ValidationError(
-                        f"Cannot serialize {type_name!r}: **{param.name} key "
-                        f"{key!r} collides with a same-named constructor "
-                        "parameter."
-                    )
-                params[key] = to_spec(value)
-            continue
-        if not hasattr(obj, param.name):
-            if param.default is not param.empty:
+    variable_positional = next(
+        (p for p in parameters if p.kind is p.VAR_POSITIONAL), None
+    )
+    spec: dict[str, Any]
+    emitted_parameter_names: set[str] = set()
+    if variable_positional is not None:
+        parameter = variable_positional
+        identity_fields = (
+            {"name", "label", "notation"}
+            if isinstance(obj, (Stage, Pipeline, Repeat, Loop, Branch))
+            else set()
+        )
+        for other in parameters:
+            if other is parameter or other.kind is other.VAR_KEYWORD:
+                continue
+            if (
+                other.kind is other.KEYWORD_ONLY
+                and other.name in identity_fields
+                and other.default is not other.empty
+            ):
+                continue
+            other_value = _constructor_value(
+                obj,
+                other.name,
+                parameter_names,
+                stage_fields,
+                source_declaration,
+                allow_private=allow_private,
+            )
+            if other_value is _OMIT:
+                continue
+            if (
+                other_value is _MISSING
+                and not strict
+                and other.default is not other.empty
+            ):
                 continue
             raise ValidationError(
-                f"Cannot serialize {type_name!r}: no attribute {param.name!r} "
-                "matching required constructor parameter."
+                f"Cannot serialize {_path_text(path, root)}[{other.name!r}]: "
+                "constructor parameter cannot be represented alongside "
+                f"*{parameter.name}; define _registry_spec."
             )
-        params[param.name] = to_spec(getattr(obj, param.name))
-    return {"type": type_name, "params": params}
+        value = _constructor_value(
+            obj,
+            parameter.name,
+            parameter_names,
+            stage_fields,
+            source_declaration,
+            allow_private=allow_private,
+        )
+        if value is _MISSING or value is _OMIT:
+            unavailable(parameter.name, True)
+        variable_keyword = next(
+            (p for p in parameters if p.kind is p.VAR_KEYWORD), None
+        )
+        if variable_keyword is not None:
+            mapping = _constructor_value(
+                obj,
+                variable_keyword.name,
+                parameter_names,
+                stage_fields,
+                source_declaration,
+                allow_private=allow_private,
+            )
+            if strict and (mapping is _MISSING or not isinstance(mapping, Mapping)):
+                unavailable(variable_keyword.name, True)
+            if isinstance(mapping, Mapping) and mapping:
+                raise ValidationError(
+                    f"Cannot serialize "
+                    f"{_path_text(path, root)} ({type_name!r})"
+                    f"[{variable_keyword.name!r}]: "
+                    f"*{parameter.name} cannot represent the "
+                    f"{len(mapping)} keyword setting(s) held in "
+                    f"**{variable_keyword.name}; define _registry_spec."
+                )
+        spec = {
+            "type": type_name,
+            "params": [
+                _to_spec(item, (*path, parameter.name, index), active, seen, root)
+                for index, item in enumerate(value)
+            ],
+        }
+    else:
+        params: dict[str, Any] = {}
+        for parameter in parameters:
+            name = parameter.name
+            value = _constructor_value(
+                obj,
+                name,
+                parameter_names,
+                stage_fields,
+                source_declaration,
+                allow_private=allow_private,
+            )
+            if value is _OMIT:
+                continue
+            if parameter.kind is parameter.VAR_KEYWORD:
+                if value is _MISSING:
+                    unavailable(name, True)
+                if not isinstance(value, Mapping):
+                    if strict:
+                        unavailable(name, True)
+                    raise ValidationError(
+                        f"Cannot serialize {_path_text(path, root)} ({type_name!r}): "
+                        f"attribute {name!r} matching **{name} constructor "
+                        "parameter is not a mapping."
+                    )
+                for key, item in value.items():
+                    if key in params:
+                        raise ValidationError(
+                            f"Cannot serialize {_path_text(path, root)}[{key!r}]: "
+                            f"**{name} key collides with a constructor parameter"
+                        )
+                    params[key] = _to_spec(item, (*path, key), active, seen, root)
+                continue
+            if (
+                name == "planner"
+                and isinstance(obj, Stage)
+                and type(obj).__init__ is EvaluationPlanStage.__init__
+                and getattr(obj, "_n_eval", None) is not None
+            ):
+                continue
+            if value is _MISSING:
+                if not strict and parameter.default is not parameter.empty:
+                    continue
+                unavailable(name, parameter.default is parameter.empty)
+            if (
+                name == "name"
+                and isinstance(obj, (Repeat, Loop, Branch))
+                and value == type(obj).__name__.lower()
+                and parameter.default == ""
+            ):
+                continue
+            value_root = (
+                "declaration" if source_declaration and name == "pipeline" else root
+            )
+            condition_slot = (isinstance(obj, Branch) and name == "condition") or (
+                isinstance(obj, Loop) and name in {"until", "condition"}
+            )
+            params[name] = _to_spec(
+                value,
+                (*path, name),
+                active,
+                seen,
+                value_root,
+                structural_condition=condition_slot,
+            )
+        emitted_parameter_names = set(params)
+        spec = {"type": type_name, "params": params}
+
+    metadata = (
+        _identity_metadata(obj, emitted_parameter_names)
+        if isinstance(obj, (Stage, Pipeline, Repeat, Loop, Branch))
+        else {}
+    )
+    if metadata:
+        spec["_registry_stage_metadata"] = metadata
+    return spec
+
+
+def _to_spec(
+    obj: Any,
+    path: tuple[object, ...],
+    active: set[int],
+    seen: dict[int, tuple[Any, str, bool]],
+    root: str = "value",
+    *,
+    structural_condition: bool = False,
+) -> Any:
+    """Serialize one value while walking a declaration or component graph.
+
+    Primitives, ``None``, lists/tuples, and dicts pass through structurally
+    (numpy arrays become lists). Functions/builtins become a
+    ``{"callable": "dotted.path"}`` marker. A ``TemplateStrategy`` instance
+    serializes its source declaration when its constructor is inherited from
+    ``TemplateStrategy``. Structural pipelines and controls serialize their
+    declaration fields; Stages use mapped constructor fields where available
+    and store overridden identity attributes separately.
+    Other objects are reflected via their constructor signature. A ``*args``
+    parameter becomes a params list, while a ``**kwargs`` parameter's
+    same-named mapping is merged into params. Cycles and shared object
+    instances raise :exc:`ValidationError`; ``active`` tracks cycles and
+    ``seen`` retains strong references throughout traversal. ``root`` names
+    the source of the reported path.
+    """
+    if obj is None or isinstance(obj, bool | int | float | str):
+        return obj
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, list | tuple | dict):
+        identity = id(obj)
+        if identity in active:
+            raise ValidationError(
+                f"Cannot serialize {_path_text(path, root)}: reference cycle detected"
+            )
+        active.add(identity)
+        try:
+            if isinstance(obj, dict):
+                return {
+                    k: _to_spec(v, (*path, k), active, seen, root)
+                    for k, v in obj.items()
+                }
+            return [
+                _to_spec(v, (*path, index), active, seen, root)
+                for index, v in enumerate(obj)
+            ]
+        finally:
+            active.remove(identity)
+    if inspect.isfunction(obj) or inspect.isbuiltin(obj):
+        callable_path = _dotted_path(obj)
+        try:
+            resolved = get(callable_path)
+        except ValidationError:
+            resolved = None
+        if resolved is not obj:
+            raise ValidationError(
+                f"Cannot serialize {_path_text(path, root)} ({obj!r}) as "
+                f"{callable_path!r}: lambdas and nested "
+                "functions cannot be serialized; use a module-level function."
+            )
+        return {"callable": callable_path}
+
+    from saealib.pipeline import Stage
+
+    if isinstance(obj, Stage):
+        parameters = inspect.signature(type(obj).__init__).parameters
+        callback_names = [
+            name for name in ("cbmanager", "callback_manager") if name in parameters
+        ]
+        fields = _builtin_stage_fields(obj)
+        for name in callback_names:
+            manager = _constructor_value(
+                obj,
+                name,
+                set(parameters),
+                fields,
+                False,
+                allow_private=True,
+            )
+            if manager is not _MISSING and manager is not None:
+                raise ValidationError(
+                    f"Cannot serialize {_path_text(path, root)}[{name!r}]: "
+                    "explicit callback manager is not serializable"
+                )
+
+    if hasattr(obj, "_registry_spec"):
+        identity = id(obj)
+        if identity in seen:
+            separate = structural_condition or seen[identity][2]
+            raise ValidationError(
+                f"Cannot serialize {_path_text(path, root)}: shares an object with "
+                f"{seen[identity][1]}; "
+                + (
+                    "use separate instances."
+                    if separate
+                    else "use a ComponentRef to the same slot."
+                )
+            )
+        seen[identity] = (obj, _path_text(path, root), structural_condition)
+        spec = obj._registry_spec
+        if spec is None:
+            raise ValidationError(
+                f"Cannot serialize {_path_text(path, root)}: {type(obj).__name__} "
+                "instance has no recorded spec and "
+                "cannot be serialized."
+            )
+        return spec
+
+    from saealib.pipeline import Branch, ComponentRef, Loop, Pipeline, Repeat
+    from saealib.strategies.base import TemplateStrategy
+
+    if isinstance(obj, ComponentRef):
+        _validate_importable_type(type(obj), path, root)
+        return {
+            "type": _find_registered_name(type(obj)) or _dotted_path(type(obj)),
+            "params": {"role": obj.role, "slot": obj.slot},
+        }
+
+    source_declaration = (
+        isinstance(obj, TemplateStrategy)
+        and type(obj).__init__ is TemplateStrategy.__init__
+    )
+    if isinstance(obj, TemplateStrategy):
+        parameters = inspect.signature(type(obj).__init__).parameters
+        if not source_declaration and "pipeline" in parameters:
+            raise ValidationError(
+                f"Cannot serialize {_path_text(path, root)}: "
+                f"{type(obj).__name__} overrides __init__ with a pipeline "
+                "parameter, so its declaration transformation cannot be "
+                "reconstructed; define _registry_spec."
+            )
+
+    _validate_importable_type(type(obj), path, root)
+
+    identity = id(obj)
+    if identity in active:
+        raise ValidationError(
+            f"Cannot serialize {_path_text(path, root)}: reference cycle detected"
+        )
+    if identity in seen:
+        separate = (
+            isinstance(obj, (Stage, Pipeline, Branch, Loop, Repeat))
+            or structural_condition
+            or seen[identity][2]
+        )
+        raise ValidationError(
+            f"Cannot serialize {_path_text(path, root)}: shares an object with "
+            f"{seen[identity][1]}; "
+            + (
+                "use separate instances."
+                if separate
+                else "use a ComponentRef to the same slot."
+            )
+        )
+    active.add(identity)
+    seen[identity] = (obj, _path_text(path, root), structural_condition)
+    try:
+        if isinstance(obj, TemplateStrategy):
+            return _constructor_spec(
+                obj,
+                path,
+                active,
+                seen,
+                root,
+                strict=True,
+                source_declaration=source_declaration,
+            )
+        if isinstance(obj, (Pipeline, Repeat, Loop, Branch, Stage)):
+            return _constructor_spec(obj, path, active, seen, root, strict=True)
+        return _to_spec_reflected(obj, path, active, seen, root)
+    finally:
+        active.remove(identity)
+
+
+def _to_spec_reflected(
+    obj: Any,
+    path: tuple[object, ...],
+    active: set[int],
+    seen: dict[int, tuple[Any, str, bool]],
+    root: str = "value",
+) -> Any:
+    return _constructor_spec(obj, path, active, seen, root, strict=False)
+
+
+def to_spec(obj: Any) -> Any:
+    """Serialize a component or declaration into a registry spec.
+
+    Values are represented with nested type/parameter mappings. A
+    ``TemplateStrategy`` instance serializes its source declaration when its
+    constructor is inherited from ``TemplateStrategy``. Built-in strategy
+    specs retain their constructor parameters. Pipelines use ``stages`` as
+    their sequence parameter, and Stage identity overrides are stored separately from
+    constructor parameters. Callable references and structural values are
+    preserved when they can be rebuilt from an importable path.
+
+    Parameters
+    ----------
+    obj : Any
+        A component, strategy declaration, callable, or supported container.
+
+    Returns
+    -------
+    Any
+        A registry spec or a structurally serialized value.
+
+    Raises
+    ------
+    ValidationError
+        If a value cannot be reconstructed or the declaration graph contains
+        a reference cycle or shared component instance.
+
+    Notes
+    -----
+    Reflection follows the actual constructor signature. ``*args`` are
+    represented as a list and ``**kwargs`` are merged into the parameter
+    mapping. With ``*args``, other constructor parameters are supported only
+    as keyword-only identity fields; otherwise, define ``_registry_spec``.
+    ``_registry_spec`` overrides reflection. A template strategy
+    whose constructor inherits :class:`TemplateStrategy` preserves its source
+    declaration. A subclass that overrides ``__init__`` and accepts
+    ``pipeline`` must define ``_registry_spec`` because the transformation of
+    that argument cannot be inferred. Overridden constructors must store their
+    arguments unchanged in same-named attributes, or define ``_registry_spec``.
+    Non-importable local classes and shared instances are rejected with a
+    location.
+    """
+    from saealib.strategies.base import TemplateStrategy
+
+    root = "declaration" if isinstance(obj, TemplateStrategy) else "value"
+    return _to_spec(obj, (), set(), {}, root)
 
 
 def _strip_params(spec: Any, *names: str) -> Any:

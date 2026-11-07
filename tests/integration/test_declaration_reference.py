@@ -268,6 +268,16 @@ def test_component_ref_round_trips_through_the_registry() -> None:
     assert build(spec) == ref
 
 
+def test_composite_ask_with_an_unreadable_reference_fails_during_serialization() -> (
+    None
+):
+    with pytest.raises(
+        ValidationError,
+        match=r"value\['algorithm'\].*constructor value is unavailable",
+    ):
+        to_spec(_CompositeAsk(ComponentRef("proposer")))
+
+
 # ---------------------------------------------------------------------------
 # Resolution semantics
 # ---------------------------------------------------------------------------

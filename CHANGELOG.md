@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Direct asynchronous strategy steps** block until in-flight requests finish and return without running the step; the next call uses the current components. An explicit recompile requested while requests are in flight is retained until they finish ([#317](https://github.com/saealib/saealib/issues/317))
+- **Strategy and Pipeline specs** preserve nested declarations, controls, component references, and explicit stage components; nested values build recursively, and unsupported values report their location. `to_spec` rejects non-importable local classes and shared instances with a location; `Optimizer.save_preset` uses the same validation ([#318](https://github.com/saealib/saealib/issues/318)).
 - **Pickle checkpoints for asynchronous evaluation**: `EvaluationPlan` serializes its immutable artifacts mapping so runs can resume from pickle checkpoints ([#313](https://github.com/saealib/saealib/issues/313))
 - **Compiling a graph that refers to a missing node** reports `invalid_graph_edge`, `invalid_entry_point`, or the new `invalid_state_binding` instead of raising `KeyError` ([#295](https://github.com/saealib/saealib/issues/295))
 - **Branches at the start or end of a lowered sequence**: the else path is no longer reported as unreachable and the then path is ordered before what follows ([#296](https://github.com/saealib/saealib/issues/296))

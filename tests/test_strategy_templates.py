@@ -25,8 +25,12 @@ from saealib.callback import CallbackManager, GenerationEndEvent, PostAskEvent
 from saealib.callback.events import Event
 from saealib.context import OptimizationState
 from saealib.core.compiler.structured import StructuredGraph
+from saealib.core.contracts import ComponentContract, StateContract
+from saealib.core.state.keys import RUNTIME_GENERATION, USER_DATA
+from saealib.exceptions import ValidationError
 from saealib.execution import (
     AsyncEvaluationScheduler,
+    AsyncEvaluator,
     EvaluationHandle,
     EvaluationRequest,
     EvaluationStatus,
@@ -35,6 +39,15 @@ from saealib.execution import (
     SerialEvaluator,
 )
 from saealib.execution.runtime import create_runtime, resolve_plan
+from saealib.pipeline import (
+    Branch,
+    ComponentRef,
+    Condition,
+    Loop,
+    Pipeline,
+    Repeat,
+    Stage,
+)
 from saealib.policies.evaluation import (
     EvaluateAll,
     RatioEvaluation,
@@ -44,10 +57,26 @@ from saealib.policies.evaluation import (
 from saealib.policies.feedback import MixedFeedback, TrueOnlyFeedback
 from saealib.problem import Problem
 from saealib.registry import build, to_spec
+from saealib.stages import (
+    AcquisitionStage,
+    ArchiveUpdateStage,
+    AskStage,
+    CountGenerationStage,
+    EvaluationAcknowledgeStage,
+    EvaluationApplyStage,
+    EvaluationCollectStage,
+    EvaluationPlanStage,
+    EvaluationSubmitStage,
+    FeedbackStage,
+    SurrogateFitStage,
+    SurrogatePredictStage,
+    TellStage,
+)
 from saealib.strategies import (
     DirectStrategy,
     GenerationBasedStrategy,
     SteadyStateStrategy,
+    TemplateStrategy,
 )
 from saealib.surrogate.manager import LocalSurrogateManager
 from saealib.surrogate.rbf import RBFSurrogate
@@ -160,6 +189,85 @@ class _ControlledEvaluator(_Evaluator):
         self._delivered.add(request_id)
         handle._delivered_sequence = update.sequence
         return [update]
+
+
+class DeclarationCondition(Condition):
+    def __init__(self, threshold: int = 1) -> None:
+        self.threshold = threshold
+
+    def contract(self):
+        from saealib.core.contracts import StateContract
+
+        return StateContract()
+
+    def evaluate(self, view) -> bool:
+        return False
+
+
+class LambdaCondition(Condition):
+    def __init__(self, predicate=None) -> None:
+        self.predicate = predicate or (lambda value: value)
+
+    def contract(self):
+        from saealib.core.contracts import StateContract
+
+        return StateContract()
+
+    def evaluate(self, view) -> bool:
+        return bool(self.predicate(view))
+
+
+class DeclarationStage(Stage):
+    def __init__(self, marker: str) -> None:
+        super().__init__()
+        self.marker = marker
+
+    def execute(self, state: OptimizationState) -> OptimizationState:
+        return state
+
+
+class DeclarationTemplateSubclass(TemplateStrategy):
+    def __init__(self, pipeline, marker="default"):
+        self.marker = marker
+        super().__init__(pipeline)
+
+
+class InheritedDeclarationTemplate(TemplateStrategy):
+    pass
+
+
+class GenerationBelow(DeclarationCondition):
+    def contract(self):
+        return StateContract(reads=(RUNTIME_GENERATION,))
+
+    def evaluate(self, view) -> bool:
+        return int(view.get(RUNTIME_GENERATION)) < self.threshold
+
+
+class GenerationReached(DeclarationCondition):
+    def contract(self):
+        return StateContract(reads=(RUNTIME_GENERATION,))
+
+    def evaluate(self, view) -> bool:
+        return int(view.get(RUNTIME_GENERATION)) >= self.threshold
+
+
+class MarkerStage(Stage):
+    def __init__(self, marker: str):
+        super().__init__()
+        self.marker = marker
+
+    def contract(self):
+        return ComponentContract(
+            state=StateContract(reads=(USER_DATA,), writes=(USER_DATA,))
+        )
+
+    def execute(self, state: OptimizationState) -> OptimizationState:
+        data = dict(state.data or {})
+        markers = list(data.get("declaration_markers", ()))
+        markers.append(self.marker)
+        data["declaration_markers"] = markers
+        return state.replace(data=data)
 
 
 def _sphere(x):
@@ -499,6 +607,8 @@ def test_steady_state_refills_after_no_delivery_with_active_repeated_plan():
 @pytest.mark.parametrize(
     "strategy",
     [
+        DirectStrategy(),
+        GenerationBasedStrategy(1),
         IndividualBasedStrategy(0.4),
         PreSelectionStrategy(7, 3),
         SteadyStateStrategy(),
@@ -512,6 +622,181 @@ def test_strategy_specs_round_trip(strategy):
     elif isinstance(strategy, PreSelectionStrategy):
         assert rebuilt.n_candidates == strategy.n_candidates
         assert rebuilt.n_select == strategy.n_select
+    assert to_spec(rebuilt) == to_spec(strategy)
+
+
+def test_template_strategy_subclass_overriding_pipeline_requires_registry_spec():
+    original = DeclarationTemplateSubclass(
+        Pipeline([CountGenerationStage()]), marker="preserved"
+    )
+
+    with pytest.raises(ValidationError, match=r"pipeline.*_registry_spec"):
+        to_spec(original)
+
+
+def test_template_strategy_subclass_inheriting_init_keeps_declaration():
+    original = InheritedDeclarationTemplate(Pipeline([CountGenerationStage()]))
+
+    spec = to_spec(original)
+    rebuilt = build(spec)
+
+    assert type(rebuilt) is InheritedDeclarationTemplate
+    assert isinstance(rebuilt.declaration, Pipeline)
+    assert isinstance(rebuilt.declaration.stages[0], CountGenerationStage)
+    assert to_spec(rebuilt) == spec == to_spec(original)
+
+
+def test_declaration_spec_preserves_controls_components_and_references():
+    reference = ComponentRef("proposer", "algorithm")
+    declaration = Pipeline(
+        [
+            AskStage(reference),
+            EvaluationPlanStage(RatioEvaluation(0.5, sanitize_nonfinite=True)),
+            Branch(
+                DeclarationCondition(2),
+                then=Pipeline([Repeat(DeclarationStage("then"), 2)]),
+                else_=DeclarationStage("else"),
+                name="choice",
+            ),
+            Loop(DeclarationStage("loop"), until=DeclarationCondition(3)),
+            Pipeline([DeclarationStage("nested")]),
+        ],
+        name="declared",
+    )
+    strategy = TemplateStrategy(declaration)
+    spec = to_spec(strategy)
+    restored = build(spec)
+    assert isinstance(restored, TemplateStrategy)
+    assert isinstance(restored.declaration, Pipeline)
+    assert isinstance(restored.declaration.stages[0], AskStage)
+    assert restored.declaration.stages[0]._refs == (("_algorithm", reference),)
+    assert isinstance(restored.declaration.stages[1]._planner, RatioEvaluation)
+    assert isinstance(restored.declaration.stages[2], Branch)
+    assert isinstance(restored.declaration.stages[2].then, Pipeline)
+    assert isinstance(restored.declaration.stages[2].then.stages[0], Repeat)
+    assert restored.declaration.stages[2].name == "choice"
+    assert restored.declaration.stages[2].condition.threshold == 2
+    assert restored.declaration.stages[2].then.stages[0].count == 2
+    assert restored.declaration.stages[2].then.stages[0].body.marker == "then"
+    assert isinstance(restored.declaration.stages[3], Loop)
+    assert restored.declaration.stages[3].until.threshold == 3
+    assert isinstance(restored.declaration.stages[4], Pipeline)
+    assert restored.declaration.stages[4].stages[0].marker == "nested"
+    assert to_spec(restored) == spec
+    assert to_spec(strategy) == spec
+
+
+def test_declaration_spec_rejects_local_stage_with_location():
+    class LocalStage(Stage):
+        def execute(self, state: OptimizationState) -> OptimizationState:
+            return state
+
+    with pytest.raises(ValidationError, match=r"declaration.*stages"):
+        to_spec(TemplateStrategy(Pipeline([LocalStage()])))
+
+
+def test_declaration_spec_rejects_condition_closure_with_location():
+    with pytest.raises(ValidationError, match=r"declaration.*condition.*predicate"):
+        to_spec(
+            TemplateStrategy(
+                Pipeline([Branch(LambdaCondition(), then=DeclarationStage("then"))])
+            )
+        )
+
+
+def _declaration_for_run() -> Pipeline:
+    return Pipeline(
+        [
+            Loop(
+                Pipeline(
+                    [
+                        Branch(
+                            GenerationBelow(1),
+                            then=Pipeline([MarkerStage("then")]),
+                            else_=Pipeline([MarkerStage("else")]),
+                            name="choice",
+                        ),
+                        CountGenerationStage(),
+                    ],
+                    name="loop_body",
+                ),
+                until=GenerationReached(2),
+                name="loop",
+            ),
+            Repeat(
+                Pipeline([MarkerStage("repeat")], name="repeat_body"),
+                count=2,
+                name="repeat",
+            ),
+            Pipeline([MarkerStage("nested")], name="nested_body"),
+            SurrogateFitStage(ComponentRef("fitter", "surrogate_manager")),
+            AskStage(ComponentRef("proposer", "algorithm"), n_offspring=2),
+            SurrogatePredictStage(ComponentRef("predictor", "surrogate_manager")),
+            AcquisitionStage(ComponentRef("acquisition", "acquisition")),
+            EvaluationPlanStage(RatioEvaluation(0.5)),
+            EvaluationSubmitStage(ComponentRef("evaluator", "evaluator")),
+            EvaluationCollectStage(ComponentRef("evaluator", "evaluator")),
+            EvaluationApplyStage(),
+            ArchiveUpdateStage(),
+            FeedbackStage(ComponentRef("feedback_builder", "feedback_builder")),
+            TellStage(ComponentRef("feedback_consumer", "algorithm")),
+            EvaluationAcknowledgeStage(ComponentRef("evaluator", "evaluator")),
+            MarkerStage("tail"),
+            CountGenerationStage(),
+        ],
+        name="round_trip",
+    )
+
+
+def _declaration_optimizer(strategy: Any, asynchronous: bool) -> Optimizer:
+    optimizer = (
+        Optimizer(_problem(), seed=29)
+        .set_initializer(LHSInitializer(6, 4, 29))
+        .set_algorithm(_algorithm())
+        .set_surrogate_manager(LocalSurrogateManager(RBFSurrogate(GaussianKernel())))
+        .set_acquisition(MeanPrediction())
+        .set_strategy(strategy)
+        .set_termination(Termination(_two_generations))
+        .set_history(["summary", "population", "evaluation"])
+    )
+    if asynchronous:
+        evaluator = AsyncEvaluator(SerialEvaluator())
+        optimizer.set_evaluator(evaluator)
+        optimizer.set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=2)
+        )
+    return optimizer
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_declaration_round_trip_execution_matches_after_preparation(asynchronous):
+    original = InheritedDeclarationTemplate(_declaration_for_run())
+    source_spec = to_spec(original)
+    original_optimizer = _declaration_optimizer(original, asynchronous)
+    original_state = original_optimizer.run()
+    prepared_spec = to_spec(original)
+    assert prepared_spec == source_spec
+
+    restored = build(source_spec)
+    assert type(restored) is InheritedDeclarationTemplate
+    restored_optimizer = _declaration_optimizer(restored, asynchronous)
+    restored_state = restored_optimizer.run()
+    assert restored_state.decision_count == original_state.decision_count
+    assert restored_state.data == original_state.data
+    assert original_state.data["declaration_markers"].count("then") == 1
+    assert original_state.data["declaration_markers"].count("else") == 1
+    assert original_state.data["declaration_markers"].count("repeat") == 2
+    _assert_checkpoint_matches(restored_state, original_state)
+
+    restored_prepared = build(prepared_spec)
+    assert type(restored_prepared) is InheritedDeclarationTemplate
+    restored_prepared_optimizer = _declaration_optimizer(
+        restored_prepared, asynchronous
+    )
+    restored_prepared_state = restored_prepared_optimizer.run()
+    assert restored_prepared_state.decision_count == original_state.decision_count
+    assert restored_prepared_state.data == original_state.data
+    _assert_checkpoint_matches(restored_prepared_state, original_state)
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])

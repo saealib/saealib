@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.registry &#8212; saealib 0.1.1.dev31+g048c8b7ee ドキュメント</title>
+    <title>saealib.registry &#8212; saealib 0.1.1.dev32+gcb44f7f65 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=17244762"></script>
+    <script src="../../_static/documentation_options.js?v=6119eff2"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1079,6 +1079,31 @@ window.runMermaid = runMermaid;</script>
     <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;callable&quot;</span> <span class="ow">in</span> <span class="n">value</span> <span class="ow">and</span> <span class="s2">&quot;type&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">value</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_value</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">_is_callable_ref</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_is_spec</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">build</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">_build_value</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">_build_value</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">_build_value</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_restore_metadata</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">type_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">metadata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot restore </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> metadata for </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
 <div class="viewcode-block" id="build">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.registry.build.html#saealib.build">[ドキュメント]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="n">spec</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
@@ -1094,22 +1119,22 @@ window.runMermaid = runMermaid;</script>
     <span class="k">if</span> <span class="n">_is_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">):</span>
         <span class="bp">cls</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">spec</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
         <span class="n">params</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;params&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_registry_stage_metadata&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="n">args</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">build</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="n">_is_spec</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_is_callable_ref</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span>
-            <span class="p">]</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">_build_value</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="p">]</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot construct </span><span class="si">{</span><span class="n">spec</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">!r}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-        <span class="n">built_params</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">k</span><span class="p">:</span> <span class="n">build</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="n">_is_spec</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_is_callable_ref</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
+            <span class="k">return</span> <span class="n">_restore_metadata</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
+        <span class="n">built_params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_build_value</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">built_params</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">built_params</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot construct </span><span class="si">{</span><span class="n">spec</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">!r}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">return</span> <span class="n">_restore_metadata</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">_build_value</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">spec</span></div>
 
 
@@ -1125,121 +1150,666 @@ window.runMermaid = runMermaid;</script>
     <span class="k">return</span> <span class="kc">None</span>
 
 
-<div class="viewcode-block" id="to_spec">
-<a class="viewcode-back" href="../../api/_autosummary/saealib.registry.to_spec.html#saealib.to_spec">[ドキュメント]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">to_spec</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recursively serialize ``obj`` into a spec (the reverse of ``build()``).</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;value&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">root</span> <span class="o">+</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">part</span><span class="si">!r}</span><span class="s2">]&quot;</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">path</span><span class="p">)</span>
 
-<span class="sd">    Primitives, ``None``, lists/tuples, and dicts pass through structurally</span>
-<span class="sd">    (numpy arrays become lists). Functions/builtins become a</span>
-<span class="sd">    ``{&quot;callable&quot;: &quot;dotted.path&quot;}`` marker. Other objects are reflected via</span>
-<span class="sd">    their constructor signature: for each ``__init__`` parameter, the</span>
-<span class="sd">    same-named attribute on ``obj`` is read and serialized recursively. A</span>
-<span class="sd">    single ``*args`` (``VAR_POSITIONAL``) parameter is serialized as a</span>
-<span class="sd">    params *list* instead of a dict, so it round-trips through ``build()``&#39;s</span>
-<span class="sd">    positional-call path. A ``**kwargs`` (``VAR_KEYWORD``) parameter&#39;s</span>
-<span class="sd">    same-named mapping attribute is serialized item by item and merged into</span>
-<span class="sd">    ``params``. The params-list form cannot carry keyword settings, so a</span>
-<span class="sd">    class holding a non-empty same-named mapping attribute for its</span>
-<span class="sd">    ``**kwargs`` parameter alongside ``*args`` cannot be serialized and</span>
-<span class="sd">    raises :exc:`ValidationError` instead of dropping them.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">obj</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">list</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">to_spec</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">]</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">to_spec</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-    <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isfunction</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="ow">or</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isbuiltin</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">_dotted_path</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_validate_importable_type</span><span class="p">(</span>
+    <span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;value&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">_find_registered_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">type_path</span> <span class="o">=</span> <span class="n">_dotted_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">importable</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">type_path</span><span class="p">)</span> <span class="ow">is</span> <span class="bp">cls</span>
+    <span class="k">except</span> <span class="n">ValidationError</span><span class="p">:</span>
+        <span class="n">importable</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">importable</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;type </span><span class="si">{</span><span class="n">type_path</span><span class="si">!r}</span><span class="s2"> is not importable&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="n">_MISSING</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+<span class="n">_OMIT</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+<span class="n">_BUILTIN_STAGE_FIELDS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;AskStage&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;n_offspring&quot;</span><span class="p">:</span> <span class="s2">&quot;_n_offspring&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cbmanager&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;_proxy&quot;</span><span class="p">,</span> <span class="s2">&quot;_cbmanager&quot;</span><span class="p">),</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;SurrogatePredictStage&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">:</span> <span class="s2">&quot;_sm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;refit&quot;</span><span class="p">:</span> <span class="s2">&quot;_refit&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cbmanager&quot;</span><span class="p">:</span> <span class="s2">&quot;_cbmanager&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;AcquisitionStage&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;acquisition&quot;</span><span class="p">:</span> <span class="s2">&quot;_acquisition&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cbmanager&quot;</span><span class="p">:</span> <span class="s2">&quot;_cbmanager&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;SurrogateFitStage&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">:</span> <span class="s2">&quot;_sm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cbmanager&quot;</span><span class="p">:</span> <span class="s2">&quot;_cbmanager&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;TopKSelectionStage&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;k&quot;</span><span class="p">:</span> <span class="s2">&quot;_k&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;EvaluationPlanStage&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;planner&quot;</span><span class="p">:</span> <span class="s2">&quot;_planner&quot;</span><span class="p">,</span> <span class="s2">&quot;n_eval&quot;</span><span class="p">:</span> <span class="s2">&quot;_n_eval&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;PendingEvaluationContextStage&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;scheduler&quot;</span><span class="p">:</span> <span class="s2">&quot;_scheduler&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;AsyncEvaluationSubmitStage&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;scheduler&quot;</span><span class="p">:</span> <span class="s2">&quot;_scheduler&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;planner&quot;</span><span class="p">:</span> <span class="s2">&quot;_planner&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;feedback_builder&quot;</span><span class="p">:</span> <span class="s2">&quot;_feedback_builder&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;callback_manager&quot;</span><span class="p">:</span> <span class="s2">&quot;_callback_manager&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;EvaluationSubmitStage&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;evaluator&quot;</span><span class="p">:</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;EvaluationCollectStage&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;evaluator&quot;</span><span class="p">:</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;EvaluationAcknowledgeStage&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;evaluator&quot;</span><span class="p">:</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cbmanager&quot;</span><span class="p">:</span> <span class="s2">&quot;_cbmanager&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;TrueEvaluationStage&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;evaluator&quot;</span><span class="p">:</span> <span class="s2">&quot;_evaluator&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;n_eval&quot;</span><span class="p">:</span> <span class="s2">&quot;_n_eval&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cbmanager&quot;</span><span class="p">:</span> <span class="s2">&quot;_cbmanager&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;FeedbackStage&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;builder&quot;</span><span class="p">:</span> <span class="s2">&quot;_builder&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;TellStage&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="s2">&quot;channel&quot;</span><span class="p">:</span> <span class="s2">&quot;_channel&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;SurrogateOnlyLoopStage&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">:</span> <span class="s2">&quot;_sm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;gen_ctrl&quot;</span><span class="p">:</span> <span class="s2">&quot;_gen_ctrl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;acquisition&quot;</span><span class="p">:</span> <span class="s2">&quot;_acquisition&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;feedback_builder&quot;</span><span class="p">:</span> <span class="s2">&quot;_builder&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cbmanager&quot;</span><span class="p">:</span> <span class="s2">&quot;_cbmanager&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;InitializationStage&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;initializer&quot;</span><span class="p">:</span> <span class="s2">&quot;_initializer&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;provider&quot;</span><span class="p">:</span> <span class="s2">&quot;_provider&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;problem&quot;</span><span class="p">:</span> <span class="s2">&quot;_problem&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_builtin_stage_fields</span><span class="p">(</span><span class="n">stage</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="vm">__mro__</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">base</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">==</span> <span class="s2">&quot;saealib.stages&quot;</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span>
+            <span class="n">stage</span>
+        <span class="p">)</span><span class="o">.</span><span class="fm">__init__</span> <span class="ow">is</span> <span class="n">base</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;__init__&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_BUILTIN_STAGE_FIELDS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="k">return</span> <span class="p">{}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_constructor_value</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">parameter_names</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">stage_fields</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">source_declaration</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">allow_private</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Branch</span><span class="p">,</span> <span class="n">Loop</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Repeat</span><span class="p">,</span> <span class="n">Stage</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;steps&quot;</span> <span class="ow">and</span> <span class="s2">&quot;stages&quot;</span> <span class="ow">in</span> <span class="n">parameter_names</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_OMIT</span>
+        <span class="n">structural</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;stages&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">stages</span><span class="p">,</span>
+            <span class="s2">&quot;steps&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">steps</span><span class="p">,</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+            <span class="s2">&quot;notation&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">notation</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">structural</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">structural</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Repeat</span><span class="p">):</span>
+        <span class="n">structural</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;body&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">body</span><span class="p">,</span>
+            <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">count</span><span class="p">,</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+            <span class="s2">&quot;notation&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">notation</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">structural</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">structural</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Loop</span><span class="p">):</span>
+        <span class="n">structural</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;body&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">body</span><span class="p">,</span>
+            <span class="s2">&quot;until&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">until</span><span class="p">,</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+            <span class="s2">&quot;notation&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">notation</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">structural</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">structural</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Branch</span><span class="p">):</span>
+        <span class="n">structural</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;condition&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">condition</span><span class="p">,</span>
+            <span class="s2">&quot;then&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">then</span><span class="p">,</span>
+            <span class="s2">&quot;else_&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">else_</span><span class="p">,</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+            <span class="s2">&quot;notation&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">notation</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">structural</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">structural</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">source_declaration</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;pipeline&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">declaration</span>
+
+    <span class="n">alias</span> <span class="o">=</span> <span class="n">stage_fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">alias</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">instance_values</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;__dict__&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">refs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">instance_values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_refs&quot;</span><span class="p">,</span> <span class="p">()))</span>
+        <span class="k">if</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">refs</span> <span class="ow">and</span> <span class="n">refs</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">refs</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="n">parent</span> <span class="o">=</span> <span class="n">instance_values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">alias</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">_MISSING</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="n">alias</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">_MISSING</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">instance_values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">_MISSING</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">_MISSING</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">alias</span><span class="p">,</span> <span class="n">_MISSING</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_MISSING</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">value</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">if</span> <span class="n">allow_private</span><span class="p">:</span>
+        <span class="n">instance_values</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;__dict__&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">private_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">refs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">instance_values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_refs&quot;</span><span class="p">,</span> <span class="p">()))</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">instance_values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">private_name</span><span class="p">,</span> <span class="n">_MISSING</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">refs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">private_name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="n">_MISSING</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Stage</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">stage_fields</span><span class="p">:</span>
+            <span class="n">parent_fields</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">private_name</span>
+                <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__mro__</span>
+                <span class="k">if</span> <span class="n">base</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">==</span> <span class="s2">&quot;saealib.stages&quot;</span>
+                <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">_BUILTIN_STAGE_FIELDS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">private_name</span> <span class="ow">in</span> <span class="p">(</span><span class="n">alias</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="n">alias</span><span class="p">,))</span>
+            <span class="p">}</span>
+            <span class="k">if</span> <span class="n">private_name</span> <span class="ow">in</span> <span class="n">parent_fields</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_MISSING</span>
+        <span class="k">return</span> <span class="n">instance_values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">private_name</span><span class="p">,</span> <span class="n">_MISSING</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_MISSING</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_identity_default</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Branch</span><span class="p">,</span> <span class="n">Loop</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Repeat</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Repeat</span> <span class="o">|</span> <span class="n">Loop</span> <span class="o">|</span> <span class="n">Branch</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">field</span> <span class="o">==</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">field</span> <span class="o">==</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Repeat</span><span class="p">):</span>
+                <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Repeat </span><span class="si">{</span><span class="n">obj</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2"> times&quot;</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Loop</span><span class="p">):</span>
+                <span class="k">return</span> <span class="s2">&quot;Loop&quot;</span>
+            <span class="k">return</span> <span class="s2">&quot;Branch&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">),</span> <span class="n">field</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_identity_metadata</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">parameter_names</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;notation&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">parameter_names</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">descriptor</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getattr_static</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">),</span> <span class="n">field</span><span class="p">,</span> <span class="n">_MISSING</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">descriptor</span><span class="p">,</span> <span class="nb">property</span><span class="p">)</span> <span class="ow">and</span> <span class="n">descriptor</span><span class="o">.</span><span class="n">fset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">resolved</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">ValidationError</span><span class="p">:</span>
-            <span class="n">resolved</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">resolved</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">obj</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">obj</span><span class="si">!r}</span><span class="s2"> as </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">: lambdas and nested &quot;</span>
-                <span class="s2">&quot;functions cannot be serialized; use a module-level function.&quot;</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;callable&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">_identity_default</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">field</span><span class="p">):</span>
+            <span class="n">metadata</span><span class="p">[</span><span class="n">field</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="k">return</span> <span class="n">metadata</span>
 
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;_registry_spec&quot;</span><span class="p">):</span>
-        <span class="n">spec</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">_registry_spec</span>
-        <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> instance has no recorded spec and &quot;</span>
-                <span class="s2">&quot;cannot be serialized.&quot;</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="n">spec</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_constructor_spec</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">active</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]],</span>
+    <span class="n">root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">source_declaration</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Branch</span><span class="p">,</span> <span class="n">Loop</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Repeat</span><span class="p">,</span> <span class="n">Stage</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationPlanStage</span>
 
     <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
     <span class="n">type_name</span> <span class="o">=</span> <span class="n">_find_registered_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_dotted_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
     <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="ow">is</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__init__</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">type_name</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{}}</span>
+
     <span class="n">parameters</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">p</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="n">parameter</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;self&quot;</span>
     <span class="p">]</span>
+    <span class="n">parameter_names</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">VAR_POSITIONAL</span><span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">stage_fields</span> <span class="o">=</span> <span class="n">_builtin_stage_fields</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Stage</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+    <span class="n">allow_private</span> <span class="o">=</span> <span class="n">strict</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Stage</span><span class="p">)</span>
 
-    <span class="n">var_positional</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">p</span><span class="o">.</span><span class="n">VAR_POSITIONAL</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">var_positional</span><span class="p">:</span>
-        <span class="p">(</span><span class="n">param</span><span class="p">,)</span> <span class="o">=</span> <span class="n">var_positional</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unavailable</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">required</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: no attribute </span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;matching *</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> constructor parameter.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">]: &quot;</span>
+                <span class="s2">&quot;constructor value is unavailable&quot;</span>
             <span class="p">)</span>
-        <span class="n">var_keyword</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">p</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">var_keyword</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">var_keyword</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
-            <span class="n">mapping</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">var_keyword</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">)</span> <span class="ow">and</span> <span class="n">mapping</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: *</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> form cannot &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;represent the </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="si">}</span><span class="s2"> keyword setting(s) held in &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;the attribute </span><span class="si">{</span><span class="n">var_keyword</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> matching &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;**</span><span class="si">{</span><span class="n">var_keyword</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> constructor parameter.&quot;</span>
-                <span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">type_name</span><span class="p">,</span>
-            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">to_spec</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">)],</span>
-        <span class="p">}</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">): &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;no attribute </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> matching &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;required&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">required</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;optional&#39;</span><span class="si">}</span><span class="s2"> constructor parameter.&quot;</span>
+        <span class="p">)</span>
 
-    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">param</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: no attribute </span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;matching **</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> constructor parameter.&quot;</span>
-                <span class="p">)</span>
-            <span class="n">mapping</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: attribute </span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;matching **</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> constructor parameter is not a &quot;</span>
-                    <span class="s2">&quot;mapping.&quot;</span>
-                <span class="p">)</span>
-            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: **</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> key &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2"> collides with a same-named constructor &quot;</span>
-                        <span class="s2">&quot;parameter.&quot;</span>
-                    <span class="p">)</span>
-                <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_spec</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-            <span class="k">continue</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+    <span class="n">variable_positional</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">p</span><span class="o">.</span><span class="n">VAR_POSITIONAL</span><span class="p">),</span> <span class="kc">None</span>
+    <span class="p">)</span>
+    <span class="n">spec</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+    <span class="n">emitted_parameter_names</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">variable_positional</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">parameter</span> <span class="o">=</span> <span class="n">variable_positional</span>
+        <span class="n">identity_fields</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;notation&quot;</span><span class="p">}</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="n">Stage</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Repeat</span><span class="p">,</span> <span class="n">Loop</span><span class="p">,</span> <span class="n">Branch</span><span class="p">))</span>
+            <span class="k">else</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="n">parameter</span> <span class="ow">or</span> <span class="n">other</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">other</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">other</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">other</span><span class="o">.</span><span class="n">KEYWORD_ONLY</span>
+                <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">identity_fields</span>
+                <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">other</span><span class="o">.</span><span class="n">empty</span>
+            <span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">other_value</span> <span class="o">=</span> <span class="n">_constructor_value</span><span class="p">(</span>
+                <span class="n">obj</span><span class="p">,</span>
+                <span class="n">other</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">parameter_names</span><span class="p">,</span>
+                <span class="n">stage_fields</span><span class="p">,</span>
+                <span class="n">source_declaration</span><span class="p">,</span>
+                <span class="n">allow_private</span><span class="o">=</span><span class="n">allow_private</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">other_value</span> <span class="ow">is</span> <span class="n">_OMIT</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">other_value</span> <span class="ow">is</span> <span class="n">_MISSING</span>
+                <span class="ow">and</span> <span class="ow">not</span> <span class="n">strict</span>
+                <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">other</span><span class="o">.</span><span class="n">empty</span>
+            <span class="p">):</span>
                 <span class="k">continue</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">: no attribute </span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> &quot;</span>
-                <span class="s2">&quot;matching required constructor parameter.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2">]: &quot;</span>
+                <span class="s2">&quot;constructor parameter cannot be represented alongside &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;*</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">; define _registry_spec.&quot;</span>
             <span class="p">)</span>
-        <span class="n">params</span><span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_spec</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
-    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">type_name</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">params</span><span class="p">}</span></div>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">_constructor_value</span><span class="p">(</span>
+            <span class="n">obj</span><span class="p">,</span>
+            <span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">parameter_names</span><span class="p">,</span>
+            <span class="n">stage_fields</span><span class="p">,</span>
+            <span class="n">source_declaration</span><span class="p">,</span>
+            <span class="n">allow_private</span><span class="o">=</span><span class="n">allow_private</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">_MISSING</span> <span class="ow">or</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">_OMIT</span><span class="p">:</span>
+            <span class="n">unavailable</span><span class="p">(</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">variable_keyword</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">p</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">),</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">variable_keyword</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mapping</span> <span class="o">=</span> <span class="n">_constructor_value</span><span class="p">(</span>
+                <span class="n">obj</span><span class="p">,</span>
+                <span class="n">variable_keyword</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">parameter_names</span><span class="p">,</span>
+                <span class="n">stage_fields</span><span class="p">,</span>
+                <span class="n">source_declaration</span><span class="p">,</span>
+                <span class="n">allow_private</span><span class="o">=</span><span class="n">allow_private</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">strict</span> <span class="ow">and</span> <span class="p">(</span><span class="n">mapping</span> <span class="ow">is</span> <span class="n">_MISSING</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">)):</span>
+                <span class="n">unavailable</span><span class="p">(</span><span class="n">variable_keyword</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">)</span> <span class="ow">and</span> <span class="n">mapping</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Cannot serialize &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">)&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">variable_keyword</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2">]: &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;*</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> cannot represent the &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="si">}</span><span class="s2"> keyword setting(s) held in &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;**</span><span class="si">{</span><span class="n">variable_keyword</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">; define _registry_spec.&quot;</span>
+                <span class="p">)</span>
+        <span class="n">spec</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">type_name</span><span class="p">,</span>
+            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="n">_to_spec</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="p">(</span><span class="o">*</span><span class="n">path</span><span class="p">,</span> <span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">index</span><span class="p">),</span> <span class="n">active</span><span class="p">,</span> <span class="n">seen</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="p">],</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">name</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">_constructor_value</span><span class="p">(</span>
+                <span class="n">obj</span><span class="p">,</span>
+                <span class="n">name</span><span class="p">,</span>
+                <span class="n">parameter_names</span><span class="p">,</span>
+                <span class="n">stage_fields</span><span class="p">,</span>
+                <span class="n">source_declaration</span><span class="p">,</span>
+                <span class="n">allow_private</span><span class="o">=</span><span class="n">allow_private</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">_OMIT</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">parameter</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="n">parameter</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">_MISSING</span><span class="p">:</span>
+                    <span class="n">unavailable</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
+                        <span class="n">unavailable</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">type_name</span><span class="si">!r}</span><span class="s2">): &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;attribute </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> matching **</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> constructor &quot;</span>
+                        <span class="s2">&quot;parameter is not a mapping.&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2">]: &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;**</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> key collides with a constructor parameter&quot;</span>
+                        <span class="p">)</span>
+                    <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">_to_spec</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="p">(</span><span class="o">*</span><span class="n">path</span><span class="p">,</span> <span class="n">key</span><span class="p">),</span> <span class="n">active</span><span class="p">,</span> <span class="n">seen</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;planner&quot;</span>
+                <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Stage</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span> <span class="ow">is</span> <span class="n">EvaluationPlanStage</span><span class="o">.</span><span class="fm">__init__</span>
+                <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;_n_eval&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">_MISSING</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">strict</span> <span class="ow">and</span> <span class="n">parameter</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">parameter</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">unavailable</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">parameter</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">parameter</span><span class="o">.</span><span class="n">empty</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;name&quot;</span>
+                <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="n">Repeat</span><span class="p">,</span> <span class="n">Loop</span><span class="p">,</span> <span class="n">Branch</span><span class="p">))</span>
+                <span class="ow">and</span> <span class="n">value</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+                <span class="ow">and</span> <span class="n">parameter</span><span class="o">.</span><span class="n">default</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span>
+            <span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">value_root</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;declaration&quot;</span> <span class="k">if</span> <span class="n">source_declaration</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;pipeline&quot;</span> <span class="k">else</span> <span class="n">root</span>
+            <span class="p">)</span>
+            <span class="n">condition_slot</span> <span class="o">=</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Branch</span><span class="p">)</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;condition&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Loop</span><span class="p">)</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;until&quot;</span><span class="p">,</span> <span class="s2">&quot;condition&quot;</span><span class="p">}</span>
+            <span class="p">)</span>
+            <span class="n">params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_to_spec</span><span class="p">(</span>
+                <span class="n">value</span><span class="p">,</span>
+                <span class="p">(</span><span class="o">*</span><span class="n">path</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+                <span class="n">active</span><span class="p">,</span>
+                <span class="n">seen</span><span class="p">,</span>
+                <span class="n">value_root</span><span class="p">,</span>
+                <span class="n">structural_condition</span><span class="o">=</span><span class="n">condition_slot</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">emitted_parameter_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">spec</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">type_name</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">params</span><span class="p">}</span>
+
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_identity_metadata</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">emitted_parameter_names</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="n">Stage</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Repeat</span><span class="p">,</span> <span class="n">Loop</span><span class="p">,</span> <span class="n">Branch</span><span class="p">))</span>
+        <span class="k">else</span> <span class="p">{}</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">metadata</span><span class="p">:</span>
+        <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;_registry_stage_metadata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata</span>
+    <span class="k">return</span> <span class="n">spec</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_to_spec</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">active</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]],</span>
+    <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;value&quot;</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">structural_condition</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize one value while walking a declaration or component graph.</span>
+
+<span class="sd">    Primitives, ``None``, lists/tuples, and dicts pass through structurally</span>
+<span class="sd">    (numpy arrays become lists). Functions/builtins become a</span>
+<span class="sd">    ``{&quot;callable&quot;: &quot;dotted.path&quot;}`` marker. A ``TemplateStrategy`` instance</span>
+<span class="sd">    serializes its source declaration when its constructor is inherited from</span>
+<span class="sd">    ``TemplateStrategy``. Structural pipelines and controls serialize their</span>
+<span class="sd">    declaration fields; Stages use mapped constructor fields where available</span>
+<span class="sd">    and store overridden identity attributes separately.</span>
+<span class="sd">    Other objects are reflected via their constructor signature. A ``*args``</span>
+<span class="sd">    parameter becomes a params list, while a ``**kwargs`` parameter&#39;s</span>
+<span class="sd">    same-named mapping is merged into params. Cycles and shared object</span>
+<span class="sd">    instances raise :exc:`ValidationError`; ``active`` tracks cycles and</span>
+<span class="sd">    ``seen`` retains strong references throughout traversal. ``root`` names</span>
+<span class="sd">    the source of the reported path.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">obj</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">list</span> <span class="o">|</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">identity</span> <span class="o">=</span> <span class="nb">id</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">identity</span> <span class="ow">in</span> <span class="n">active</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">: reference cycle detected&quot;</span>
+            <span class="p">)</span>
+        <span class="n">active</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">identity</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">{</span>
+                    <span class="n">k</span><span class="p">:</span> <span class="n">_to_spec</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="o">*</span><span class="n">path</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">active</span><span class="p">,</span> <span class="n">seen</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="k">return</span> <span class="p">[</span>
+                <span class="n">_to_spec</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="o">*</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="p">),</span> <span class="n">active</span><span class="p">,</span> <span class="n">seen</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">active</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">identity</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isfunction</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="ow">or</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isbuiltin</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+        <span class="n">callable_path</span> <span class="o">=</span> <span class="n">_dotted_path</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">resolved</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">callable_path</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">ValidationError</span><span class="p">:</span>
+            <span class="n">resolved</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">resolved</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">obj</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">obj</span><span class="si">!r}</span><span class="s2">) as &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">callable_path</span><span class="si">!r}</span><span class="s2">: lambdas and nested &quot;</span>
+                <span class="s2">&quot;functions cannot be serialized; use a module-level function.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;callable&quot;</span><span class="p">:</span> <span class="n">callable_path</span><span class="p">}</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Stage</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Stage</span><span class="p">):</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="n">callback_names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;cbmanager&quot;</span><span class="p">,</span> <span class="s2">&quot;callback_manager&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">parameters</span>
+        <span class="p">]</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="n">_builtin_stage_fields</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">callback_names</span><span class="p">:</span>
+            <span class="n">manager</span> <span class="o">=</span> <span class="n">_constructor_value</span><span class="p">(</span>
+                <span class="n">obj</span><span class="p">,</span>
+                <span class="n">name</span><span class="p">,</span>
+                <span class="nb">set</span><span class="p">(</span><span class="n">parameters</span><span class="p">),</span>
+                <span class="n">fields</span><span class="p">,</span>
+                <span class="kc">False</span><span class="p">,</span>
+                <span class="n">allow_private</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_MISSING</span> <span class="ow">and</span> <span class="n">manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">]: &quot;</span>
+                    <span class="s2">&quot;explicit callback manager is not serializable&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;_registry_spec&quot;</span><span class="p">):</span>
+        <span class="n">identity</span> <span class="o">=</span> <span class="nb">id</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">identity</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+            <span class="n">separate</span> <span class="o">=</span> <span class="n">structural_condition</span> <span class="ow">or</span> <span class="n">seen</span><span class="p">[</span><span class="n">identity</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">: shares an object with &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">seen</span><span class="p">[</span><span class="n">identity</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">; &quot;</span>
+                <span class="o">+</span> <span class="p">(</span>
+                    <span class="s2">&quot;use separate instances.&quot;</span>
+                    <span class="k">if</span> <span class="n">separate</span>
+                    <span class="k">else</span> <span class="s2">&quot;use a ComponentRef to the same slot.&quot;</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">seen</span><span class="p">[</span><span class="n">identity</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">root</span><span class="p">),</span> <span class="n">structural_condition</span><span class="p">)</span>
+        <span class="n">spec</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">_registry_spec</span>
+        <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="s2">&quot;instance has no recorded spec and &quot;</span>
+                <span class="s2">&quot;cannot be serialized.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">spec</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Branch</span><span class="p">,</span> <span class="n">ComponentRef</span><span class="p">,</span> <span class="n">Loop</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Repeat</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemplateStrategy</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">ComponentRef</span><span class="p">):</span>
+        <span class="n">_validate_importable_type</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">),</span> <span class="n">path</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">_find_registered_name</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">))</span> <span class="ow">or</span> <span class="n">_dotted_path</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)),</span>
+            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="s2">&quot;slot&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">slot</span><span class="p">},</span>
+        <span class="p">}</span>
+
+    <span class="n">source_declaration</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">TemplateStrategy</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span> <span class="ow">is</span> <span class="n">TemplateStrategy</span><span class="o">.</span><span class="fm">__init__</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">TemplateStrategy</span><span class="p">):</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">source_declaration</span> <span class="ow">and</span> <span class="s2">&quot;pipeline&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> overrides __init__ with a pipeline &quot;</span>
+                <span class="s2">&quot;parameter, so its declaration transformation cannot be &quot;</span>
+                <span class="s2">&quot;reconstructed; define _registry_spec.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="n">_validate_importable_type</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">),</span> <span class="n">path</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+
+    <span class="n">identity</span> <span class="o">=</span> <span class="nb">id</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">identity</span> <span class="ow">in</span> <span class="n">active</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">: reference cycle detected&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">identity</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+        <span class="n">separate</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="n">Stage</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Branch</span><span class="p">,</span> <span class="n">Loop</span><span class="p">,</span> <span class="n">Repeat</span><span class="p">))</span>
+            <span class="ow">or</span> <span class="n">structural_condition</span>
+            <span class="ow">or</span> <span class="n">seen</span><span class="p">[</span><span class="n">identity</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Cannot serialize </span><span class="si">{</span><span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">root</span><span class="p">)</span><span class="si">}</span><span class="s2">: shares an object with &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">seen</span><span class="p">[</span><span class="n">identity</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">; &quot;</span>
+            <span class="o">+</span> <span class="p">(</span>
+                <span class="s2">&quot;use separate instances.&quot;</span>
+                <span class="k">if</span> <span class="n">separate</span>
+                <span class="k">else</span> <span class="s2">&quot;use a ComponentRef to the same slot.&quot;</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="n">active</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">identity</span><span class="p">)</span>
+    <span class="n">seen</span><span class="p">[</span><span class="n">identity</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">_path_text</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">root</span><span class="p">),</span> <span class="n">structural_condition</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">TemplateStrategy</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_constructor_spec</span><span class="p">(</span>
+                <span class="n">obj</span><span class="p">,</span>
+                <span class="n">path</span><span class="p">,</span>
+                <span class="n">active</span><span class="p">,</span>
+                <span class="n">seen</span><span class="p">,</span>
+                <span class="n">root</span><span class="p">,</span>
+                <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">source_declaration</span><span class="o">=</span><span class="n">source_declaration</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="n">Pipeline</span><span class="p">,</span> <span class="n">Repeat</span><span class="p">,</span> <span class="n">Loop</span><span class="p">,</span> <span class="n">Branch</span><span class="p">,</span> <span class="n">Stage</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">_constructor_spec</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">active</span><span class="p">,</span> <span class="n">seen</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_to_spec_reflected</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">active</span><span class="p">,</span> <span class="n">seen</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">active</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">identity</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_to_spec_reflected</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">active</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]],</span>
+    <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;value&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">_constructor_spec</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">active</span><span class="p">,</span> <span class="n">seen</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="to_spec">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.registry.to_spec.html#saealib.to_spec">[ドキュメント]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">to_spec</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize a component or declaration into a registry spec.</span>
+
+<span class="sd">    Values are represented with nested type/parameter mappings. A</span>
+<span class="sd">    ``TemplateStrategy`` instance serializes its source declaration when its</span>
+<span class="sd">    constructor is inherited from ``TemplateStrategy``. Built-in strategy</span>
+<span class="sd">    specs retain their constructor parameters. Pipelines use ``stages`` as</span>
+<span class="sd">    their sequence parameter, and Stage identity overrides are stored separately from</span>
+<span class="sd">    constructor parameters. Callable references and structural values are</span>
+<span class="sd">    preserved when they can be rebuilt from an importable path.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    obj : Any</span>
+<span class="sd">        A component, strategy declaration, callable, or supported container.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Any</span>
+<span class="sd">        A registry spec or a structurally serialized value.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValidationError</span>
+<span class="sd">        If a value cannot be reconstructed or the declaration graph contains</span>
+<span class="sd">        a reference cycle or shared component instance.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Reflection follows the actual constructor signature. ``*args`` are</span>
+<span class="sd">    represented as a list and ``**kwargs`` are merged into the parameter</span>
+<span class="sd">    mapping. With ``*args``, other constructor parameters are supported only</span>
+<span class="sd">    as keyword-only identity fields; otherwise, define ``_registry_spec``.</span>
+<span class="sd">    ``_registry_spec`` overrides reflection. A template strategy</span>
+<span class="sd">    whose constructor inherits :class:`TemplateStrategy` preserves its source</span>
+<span class="sd">    declaration. A subclass that overrides ``__init__`` and accepts</span>
+<span class="sd">    ``pipeline`` must define ``_registry_spec`` because the transformation of</span>
+<span class="sd">    that argument cannot be inferred. Overridden constructors must store their</span>
+<span class="sd">    arguments unchanged in same-named attributes, or define ``_registry_spec``.</span>
+<span class="sd">    Non-importable local classes and shared instances are rejected with a</span>
+<span class="sd">    location.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemplateStrategy</span>
+
+    <span class="n">root</span> <span class="o">=</span> <span class="s2">&quot;declaration&quot;</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">TemplateStrategy</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;value&quot;</span>
+    <span class="k">return</span> <span class="n">_to_spec</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(),</span> <span class="nb">set</span><span class="p">(),</span> <span class="p">{},</span> <span class="n">root</span><span class="p">)</span></div>
 
 
 

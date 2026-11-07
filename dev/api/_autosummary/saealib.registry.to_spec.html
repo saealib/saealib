@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.registry.to_spec &#8212; saealib 0.1.1.dev31+g048c8b7ee documentation</title>
+    <title>saealib.registry.to_spec &#8212; saealib 0.1.1.dev32+gcb44f7f65 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=8e3efccc"></script>
+    <script src="../../_static/documentation_options.js?v=f803545c"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -905,28 +905,42 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="saealib.registry.to_spec">
 <span class="sig-prename descclassname"><span class="pre">saealib.registry.</span></span><span class="sig-name descname"><span class="pre">to_spec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/registry.html#to_spec"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.registry.to_spec" title="Link to this definition">#</a></dt>
-<dd><p>Recursively serialize <code class="docutils literal notranslate"><span class="pre">obj</span></code> into a spec (the reverse of <code class="docutils literal notranslate"><span class="pre">build()</span></code>).</p>
-<p>Primitives, <code class="docutils literal notranslate"><span class="pre">None</span></code>, lists/tuples, and dicts pass through structurally
-(numpy arrays become lists). Functions/builtins become a
-<code class="docutils literal notranslate"><span class="pre">{&quot;callable&quot;:</span> <span class="pre">&quot;dotted.path&quot;}</span></code> marker. Other objects are reflected via
-their constructor signature: for each <code class="docutils literal notranslate"><span class="pre">__init__</span></code> parameter, the
-same-named attribute on <code class="docutils literal notranslate"><span class="pre">obj</span></code> is read and serialized recursively. A
-single <code class="docutils literal notranslate"><span class="pre">*args</span></code> (<code class="docutils literal notranslate"><span class="pre">VAR_POSITIONAL</span></code>) parameter is serialized as a
-params <em>list</em> instead of a dict, so it round-trips through <code class="docutils literal notranslate"><span class="pre">build()</span></code>’s
-positional-call path. A <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> (<code class="docutils literal notranslate"><span class="pre">VAR_KEYWORD</span></code>) parameter’s
-same-named mapping attribute is serialized item by item and merged into
-<code class="docutils literal notranslate"><span class="pre">params</span></code>. The params-list form cannot carry keyword settings, so a
-class holding a non-empty same-named mapping attribute for its
-<code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> parameter alongside <code class="docutils literal notranslate"><span class="pre">*args</span></code> cannot be serialized and
-raises <code class="xref py py-exc docutils literal notranslate"><span class="pre">ValidationError</span></code> instead of dropping them.</p>
+<dd><p>Serialize a component or declaration into a registry spec.</p>
+<p>Values are represented with nested type/parameter mappings. A
+<code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> instance serializes its source declaration when its
+constructor is inherited from <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code>. Built-in strategy
+specs retain their constructor parameters. Pipelines use <code class="docutils literal notranslate"><span class="pre">stages</span></code> as
+their sequence parameter, and Stage identity overrides are stored separately from
+constructor parameters. Callable references and structural values are
+preserved when they can be rebuilt from an importable path.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>obj</strong> (<em>Any</em>)</p>
+<dd class="field-odd"><p><strong>obj</strong> (<em>Any</em>) – A component, strategy declaration, callable, or supported container.</p>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>Any</em></p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A registry spec or a structurally serialized value.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="saealib.ValidationError.html#saealib.ValidationError" title="saealib.ValidationError"><strong>ValidationError</strong></a> – If a value cannot be reconstructed or the declaration graph contains
+    a reference cycle or shared component instance.</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p>Reflection follows the actual constructor signature. <code class="docutils literal notranslate"><span class="pre">*args</span></code> are
+represented as a list and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> are merged into the parameter
+mapping. With <code class="docutils literal notranslate"><span class="pre">*args</span></code>, other constructor parameters are supported only
+as keyword-only identity fields; otherwise, define <code class="docutils literal notranslate"><span class="pre">_registry_spec</span></code>.
+<code class="docutils literal notranslate"><span class="pre">_registry_spec</span></code> overrides reflection. A template strategy
+whose constructor inherits <code class="xref py py-class docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> preserves its source
+declaration. A subclass that overrides <code class="docutils literal notranslate"><span class="pre">__init__</span></code> and accepts
+<code class="docutils literal notranslate"><span class="pre">pipeline</span></code> must define <code class="docutils literal notranslate"><span class="pre">_registry_spec</span></code> because the transformation of
+that argument cannot be inferred. Overridden constructors must store their
+arguments unchanged in same-named attributes, or define <code class="docutils literal notranslate"><span class="pre">_registry_spec</span></code>.
+Non-importable local classes and shared instances are rejected with a
+location.</p>
 </dd></dl>
 
 </section>

@@ -603,9 +603,29 @@ class TestPipelineRebuildOnRuntimeReassignment:
         warnings = [
             diagnostic
             for diagnostic in diagnostics
-            if diagnostic.code == "opaque_state_effects"
+            if diagnostic.code == "cannot_verify_stage_flow"
         ]
         assert len(warnings) == 1
+        assert warnings[0].severity.name == "WARNING"
+        assert warnings[0].code == "cannot_verify_stage_flow"
+        assert warnings[0].path is not None
+        assert warnings[0].path.components[-1].endswith("count_generation")
+        assert not [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.severity.name == "ERROR"
+        ]
+        unknown_stage_ids = {
+            node.component_id
+            for node in plan.graph.nodes
+            if isinstance(getattr(node.component, "stage", None), NoopCountStage)
+        }
+        assert len(unknown_stage_ids) == 1
+        assert not any(
+            edge.source.component_id in unknown_stage_ids
+            or edge.target.component_id in unknown_stage_ids
+            for edge in plan.graph.data_edges
+        )
         assert warnings[0].severity.name == "WARNING"
         assert not [
             diagnostic

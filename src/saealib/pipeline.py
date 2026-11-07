@@ -16,7 +16,7 @@ from saealib.core.compiler.regions import (
     _structural_stages,
 )
 from saealib.core.component import Component
-from saealib.core.contracts import ComponentContract, StateContract
+from saealib.core.contracts import ComponentContract, StageFlowSummary, StateContract
 from saealib.core.contracts.roles import ROLES
 from saealib.exceptions import ValidationError
 
@@ -235,6 +235,15 @@ class Stage(ABC):
         return ComponentContract(
             state=StateContract(reads_enumerable=False, writes_enumerable=False)
         )
+
+    def flow_summary(self) -> StageFlowSummary | None:
+        """Return the declared component and data flow, when available.
+
+        ``None`` means that the Stage's flow is unknown and is reported as a
+        verification warning.  An empty :class:`StageFlowSummary` means the
+        Stage has a state-only flow with no component data edges.
+        """
+        return None
 
     def _resolve_stage(
         self, bindings: Mapping[str, object], defaults: dict[tuple[str, str], object]

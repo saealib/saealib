@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Stage flow declarations** expose component connections and preserve named data transformations on compiler graph edges ([#319](https://github.com/saealib/saealib/issues/319))
 - **History evaluation channel records `g` and `noise`**; checkpoints written without these columns load with them filled with NaN ([#303](https://github.com/saealib/saealib/issues/303))
 - **`ComponentRef` and `TemplateStrategy`**: declared Stages reference components by `(slot, role)`, and each plan resolves its own copy of the declaration without modifying it ([#308](https://github.com/saealib/saealib/issues/308))
 - **`objective_source` population column** records whether each row's objective values come from a true evaluation (`0`), a surrogate prediction (`1`), or an imputed fallback (`2`); `255` marks an unknown source. Populations and archives built by the library initializers always carry it, and `PSO` and `PymooAlgorithm` keep it when they rebuild the population ([#311](https://github.com/saealib/saealib/issues/311))
@@ -17,10 +18,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Execution plans** share preparation logic: adapters, services, and component bindings are resolved against the problem used by the runtime, and runtime capabilities are read from its provider across startup, resume, replacement, recompilation, and direct strategy steps; direct steps reject verification ERROR diagnostics ([#317](https://github.com/saealib/saealib/issues/317))
+- **Stage flow verification graphs** use occurrence-qualified call IDs such
+  as `ask__proposer`; repeated region names receive occurrence suffixes. They
+  include verification call and external state nodes in `build_component_graph`
+  and preserve declared transforms and schema bindings. Unused operators are
+  no longer represented as nodes, automatic `dense_numeric_view` adapters are
+  no longer inserted, and schema variables keep their declared names. State
+  edges connect each reader to the active producer across branch and loop
+  joins. Transform declarations control schema binding carry-through, so
+  `encode_features` does not preserve `representation`. The sequential runtime
+  executes framework components with roles and skips nodes used only for graph
+  verification.
+  Stages with unknown flow report one `cannot_verify_stage_flow` warning;
+  custom strategies should call `decompose_structured_graph` after lowering to
+  include flow edges ([#319](https://github.com/saealib/saealib/issues/319))
+- **Planned evaluation flow** now verifies evaluator observations through
+  `EVALUATION_UPDATES` and `EVALUATED_OFFSPRING` using the declared transforms
+  ([#319](https://github.com/saealib/saealib/issues/319))
+- **Stage state writes** replace inferred producers with state sources, while
+  unknown Stage flow clears producers that can no longer be verified
+  ([#319](https://github.com/saealib/saealib/issues/319))
+- **Surrogate state exports** are bound to declared component calls; manager
+  internals no longer produce separate bindings unless they are exposed as
+  separate calls ([#319](https://github.com/saealib/saealib/issues/319))
 - **Checkpoints without the `objective_source` column** still load and resume; the reader adds it, marks rows true when `f` matches the candidate's last result-bearing true evaluation in the History `evaluation` channel, and marks other rows unknown ([#311](https://github.com/saealib/saealib/issues/311))
 - **The compiler blocks a run only on evidence of a defect**: unregistered vocabulary values are reported as "cannot verify" warnings with near-miss suggestions, and a connection rejected only because of an unknown data kind or cardinality becomes a single `cannot_verify_data_kind` warning ([#298](https://github.com/saealib/saealib/issues/298))
 - **Missing information no longer blocks a run**: several compatible candidates, edges to undeclared ports (`cannot_verify_port`), and unbound schema variables are warnings; a missing service, runtime capability, or genome codec is an error only when the real environment is supplied, and `CompileContext.offered_runtime_capabilities` now defaults to `None` ("not supplied") while an explicit empty set still means no capabilities ([#299](https://github.com/saealib/saealib/issues/299))
-- **A `Stage` that does not override `contract()` is opaque**: its reads and writes are not enumerated (new `StateContract.writes_enumerable`), it may write any state key at run time, and the compiler reports one `opaque_state_effects` warning; declare a contract to keep strict write checks ([#300](https://github.com/saealib/saealib/issues/300))
+- **A `Stage` that does not override `contract()` exposes non-enumerable read and write effects** (through `StateContract.writes_enumerable`); when its flow is unknown, it may write any state key at run time, so a later read is not rejected solely because its write cannot be enumerated. The compiler reports `cannot_verify_stage_flow` for the Stage ([#300](https://github.com/saealib/saealib/issues/300), [#319](https://github.com/saealib/saealib/issues/319))
 - **`GenerationBasedStrategy` Stage callbacks receive the whole run state as `event.ctx`**; values that were readable before are unchanged ([#309](https://github.com/saealib/saealib/issues/309))
 - **`strategy.pipeline` holds the most recently prepared Pipeline** ([#309](https://github.com/saealib/saealib/issues/309))
 - **`GenerationBasedStrategy` rejects a non-checkpointable algorithm before the run** when npz checkpointing is requested ([#309](https://github.com/saealib/saealib/issues/309))

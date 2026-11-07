@@ -28,13 +28,10 @@ from saealib.core.compiler import (
 )
 from saealib.core.compiler.adapters import Adapter, AdapterComponent
 from saealib.core.compiler.graph import NodeRef
-from saealib.core.compiler.schema_rules import _FreshenedComponent
 from saealib.core.contracts import ComponentContract, DataSpec, StateContract
 from saealib.core.graph_builder import (
-    StageContractNodeAdapter,
     StageNodeAdapter,
     build_component_graph,
-    cached_execution_target,
 )
 from saealib.core.runtime import (
     NodeResult,
@@ -185,9 +182,8 @@ def test_real_default_strategy_graph_compiles_to_stage_order() -> None:
             component = component._component
         return component
 
-    # every structured node executes through its own Stage adapter (possibly
-    # behind schema-freshening wrappers), so the Stage's declared contract
-    # and execution boundary stay in force
+    # Each structured operation executes through its own StateView adapter,
+    # preserving the Stage's declared contract and execution boundary.
     assert set(targets) == {node.component_id for node in operations}
     assert all(
         _outermost(targets[node.component_id].__self__) is _outermost(node.component)
@@ -520,22 +516,6 @@ def test_stage_adapter_binds_stage_execute_target_at_construction() -> None:
 
     cast(Any, adapter).execute = poison
     assert target(_state()).marker == "a(start)"
-
-
-def test_freshened_stage_adapter_uses_nested_cached_execute_target() -> None:
-    stage = _Stage("a")
-    adapter = StageContractNodeAdapter(stage)
-    freshened = _FreshenedComponent(adapter, adapter.contract())
-
-    target = cached_execution_target(freshened)
-    assert cast(Any, target).__self__ is stage
-    assert cast(Any, target).__func__ is type(stage).execute
-
-    def poison(_: OptimizationState) -> OptimizationState:
-        raise AssertionError("freshened adapter wrapper was called")
-
-    setattr(adapter, "execute", poison)
-    assert cast(Any, target)(_state()).marker == "a(start)"
 
 
 def test_stage_adapter_rejects_non_callable_execute_target() -> None:

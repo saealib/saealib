@@ -41,9 +41,22 @@ During compilation, required input ports are matched to compatible outputs upstr
 A uniquely matched connection becomes a `DataEdge`; no match or multiple candidates produces a Compiler diagnostic.
 Use an explicit Graph when an ambiguous connection must be resolved.
 
-`stage_component(stage)` is a migration adapter.
-State writes through the transaction proxy become `StatePatch` values, but the adapter retains ownership of mutable objects exposed as Services or Context capabilities.
-In a new graph-native component, keep persistent mutable state behind declared `StateKey` values and patches.
+`Stage.flow_summary()` declares component calls and their data connections.
+Returning `None` means that the Stage flow is unknown; an empty summary declares state-only flow.
+The compiler validates these transform names and their input and output kinds:
+
+- `encode_features`: `Population` to `FeatureBatch`
+- `extract_population_genomes`: `Population` to `GenomeBatch`
+- `apply_observations`: `ObservationBatch` to `Population`
+- `extract_evaluation_observations`: `Population` to `ObservationBatch`
+- `select_requested_candidates`: `EvaluationRequestBatch` to `CandidateSelection`
+- `extract_genomes`: `CandidateSelection` to `GenomeBatch`
+
+Custom strategies that lower Stages should pass the `StructuredGraph` through `decompose_structured_graph()` to include Stage flow connections in compiler verification.
+
+`stage_component(stage)` adapts Stage execution to `StateView` transactions.
+State writes through its transaction proxy become `StatePatch` values, while mutable objects exposed as Services or Context capabilities remain owned by the Stage.
+For graph-native components, keep persistent mutable state behind declared `StateKey` values and patches.
 
 ```{eval-rst}
 .. autosummary::

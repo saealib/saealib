@@ -26,6 +26,7 @@ from saealib.core.compiler.adapters import (
     DEFAULT_ADAPTER_REGISTRY,
     LosslessAdapterRule,
 )
+from saealib.core.compiler.dataflow_rules import StructuredDataflowRule
 from saealib.core.contracts import (
     MANY,
     ComponentContract,
@@ -37,7 +38,7 @@ from saealib.core.contracts import (
     PortSpec,
 )
 from saealib.core.contracts.feedback import COMPLETE_BATCH, PARTIAL_ALLOWED
-from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
+from saealib.core.state import FEEDBACK_RESULT, OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.execution.evaluator import SerialEvaluator
 from saealib.execution.runtime import default_runtime_registry
 from saealib.execution.scheduler import AsyncEvaluationScheduler
@@ -145,18 +146,76 @@ def test_async_graph_inserts_accumulator_and_describes_it() -> None:
         AsyncEvaluationScheduler(SerialEvaluator())
     )
 
-    graph, plan = _compile_actual(optimizer)
+    _, plan = _compile_actual(optimizer)
 
-    assert len(graph.data_edges) == 5
+    signatures = {
+        (
+            edge.source.role or "",
+            edge.source_port,
+            edge.target.role or "",
+            edge.target_port,
+            tuple(item.name for item in edge.transforms),
+        )
+        for edge in plan.graph.data_edges
+    }
+    assert signatures == {
+        ("state", "value", "predictor", "archive", ()),
+        (
+            "state",
+            "value",
+            "feedback_builder",
+            "evaluation",
+            ("extract_evaluation_observations",),
+        ),
+        ("state", "value", "feedback_builder", "evaluated_indices", ()),
+        (
+            "state",
+            "value",
+            "evaluator",
+            "genomes",
+            ("select_requested_candidates", "extract_genomes"),
+        ),
+        ("state", "value", "evaluation_planner", "acquisition", ()),
+        ("state", "value", "state", "value", ("apply_observations",)),
+        ("state", "value", "predictor", "candidates", ("encode_features",)),
+        ("state", "value", "evaluation_planner", "candidates", ()),
+        ("state", "value", "feedback_builder", "candidates", ()),
+        ("state", "value", "acquisition", "prediction", ()),
+        ("state", "value", "feedback_builder", "prediction", ()),
+        ("proposer", "genomes", "state", "value", ()),
+        ("acquisition", "scores", "state", "value", ()),
+        ("evaluator", "observations", "state", "value", ()),
+        ("evaluation_planner", "evaluation_requests", "state", "value", ()),
+        ("feedback_builder", "feedback", "state", "value", ()),
+        ("predictor", "prediction", "state", "value", ()),
+        ("predictor", "output", "feedback_consumer", "feedback", ()),
+        ("state", "value", "predictor", "input", ()),
+    }
+    assert len(plan.graph.data_edges) == len(signatures)
+    assert plan.graph.data_edges
     assert not [
         diagnostic
         for diagnostic in plan.diagnostics
         if diagnostic.severity.value == "error"
     ]
-    assert [getattr(item, "adapter_name", None) for item in plan.inserted_adapters] == [
-        "dense_numeric_view",
-        "feedback_accumulator",
-    ]
+    assert {
+        (
+            getattr(item, "adapter_name", None),
+            getattr(item, "source_path").role,
+            getattr(item, "source_path").port,
+            getattr(item, "target_path").role,
+            getattr(item, "target_path").port,
+        )
+        for item in plan.inserted_adapters
+    } == {
+        (
+            "feedback_accumulator",
+            "state",
+            "value",
+            "feedback_consumer",
+            "feedback",
+        ),
+    }
     assert "feedback_accumulator" in plan.describe()
     assert any(
         node.component_id.startswith("__adapter_feedback_accumulator_")
@@ -169,15 +228,25 @@ def test_stage_internal_feedback_edges_are_claimed() -> None:
         AsyncEvaluationScheduler(SerialEvaluator())
     )
     optimizer._resolve_defaults()
-    graph = cast(Any, optimizer.strategy).build_graph(optimizer)
+    raw_graph = cast(Any, optimizer.strategy).build_graph(optimizer)
+    compile_context = CompileContext(
+        space=optimizer.problem.space,
+        problem=optimizer.problem,
+        offered_runtime_capabilities=frozenset({"partial_feedback"}),
+        initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+    )
+    flow = StructuredDataflowRule().apply(
+        RuleContext(
+            graph=raw_graph,
+            compile_context=compile_context,
+            diagnostics=DiagnosticBag(),
+        )
+    )
+    graph = flow.graph
     result = FeedbackAccumulatorRule().apply(
         RuleContext(
             graph=graph,
-            compile_context=CompileContext(
-                space=optimizer.problem.space,
-                problem=optimizer.problem,
-                offered_runtime_capabilities=frozenset({"partial_feedback"}),
-            ),
+            compile_context=compile_context,
             diagnostics=DiagnosticBag(),
         )
     )
@@ -192,12 +261,58 @@ def test_stage_internal_feedback_edges_are_claimed() -> None:
         def reference(ref: NodeRef) -> str:
             return ref.component_id + (f"[{ref.role}]" if ref.role else "")
 
-        return (
+        base = (
             f"{reference(edge.source)}.{edge.source_port}->"
             f"{reference(edge.target)}.{edge.target_port}"
         )
+        return base + "|" + ",".join(item.name for item in edge.transforms)
 
     assert all(edge_key(edge) in claimed_edges for edge in new_edges)
+    accumulators = tuple(
+        node
+        for node in result.graph.nodes
+        if getattr(getattr(node.component, "adapter", None), "name", None)
+        == "feedback_accumulator"
+    )
+    assert len(accumulators) == 1
+    state_flow = next(
+        node
+        for node in graph.nodes
+        if node.role == "state"
+        and getattr(node.component, "state_key", None) == FEEDBACK_RESULT
+        and node.component_id.endswith("__flow")
+    )
+    expected_sources = {(state_flow.component_id, "state", "value")}
+    input_edges = tuple(
+        edge
+        for edge in new_edges
+        if edge.target.role == "predictor" and edge.target_port == "input"
+    )
+    output_edges = tuple(
+        edge
+        for edge in new_edges
+        if edge.source.role == "predictor" and edge.source_port == "output"
+    )
+    assert len(input_edges) == len(output_edges) == 1
+    assert {
+        (edge.source.component_id, edge.source.role, edge.source_port)
+        for edge in input_edges
+    } == expected_sources
+    assert {edge.target.component_id for edge in input_edges} == {
+        node.component_id for node in accumulators
+    }
+    assert {edge.source.component_id for edge in output_edges} == {
+        node.component_id for node in accumulators
+    }
+    assert {
+        (
+            edge.target.component_id,
+            edge.target.role,
+            edge.target_port,
+            tuple(item.name for item in edge.transforms),
+        )
+        for edge in output_edges
+    } == {("tell__algorithm", "feedback_consumer", "feedback", ())}
 
 
 def test_partial_allowed_consumer_does_not_get_accumulator() -> None:

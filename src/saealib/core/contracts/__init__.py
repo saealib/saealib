@@ -53,6 +53,15 @@ from saealib.core.contracts.feedback import (
     OrderingMode,
 )
 from saealib.core.contracts.feedbacks import FeedbackBatch, FeedbackContract
+from saealib.core.contracts.flow import (
+    CallInput,
+    CallOutput,
+    ComponentCall,
+    FlowEdge,
+    StageFlowSummary,
+    StateValue,
+    Transform,
+)
 from saealib.core.contracts.identity import CandidateIds
 from saealib.core.contracts.lifecycle import (
     EVENT_VOCABULARY,
@@ -222,11 +231,14 @@ __all__ = [
     "TRUE",
     "AssumptionDescriptor",
     "AssumptionSet",
+    "CallInput",
+    "CallOutput",
     "CandidateIds",
     "CandidatePopulation",
     "Cardinality",
     "ColumnSpec",
     "CompletionMode",
+    "ComponentCall",
     "ComponentContract",
     "Contained",
     "DataSpec",
@@ -240,6 +252,7 @@ __all__ = [
     "FeedbackRequirement",
     "FidelityRef",
     "Fixed",
+    "FlowEdge",
     "LifecycleContract",
     "MultiplicityMode",
     "ObservationBatch",
@@ -280,9 +293,12 @@ __all__ = [
     "ServiceDescriptor",
     "ServiceProvider",
     "ServiceRequirement",
+    "StageFlowSummary",
     "StateCodec",
     "StateContract",
+    "StateValue",
     "Substitution",
+    "Transform",
     "UnificationResult",
     "Var",
     "Vocabulary",

@@ -19,6 +19,7 @@ from saealib import (
     TruncationSelection,
 )
 from saealib.acquisition import MeanPrediction
+from saealib.core.compiler.adapters import AdapterInsertion
 from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.execution import AsyncEvaluationScheduler, SerialEvaluator
 from saealib.pipeline import Pipeline
@@ -98,21 +99,21 @@ def _optimizer(strategy: Any, *, asynchronous: bool = False) -> Optimizer:
     return optimizer
 
 
-def _findings(optimizer: Optimizer) -> list[tuple[str, str, str]]:
+def _findings(optimizer: Optimizer) -> list[tuple[str, str, tuple[str, ...]]]:
     plan = optimizer._compile_plan()
     assert plan is not None
     return sorted(
         (
             diagnostic.severity.name,
             diagnostic.code,
-            diagnostic.path.components[0] if diagnostic.path else "",
+            diagnostic.path.components if diagnostic.path else (),
         )
         for diagnostic in plan.diagnostics
     )
 
 
 @pytest.mark.parametrize(
-    ("strategy", "prefix"),
+    ("strategy", "path_prefix"),
     [
         (DirectStrategy(), ""),
         (DirectStrategy(n_offspring=3), ""),
@@ -120,14 +121,21 @@ def _findings(optimizer: Optimizer) -> list[tuple[str, str, str]]:
     ],
 )
 def test_algorithm_requiring_an_unoffered_runtime_capability_stops_the_run(
-    strategy: Any, prefix: str
+    strategy: Any, path_prefix: str
 ) -> None:
     optimizer = _optimizer(strategy).set_algorithm(_ga(_GpuGA))
 
-    assert _findings(optimizer) == [
-        ("ERROR", "missing_runtime_capability", f"{prefix}ask___algorithm"),
-        ("ERROR", "missing_runtime_capability", f"{prefix}tell___algorithm"),
-    ]
+    findings = _findings(optimizer)
+    assert len(findings) == 2
+    assert {code for severity, code, _path in findings} == {
+        "missing_runtime_capability"
+    }
+    assert all(severity == "ERROR" for severity, _code, _path in findings)
+    assert {
+        path[-1].removeprefix(path_prefix)
+        for _severity, _code, path in findings
+        if path
+    } == {"ask__proposer", "tell__algorithm"}
     with pytest.raises(ConfigurationError, match="missing_runtime_capability"):
         optimizer.run()
 
@@ -139,17 +147,25 @@ def test_direct_feedback_with_unrelated_output_kind_is_reported(
     optimizer = _optimizer(DirectStrategy(), asynchronous=asynchronous)
     optimizer.set_feedback_builder(_MislabelledFeedback())
 
-    findings = [(severity, code) for severity, code, _ in _findings(optimizer)]
+    findings = _findings(optimizer)
+    warnings = [
+        item for item in findings if item[:2] == ("WARNING", "cannot_verify_data_kind")
+    ]
+    assert len(warnings) == 2
+    assert sum(path[-1] == "feedback__builder" for _, _, path in warnings) == 1
 
     if asynchronous:
-        assert findings == [
-            ("ERROR", "incompatible_feedback_lifecycle"),
-            ("WARNING", "cannot_verify_data_kind"),
+        errors = [
+            item
+            for item in findings
+            if item[:2] == ("ERROR", "incompatible_feedback_lifecycle")
         ]
+        assert len(errors) == 1
+        assert {path[-1] for _, _, path in errors} == {"tell__algorithm"}
         with pytest.raises(ConfigurationError, match="incompatible_feedback"):
             optimizer.run()
     else:
-        assert findings == [("WARNING", "cannot_verify_data_kind")]
+        assert not [item for item in findings if item[0] == "ERROR"]
 
 
 def test_direct_async_plan_inserts_the_feedback_accumulator() -> None:
@@ -157,10 +173,27 @@ def test_direct_async_plan_inserts_the_feedback_accumulator() -> None:
     plan = optimizer._compile_plan()
 
     assert plan is not None
-    assert [str(insertion) for insertion in plan.inserted_adapters] == [
-        "feedback_accumulator: feedback___builder[feedback_builder].feedback "
-        "-> tell___algorithm[feedback_consumer].feedback"
-    ]
+    assert len(plan.inserted_adapters) == 1
+    assert {
+        (
+            cast(AdapterInsertion, insertion).adapter_name,
+            cast(AdapterInsertion, insertion).source_path.role,
+            cast(AdapterInsertion, insertion).source_path.port,
+            cast(AdapterInsertion, insertion).target_path.role,
+            cast(AdapterInsertion, insertion).target_path.port,
+            cast(AdapterInsertion, insertion).target_path.components[-1],
+        )
+        for insertion in plan.inserted_adapters
+    } == {
+        (
+            "feedback_accumulator",
+            "state",
+            "value",
+            "feedback_consumer",
+            "feedback",
+            "tell__algorithm",
+        ),
+    }
 
 
 def test_generation_based_async_plan_delivers_complete_batches() -> None:

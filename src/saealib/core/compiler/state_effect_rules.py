@@ -79,11 +79,17 @@ def _resolve_keys(
 
 
 def _reads_opaque(node: ComponentNode) -> bool:
-    return not node.contract.state.reads_enumerable
+    return not node.analysis_contract.state.reads_enumerable
 
 
 def _writes_opaque(node: ComponentNode) -> bool:
-    return not node.contract.state.writes_enumerable
+    return not node.analysis_contract.state.writes_enumerable
+
+
+def _unknown_stage_flow(node: ComponentNode) -> bool:
+    stage = getattr(node.component, "stage", None)
+    flow = getattr(stage, "flow_summary", None)
+    return stage is not None and callable(flow) and flow() is None
 
 
 def _strictly_before(ref: NodeRef, others: set[NodeRef], order: dict) -> bool:
@@ -118,7 +124,8 @@ class StateEffectRule:
         opaque_refs = {
             ref
             for node, ref in zip(graph.nodes, refs)
-            if _reads_opaque(node) or _writes_opaque(node)
+            if (_reads_opaque(node) or _writes_opaque(node))
+            and not _unknown_stage_flow(node)
         }
         non_enumerable_reads = {
             ref for node, ref in zip(graph.nodes, refs) if _reads_opaque(node)
@@ -133,8 +140,8 @@ class StateEffectRule:
                 for binding in graph.state_bindings
                 if _canonical_ref(graph, binding.node) == ref
             )
-            reads[ref] = _resolve_keys(bindings, node.contract.state.reads)
-            writes[ref] = _resolve_keys(bindings, node.contract.state.writes)
+            reads[ref] = _resolve_keys(bindings, node.analysis_contract.state.reads)
+            writes[ref] = _resolve_keys(bindings, node.analysis_contract.state.writes)
 
         findings: list[Diagnostic] = []
         for node, ref in zip(graph.nodes, refs):
@@ -236,10 +243,32 @@ def _structured_diagnostics(
             if _canonical_ref(graph, binding.node) == ref
         )
 
+    nodes_by_id = {node.component_id: node for node in graph.nodes}
+    held_nodes_by_stage: dict[str, tuple[ComponentNode, ...]] = {}
+    stage_flow_calls = graph.metadata.get("stage_flow_calls", {})
+    if isinstance(stage_flow_calls, dict):
+        for stage_id, calls in stage_flow_calls.items():
+            stage_node = nodes_by_id.get(stage_id)
+            if stage_node is None:
+                continue
+            stage = getattr(stage_node.component, "stage", None)
+            if (
+                stage is None
+                or not callable(getattr(stage, "flow_summary", None))
+                or stage.flow_summary() is not None
+                or not isinstance(calls, dict)
+            ):
+                continue
+            held_nodes_by_stage[stage_id] = tuple(
+                nodes_by_id[component_id]
+                for component_id in calls.values()
+                if component_id in nodes_by_id
+            )
+
     universe = set(initial)
     for node in graph.nodes:
         bindings = bindings_by_node[_node_ref(node)]
-        state = node.contract.state
+        state = node.analysis_contract.state
         universe.update(_resolve_keys(bindings, state.reads))
         universe.update(_resolve_keys(bindings, state.writes))
         universe.update(_resolve_keys(bindings, state.exports))
@@ -262,7 +291,8 @@ def _structured_diagnostics(
     opaque_refs = {
         _node_ref(node)
         for node in graph.nodes
-        if _reads_opaque(node) or _writes_opaque(node)
+        if (_reads_opaque(node) or _writes_opaque(node))
+        and not _unknown_stage_flow(node)
     }
     non_enumerable_reads = {
         _node_ref(node) for node in graph.nodes if _reads_opaque(node)
@@ -275,7 +305,7 @@ def _structured_diagnostics(
     for node in graph.nodes:
         ref = _node_ref(node)
         bindings = bindings_by_node[ref]
-        state = node.contract.state
+        state = node.analysis_contract.state
         reads[ref] = _resolve_keys(bindings, state.reads)
         writes[ref] = _resolve_keys(bindings, state.writes)
 
@@ -329,6 +359,16 @@ def _structured_diagnostics(
                     key,
                 )
 
+    def apply_node_effects(node: NodeRef, available: set[StateKey[object]]) -> None:
+        if node not in non_enumerable_reads:
+            check_reads(node, available)
+        if node in non_enumerable_writes:
+            # Unknown writes may touch any key, so every key becomes
+            # potentially available after the node runs.
+            available.update(universe)
+        else:
+            available.update(writes.get(node, ()))
+
     def check_condition(
         region: LoopRegion | BranchRegion, available: set[StateKey[object]]
     ) -> None:
@@ -347,14 +387,9 @@ def _structured_diagnostics(
         for operation in current.operations:
             if isinstance(operation, ComponentNode):
                 ref = _node_ref(operation)
-                if ref not in non_enumerable_reads:
-                    check_reads(ref, current_available)
-                if ref in non_enumerable_writes:
-                    # Unknown writes may touch any key, so every key becomes
-                    # potentially available after the node runs.
-                    current_available.update(universe)
-                else:
-                    current_available.update(writes[ref])
+                apply_node_effects(ref, current_available)
+                for held_node in held_nodes_by_stage.get(operation.component_id, ()):
+                    apply_node_effects(_node_ref(held_node), current_available)
                 continue
             region = operation.region
             body = _structured_body(region)

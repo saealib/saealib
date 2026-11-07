@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 
 import numpy as np
 
@@ -16,7 +16,7 @@ from saealib import (
 )
 from saealib.core.compiler import CompileContext, Compiler, RuleContext
 from saealib.core.compiler.diagnostics import DiagnosticBag
-from saealib.core.compiler.graph import IdentityRule, ReachabilityRule
+from saealib.core.compiler.graph import IdentityRule, NodeRef, ReachabilityRule
 from saealib.core.compiler.regions import RegionNode
 from saealib.core.compiler.structured import StructuredGraph
 from saealib.core.contracts import (
@@ -32,6 +32,7 @@ from saealib.core.contracts import (
 from saealib.core.graph_builder import (
     StageContractNodeAdapter,
     StageNodeAdapter,
+    StagePartNodeAdapter,
     build_component_graph,
     build_decomposed_component_graph,
 )
@@ -50,6 +51,8 @@ from saealib.strategies.gb import GenerationBasedStrategy
 from saealib.strategies.ib import IndividualBasedStrategy
 from saealib.strategies.ps import PreSelectionStrategy
 
+_EdgeSignature: TypeAlias = tuple[str, str, str, str, str, str, tuple[str, ...]]
+
 
 class _ContractComponent:
     """A no-op component sufficient for graph construction."""
@@ -63,12 +66,30 @@ class _ContractComponent:
         return self._contract
 
 
-def _port(name: str, direction: PortDirection) -> PortSpec:
+def _port(name: str, direction: PortDirection, kind: str = "Population") -> PortSpec:
     return PortSpec(
         name=name,
         direction=direction,
-        data=DataSpec(kind="Population"),
+        data=DataSpec(kind=kind),
         cardinality=MANY,
+    )
+
+
+def _surrogate_manager_contract() -> ComponentContract:
+    return ComponentContract(
+        ports={
+            "fitter": PortContract(inputs=(_port("archive", PortDirection.INPUT),)),
+            "predictor": PortContract(
+                inputs=(
+                    _port("candidates", PortDirection.INPUT, "FeatureBatch"),
+                    _port("archive", PortDirection.INPUT),
+                ),
+                outputs=(
+                    _port("prediction", PortDirection.OUTPUT, "SurrogatePrediction"),
+                ),
+            ),
+        },
+        state=StateContract(exports=(SURROGATES_DEFAULT,)),
     )
 
 
@@ -84,17 +105,27 @@ class _Provider:
         self.surrogate_manager = _ContractComponent(
             exports=(SURROGATES_DEFAULT,),
             ports={
+                "fitter": PortContract(inputs=(_port("archive", PortDirection.INPUT),)),
                 "predictor": PortContract(
-                    inputs=(_port("candidates", PortDirection.INPUT),),
-                    outputs=(_port("prediction", PortDirection.OUTPUT),),
-                )
+                    inputs=(
+                        _port("candidates", PortDirection.INPUT, "FeatureBatch"),
+                        _port("archive", PortDirection.INPUT),
+                    ),
+                    outputs=(
+                        _port(
+                            "prediction", PortDirection.OUTPUT, "SurrogatePrediction"
+                        ),
+                    ),
+                ),
             },
         )
         self.acquisition = _ContractComponent(
             ports={
                 "acquisition": PortContract(
-                    inputs=(_port("prediction", PortDirection.INPUT),),
-                    outputs=(_port("scores", PortDirection.OUTPUT),),
+                    inputs=(
+                        _port("prediction", PortDirection.INPUT, "SurrogatePrediction"),
+                    ),
+                    outputs=(_port("scores", PortDirection.OUTPUT, "RowPredicate"),),
                 )
             }
         )
@@ -201,7 +232,12 @@ def test_each_strategy_builds_a_reachable_well_formed_graph():
         assert len(graph.well_formedness()) == 0
         assert len(_rule_diagnostics(IdentityRule(), graph)) == 0
         assert len(_rule_diagnostics(ReachabilityRule(), graph)) == 0
-        assert len(graph.entry_points) == 1
+        root = (
+            "generation_based.surrogate_fit"
+            if isinstance(strategy, GenerationBasedStrategy)
+            else "count_generation"
+        )
+        assert NodeRef(component_id=root) in graph.entry_points
 
 
 def test_graph_nodes_match_actual_pipeline_and_preselection_has_no_top_k_stage():
@@ -247,9 +283,9 @@ def test_graph_nodes_match_actual_pipeline_and_preselection_has_no_top_k_stage()
                 not isinstance(node.component, StageNodeAdapter) for node in graph.nodes
             )
         else:
-            assert [node.component.stage.name for node in stage_nodes] == [
-                stage.name for stage in pipeline.stages
-            ]
+            assert [node.component.stage for node in stage_nodes] == list(
+                pipeline.stages
+            )
             assert all(
                 node.component.stage.__class__.__name__ != "TopKSelectionStage"
                 for node in stage_nodes
@@ -258,44 +294,35 @@ def test_graph_nodes_match_actual_pipeline_and_preselection_has_no_top_k_stage()
 
 def test_data_and_control_edges_are_distinct_and_archive_feedback_is_control_only():
     provider: Any = _Provider()
-    graph = DirectStrategy().build_graph(provider)
+    raw_graph = DirectStrategy().build_graph(provider)
+    plan = Compiler().compile(
+        raw_graph,
+        CompileContext(initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS),
+    )
+    graph = plan.graph
 
     assert graph.data_edges
     assert graph.control_edges
     assert all(hasattr(edge, "source_port") for edge in graph.data_edges)
     assert not any(
-        edge.source.component_id == "archive_update"
-        and edge.target.component_id == "feedback"
+        edge.source.component_id.split("__", 1)[0] == "archive_update"
+        and edge.target.component_id.split("__", 1)[0] == "feedback"
         for edge in graph.data_edges
     )
-    assert {
+    state_routes = {
         (
-            edge.source.component_id,
-            edge.source.role,
-            edge.source_port,
+            getattr(
+                graph.node_by_id(edge.source.component_id).component,
+                "flow_origin",
+                None,
+            ),
             edge.target.component_id,
-            edge.target.role,
-            edge.target_port,
         )
         for edge in graph.data_edges
-    } == {
-        (
-            "ask___algorithm",
-            "proposer",
-            "genomes",
-            "evaluation_plan___planner",
-            "evaluation_planner",
-            "candidates",
-        ),
-        (
-            "feedback___builder",
-            "feedback_builder",
-            "feedback",
-            "tell___algorithm",
-            "feedback_consumer",
-            "feedback",
-        ),
+        if edge.source.role == "state" and edge.target.role != "state"
     }
+    assert ("ask__proposer", "evaluation_plan__planner") in state_routes
+    assert ("feedback__builder", "tell__algorithm") in state_routes
 
 
 def _resolve_edge_port(graph, endpoint, port_name, direction):
@@ -318,16 +345,15 @@ def _resolve_edge_port(graph, endpoint, port_name, direction):
 
 
 def test_all_strategy_data_edges_resolve_to_declared_directional_ports():
-    provider: Any = _Provider()
-
-    common = {
+    common: tuple[_EdgeSignature, ...] = (
         (
-            "ask",
-            "proposer",
-            "genomes",
             "evaluation_plan",
             "evaluation_planner",
-            "candidates",
+            "evaluation_requests",
+            "evaluation_submit",
+            "evaluator",
+            "genomes",
+            ("select_requested_candidates", "extract_genomes"),
         ),
         (
             "feedback",
@@ -336,10 +362,28 @@ def test_all_strategy_data_edges_resolve_to_declared_directional_ports():
             "tell",
             "feedback_consumer",
             "feedback",
+            (),
         ),
-    }
-    surrogate = {
-        ("ask", "proposer", "genomes", "surrogate_predict", "predictor", "candidates"),
+    )
+    direct_candidates: _EdgeSignature = (
+        "ask",
+        "proposer",
+        "genomes",
+        "evaluation_plan",
+        "evaluation_planner",
+        "candidates",
+        (),
+    )
+    surrogate: tuple[_EdgeSignature, ...] = (
+        (
+            "ask",
+            "proposer",
+            "genomes",
+            "surrogate_predict",
+            "predictor",
+            "candidates",
+            ("encode_features",),
+        ),
         (
             "surrogate_predict",
             "predictor",
@@ -347,6 +391,7 @@ def test_all_strategy_data_edges_resolve_to_declared_directional_ports():
             "acquisition",
             "acquisition",
             "prediction",
+            (),
         ),
         (
             "acquisition",
@@ -355,36 +400,86 @@ def test_all_strategy_data_edges_resolve_to_declared_directional_ports():
             "evaluation_plan",
             "evaluation_planner",
             "acquisition",
+            (),
         ),
-    }
+        (
+            "surrogate_predict",
+            "predictor",
+            "prediction",
+            "feedback",
+            "feedback_builder",
+            "prediction",
+            (),
+        ),
+    )
 
     for strategy in _strategies():
-        graph = strategy.build_graph(provider)
+        provider: Any = _Provider()
+        raw_graph = strategy.build_graph(provider)
+        plan = Compiler().compile(
+            raw_graph,
+            CompileContext(initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS),
+        )
+        graph = plan.graph
 
         def stage_id(component_id: str) -> str:
             return component_id.split("__", 1)[0].rsplit(".", 1)[-1]
 
-        if isinstance(strategy, (IndividualBasedStrategy, PreSelectionStrategy)):
-            expected = common | surrogate
-        elif isinstance(strategy, GenerationBasedStrategy):
-            # the acquisition scores stay in the surrogate generations; the
-            # true generation plans its own offspring
-            expected = common | {
-                edge for edge in surrogate if edge[3] != "evaluation_plan"
-            }
-        else:
-            expected = common
-        assert {
+        actual: set[_EdgeSignature] = {
             (
                 stage_id(edge.source.component_id),
-                edge.source.role,
+                edge.source.role or "",
                 edge.source_port,
                 stage_id(edge.target.component_id),
-                edge.target.role,
+                edge.target.role or "",
                 edge.target_port,
+                tuple(item.name for item in edge.transforms),
             )
             for edge in graph.data_edges
-        } == expected
+            if edge.source.role != "state" and edge.target.role != "state"
+        }
+        for edge in graph.data_edges:
+            if edge.source.role != "state" or edge.target.role == "state":
+                continue
+            state_node = graph.node_by_id(edge.source.component_id)
+            flow_origin = getattr(state_node.component, "flow_origin", None)
+            if not isinstance(flow_origin, str):
+                continue
+            source = graph.node_by_id(flow_origin)
+            producers = tuple(
+                producer
+                for producer in graph.data_edges
+                if producer.target.component_id == state_node.component_id
+                and producer.source.component_id == flow_origin
+            )
+            for producer in producers:
+                actual.add(
+                    (
+                        stage_id(flow_origin),
+                        source.role or "",
+                        producer.source_port,
+                        stage_id(edge.target.component_id),
+                        edge.target.role or "",
+                        edge.target_port,
+                        tuple(
+                            item.name
+                            for item in (*producer.transforms, *edge.transforms)
+                        ),
+                    )
+                )
+        expected: set[_EdgeSignature] = set(common)
+        if isinstance(
+            strategy, (DirectStrategy, SteadyStateStrategy, GenerationBasedStrategy)
+        ):
+            expected.add(direct_candidates)
+        if isinstance(
+            strategy,
+            (GenerationBasedStrategy, IndividualBasedStrategy, PreSelectionStrategy),
+        ):
+            # GenerationBased reads the surrogate planner's scores when it
+            # builds the true-generation evaluation requests.
+            expected.update(surrogate)
+        assert expected == actual
         for edge in graph.data_edges:
             assert edge.source.role is not None
             assert edge.target.role is not None
@@ -477,7 +572,7 @@ def test_stage_contract_adapter_captures_custom_stage_contract_once():
     assert stage.calls == 1
 
 
-def test_named_surrogates_get_distinct_node_qualified_state_bindings():
+def test_named_surrogate_manager_uses_the_predictor_binding():
     class _NamedManager:
         def __init__(self) -> None:
             self.managers = {
@@ -486,39 +581,37 @@ def test_named_surrogates_get_distinct_node_qualified_state_bindings():
             }
 
         def contract(self) -> ComponentContract:
-            return ComponentContract()
+            return _surrogate_manager_contract()
 
-    stage = SurrogatePredictStage(cast(Any, _NamedManager()))
+    manager = _NamedManager()
+    stage = SurrogatePredictStage(cast(Any, manager))
     graph = build_component_graph(Pipeline([stage]))
     names = {binding.state_key.name for binding in graph.state_bindings}
 
-    assert names == {"surrogate_predict:cheap", "surrogate_predict:rich"}
-    assert (
-        SURROGATES_DEFAULT
-        in _ContractComponent(exports=(SURROGATES_DEFAULT,)).contract().state.exports
-    )
+    assert names == {"surrogate_predict:predictor"}
+    call = graph.node_by_id("surrogate_predict__predictor")
+    assert call.component is manager
 
 
-def test_multiple_surrogate_attributes_also_get_distinct_bindings():
+def test_surrogate_manager_attributes_keep_the_predictor_binding():
     class _Manager:
         def __init__(self) -> None:
             self.cheap_surrogate = _ContractComponent(exports=(SURROGATES_DEFAULT,))
             self.rich_surrogate = _ContractComponent(exports=(SURROGATES_DEFAULT,))
 
         def contract(self) -> ComponentContract:
-            return ComponentContract()
+            return _surrogate_manager_contract()
 
-    graph = build_component_graph(
-        Pipeline([SurrogatePredictStage(cast(Any, _Manager()))])
-    )
+    manager = _Manager()
+    graph = build_component_graph(Pipeline([SurrogatePredictStage(cast(Any, manager))]))
 
     assert {binding.state_key.name for binding in graph.state_bindings} == {
-        "surrogate_predict:cheap_surrogate",
-        "surrogate_predict:rich_surrogate",
+        "surrogate_predict:predictor"
     }
+    assert graph.node_by_id("surrogate_predict__predictor").component is manager
 
 
-def test_decomposed_surrogate_bindings_remain_node_qualified():
+def test_decomposed_surrogate_manager_uses_predictor_binding():
     class _NamedManager:
         def __init__(self) -> None:
             self.managers = {
@@ -527,23 +620,24 @@ def test_decomposed_surrogate_bindings_remain_node_qualified():
             }
 
         def contract(self) -> ComponentContract:
-            return ComponentContract()
+            return _surrogate_manager_contract()
 
+    manager = _NamedManager()
     graph = build_decomposed_component_graph(
-        Pipeline([SurrogatePredictStage(cast(Any, _NamedManager()))])
+        Pipeline([SurrogatePredictStage(cast(Any, manager))])
     )
 
     assert {binding.state_key.name for binding in graph.state_bindings} == {
-        "surrogate_predict:cheap",
-        "surrogate_predict:rich",
+        "surrogate_predict:predictor"
     }
     assert all(
         binding.node.component_id != "surrogate_predict"
         for binding in graph.state_bindings
     )
+    assert graph.node_by_id("surrogate_predict__predictor").component is manager
 
 
-def test_structured_decomposition_exposes_stage_contract_and_held_parts():
+def test_structured_decomposition_uses_the_stage_as_execution_owner():
     class _Stage(Stage):
         name = "declared_contract_stage"
 
@@ -566,16 +660,18 @@ def test_structured_decomposition_exposes_stage_contract_and_held_parts():
 
     graph = build_decomposed_component_graph(Pipeline([_Stage()]))
     stage = graph.node_by_id("declared_contract_stage")
-    part = graph.node_by_id("declared_contract_stage__component")
 
     assert stage.contract.state.reads == (SURROGATES_DEFAULT,)
-    assert part.contract.state.exports == (SURROGATES_DEFAULT,)
     assert type(stage.component).__name__ == "StageContractNodeAdapter"
-    assert type(part.component).__name__ == "StagePartNodeAdapter"
-    assert stage.component_id != part.component_id
+    stage_adapter = cast(StageContractNodeAdapter, stage.component)
+    assert stage_adapter.stage.name == "declared_contract_stage"
+    assert len(graph.nodes) == 2
+    part = graph.node_by_id("declared_contract_stage__component")
+    assert isinstance(part.component, StagePartNodeAdapter)
+    assert not graph.data_edges
 
 
-def test_structured_decomposition_reuses_adapter_held_snapshots(monkeypatch):
+def test_structured_decomposition_does_not_scan_held_components(monkeypatch):
     pipeline = DirectStrategy().build_pipeline(cast(Any, _Provider()))
     calls = 0
     original = graph_builder._held_components
@@ -588,7 +684,7 @@ def test_structured_decomposition_reuses_adapter_held_snapshots(monkeypatch):
     monkeypatch.setattr(graph_builder, "_held_components", count_held)
     graph = build_decomposed_component_graph(pipeline)
 
-    assert calls == len(pipeline.stages)
+    assert calls == 0
     assert graph.nodes
 
 
@@ -597,14 +693,27 @@ def test_structured_feedback_is_cross_node_and_control_is_not_data():
         Pipeline(list(DirectStrategy().build_pipeline(cast(Any, _Provider())).stages))
     )
 
-    feedback_edges = [
+    builder_nodes = [node for node in graph.nodes if node.role == "feedback_builder"]
+    consumer_nodes = [node for node in graph.nodes if node.role == "feedback_consumer"]
+    assert len(builder_nodes) == len(consumer_nodes) == 1
+    builder_edges = [
         edge
         for edge in graph.data_edges
-        if edge.source_port == "feedback" and edge.target_port == "feedback"
+        if edge.source.component_id == builder_nodes[0].component_id
+        and edge.source_port == "feedback"
+        and edge.target.role == "state"
     ]
-    assert len(feedback_edges) == 1
-    edge = feedback_edges[0]
-    assert edge.source.component_id != edge.target.component_id
+    assert len(builder_edges) == 1
+    state_id = builder_edges[0].target.component_id
+    consumer_edges = [
+        edge
+        for edge in graph.data_edges
+        if edge.source.component_id == state_id
+        and edge.target.component_id == consumer_nodes[0].component_id
+        and edge.target_port == "feedback"
+    ]
+    assert len(consumer_edges) == 1
+    assert builder_nodes[0].component_id != consumer_nodes[0].component_id
     assert not any(
         item.source.component_id == item.target.component_id
         for item in graph.data_edges
@@ -670,3 +779,34 @@ def test_five_strategy_graphs_compile_without_errors_or_self_loops():
             edge.source.component_id != edge.target.component_id
             for edge in plan.graph.data_edges
         )
+        compiled_graph = cast(StructuredGraph, plan.graph)
+        flow_calls = cast(
+            dict[str, dict[str, str]], compiled_graph.metadata["stage_flow_calls"]
+        )
+        for stage_id, calls in flow_calls.items():
+            stage_adapter = cast(
+                StageNodeAdapter, compiled_graph.node_by_id(stage_id).component
+            )
+            stage = stage_adapter.stage
+            summary = stage.flow_summary()
+            assert summary is not None
+            declared = {call.name: call for call in summary.calls}
+            assert set(calls) == set(declared)
+            for call_name, component_id in calls.items():
+                call_node = compiled_graph.node_by_id(component_id)
+                assert call_node.component is getattr(
+                    stage, declared[call_name].attribute
+                )
+
+        repeated_plan = Compiler().compile(
+            strategy.build_graph(optimizer),
+            CompileContext(
+                space=problem.space,
+                problem=problem,
+                initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+            ),
+        )
+        node_ids = {node.component_id for node in plan.graph.nodes}
+        repeated_ids = {node.component_id for node in repeated_plan.graph.nodes}
+        assert node_ids == repeated_ids
+        assert len(repeated_ids) == len(repeated_plan.graph.nodes)

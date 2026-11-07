@@ -199,10 +199,15 @@ class SequentialPlan:
             raise ValidationError(
                 "SequentialPlan execution_nodes must belong to the executable plan"
             )
-        from saealib.core.graph_builder import cached_execution_target
+        from saealib.core.graph_builder import StageNodeAdapter
 
         execute_targets = tuple(
-            cached_execution_target(node.component) for node in execution_nodes
+            (
+                node.component._execute_target
+                if isinstance(node.component, StageNodeAdapter)
+                else getattr(node.component, "execute", None)
+            )
+            for node in execution_nodes
         )
         if any(not callable(execute) for execute in execute_targets):
             invalid_node = next(
@@ -269,11 +274,33 @@ class SequentialPlan:
             pending.extend(graph_successors[node_id])
 
         reachable_stages = stage_ids & reachable
+        metadata = getattr(graph, "metadata", {})
+        flow_call_ids = metadata.get("stage_flow_calls", {})
+        verification_call_ids = (
+            {
+                component_id
+                for calls in flow_call_ids.values()
+                if isinstance(calls, dict)
+                for component_id in calls.values()
+            }
+            if isinstance(flow_call_ids, dict)
+            else set()
+        )
+        marked_verification_ids = metadata.get("verification_only_nodes", ())
+        verification_only_ids = verification_call_ids | {
+            node_id for node_id in marked_verification_ids if isinstance(node_id, str)
+        }
+        verification_only_ids.update(
+            node.component_id
+            for node in graph.nodes
+            if getattr(node, "_verification_only", False)
+        )
 
         executable_ids = {
             node_id
             for node_id in reachable
             if callable(getattr(nodes_by_id[node_id].component, "execute", None))
+            and node_id not in verification_only_ids
         }
 
         def executable_successors_for(node_id: str) -> set[str]:

@@ -283,8 +283,6 @@ def test_real_strategy_graphs_compile_and_initialize_selected_runtimes() -> None
             .set_strategy(DirectStrategy(n_offspring=4))
         ],
     }
-    expected_plan_shapes = {"island": (33, 2), "pymoo": (17, 2)}
-
     for name, optimizers in configurations.items():
         for optimizer in optimizers:
             optimizer._resolve_defaults()
@@ -295,11 +293,94 @@ def test_real_strategy_graphs_compile_and_initialize_selected_runtimes() -> None
                 for diagnostic in plan.diagnostics
                 if diagnostic.severity.name == "ERROR"
             ], name
-            if name in expected_plan_shapes:
-                assert (
-                    len(plan.graph.nodes),
-                    len(plan.graph.data_edges),
-                ) == expected_plan_shapes[name]
+            node_ids = {node.component_id for node in plan.graph.nodes}
+            assert len(node_ids) == len(plan.graph.nodes)
+            assert all(
+                edge.source.component_id in node_ids
+                and edge.target.component_id in node_ids
+                for edge in plan.graph.data_edges
+            )
+            connections = {
+                (
+                    edge.source.role,
+                    edge.source_port,
+                    edge.target.role,
+                    edge.target_port,
+                    tuple(item.name for item in edge.transforms),
+                )
+                for edge in plan.graph.data_edges
+                if edge.source.role != "state" and edge.target.role != "state"
+            }
+            graph = plan.graph
+            for edge in graph.data_edges:
+                if edge.source.role != "state" or edge.target.role == "state":
+                    continue
+                state_node = graph.node_by_id(edge.source.component_id)
+                flow_origin = getattr(state_node.component, "flow_origin", None)
+                if not isinstance(flow_origin, str):
+                    continue
+                source = graph.node_by_id(flow_origin)
+                for producer in graph.data_edges:
+                    if (
+                        producer.source.component_id == flow_origin
+                        and producer.target.component_id == state_node.component_id
+                    ):
+                        connections.add(
+                            (
+                                source.role,
+                                producer.source_port,
+                                edge.target.role,
+                                edge.target_port,
+                                tuple(
+                                    item.name
+                                    for item in (*producer.transforms, *edge.transforms)
+                                ),
+                            )
+                        )
+            expected_connections = {
+                (
+                    "proposer",
+                    "genomes",
+                    "evaluation_planner",
+                    "candidates",
+                    (),
+                )
+                if name in {"island", "pymoo"}
+                else (
+                    "proposer",
+                    "genomes",
+                    "predictor",
+                    "candidates",
+                    ("encode_features",),
+                )
+            }
+            if name == "async":
+                expected_connections.update(
+                    {
+                        ("feedback_builder", "feedback", "predictor", "input", ()),
+                        ("predictor", "output", "feedback_consumer", "feedback", ()),
+                    }
+                )
+            else:
+                expected_connections.update(
+                    {
+                        (
+                            "feedback_builder",
+                            "feedback",
+                            "feedback_consumer",
+                            "feedback",
+                            (),
+                        ),
+                        (
+                            "evaluation_planner",
+                            "evaluation_requests",
+                            "evaluator",
+                            "genomes",
+                            ("select_requested_candidates", "extract_genomes"),
+                        ),
+                    }
+                )
+            assert expected_connections <= connections, name
             runtime = create_runtime(optimizer)
             initializer = optimizer.initializer
             assert initializer is not None
@@ -310,6 +391,30 @@ def test_real_strategy_graphs_compile_and_initialize_selected_runtimes() -> None
                 assert isinstance(runtime, AsyncPipelineRuntime)
             else:
                 assert isinstance(runtime, PipelineRuntime)
+
+
+def test_generation_strategy_retains_held_algorithm_state_reads() -> None:
+    from saealib import LHSInitializer
+
+    problem = Problem(
+        func=lambda x: float(np.sum(x * x)),
+        dim=3,
+        n_obj=1,
+        direction=np.array([-1.0]),
+        lb=[-5.0] * 3,
+        ub=[5.0] * 3,
+    )
+    state = (
+        Optimizer(problem, seed=937)
+        .set_strategy(GenerationBasedStrategy(2))
+        .set_initializer(
+            LHSInitializer(n_init_archive=12, n_init_population=8, seed=937)
+        )
+        .set_termination(Termination(max_gen(4)))
+        .run()
+    )
+
+    assert state.gen == 6
 
 
 def test_generation_strategy_runs_as_structured_async_plan() -> None:

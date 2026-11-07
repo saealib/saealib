@@ -26,6 +26,7 @@ from saealib.core.contracts.feedback import (
     REPEATED_ALLOWED,
     SINGLE,
 )
+from saealib.core.contracts.flow import _apply_transforms
 from saealib.core.contracts.observation import TRUE
 
 if TYPE_CHECKING:
@@ -47,16 +48,18 @@ def _edge_key(edge: DataEdge) -> str:
     def reference(value: NodeRef) -> str:
         return value.component_id + (f"[{value.role}]" if value.role else "")
 
-    return (
+    base = (
         f"{reference(edge.source)}.{edge.source_port}->"
         f"{reference(edge.target)}.{edge.target_port}"
     )
+    return base + "|" + ",".join(item.name for item in edge.transforms)
 
 
 def _edge_token(edge: DataEdge) -> str:
     def token(value: str | None) -> str:
         return value or "default"
 
+    transforms = tuple(item.name.encode("utf-8").hex() for item in edge.transforms)
     return "_".join(
         (
             edge.source.component_id,
@@ -65,6 +68,7 @@ def _edge_token(edge: DataEdge) -> str:
             edge.target.component_id,
             token(edge.target.role),
             edge.target_port,
+            *(("transforms", *transforms) if transforms else ()),
         )
     )
 
@@ -237,6 +241,15 @@ class FeedbackAccumulatorRule:
             source_port = _port(
                 source, edge.source, edge.source_port, PortDirection.OUTPUT
             )
+            if source_port is not None and edge.transforms:
+                transformed, error = _apply_transforms(
+                    source_port.data, edge.transforms
+                )
+                if error is not None or transformed is None:
+                    if edge in graph.data_edges:
+                        rewritten_edges.append(edge)
+                    continue
+                source_port = replace(source_port, data=transformed)
             target_port = _port(
                 target, edge.target, edge.target_port, PortDirection.INPUT
             )
@@ -294,12 +307,14 @@ class FeedbackAccumulatorRule:
                     target=NodeRef(component_id=synthetic_id, role="predictor"),
                     source_port=edge.source_port,
                     target_port="input",
+                    transforms=edge.transforms,
                 ),
                 DataEdge(
                     source=NodeRef(component_id=synthetic_id, role="predictor"),
                     target=edge.target,
                     source_port="output",
                     target_port=edge.target_port,
+                    transforms=(),
                 ),
             )
             if edge in graph.data_edges:

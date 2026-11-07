@@ -159,6 +159,15 @@ for _name, _description in (
     ),
     ("unresolved_input", "A required input has no compatible upstream producer."),
     ("ambiguous_input", "An input has multiple compatible upstream producers."),
+    (
+        "invalid_flow_transform",
+        "A declared edge transform is unknown or does not accept the preceding "
+        "data kind.",
+    ),
+    (
+        "cannot_verify_stage_flow",
+        "A Stage has no flow summary, so its component connections cannot be verified.",
+    ),
 ):
     DIAGNOSTIC_CODES.register(
         _name,

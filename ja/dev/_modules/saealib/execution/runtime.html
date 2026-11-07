@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev30+g4103ffd87 ドキュメント</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev31+g048c8b7ee ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=40aea804"></script>
+    <script src="../../../_static/documentation_options.js?v=17244762"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -982,7 +982,8 @@ window.runMermaid = runMermaid;</script>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">NSGA3Comparator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.compiler</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompileContext</span><span class="p">,</span> <span class="n">Compiler</span><span class="p">,</span> <span class="n">ExecutablePlan</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.compiler</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutablePlan</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Severity</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentNode</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.regions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">BranchRegion</span><span class="p">,</span>
@@ -1030,7 +1031,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">record_evaluations</span><span class="p">,</span>
     <span class="n">record_generation</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">BINDING_SLOTS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">BINDING_SLOTS</span><span class="p">,</span> <span class="n">_prepare_plan</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.termination</span><span class="w"> </span><span class="kn">import</span> <span class="n">Termination</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -2088,9 +2089,15 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;_optimizer&quot;</span><span class="p">,</span> <span class="s2">&quot;_bindings&quot;</span><span class="p">}</span> <span class="ow">or</span> <span class="p">(</span>
+            <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;__&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;__&quot;</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">bindings</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_bindings&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_BINDING_SLOTS</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">bindings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_optimizer&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -2190,12 +2197,26 @@ window.runMermaid = runMermaid;</script>
     <span class="k">return</span> <span class="kc">False</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_replacement_blocked</span><span class="p">(</span>
+    <span class="n">scheduler</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span> <span class="ow">or</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_handles</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_plan_has_unfinished_async_work</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+
+
 <span class="k">class</span><span class="w"> </span><span class="nc">_OptimizerEnvironment</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">plan</span> <span class="o">=</span> <span class="n">plan</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_version</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span> <span class="o">=</span> <span class="n">_BindingSnapshot</span><span class="p">(</span>
             <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_version</span><span class="p">,</span>
             <span class="n">values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span>
@@ -2213,6 +2234,14 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Active snapshot bindings for components resolved by the runtime.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">defer_recompile</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remember a recompile request until a safe execution boundary.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_remember_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
@@ -2226,17 +2255,20 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">execute_step</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_ExecutionOutcome</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_plan_if_needed</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">SequentialPlan</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;sequential environment cannot execute a structured plan&quot;</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">_execute_with_metadata</span><span class="p">(</span>
+        <span class="n">outcome</span> <span class="o">=</span> <span class="n">_execute_with_metadata</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span>
             <span class="n">state</span><span class="p">,</span>
             <span class="n">dispatch</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dispatch</span><span class="p">,</span>
             <span class="n">observe</span><span class="o">=</span><span class="n">_record_history_observation</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">outcome</span><span class="o">.</span><span class="n">state</span>
+        <span class="k">return</span> <span class="n">outcome</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_BINDING_SLOTS</span><span class="p">}</span>
@@ -2259,7 +2291,8 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
         <span class="n">strategy_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span><span class="p">):</span>
+        <span class="n">unchanged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">unchanged</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span><span class="p">:</span>
             <span class="c1"># A swap that was deferred while its evaluations ran may resolve</span>
             <span class="c1"># back to the active bindings; a matching commit point then ends</span>
             <span class="c1"># the deferral, otherwise pending-collection would stall the run.</span>
@@ -2269,16 +2302,13 @@ window.runMermaid = runMermaid;</script>
             <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">return</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publish</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_replacement_blocked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Outstanding asynchronous work under the active version.&quot;&quot;&quot;</span>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span> <span class="ow">or</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_handles</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="n">_plan_has_unfinished_async_work</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_replacement_blocked</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_publish</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -2352,7 +2382,12 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">recompile</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_replacement_blocked</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publish</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compile_current_plan</span><span class="p">(</span>
@@ -2365,21 +2400,21 @@ window.runMermaid = runMermaid;</script>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;runtime plan refresh requires strategy.build_graph and problem&quot;</span>
             <span class="p">)</span>
-        <span class="n">graph</span> <span class="o">=</span> <span class="n">build_graph</span><span class="p">(</span><span class="n">_SnapshotProviderView</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">bindings</span><span class="p">))</span>
-        <span class="n">executable</span> <span class="o">=</span> <span class="n">Compiler</span><span class="p">()</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
-            <span class="n">graph</span><span class="p">,</span>
-            <span class="n">CompileContext</span><span class="p">(</span>
-                <span class="n">space</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span>
-                <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
-                <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span>
-                <span class="p">),</span>
-                <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
+        <span class="n">executable</span> <span class="o">=</span> <span class="n">_prepare_plan</span><span class="p">(</span>
+            <span class="n">strategy</span><span class="p">,</span>
+            <span class="n">_SnapshotProviderView</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">bindings</span><span class="p">),</span>
+            <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
+            <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span>
+            <span class="p">),</span>
+            <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
+            <span class="n">_verification_enabled</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span>
             <span class="p">),</span>
         <span class="p">)</span>
         <span class="n">validate_plan_contracts</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
         <span class="n">rebuilt</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">StructuredGraph</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">executable</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">StructuredGraph</span><span class="p">):</span>
             <span class="n">rebuilt</span> <span class="o">=</span> <span class="n">StructuredPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">rebuilt</span> <span class="o">=</span> <span class="n">SequentialPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
@@ -2400,6 +2435,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        the graph&#39;s synchronous submit/collect/apply/feedback/tell tail is not</span>
 <span class="sd">        executed, preventing a second tell for the same proposal.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;Async runtime requires an evaluation scheduler&quot;</span><span class="p">)</span>
@@ -2418,12 +2454,14 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">async_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Custom plans without the evaluation protocol still run normally.</span>
-            <span class="k">return</span> <span class="n">_execute_with_metadata</span><span class="p">(</span>
+            <span class="n">outcome</span> <span class="o">=</span> <span class="n">_execute_with_metadata</span><span class="p">(</span>
                 <span class="n">sequential_plan</span><span class="p">,</span>
                 <span class="n">state</span><span class="p">,</span>
                 <span class="n">dispatch</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dispatch</span><span class="p">,</span>
                 <span class="n">observe</span><span class="o">=</span><span class="n">_record_history_observation</span><span class="p">,</span>
             <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">outcome</span><span class="o">.</span><span class="n">state</span>
+            <span class="k">return</span> <span class="n">outcome</span>
         <span class="n">current</span> <span class="o">=</span> <span class="n">state</span>
         <span class="n">prefix_outcome</span><span class="p">:</span> <span class="n">_ExecutionOutcome</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -2476,6 +2514,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">kind</span><span class="p">,</span>
                 <span class="n">nodes</span><span class="p">[</span><span class="n">async_index</span><span class="p">]</span><span class="o">.</span><span class="n">component_id</span><span class="p">,</span>
             <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">halt</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">state</span>
             <span class="k">return</span> <span class="n">halt</span><span class="o">.</span><span class="n">outcome</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
             <span class="s2">&quot;Runtime </span><span class="si">%s</span><span class="s2"> end: </span><span class="si">%s</span><span class="s2"> status=completed&quot;</span><span class="p">,</span>
@@ -2484,15 +2523,16 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
         <span class="n">_record_history_observation</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">prefix_outcome</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_ExecutionOutcome</span><span class="p">(</span>
+            <span class="n">outcome</span> <span class="o">=</span> <span class="n">_ExecutionOutcome</span><span class="p">(</span>
                 <span class="n">state</span><span class="o">=</span><span class="n">result</span><span class="p">,</span>
                 <span class="n">node_results</span><span class="o">=</span><span class="n">prefix_outcome</span><span class="o">.</span><span class="n">node_results</span><span class="p">,</span>
                 <span class="n">executed_node_ids</span><span class="o">=</span><span class="n">prefix_outcome</span><span class="o">.</span><span class="n">executed_node_ids</span><span class="p">,</span>
                 <span class="n">refused_commands</span><span class="o">=</span><span class="n">prefix_outcome</span><span class="o">.</span><span class="n">refused_commands</span><span class="p">,</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">_ExecutionOutcome</span><span class="p">(</span>
-            <span class="n">state</span><span class="o">=</span><span class="n">result</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">outcome</span> <span class="o">=</span> <span class="n">_ExecutionOutcome</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">outcome</span><span class="o">.</span><span class="n">state</span>
+        <span class="k">return</span> <span class="n">outcome</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">reattach</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -2542,30 +2582,45 @@ window.runMermaid = runMermaid;</script>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compatibility step facade with async lifecycle owned by Runtime.</span>
 
-<span class="sd">    This supports callers that still invoke ``strategy.step`` directly.  The</span>
-<span class="sd">    strategy contributes only its canonical pipeline; scheduler polling,</span>
-<span class="sd">    capacity checks, and async submission remain runtime responsibilities.</span>
+<span class="sd">    This supports callers that still invoke ``strategy.step`` directly. When</span>
+<span class="sd">    requests are in flight, the call blocks until they finish and returns</span>
+<span class="sd">    without running the step; the next call uses the current components. A</span>
+<span class="sd">    scheduler without a timeout can make this call wait indefinitely. The</span>
+<span class="sd">    helper raises ``ConfigurationError`` when plan verification reports an</span>
+<span class="sd">    ERROR diagnostic, and ``ValidationError`` when the strategy graph cannot</span>
+<span class="sd">    be prepared or uses an unsupported asynchronous region.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">evaluation_handles</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">):</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">wait</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">build_graph</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">build_graph</span><span class="p">):</span>
         <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;strategy requires a callable build_graph&quot;</span><span class="p">)</span>
-    <span class="n">graph</span> <span class="o">=</span> <span class="n">build_graph</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
-    <span class="n">plan</span> <span class="o">=</span> <span class="n">Compiler</span><span class="p">()</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
-        <span class="n">graph</span><span class="p">,</span>
-        <span class="n">CompileContext</span><span class="p">(</span>
-            <span class="n">space</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span>
-            <span class="n">problem</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="p">,</span>
-            <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="p">(</span>
-                <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;partial_feedback&quot;</span><span class="p">})</span>
-                <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="nb">frozenset</span><span class="p">()</span>
-            <span class="p">),</span>
-            <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
-        <span class="p">),</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">live_context</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="p">,</span> <span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+
+    <span class="n">plan</span> <span class="o">=</span> <span class="n">_prepare_plan</span><span class="p">(</span>
+        <span class="n">strategy</span><span class="p">,</span>
+        <span class="n">provider</span><span class="p">,</span>
+        <span class="n">problem</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">_context_factory</span><span class="o">=</span><span class="n">live_context</span><span class="p">,</span>
+        <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
+        <span class="n">_verification_enabled</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
     <span class="p">)</span>
+    <span class="k">if</span> <span class="n">plan</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">:</span>
+        <span class="n">errors</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">diagnostics</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">severity</span> <span class="ow">is</span> <span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
+                <span class="s2">&quot;strategy step rejected by compiler diagnostics: &quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">code</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">errors</span><span class="p">)</span>
+            <span class="p">)</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemplateStrategy</span><span class="p">,</span> <span class="n">build_pipeline_from_graph</span>
 
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">graph</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">StructuredGraph</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">TemplateStrategy</span><span class="p">)</span> <span class="ow">or</span> <span class="n">strategy</span><span class="o">.</span><span class="n">pipeline</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">build_pipeline</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_pipeline&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -2584,13 +2639,6 @@ window.runMermaid = runMermaid;</script>
         <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
             <span class="s2">&quot;async strategy steps require a sequential graph execution seam&quot;</span>
         <span class="p">)</span>
-    <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">:</span>
-        <span class="n">state</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="ow">not</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span>
-            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">max_pending</span>
-        <span class="p">):</span>
-            <span class="k">return</span> <span class="n">state</span>
     <span class="n">structured</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">StructuredGraph</span><span class="p">)</span>
     <span class="n">optimizer</span> <span class="o">=</span> <span class="n">SimpleNamespace</span><span class="p">(</span>
         <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span>
@@ -2608,8 +2656,9 @@ window.runMermaid = runMermaid;</script>
         <span class="c1"># Graph-native region-less plans reuse the asynchronous structured</span>
         <span class="c1"># runtime branch; the strategy-step seam remains reserved for</span>
         <span class="c1"># sequential plans.</span>
+        <span class="n">structured_plan</span> <span class="o">=</span> <span class="n">StructuredPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
         <span class="n">runtime</span> <span class="o">=</span> <span class="n">AsyncPipelineRuntime</span><span class="p">(</span>
-            <span class="n">_OptimizerEnvironment</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">plan</span><span class="p">))</span>
+            <span class="n">_OptimizerEnvironment</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">structured_plan</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">runtime</span><span class="o">.</span><span class="n">advance</span><span class="p">(</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">state</span>
@@ -2683,6 +2732,9 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">plan</span><span class="o">=</span><span class="n">selected_plan</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">observable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">generation_open</span><span class="o">=</span><span class="kc">False</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">remember_state</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_remember_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">remember_state</span><span class="p">):</span>
+            <span class="n">remember_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">RunStartEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">RuntimeSession</span><span class="p">(</span>
             <span class="n">plan</span><span class="o">=</span><span class="n">selected_plan</span><span class="p">,</span>
@@ -2767,6 +2819,9 @@ window.runMermaid = runMermaid;</script>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">metadata</span><span class="o">.</span><span class="n">recompile_requested</span><span class="p">:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">_structured_recompile_accepted</span><span class="p">(</span><span class="n">metadata</span><span class="p">):</span>
+                    <span class="n">defer</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;defer_recompile&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">defer</span><span class="p">):</span>
+                        <span class="n">defer</span><span class="p">()</span>
                     <span class="n">metadata</span> <span class="o">=</span> <span class="n">_refuse_structured_recompile</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">env</span><span class="o">.</span><span class="n">finish_generation</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
@@ -2981,6 +3036,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">frames</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RegionFrame</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RuntimeStep</span><span class="p">:</span>
+        <span class="n">remember_state</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_remember_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">remember_state</span><span class="p">):</span>
+            <span class="n">remember_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">step_finished</span> <span class="o">=</span> <span class="p">(</span>
             <span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">terminated</span> <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">False</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">finished</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -3282,6 +3340,9 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">metadata</span><span class="o">.</span><span class="n">recompile_requested</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">_structured_recompile_accepted</span><span class="p">(</span><span class="n">metadata</span><span class="p">):</span>
+                <span class="n">defer</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;defer_recompile&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">defer</span><span class="p">):</span>
+                    <span class="n">defer</span><span class="p">()</span>
                 <span class="n">metadata</span> <span class="o">=</span> <span class="n">_refuse_structured_recompile</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">environment</span><span class="o">.</span><span class="n">finish_generation</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
@@ -3748,19 +3809,18 @@ window.runMermaid = runMermaid;</script>
     <span class="n">build_graph</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">build_graph</span><span class="p">):</span>
         <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;default runtime requires an executable plan&quot;</span><span class="p">)</span>
-    <span class="n">graph</span> <span class="o">=</span> <span class="n">build_graph</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
-    <span class="n">problem</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="n">context</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">problem</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">context</span> <span class="o">=</span> <span class="n">CompileContext</span><span class="p">(</span>
-            <span class="n">space</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span>
-            <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
-            <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span>
-                <span class="n">optimizer</span>
-            <span class="p">),</span>
-            <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="k">return</span> <span class="n">Compiler</span><span class="p">()</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_prepare_plan</span><span class="p">(</span>
+        <span class="n">strategy</span><span class="p">,</span>
+        <span class="n">optimizer</span><span class="p">,</span>
+        <span class="n">problem</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">_context_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span><span class="n">optimizer</span><span class="p">),</span>
+        <span class="p">),</span>
+        <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
+        <span class="n">_verification_enabled</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+    <span class="p">)</span>
 </pre></div>
 
                 </article>

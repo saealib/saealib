@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.optimizer &#8212; saealib 0.1.1.dev30+g4103ffd87 ドキュメント</title>
+    <title>saealib.optimizer &#8212; saealib 0.1.1.dev31+g048c8b7ee ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=40aea804"></script>
+    <script src="../../_static/documentation_options.js?v=17244762"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -984,8 +984,6 @@ window.runMermaid = runMermaid;</script>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CompileContext</span><span class="p">,</span>
-    <span class="n">Compiler</span><span class="p">,</span>
     <span class="n">ContractPath</span><span class="p">,</span>
     <span class="n">Diagnostic</span><span class="p">,</span>
     <span class="n">DiagnosticBag</span><span class="p">,</span>
@@ -996,12 +994,12 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.contract_diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">check_pymoo_feedback_compatibility</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentGraph</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigurationError</span><span class="p">,</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">SerialEvaluator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.history</span><span class="w"> </span><span class="kn">import</span> <span class="n">SUPPORTED_HISTORY_CHANNELS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">_InvalidStrategyGraphError</span><span class="p">,</span> <span class="n">_prepare_plan</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.runner</span><span class="w"> </span><span class="kn">import</span> <span class="n">Runner</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_runtime_registry</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.scheduler</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncEvaluationScheduler</span>
@@ -1198,7 +1196,8 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_preset</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_default_resolution</span><span class="p">:</span> <span class="n">DefaultResolution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_contract_diagnostics</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span><span class="p">:</span> <span class="n">ExecutablePlan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span><span class="p">:</span> <span class="n">ExecutablePlan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verification_enabled</span> <span class="o">=</span> <span class="kc">True</span></div>
 
 
     <span class="c1"># --- setters (all return self for chaining) ---</span>
@@ -1353,26 +1352,25 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">_compile_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExecutablePlan</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build and compile the configured strategy graph once per run.&quot;&quot;&quot;</span>
         <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">build_graph</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">build_graph</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">return</span> <span class="kc">None</span>
-
-        <span class="n">graph</span> <span class="o">=</span> <span class="n">build_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">ComponentGraph</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="n">plan</span> <span class="o">=</span> <span class="n">Compiler</span><span class="p">()</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
-            <span class="n">graph</span><span class="p">,</span>
-            <span class="n">CompileContext</span><span class="p">(</span>
-                <span class="n">space</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span>
-                <span class="n">problem</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="p">,</span>
-                <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span>
-                    <span class="bp">self</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">plan</span> <span class="o">=</span> <span class="n">_prepare_plan</span><span class="p">(</span>
+                <span class="n">strategy</span><span class="p">,</span>
+                <span class="bp">self</span><span class="p">,</span>
+                <span class="n">problem</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">_context_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                    <span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
                 <span class="p">),</span>
                 <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
-            <span class="p">),</span>
-        <span class="p">)</span>
+                <span class="n">_verification_enabled</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">_InvalidStrategyGraphError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="n">plan</span>
         <span class="k">return</span> <span class="n">plan</span>
 
@@ -2451,6 +2449,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Optimizer.save_pickle">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.save_pickle">[ドキュメント]</a>

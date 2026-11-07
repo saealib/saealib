@@ -25,8 +25,6 @@ from saealib.callback import (
 )
 from saealib.context import OptimizationState
 from saealib.core.compiler import (
-    CompileContext,
-    Compiler,
     ContractPath,
     Diagnostic,
     DiagnosticBag,
@@ -37,12 +35,12 @@ from saealib.core.compiler import (
 from saealib.core.compiler.contract_diagnostics import (
     check_pymoo_feedback_compatibility,
 )
-from saealib.core.compiler.graph import ComponentGraph
 from saealib.core.contracts import ComponentContract
 from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.execution.evaluator import Evaluator, SerialEvaluator
 from saealib.execution.history import SUPPORTED_HISTORY_CHANNELS
+from saealib.execution.prepare import _InvalidStrategyGraphError, _prepare_plan
 from saealib.execution.runner import Runner
 from saealib.execution.runtime import default_runtime_registry
 from saealib.execution.scheduler import AsyncEvaluationScheduler
@@ -236,6 +234,7 @@ class Optimizer:
         self._default_resolution: DefaultResolution | None = None
         self._last_contract_diagnostics: tuple[Diagnostic, ...] = ()
         self._executable_plan: ExecutablePlan | None = None
+        self._verification_enabled = True
 
     # --- setters (all return self for chaining) ---
 
@@ -383,26 +382,25 @@ class Optimizer:
     def _compile_plan(self) -> ExecutablePlan | None:
         """Build and compile the configured strategy graph once per run."""
         strategy = getattr(self, "strategy", None)
-        build_graph = getattr(strategy, "build_graph", None)
-        if not callable(build_graph):
+        if not callable(getattr(strategy, "build_graph", None)):
             self._executable_plan = None
             return None
-
-        graph = build_graph(self)
-        if not isinstance(graph, ComponentGraph):
-            self._executable_plan = None
-            return None
-        plan = Compiler().compile(
-            graph,
-            CompileContext(
-                space=self.problem.space,
-                problem=self.problem,
-                offered_runtime_capabilities=default_runtime_registry.offered_capabilities(
-                    self
+        try:
+            plan = _prepare_plan(
+                strategy,
+                self,
+                problem=None,
+                offered_runtime_capabilities=None,
+                _context_factory=lambda: (
+                    getattr(self, "problem", None),
+                    default_runtime_registry.offered_capabilities(self),
                 ),
                 initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-            ),
-        )
+                _verification_enabled=getattr(self, "_verification_enabled", True),
+            )
+        except _InvalidStrategyGraphError:
+            self._executable_plan = None
+            return None
         self._executable_plan = plan
         return plan
 
@@ -1412,6 +1410,7 @@ class Optimizer:
         self.__dict__.update(state)
         self.__dict__.setdefault("_executable_plan", None)
         self.__dict__.setdefault("_default_resolution", None)
+        self.__dict__.setdefault("_verification_enabled", True)
 
     def save_pickle(self, ctx: OptimizationState, path: str | Path) -> None:
         """

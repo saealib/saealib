@@ -24,6 +24,8 @@ from saealib import (
 )
 from saealib.algorithms import GA
 from saealib.callback import CallbackManager, GenerationEndEvent, PostAskEvent
+from saealib.core.runtime import NodeResult
+from saealib.core.state import StatePatch
 from saealib.exceptions import ConfigurationError
 from saealib.execution import (
     AsyncEvaluationScheduler,
@@ -36,6 +38,7 @@ from saealib.execution import (
 )
 from saealib.execution.runner import Runner
 from saealib.execution.runtime import create_runtime, resolve_plan
+from saealib.pipeline import Pipeline, Stage
 from saealib.policies.evaluation import RepeatedEvaluation
 from saealib.policies.feedback import MixedFeedback, TrueOnlyFeedback
 from saealib.problem import Problem
@@ -295,6 +298,14 @@ def test_direct_replacement_splits_asks_and_tells_by_generation(
     assert len(pso.tell_ids) == 5
     assert len(ga.asks) == 5
     assert len(ga.tell_ids) == 5
+    told_ids = [
+        candidate_id
+        for algorithm in (pso, ga)
+        for batch in algorithm.tell_ids
+        for candidate_id in batch
+    ]
+    assert len(told_ids) == len(set(told_ids))
+    assert state.fe == optimizer.initializer.n_init_archive + len(told_ids)
     assert all(size == 4 for size in pso.asks + ga.asks)
 
 
@@ -424,6 +435,154 @@ def _build_async_optimizer(
     return optimizer
 
 
+def test_direct_async_step_waits_for_the_active_algorithm_to_tell() -> None:
+    from saealib.execution.runtime import execute_strategy_step
+
+    events: list[str] = []
+
+    class EventEvaluator(_DeterministicEvaluator):
+        def __init__(self) -> None:
+            super().__init__(release_after_collects=3, max_collects=1000)
+            self.completed_ids: list[int] = []
+
+        def collect(self, handle: EvaluationHandle, *, wait: bool = True) -> list:
+            events.append("collect")
+            updates = super().collect(handle, wait=wait)
+            for update in updates:
+                self.completed_ids.extend(int(value) for value in update.candidate_ids)
+            return updates
+
+    class EventGA(_RecordingGA):
+        def __init__(self, name: str) -> None:
+            super().__init__()
+            self.name = name
+
+        def ask(self, request: Any, state: Any) -> Any:
+            events.append(f"{self.name}:ask")
+            return super().ask(request, state)
+
+        def tell(self, feedback: Any, state: Any) -> Any:
+            events.append(f"{self.name}:tell")
+            return super().tell(feedback, state)
+
+    evaluator = EventEvaluator()
+    first_algorithm = EventGA("first")
+    next_algorithm = EventGA("next")
+    optimizer = _build_async_optimizer(
+        first_algorithm,
+        SteadyStateStrategy(),
+        evaluator,
+        max_pending=2,
+        termination=Termination(lambda state: state.gen >= 4),
+    )
+    optimizer.resolve_defaults()
+    state = optimizer.initializer.initialize(optimizer, optimizer.problem)
+
+    state = execute_strategy_step(optimizer.strategy, state, optimizer)
+
+    assert state.pending_evaluations
+    pending_ids = tuple(
+        sorted(
+            int(candidate_id)
+            for pending in state.pending_evaluations.values()
+            for candidate_id in pending.request.candidate_ids
+        )
+    )
+    evaluations_before_drain = state.fe
+    events.clear()
+    optimizer.algorithm = next_algorithm
+
+    drained = execute_strategy_step(optimizer.strategy, state, optimizer)
+
+    assert evaluator.completed_ids == list(pending_ids)
+    told_ids = [
+        candidate_id for batch in first_algorithm.tell_ids for candidate_id in batch
+    ]
+    assert tuple(sorted(told_ids)) == pending_ids
+    assert len(told_ids) == len(set(told_ids))
+    assert drained.fe == evaluations_before_drain + len(pending_ids)
+    assert not drained.pending_evaluations
+    assert "next:ask" not in events
+
+    state = execute_strategy_step(optimizer.strategy, drained, optimizer)
+
+    assert events.index("first:tell") < events.index("next:ask")
+    assert len(next_algorithm.asks) == 1
+
+
+def test_async_algorithm_replacement_drains_before_switching_algorithms() -> None:
+    events: list[str] = []
+
+    class EventGA(_RecordingGA):
+        def __init__(self, name: str) -> None:
+            super().__init__()
+            self.name = name
+
+        def ask(self, request: Any, state: Any) -> Any:
+            events.append(f"{self.name}:ask")
+            return super().ask(request, state)
+
+        def tell(self, feedback: Any, state: Any) -> Any:
+            events.append(f"{self.name}:tell")
+            return super().tell(feedback, state)
+
+    first_algorithm = EventGA("first")
+    next_algorithm = EventGA("next")
+    optimizer_ref: Optimizer | None = None
+    replacement_issued = False
+
+    class ReplacementOnce(Stage):
+        name = "replace_algorithm"
+        execution_boundary = "state"
+
+        def __init__(self) -> None:
+            super().__init__()
+
+        def execute(self, state: Any):
+            nonlocal replacement_issued
+            if not replacement_issued:
+                replacement_issued = True
+                assert optimizer_ref is not None
+                optimizer_ref.set_algorithm(next_algorithm)
+                return NodeResult(patch=StatePatch(writes={}))
+            return NodeResult(patch=StatePatch(writes={}))
+
+    replacement_stage = ReplacementOnce()
+
+    class ReplacementStrategy(DirectStrategy):
+        def build_template(self) -> Pipeline:
+            pipeline = super().build_template()
+            pipeline.steps.insert(4, replacement_stage)
+            return pipeline
+
+    evaluator = _DeterministicEvaluator(release_after_collects=2, max_collects=1000)
+    optimizer = _build_async_optimizer(
+        first_algorithm,
+        ReplacementStrategy(),
+        evaluator,
+        max_pending=2,
+        termination=Termination(lambda state: state.gen >= 4),
+    )
+    optimizer_ref = optimizer
+
+    state = optimizer.run()
+
+    assert replacement_issued
+    assert events.index("first:tell") < events.index("next:ask")
+    assert len(first_algorithm.asks) == 1
+    assert len(first_algorithm.tell_ids) == 1
+    assert next_algorithm.asks
+    assert not state.pending_evaluations
+    told_ids = [
+        candidate_id
+        for algorithm in (first_algorithm, next_algorithm)
+        for batch in algorithm.tell_ids
+        for candidate_id in batch
+    ]
+    assert len(told_ids) == len(set(told_ids))
+    assert state.fe == optimizer.initializer.n_init_archive + len(told_ids)
+
+
 # ---------------------------------------------------------------------------
 # Asynchronous commit points
 # ---------------------------------------------------------------------------
@@ -462,6 +621,14 @@ def test_async_direct_replacement_splits_asks_and_tells_by_generation(
     assert len(pso.tell_ids) == 5
     assert len(ga.asks) == 5
     assert len(ga.tell_ids) == 5
+    told_ids = [
+        candidate_id
+        for algorithm in (pso, ga)
+        for batch in algorithm.tell_ids
+        for candidate_id in batch
+    ]
+    assert len(told_ids) == len(set(told_ids))
+    assert state.fe == optimizer.initializer.n_init_archive + len(told_ids)
 
 
 def test_setters_stay_inactive_until_publication() -> None:

@@ -67,6 +67,7 @@ class CompileContext:
     portability_required: bool = False
     adapter_registry: object | None = None
     initial_state_keys: frozenset[StateKey[object]] = frozenset()
+    _verification_enabled: bool = field(default=True, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         namespaces = frozenset(self.enabled_rule_namespaces)
@@ -85,6 +86,8 @@ class CompileContext:
             validate_name(value)
         if not isinstance(self.portability_required, bool):
             raise ValidationError("portability_required must be a boolean")
+        if not isinstance(self._verification_enabled, bool):
+            raise ValidationError("_verification_enabled must be a boolean")
         if self.adapter_registry is not None and not callable(
             getattr(self.adapter_registry, "candidates", None)
         ):
@@ -1102,10 +1105,14 @@ class Compiler:
             sorted(
                 (
                     *prepared.resolution,
-                    *_verification_registrations(
-                        self.registry.registrations(),
-                        prepared.graph,
-                        prepared.context,
+                    *(
+                        _verification_registrations(
+                            self.registry.registrations(),
+                            prepared.graph,
+                            prepared.context,
+                        )
+                        if prepared.context._verification_enabled
+                        else ()
                     ),
                 ),
                 key=lambda item: (item.namespace, item.name, item.phase),
@@ -1322,6 +1329,8 @@ class Compiler:
         """
         diagnostics = DiagnosticBag(prepared.diagnostics)
         if prepared.wellformedness_failed:
+            return diagnostics
+        if not prepared.context._verification_enabled:
             return diagnostics
         for registration in _verification_registrations(
             self.registry.registrations(), prepared.graph, prepared.context

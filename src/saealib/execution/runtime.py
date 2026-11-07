@@ -23,7 +23,8 @@ from saealib.callback import (
 )
 from saealib.comparators import NSGA3Comparator
 from saealib.context import OptimizationState
-from saealib.core.compiler.compiler import CompileContext, Compiler, ExecutablePlan
+from saealib.core.compiler.compiler import ExecutablePlan
+from saealib.core.compiler.diagnostics import Severity
 from saealib.core.compiler.graph import ComponentNode
 from saealib.core.compiler.regions import (
     BranchRegion,
@@ -71,7 +72,7 @@ from saealib.execution.history import (
     record_evaluations,
     record_generation,
 )
-from saealib.execution.prepare import BINDING_SLOTS
+from saealib.execution.prepare import BINDING_SLOTS, _prepare_plan
 from saealib.termination import Termination
 
 logger = logging.getLogger(__name__)
@@ -1129,9 +1130,15 @@ class _SnapshotProviderView:
         return dict(self._bindings)
 
     def __getattr__(self, name: str) -> object:
+        if name in {"_optimizer", "_bindings"} or (
+            name.startswith("__") and name.endswith("__")
+        ):
+            raise AttributeError(name)
+        bindings = object.__getattribute__(self, "_bindings")
         if name in _BINDING_SLOTS:
-            return self._bindings.get(name)
-        return getattr(self._optimizer, name)
+            return bindings.get(name)
+        optimizer = object.__getattribute__(self, "_optimizer")
+        return getattr(optimizer, name)
 
 
 @dataclass(frozen=True)
@@ -1231,12 +1238,26 @@ def _plan_has_unfinished_async_work(
     return False
 
 
+def _replacement_blocked(
+    scheduler: object | None,
+    plan: SequentialPlan | StructuredPlan | None,
+    state: OptimizationState | None,
+) -> bool:
+    if scheduler is None or state is None:
+        return False
+    if state.pending_evaluations or state.evaluation_handles:
+        return True
+    return plan is not None and _plan_has_unfinished_async_work(plan, state)
+
+
 class _OptimizerEnvironment:
     def __init__(self, optimizer: Any, plan: SequentialPlan | StructuredPlan) -> None:
         self.optimizer = optimizer
         self.plan = plan
         self._version = 0
         self._publication_deferred = False
+        self._pending_recompile = False
+        self._last_state: OptimizationState | None = None
         self._active_snapshot = _BindingSnapshot(
             version=self._version,
             values=self._bindings(),
@@ -1254,6 +1275,14 @@ class _OptimizerEnvironment:
         """Active snapshot bindings for components resolved by the runtime."""
         return dict(self._active_snapshot.values)
 
+    def defer_recompile(self) -> None:
+        """Remember a recompile request until a safe execution boundary."""
+        self._pending_recompile = True
+        self._publication_deferred = True
+
+    def _remember_state(self, state: OptimizationState) -> None:
+        self._last_state = state
+
     def execute(
         self, plan: SequentialPlan, state: OptimizationState
     ) -> OptimizationState:
@@ -1267,17 +1296,20 @@ class _OptimizerEnvironment:
     def execute_step(
         self, plan: SequentialPlan, state: OptimizationState
     ) -> _ExecutionOutcome:
+        self._last_state = state
         self._refresh_plan_if_needed(state)
         if not isinstance(self.plan, SequentialPlan):
             raise ValidationError(
                 "sequential environment cannot execute a structured plan"
             )
-        return _execute_with_metadata(
+        outcome = _execute_with_metadata(
             self.plan,
             state,
             dispatch=self.dispatch,
             observe=_record_history_observation,
         )
+        self._last_state = outcome.state
+        return outcome
 
     def _bindings(self) -> dict[str, object]:
         return {name: getattr(self.optimizer, name, None) for name in _BINDING_SLOTS}
@@ -1300,7 +1332,8 @@ class _OptimizerEnvironment:
         """
         bindings = self._bindings()
         strategy_values = self._strategy_values()
-        if self._active_snapshot.unchanged_by(bindings, strategy_values):
+        unchanged = self._active_snapshot.unchanged_by(bindings, strategy_values)
+        if unchanged and not self._pending_recompile:
             # A swap that was deferred while its evaluations ran may resolve
             # back to the active bindings; a matching commit point then ends
             # the deferral, otherwise pending-collection would stall the run.
@@ -1310,16 +1343,13 @@ class _OptimizerEnvironment:
             self._publication_deferred = True
             return
         self._publication_deferred = False
+        self._pending_recompile = False
         self._publish(bindings, strategy_values)
 
     def _replacement_blocked(self, state: OptimizationState | None) -> bool:
         """Outstanding asynchronous work under the active version."""
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
-        if scheduler is None or state is None:
-            return False
-        if state.pending_evaluations or state.evaluation_handles:
-            return True
-        return _plan_has_unfinished_async_work(self.plan, state)
+        return _replacement_blocked(scheduler, self.plan, state)
 
     def _publish(
         self,
@@ -1393,7 +1423,12 @@ class _OptimizerEnvironment:
     def recompile(
         self, plan: SequentialPlan | StructuredPlan
     ) -> SequentialPlan | StructuredPlan:
+        if self._replacement_blocked(self._last_state):
+            self._pending_recompile = True
+            self._publication_deferred = True
+            return self.plan
         self._publish(self._bindings(), self._strategy_values())
+        self._pending_recompile = False
         return self.plan
 
     def _compile_current_plan(
@@ -1406,21 +1441,21 @@ class _OptimizerEnvironment:
             raise ValidationError(
                 "runtime plan refresh requires strategy.build_graph and problem"
             )
-        graph = build_graph(_SnapshotProviderView(self.optimizer, bindings))
-        executable = Compiler().compile(
-            graph,
-            CompileContext(
-                space=problem.space,
-                problem=problem,
-                offered_runtime_capabilities=default_runtime_registry.offered_capabilities(
-                    self.optimizer
-                ),
-                initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+        executable = _prepare_plan(
+            strategy,
+            _SnapshotProviderView(self.optimizer, bindings),
+            problem=problem,
+            offered_runtime_capabilities=default_runtime_registry.offered_capabilities(
+                self.optimizer
+            ),
+            initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+            _verification_enabled=getattr(
+                self.optimizer, "_verification_enabled", True
             ),
         )
         validate_plan_contracts(executable)
         rebuilt: SequentialPlan | StructuredPlan
-        if isinstance(graph, StructuredGraph):
+        if isinstance(executable.graph, StructuredGraph):
             rebuilt = StructuredPlan.from_executable_plan(executable)
         else:
             rebuilt = SequentialPlan.from_executable_plan(executable)
@@ -1441,6 +1476,7 @@ class _OptimizerEnvironment:
         the graph's synchronous submit/collect/apply/feedback/tell tail is not
         executed, preventing a second tell for the same proposal.
         """
+        self._last_state = state
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
         if scheduler is None:
             raise ValidationError("Async runtime requires an evaluation scheduler")
@@ -1459,12 +1495,14 @@ class _OptimizerEnvironment:
         )
         if async_index is None:
             # Custom plans without the evaluation protocol still run normally.
-            return _execute_with_metadata(
+            outcome = _execute_with_metadata(
                 sequential_plan,
                 state,
                 dispatch=self.dispatch,
                 observe=_record_history_observation,
             )
+            self._last_state = outcome.state
+            return outcome
         current = state
         prefix_outcome: _ExecutionOutcome | None = None
 
@@ -1517,6 +1555,7 @@ class _OptimizerEnvironment:
                 kind,
                 nodes[async_index].component_id,
             )
+            self._last_state = halt.outcome.state
             return halt.outcome
         logger.debug(
             "Runtime %s end: %s status=completed",
@@ -1525,15 +1564,16 @@ class _OptimizerEnvironment:
         )
         _record_history_observation(result)
         if prefix_outcome is not None:
-            return _ExecutionOutcome(
+            outcome = _ExecutionOutcome(
                 state=result,
                 node_results=prefix_outcome.node_results,
                 executed_node_ids=prefix_outcome.executed_node_ids,
                 refused_commands=prefix_outcome.refused_commands,
             )
-        return _ExecutionOutcome(
-            state=result,
-        )
+        else:
+            outcome = _ExecutionOutcome(state=result)
+        self._last_state = outcome.state
+        return outcome
 
     def reattach(self, state: OptimizationState) -> OptimizationState:
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
@@ -1583,30 +1623,45 @@ def execute_strategy_step(
 ) -> OptimizationState:
     """Compatibility step facade with async lifecycle owned by Runtime.
 
-    This supports callers that still invoke ``strategy.step`` directly.  The
-    strategy contributes only its canonical pipeline; scheduler polling,
-    capacity checks, and async submission remain runtime responsibilities.
+    This supports callers that still invoke ``strategy.step`` directly. When
+    requests are in flight, the call blocks until they finish and returns
+    without running the step; the next call uses the current components. A
+    scheduler without a timeout can make this call wait indefinitely. The
+    helper raises ``ConfigurationError`` when plan verification reports an
+    ERROR diagnostic, and ``ValidationError`` when the strategy graph cannot
+    be prepared or uses an unsupported asynchronous region.
     """
     scheduler = getattr(provider, "async_evaluation_scheduler", None)
+    if scheduler is not None and state.pending_evaluations:
+        if set(state.evaluation_handles) != set(state.pending_evaluations):
+            state = scheduler.reattach(state)
+        return scheduler.poll(state, wait=True)
     build_graph = cast(Any, getattr(strategy, "build_graph", None))
     if not callable(build_graph):
         raise ValidationError("strategy requires a callable build_graph")
-    graph = build_graph(provider)
-    plan = Compiler().compile(
-        graph,
-        CompileContext(
-            space=state.problem.space,
-            problem=state.problem,
-            offered_runtime_capabilities=(
-                frozenset({"partial_feedback"})
-                if scheduler is not None
-                else frozenset()
-            ),
-            initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-        ),
+
+    def live_context() -> tuple[Any, frozenset[str] | None]:
+        return state.problem, default_runtime_registry.offered_capabilities(provider)
+
+    plan = _prepare_plan(
+        strategy,
+        provider,
+        problem=None,
+        offered_runtime_capabilities=None,
+        _context_factory=live_context,
+        initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+        _verification_enabled=getattr(provider, "_verification_enabled", True),
     )
+    if plan.diagnostics:
+        errors = [item for item in plan.diagnostics if item.severity is Severity.ERROR]
+        if errors:
+            raise ConfigurationError(
+                "strategy step rejected by compiler diagnostics: "
+                + "; ".join(item.code for item in errors)
+            )
     from saealib.strategies.base import TemplateStrategy, build_pipeline_from_graph
 
+    graph = plan.graph
     if isinstance(graph, StructuredGraph):
         if not isinstance(strategy, TemplateStrategy) or strategy.pipeline is None:
             build_pipeline = getattr(strategy, "build_pipeline", None)
@@ -1625,13 +1680,6 @@ def execute_strategy_step(
         raise ValidationError(
             "async strategy steps require a sequential graph execution seam"
         )
-    if state.pending_evaluations:
-        state = scheduler.poll(state, wait=False)
-        if (
-            not state.pending_evaluations
-            or len(state.pending_evaluations) >= scheduler.max_pending
-        ):
-            return state
     structured = isinstance(graph, StructuredGraph)
     optimizer = SimpleNamespace(
         strategy=strategy,
@@ -1649,8 +1697,9 @@ def execute_strategy_step(
         # Graph-native region-less plans reuse the asynchronous structured
         # runtime branch; the strategy-step seam remains reserved for
         # sequential plans.
+        structured_plan = StructuredPlan.from_executable_plan(plan)
         runtime = AsyncPipelineRuntime(
-            _OptimizerEnvironment(optimizer, StructuredPlan.from_executable_plan(plan))
+            _OptimizerEnvironment(optimizer, structured_plan)
         )
         session = runtime.initialize(plan, state)
         return runtime.advance(session).state
@@ -1724,6 +1773,9 @@ class PipelineRuntime:
                 plan=selected_plan, state=state, observable=True, generation_open=False
             )
         self._prepare_state(state)
+        remember_state = getattr(self.environment, "_remember_state", None)
+        if callable(remember_state):
+            remember_state(state)
         self.environment.dispatch(RunStartEvent(ctx=state))
         return RuntimeSession(
             plan=selected_plan,
@@ -1808,6 +1860,9 @@ class PipelineRuntime:
             )
             if metadata.recompile_requested:
                 if not _structured_recompile_accepted(metadata):
+                    defer = getattr(env, "defer_recompile", None)
+                    if callable(defer):
+                        defer()
                     metadata = _refuse_structured_recompile(metadata)
                 else:
                     env.finish_generation(metadata.state)
@@ -2022,6 +2077,9 @@ class PipelineRuntime:
         plan: SequentialPlan | StructuredPlan | None = None,
         frames: tuple[RegionFrame, ...] | None = None,
     ) -> RuntimeStep:
+        remember_state = getattr(self.environment, "_remember_state", None)
+        if callable(remember_state):
+            remember_state(state)
         step_finished = (
             (metadata.terminated if metadata is not None else False)
             if finished is None
@@ -2323,6 +2381,9 @@ class AsyncPipelineRuntime(PipelineRuntime):
         )
         if metadata.recompile_requested:
             if not _structured_recompile_accepted(metadata):
+                defer = getattr(environment, "defer_recompile", None)
+                if callable(defer):
+                    defer()
                 metadata = _refuse_structured_recompile(metadata)
             else:
                 environment.finish_generation(metadata.state)
@@ -2753,16 +2814,15 @@ def resolve_plan(optimizer: object) -> ExecutablePlan:
     build_graph = getattr(strategy, "build_graph", None)
     if not callable(build_graph):
         raise ValidationError("default runtime requires an executable plan")
-    graph = build_graph(optimizer)
-    problem = getattr(optimizer, "problem", None)
-    context = None
-    if problem is not None:
-        context = CompileContext(
-            space=problem.space,
-            problem=problem,
-            offered_runtime_capabilities=default_runtime_registry.offered_capabilities(
-                optimizer
-            ),
-            initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-        )
-    return Compiler().compile(graph, context)
+    return _prepare_plan(
+        strategy,
+        optimizer,
+        problem=None,
+        offered_runtime_capabilities=None,
+        _context_factory=lambda: (
+            getattr(optimizer, "problem", None),
+            default_runtime_registry.offered_capabilities(optimizer),
+        ),
+        initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+        _verification_enabled=getattr(optimizer, "_verification_enabled", True),
+    )

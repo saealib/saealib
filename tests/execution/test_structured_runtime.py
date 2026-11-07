@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import numpy as np
@@ -25,6 +26,7 @@ from saealib.core.runtime import (
     NodeStatus,
     PollResult,
     RequestRecompile,
+    StructuredPlan,
 )
 from saealib.core.state import (
     EVALUATION_UPDATES,
@@ -39,7 +41,12 @@ from saealib.execution.evaluator import (
     EvaluationStatus,
     PendingEvaluation,
 )
-from saealib.execution.runtime import AsyncPipelineRuntime, PipelineRuntime
+from saealib.execution.runtime import (
+    AsyncPipelineRuntime,
+    PipelineRuntime,
+    _OptimizerEnvironment,
+    default_runtime_registry,
+)
 from saealib.pipeline import Branch, Loop, Pipeline, Repeat, Stage
 from saealib.policies.evaluation import EvaluationPlan
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
@@ -449,6 +456,120 @@ def test_async_structured_refuses_recompile_when_leaf_creates_pending_evaluation
     )
     assert step.refused_commands == (RequestRecompile(),)
     assert step.session is not None and step.session.generation_open
+
+
+def test_async_structured_request_is_published_after_pending_work_drains(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = _state()
+    original_prepare = runtime_module._prepare_plan
+    prepared: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def record_prepare(*args, **kwargs):
+        prepared.append((args, kwargs))
+        return original_prepare(*args, **kwargs)
+
+    monkeypatch.setattr(runtime_module, "_prepare_plan", record_prepare)
+
+    class RequestOnce:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def contract(self) -> ComponentContract:
+            return ComponentContract()
+
+        def execute(self, view):
+            del view
+            self.calls += 1
+            if self.calls == 1:
+                object.__setattr__(state, "pending_evaluations", {1: object()})
+                object.__setattr__(state, "evaluation_handles", {1: object()})
+                return NodeResult(
+                    patch=StatePatch(writes={}),
+                    commands=(RequestRecompile(),),
+                )
+            return NodeResult(patch=StatePatch(writes={}))
+
+    component = RequestOnce()
+
+    class Strategy:
+        def __init__(self) -> None:
+            self.component = component
+
+        def build_graph(self, provider):
+            del provider
+            return lower_pipeline(Pipeline([self.component]))
+
+    class Scheduler:
+        max_pending = 1
+        algorithm = None
+        callback_manager = None
+
+        def poll_result(self, current, *, wait=False):
+            del wait
+            return PollResult(
+                state=current.replace(pending_evaluations={}, evaluation_handles={}),
+                progressed=True,
+            )
+
+    strategy = Strategy()
+    optimizer = SimpleNamespace(
+        problem=state.problem,
+        strategy=strategy,
+        algorithm=None,
+        evaluator=None,
+        feedback_builder=None,
+        cbmanager=None,
+        async_evaluation_scheduler=Scheduler(),
+        termination=SimpleNamespace(is_terminated=lambda current: False),
+        dispatch=lambda event: None,
+        surrogate_manager=None,
+    )
+    graph = strategy.build_graph(optimizer)
+    plan = Compiler().compile(
+        graph,
+        CompileContext(
+            space=state.problem.space,
+            problem=state.problem,
+            offered_runtime_capabilities=default_runtime_registry.offered_capabilities(
+                optimizer
+            ),
+            initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+        ),
+    )
+    environment = _OptimizerEnvironment(
+        optimizer, StructuredPlan.from_executable_plan(plan)
+    )
+    runtime = AsyncPipelineRuntime(environment)
+
+    step = runtime.advance(runtime.initialize(plan, state))
+
+    assert step.refused_commands == (RequestRecompile(),)
+    assert environment.recompile(environment.plan) is environment.plan
+    assert environment.active_version == 0
+    assert environment._pending_recompile
+    assert environment._publication_deferred
+    assert prepared == []
+    assert not AsyncPipelineRuntime._async_leaf_kwargs(environment)[
+        "allow_new_proposals"
+    ]
+
+    object.__setattr__(state, "pending_evaluations", {})
+    object.__setattr__(state, "evaluation_handles", {})
+    environment._refresh_plan_if_needed(state)
+
+    assert environment.active_version == 1
+    assert not environment._pending_recompile
+    assert not environment._publication_deferred
+    assert len(prepared) == 1
+    args, kwargs = prepared[0]
+    assert args[0] is strategy
+    assert args[1].binding_values()["strategy"] is strategy
+    assert kwargs["initial_state_keys"] == OPTIMIZATION_STATE_INITIAL_KEYS
+    assert kwargs["offered_runtime_capabilities"] == (
+        default_runtime_registry.offered_capabilities(optimizer)
+    )
+    assert kwargs["_verification_enabled"] is True
 
 
 def test_async_structured_requires_a_driver_without_sync_fallback() -> None:

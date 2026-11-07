@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Execution plans** share preparation logic: adapters, services, and component bindings are resolved against the problem used by the runtime, and runtime capabilities are read from its provider across startup, resume, replacement, recompilation, and direct strategy steps; direct steps reject verification ERROR diagnostics ([#317](https://github.com/saealib/saealib/issues/317))
 - **Checkpoints without the `objective_source` column** still load and resume; the reader adds it, marks rows true when `f` matches the candidate's last result-bearing true evaluation in the History `evaluation` channel, and marks other rows unknown ([#311](https://github.com/saealib/saealib/issues/311))
 - **The compiler blocks a run only on evidence of a defect**: unregistered vocabulary values are reported as "cannot verify" warnings with near-miss suggestions, and a connection rejected only because of an unknown data kind or cardinality becomes a single `cannot_verify_data_kind` warning ([#298](https://github.com/saealib/saealib/issues/298))
 - **Missing information no longer blocks a run**: several compatible candidates, edges to undeclared ports (`cannot_verify_port`), and unbound schema variables are warnings; a missing service, runtime capability, or genome codec is an error only when the real environment is supplied, and `CompileContext.offered_runtime_capabilities` now defaults to `None` ("not supplied") while an explicit empty set still means no capabilities ([#299](https://github.com/saealib/saealib/issues/299))
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Direct asynchronous strategy steps** block until in-flight requests finish and return without running the step; the next call uses the current components. An explicit recompile requested while requests are in flight is retained until they finish ([#317](https://github.com/saealib/saealib/issues/317))
 - **Pickle checkpoints for asynchronous evaluation**: `EvaluationPlan` serializes its immutable artifacts mapping so runs can resume from pickle checkpoints ([#313](https://github.com/saealib/saealib/issues/313))
 - **Compiling a graph that refers to a missing node** reports `invalid_graph_edge`, `invalid_entry_point`, or the new `invalid_state_binding` instead of raising `KeyError` ([#295](https://github.com/saealib/saealib/issues/295))
 - **Branches at the start or end of a lowered sequence**: the else path is no longer reported as unreachable and the then path is ordered before what follows ([#296](https://github.com/saealib/saealib/issues/296))

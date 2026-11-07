@@ -229,6 +229,60 @@ def test_prepare_composition_wellformedness_error() -> None:
     assert compiled.active_rule_names == ()
 
 
+def test_skipping_verification_keeps_the_prepared_plan_unchanged() -> None:
+    graph, context = _strategy_inputs("direct")
+    graph = replace(
+        graph,
+        nodes=(
+            *graph.nodes,
+            ComponentNode(component_id="orphan", component=_Component()),
+        ),
+    )
+    compiler = Compiler()
+
+    verified = compiler.compile(graph, context)
+    unverified = compiler.compile(graph, replace(context, _verification_enabled=False))
+
+    assert any(
+        item.code == "unreachable_node" and item.severity is Severity.ERROR
+        for item in verified.diagnostics
+    )
+    assert unverified.diagnostics == ()
+    assert _graphs_equivalent(verified.graph, unverified.graph)
+    assert verified.inserted_adapters == unverified.inserted_adapters
+    assert verified.contract_snapshots == unverified.contract_snapshots
+    for verified_node, unverified_node in zip(
+        verified.graph.nodes, unverified.graph.nodes
+    ):
+        assert verified_node.resolved_services.keys() == (
+            unverified_node.resolved_services.keys()
+        )
+        assert all(
+            verified_node.resolved_services[name]
+            is unverified_node.resolved_services[name]
+            for name in verified_node.resolved_services
+        )
+        verified_stage = getattr(verified_node.component, "stage", None)
+        unverified_stage = getattr(unverified_node.component, "stage", None)
+        if verified_stage is not None and unverified_stage is not None:
+            for name in ("_algorithm", "_surrogate_manager", "_acquisition"):
+                if hasattr(verified_stage, name):
+                    assert getattr(verified_stage, name) is getattr(
+                        unverified_stage, name
+                    )
+    assert tuple(verified.active_rule_names) != tuple(unverified.active_rule_names)
+    assert not any("reachability" in name for name in unverified.active_rule_names)
+
+
+def test_verification_setting_does_not_affect_context_repr_or_equality() -> None:
+    enabled = CompileContext()
+    disabled = replace(enabled, _verification_enabled=False)
+
+    assert enabled == disabled
+    assert "_verification_enabled" not in repr(enabled)
+    assert "_verification_enabled" not in repr(disabled)
+
+
 def _graph_fingerprint(graph: ComponentGraph) -> tuple[object, ...]:
     return tuple(
         (

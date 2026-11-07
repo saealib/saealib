@@ -12,11 +12,17 @@ plan's shared snapshot, and default components are created once per plan.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from copy import copy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from saealib.core.compiler import CompileContext, Compiler, ExecutablePlan
+from saealib.exceptions import ValidationError
 from saealib.pipeline import Branch, Loop, Pipeline, PipelineEntry, Repeat, Stage
+
+if TYPE_CHECKING:
+    from saealib.core.state import StateKey
+    from saealib.problem import Problem
 
 __all__ = [
     "BINDING_SLOTS",
@@ -36,6 +42,46 @@ BINDING_SLOTS = (
     "evaluator",
     "cbmanager",
 )
+
+
+class _InvalidStrategyGraphError(ValidationError):
+    pass
+
+
+def _prepare_plan(
+    strategy: Any,
+    provider: Any,
+    *,
+    problem: Problem | None,
+    offered_runtime_capabilities: frozenset[str] | None,
+    initial_state_keys: frozenset[StateKey[object]],
+    _context_factory: Callable[[], tuple[Problem | None, frozenset[str] | None]]
+    | None = None,
+    _verification_enabled: bool = True,
+) -> ExecutablePlan:
+    """Build and compile a strategy graph with one consistent context."""
+    build_graph = getattr(strategy, "build_graph", None)
+    if not callable(build_graph):
+        raise _InvalidStrategyGraphError("strategy requires a callable build_graph")
+    graph = build_graph(provider)
+    from saealib.core.compiler.graph import ComponentGraph
+
+    if not isinstance(graph, ComponentGraph):
+        raise _InvalidStrategyGraphError(
+            "strategy.build_graph must return a ComponentGraph"
+        )
+    if _context_factory is not None:
+        problem, offered_runtime_capabilities = _context_factory()
+    return Compiler().compile(
+        graph,
+        CompileContext(
+            space=getattr(problem, "space", None),
+            problem=problem,
+            offered_runtime_capabilities=offered_runtime_capabilities,
+            initial_state_keys=initial_state_keys,
+            _verification_enabled=_verification_enabled,
+        ),
+    )
 
 
 def resolve_declaration(

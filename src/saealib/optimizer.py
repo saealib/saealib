@@ -25,6 +25,7 @@ from saealib.callback import (
 )
 from saealib.context import OptimizationState
 from saealib.core.compiler import (
+    Compiler,
     ContractPath,
     Diagnostic,
     DiagnosticBag,
@@ -32,15 +33,21 @@ from saealib.core.compiler import (
     Severity,
     check_component_contract,
 )
+from saealib.core.compiler.compiler import RuleContext
 from saealib.core.compiler.contract_diagnostics import (
     check_pymoo_feedback_compatibility,
 )
+from saealib.core.compiler.uncertainty_rules import SurrogateUncertaintyRule
 from saealib.core.contracts import ComponentContract
 from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.execution.evaluator import Evaluator, SerialEvaluator
 from saealib.execution.history import SUPPORTED_HISTORY_CHANNELS
-from saealib.execution.prepare import _InvalidStrategyGraphError, _prepare_plan
+from saealib.execution.prepare import (
+    _InvalidStrategyGraphError,
+    _prepare_graph_and_context,
+    _prepare_plan,
+)
 from saealib.execution.runner import Runner
 from saealib.execution.runtime import default_runtime_registry
 from saealib.execution.scheduler import AsyncEvaluationScheduler
@@ -56,6 +63,15 @@ from saealib.termination import Termination
 from saealib.termination import max_fe as max_fe_cond
 
 logger = logging.getLogger(__name__)
+
+_PLAN_UNCERTAINTY_DIAGNOSTIC_CODES = frozenset(
+    {
+        "surrogate_uncertainty_mismatch",
+        "missing_acquisition_channel",
+        "cannot_verify_acquisition_channel",
+        "cannot_verify_surrogate_uncertainty",
+    }
+)
 
 if TYPE_CHECKING:
     from saealib.algorithms.base import Algorithm
@@ -341,6 +357,37 @@ class Optimizer:
                     path=ContractPath(components=(name,)),
                 )
             )
+        if self._verification_enabled:
+            try:
+                strategy = copy.copy(getattr(self, "strategy", None))
+                validation_provider = copy.copy(self)
+                validation_provider.strategy = strategy
+                graph, compile_context = _prepare_graph_and_context(
+                    strategy,
+                    validation_provider,
+                    problem=getattr(self, "problem", None),
+                    offered_runtime_capabilities=None,
+                    initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+                    _context_factory=lambda: (
+                        getattr(validation_provider, "problem", None),
+                        default_runtime_registry.offered_capabilities(
+                            validation_provider
+                        ),
+                    ),
+                    _verification_enabled=self._verification_enabled,
+                )
+                graph = Compiler()._prepare(graph, compile_context).graph
+            except Exception:
+                graph = None
+            if graph is not None:
+                findings = SurrogateUncertaintyRule().apply(
+                    RuleContext(
+                        graph=graph,
+                        compile_context=compile_context,
+                        diagnostics=DiagnosticBag(),
+                    )
+                )
+                diagnostics.extend(findings.diagnostics)
         algorithm = getattr(self, "algorithm", None)
         scheduler = self.async_evaluation_scheduler
         from saealib.algorithms.pymoo_algorithm import PymooAlgorithm
@@ -625,12 +672,21 @@ class Optimizer:
         self._validate_comparator_direction(issues)
 
         if surrogate_manager is not None:
-            self._validate_surrogate_compatibility(issues, surrogate_manager)
+            self._validate_acquisition_directions(issues)
 
         diagnostics = tuple(self.contract_diagnostics())
         if self._executable_plan is not None:
             diagnostics = tuple(
-                dict.fromkeys((*diagnostics, *self._executable_plan.diagnostics))
+                dict.fromkeys(
+                    (
+                        *diagnostics,
+                        *(
+                            diagnostic
+                            for diagnostic in self._executable_plan.diagnostics
+                            if diagnostic.code not in _PLAN_UNCERTAINTY_DIAGNOSTIC_CODES
+                        ),
+                    )
+                )
             )
         self._last_contract_diagnostics = diagnostics
         issues.extend(
@@ -711,23 +767,7 @@ class Optimizer:
                 f"problem.n_obj ({self.problem.n_obj})"
             )
 
-    def _validate_surrogate_compatibility(
-        self, issues: list[str], surrogate_manager: object
-    ) -> None:
-        acq = self.acquisition
-        surr = getattr(surrogate_manager, "surrogate", None)
-        if (
-            acq is not None
-            and surr is not None
-            and getattr(acq, "requires_uncertainty", False)
-            and not getattr(surr, "provides_uncertainty", False)
-        ):
-            issues.append(
-                f"{type(acq).__name__} requires uncertainty estimates but "
-                f"{type(surr).__name__} does not provide them "
-                "(provides_uncertainty=False)"
-            )
-
+    def _validate_acquisition_directions(self, issues: list[str]) -> None:
         for acq in self._iter_acquisitions():
             _adir = getattr(acq, "direction", None)
             if (

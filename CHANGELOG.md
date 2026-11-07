@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Compiler diagnostics** report acquisition channels whose surrogate output lacks required uncertainty, is unavailable, or cannot be verified; `Optimizer.validate()` uses the same check before compilation ([#320](https://github.com/saealib/saealib/issues/320))
 - **Direct asynchronous strategy steps** block until in-flight requests finish and return without running the step; the next call uses the current components. An explicit recompile requested while requests are in flight is retained until they finish ([#317](https://github.com/saealib/saealib/issues/317))
 - **Strategy and Pipeline specs** preserve nested declarations, controls, component references, and explicit stage components; nested values build recursively, and unsupported values report their location. `to_spec` rejects non-importable local classes and shared instances with a location; `Optimizer.save_preset` uses the same validation ([#318](https://github.com/saealib/saealib/issues/318)).
 - **Pickle checkpoints for asynchronous evaluation**: `EvaluationPlan` serializes its immutable artifacts mapping so runs can resume from pickle checkpoints ([#313](https://github.com/saealib/saealib/issues/313))

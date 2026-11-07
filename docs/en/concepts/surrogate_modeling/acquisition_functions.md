@@ -106,8 +106,7 @@ class ThresholdAcquisition(PointwiseAcquisition):
 Combine it by passing it to `Optimizer.set_acquisition()`.
 
 ```{note}
-`Optimizer.validate()` detects and warns about a mismatch between the acquisition function's `requires_uncertainty` and the surrogate's `provides_uncertainty`.
-This warning will catch you if you pair an acquisition function with `requires_uncertainty=True` with a surrogate that doesn't return `std`.
+`Optimizer.validate()` checks uncertainty support per prediction channel. If an acquisition requires uncertainty and its matching surrogate does not provide it, validation reports an ERROR diagnostic.
 ```
 
 ## Related components

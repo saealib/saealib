@@ -166,7 +166,7 @@ class NearestNeighborSurrogate(RegressionSurrogate):
 | `RBFSurrogate` / `SklearnRFRSurrogate` / `SklearnSVMSurrogate` / `SklearnNNSurrogate` / `SklearnXGBSurrogate` / `SklearnLGBMSurrogate` / `TorchSurrogate` | `False` |
 | `PerObjectiveSurrogate` | 構成する全サロゲートが`True`の場合のみ`True` |
 
-`Optimizer.validate()`は、`AcquisitionFunction`の`requires_uncertainty`と`Surrogate`の`provides_uncertainty`の不整合を検出して警告します。
+`Optimizer.validate()`は予測チャネルごとに不確実性の対応を確認します。獲得関数が不確実性を必要とし、対応するサロゲートが不確実性を提供しない場合、エラー診断を報告します。
 
 ## 関連コンポーネント
 

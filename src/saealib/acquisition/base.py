@@ -91,7 +91,7 @@ class AcquisitionFunction(ABC):
     generated.
     """
 
-    # Optimizer.validate() cross-checks this with surrogate.provides_uncertainty.
+    # Validation reports declared mismatches as errors per prediction channel.
     requires_uncertainty: bool = False
 
     # Optimizer._inject_acquisition_directions() only auto-injects

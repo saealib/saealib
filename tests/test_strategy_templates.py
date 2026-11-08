@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, cast
 
 import numpy as np
 import pytest
+from _evaluation_helpers import _ControlledEvaluator, _Evaluator
 
 import saealib.callback.events as callback_events
 from saealib import (
@@ -31,10 +33,6 @@ from saealib.exceptions import ValidationError
 from saealib.execution import (
     AsyncEvaluationScheduler,
     AsyncEvaluator,
-    EvaluationHandle,
-    EvaluationRequest,
-    EvaluationStatus,
-    EvaluationUpdate,
     Evaluator,
     SerialEvaluator,
 )
@@ -81,114 +79,6 @@ from saealib.strategies import (
 from saealib.surrogate.manager import LocalSurrogateManager
 from saealib.surrogate.rbf import RBFSurrogate
 from saealib.surrogate.rbf_kernels import GaussianKernel
-
-
-class _Evaluator(Evaluator):
-    def __init__(self) -> None:
-        self.delivered: dict[int, EvaluationUpdate] = {}
-        self.submitted: list[EvaluationRequest] = []
-        self._delivered: set[int] = set()
-        self._seen_in_pass: set[int] = set()
-        self._released_in_pass = False
-
-    def evaluate_batch(self, x, problem):
-        return SerialEvaluator().evaluate_batch(x, problem)
-
-    def submit(self, request: EvaluationRequest, problem: Problem):
-        self.submitted.append(request)
-        return EvaluationHandle(
-            request.request_id,
-            EvaluationStatus.PENDING,
-            backend_token=(request, problem),
-        )
-
-    def collect(self, handle: EvaluationHandle, *, wait: bool = True):
-        if handle._acknowledged_sequence >= 0:
-            return []
-        request, problem = handle.backend_token
-        request_id = int(request.request_id)
-        if request_id in self._seen_in_pass:
-            self._seen_in_pass.clear()
-            self._released_in_pass = False
-        self._seen_in_pass.add(request_id)
-        if self._released_in_pass:
-            return []
-        outstanding = [
-            int(item.request_id)
-            for item in self.submitted
-            if int(item.request_id) not in self._delivered
-        ]
-        if not outstanding or request_id != min(outstanding):
-            return []
-        update = self.delivered.get(request_id)
-        if update is None:
-            result = SerialEvaluator().evaluate_request(request, problem)
-            result.candidate_ids = request.candidate_ids
-            result.__post_init__()
-            update = EvaluationUpdate(
-                request.request_id,
-                EvaluationStatus.COMPLETED,
-                request.candidate_ids,
-                result,
-                None,
-                0,
-            )
-            self.delivered[request_id] = update
-            self._delivered.add(request_id)
-        self._released_in_pass = True
-        handle._delivered_sequence = update.sequence
-        return [update]
-
-    def acknowledge(self, handle: EvaluationHandle, sequence: int) -> None:
-        handle._acknowledged_sequence = sequence
-        self.delivered.pop(int(handle.request_id), None)
-
-    def supports_batch_rollback(self) -> bool:
-        return True
-
-    def can_reattach(self, pending: Any) -> bool:
-        return True
-
-    def reattach(self, pending: Any, problem: Problem):
-        if pending.request not in self.submitted:
-            self.submitted.append(pending.request)
-        return EvaluationHandle(
-            pending.request.request_id,
-            EvaluationStatus.PENDING,
-            backend_token=(pending.request, problem),
-        )
-
-
-class _ControlledEvaluator(_Evaluator):
-    def __init__(self) -> None:
-        super().__init__()
-        self.released_request_ids: set[int] = set()
-        self.release_all = False
-
-    def collect(self, handle: EvaluationHandle, *, wait: bool = True):
-        if handle._acknowledged_sequence >= 0:
-            return []
-        request, problem = handle.backend_token
-        request_id = int(request.request_id)
-        if request_id in self._delivered or not (
-            self.release_all or request_id in self.released_request_ids
-        ):
-            return []
-        result = SerialEvaluator().evaluate_request(request, problem)
-        result.candidate_ids = request.candidate_ids
-        result.__post_init__()
-        update = EvaluationUpdate(
-            request.request_id,
-            EvaluationStatus.COMPLETED,
-            request.candidate_ids,
-            result,
-            None,
-            0,
-        )
-        self.delivered[request_id] = update
-        self._delivered.add(request_id)
-        handle._delivered_sequence = update.sequence
-        return [update]
 
 
 class DeclarationCondition(Condition):
@@ -1168,4 +1058,53 @@ def test_steady_state_async_checkpoint_resume_with_requests_in_flight(
         expected,
         in_flight_request_ids=in_flight_request_ids,
         portable_checkpoint=checkpoint_format == "npz",
+    )
+
+
+def test_steady_state_partial_feedback_accumulator_pickle_resume(tmp_path):
+    history_channels = ["summary", "population", "evaluation"]
+
+    def configured_optimizer():
+        optimizer = _optimizer(
+            SteadyStateStrategy(), asynchronous=True, max_pending=3
+        ).set_history(history_channels)
+        optimizer.set_evaluation_planner(RepeatedEvaluation(replicates=3))
+        optimizer.set_termination(Termination(_twelve_evaluations))
+        return optimizer
+
+    partial = configured_optimizer()
+    partial.resolve_defaults()
+    partial._compile_plan()
+    state = partial.initializer.initialize(partial, partial.problem)
+    runtime = create_runtime(partial)
+    session = runtime.initialize(resolve_plan(partial), state)
+    for _ in range(1000):
+        accumulator = session.state.feedback_accumulator
+        if (
+            session.state.pending_evaluations
+            and accumulator
+            and any(buffer.get("seen") for buffer in accumulator.get("buffers", ()))
+        ):
+            break
+        step = runtime.advance(session)
+        assert step.session is not None
+        session = step.session
+    else:
+        pytest.fail("partial repeated-evaluation feedback was not observed")
+
+    in_flight_request_ids = set(session.state.pending_evaluations)
+    assert len(in_flight_request_ids) == 3
+    checkpoint = tmp_path / "steady-partial.pkl"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        partial.save_pickle(session.state, checkpoint)
+        resumed_optimizer, restored = Optimizer.load_pickle(checkpoint)
+    resumed = resumed_optimizer.run_from(restored)
+
+    expected = configured_optimizer().run()
+    _assert_checkpoint_matches(
+        resumed,
+        expected,
+        in_flight_request_ids=in_flight_request_ids,
+        portable_checkpoint=False,
     )

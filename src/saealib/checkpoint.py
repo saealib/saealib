@@ -83,22 +83,32 @@ class CheckpointCallback:
         if ctx.gen % self.interval != 0:
             return
 
+        from saealib.context import OptimizationState, _validate_checkpoint_runtime
+
+        state = cast(OptimizationState, ctx)
+        _validate_checkpoint_runtime(state)
+        optimizer = self._optimizer
+        if self.format in ("pickle", "both") and optimizer is None:
+            raise ValidationError(
+                "optimizer must be provided when format is 'pickle' or 'both'"
+            )
+        if self.format == "both":
+            assert optimizer is not None
+            optimizer._validate_pickle_checkpoint(state)
         self._base.mkdir(parents=True, exist_ok=True)
         stem = f"checkpoint_{ctx.gen:06d}"
 
         if self.format in ("npz", "both"):
-            from saealib.context import OptimizationState
-
-            state = cast(OptimizationState, ctx)
             p = self._base / f"{stem}.npz"
             state.save(p)
             self._saved.append(p)
 
         if self.format in ("pickle", "both"):
+            assert optimizer is not None
             p = self._base / f"{stem}.pkl"
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                self._optimizer.save_pickle(ctx, p)  # type: ignore  # save_pickle typing incomplete in stubs
+                optimizer.save_pickle(state, p)
             self._saved.append(p)
 
     def _on_run_end(self, event: RunEndEvent) -> None:

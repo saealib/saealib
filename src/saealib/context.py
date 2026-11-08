@@ -7,6 +7,7 @@ import dataclasses
 import functools
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -15,6 +16,7 @@ from urllib.parse import quote
 import numpy as np
 
 from saealib.core.state import (
+    ACQUISITION_RESULT,
     EVALUATIONS_COUNT,
     EVALUATIONS_OWNERS,
     EVALUATIONS_PLAN,
@@ -23,6 +25,7 @@ from saealib.core.state import (
     FEEDBACK_ACCUMULATOR,
     FEEDBACK_RESULT,
     PENDING_EVALUATIONS,
+    PROPOSALS_CURRENT,
     PROPOSALS_ID_ALLOCATOR,
     PROPOSALS_OFFSPRING,
     RUNTIME_ASYNC_FATAL,
@@ -83,6 +86,149 @@ _STORE_FIELDS = {
     "feedback_accumulator": FEEDBACK_ACCUMULATOR,
     "offspring": PROPOSALS_OFFSPRING,
 }
+_ACQUISITION_RESULT_V1 = StateKey(
+    namespace="evaluations", name="acquisition_result", schema_version=1
+)
+
+
+def _validate_checkpoint_runtime(state: OptimizationState) -> None:
+    callback = state.__dict__.get("_checkpoint_callback")
+    if callback is not None and callback not in {"GenerationEndEvent", "RunEndEvent"}:
+        raise CheckpointError(
+            "checkpoint is supported only at a step boundary or run end"
+        )
+    guard = state.__dict__.get("_checkpoint_guard")
+    if guard is None:
+        return
+    validate = getattr(guard, "validate_checkpoint", None)
+    if not callable(validate):
+        raise CheckpointError("checkpoint runtime guard is invalid")
+    validate(state)
+
+
+def _validate_checkpoint_pending(state: OptimizationState) -> None:
+    def proposal_id_for(pending: Any) -> int | None:
+        proposal_id = pending.request.metadata.get("proposal_id")
+        if proposal_id is None:
+            try:
+                proposal_id = int(state.get_state(PROPOSALS_CURRENT))
+            except KeyError:
+                return None
+        try:
+            return int(proposal_id)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise CheckpointError(
+                "checkpoint has an invalid pending proposal identity"
+            ) from exc
+
+    pending_by_proposal: dict[int, list[Any]] = {}
+    pending_with_proposal: list[tuple[Any, int | None]] = []
+    for pending in state.pending_evaluations.values():
+        if pending.fatal_error is not None or any(
+            marker in {"tell-started", "callback-started"}
+            for marker in pending.processing.values()
+        ):
+            raise CheckpointError(
+                "cannot checkpoint a pending evaluation after its callback "
+                "or feedback update has started"
+            )
+        if not pending.checkpointable:
+            raise CheckpointError(
+                "cannot checkpoint while pending evaluation work cannot be reattached"
+            )
+        proposal_id = proposal_id_for(pending)
+        pending_with_proposal.append((pending, proposal_id))
+        if proposal_id is not None:
+            pending_by_proposal.setdefault(proposal_id, []).append(pending)
+
+    accumulator = state.feedback_accumulator
+    if accumulator is None:
+        buffers = []
+    elif isinstance(accumulator, Mapping):
+        buffers = accumulator.get("buffers", [])
+        if not isinstance(buffers, list):
+            raise CheckpointError("checkpoint FeedbackAccumulator state is malformed")
+    else:
+        raise CheckpointError("checkpoint FeedbackAccumulator state is malformed")
+    buffer_by_proposal: dict[int, Mapping[str, Any]] = {}
+    try:
+        for item in buffers:
+            if not isinstance(item, Mapping) or "proposal_id" not in item:
+                raise ValueError
+            buffer_by_proposal[int(item["proposal_id"])] = item
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise CheckpointError(
+            "checkpoint FeedbackAccumulator proposals are malformed"
+        ) from exc
+    if len(buffer_by_proposal) != len(buffers):
+        raise CheckpointError("checkpoint FeedbackAccumulator proposals are malformed")
+    for proposal_id, buffer in buffer_by_proposal.items():
+        matching = pending_by_proposal.get(proposal_id)
+        if not matching:
+            raise CheckpointError(
+                "checkpoint FeedbackAccumulator buffer has no pending proposal"
+            )
+        try:
+            buffered_ids = set(map(int, buffer["candidate_ids"]))
+            expected_ids = set()
+            for pending in matching:
+                candidates = pending.original_candidate_ids
+                if candidates is None:
+                    candidates = pending.request.candidate_ids
+                expected_ids.update(map(int, candidates))
+        except (KeyError, TypeError, ValueError, OverflowError) as exc:
+            raise CheckpointError(
+                "checkpoint FeedbackAccumulator proposal candidates are malformed"
+            ) from exc
+        if expected_ids != buffered_ids:
+            raise CheckpointError(
+                "checkpoint FeedbackAccumulator proposal candidates do not match "
+                "pending requests"
+            )
+    for pending, proposal_id in pending_with_proposal:
+        for update in pending.buffered_updates:
+            if update.result is None or update.status.value != "partial":
+                continue
+            if proposal_id is None:
+                raise CheckpointError(
+                    "checkpoint is missing proposal identity for partial feedback"
+                )
+            buffer = buffer_by_proposal.get(int(proposal_id))
+            if buffer is None:
+                raise CheckpointError(
+                    "checkpoint is missing FeedbackAccumulator state for partial "
+                    "feedback"
+                )
+            seen = buffer.get("seen", {})
+            if not isinstance(seen, Mapping) or str(update.sequence) not in seen:
+                raise CheckpointError(
+                    "checkpoint FeedbackAccumulator is missing a pending feedback "
+                    "delivery"
+                )
+            buffered_ids = set(map(int, buffer.get("candidate_ids", ())))
+            if not set(map(int, update.candidate_ids)) <= buffered_ids:
+                raise CheckpointError(
+                    "checkpoint has inconsistent FeedbackAccumulator proposal "
+                    "candidates"
+                )
+
+
+def _validate_pending_reattachable(state: OptimizationState, evaluator: Any) -> None:
+    for request_id, pending in state.pending_evaluations.items():
+        try:
+            can_reattach = evaluator.can_reattach(pending)
+        except Exception as exc:
+            raise CheckpointError(
+                f"evaluator {type(evaluator).__name__} could not verify "
+                f"pending request {request_id}"
+            ) from exc
+        if not can_reattach:
+            raise CheckpointError(
+                f"evaluator {type(evaluator).__name__} cannot reattach "
+                f"pending request {request_id}"
+            )
+
+
 _REPLACE_FAST_EXCLUDED = frozenset(
     {
         "problem",
@@ -1074,6 +1220,19 @@ class OptimizationState:
     def __setstate__(self, state: dict[str, Any]) -> None:
         """Rebuild through ``__init__`` so the state store is reconstructed."""
         self.__init__(**state)
+        # Normalize a schema-1 acquisition-result key before portable saves.
+        if self._store.contains(_ACQUISITION_RESULT_V1):
+            value = self._store.get(_ACQUISITION_RESULT_V1)
+            self._store = self._store.apply_patch(
+                StatePatch(
+                    writes={ACQUISITION_RESULT: value},
+                    deletes=frozenset({_ACQUISITION_RESULT_V1}),
+                )
+            )
+            custom_state = dict(self._custom_state)
+            custom_state.pop(_ACQUISITION_RESULT_V1, None)
+            custom_state[ACQUISITION_RESULT] = value
+            object.__setattr__(self, "_custom_state", custom_state)
 
     # ------------------------------------------------------------------
     # Convenience properties (delegate to problem)
@@ -1132,20 +1291,30 @@ class OptimizationState:
 
     def _save_current(self, path: str | Path) -> None:
         """Save every live store entry in the current per-key envelope."""
-        if any(
-            not pending.checkpointable and pending.fatal_error is None
-            for pending in self.pending_evaluations.values()
-        ):
-            raise ValidationError(
-                "cannot checkpoint while synchronous evaluations are pending"
-            )
+        _validate_checkpoint_runtime(self)
+        if "_checkpoint_guard" not in self.__dict__:
+            if any(
+                not pending.checkpointable and pending.fatal_error is None
+                for pending in self.pending_evaluations.values()
+            ):
+                raise ValidationError(
+                    "cannot checkpoint while synchronous evaluations are pending"
+                )
+        else:
+            _validate_checkpoint_pending(self)
+        save_state = self
+        guard = self.__dict__.get("_checkpoint_guard")
+        if getattr(guard, "_checkpoint_run_end_callback", False):
+            from saealib.execution.history import snapshot_generation_for_checkpoint
+
+            save_state = snapshot_generation_for_checkpoint(self)
         p = Path(path)
         if not p.suffix:
             p = p.with_suffix(".npz")
         arrays: dict[str, np.ndarray] = {}
         entries: list[dict[str, Any]] = []
-        genome_codec = self.problem.space.services.get("GenomeCodec")
-        for index, (key, value) in enumerate(self._store._values.items()):
+        genome_codec = save_state.problem.space.services.get("GenomeCodec")
+        for index, (key, value) in enumerate(save_state._store._values.items()):
             if key == EVALUATIONS_OWNERS:
                 encoded = {
                     "codec": "owners",
@@ -1154,11 +1323,13 @@ class OptimizationState:
                             "request_id": int(request_id),
                             **(
                                 {"alias": "offspring"}
-                                if owner is self.offspring
+                                if owner is save_state.offspring
                                 else next(
                                     (
                                         {"alias": f"population:{name}"}
-                                        for name, population in self.populations.items()
+                                        for name, population in (
+                                            save_state.populations.items()
+                                        )
                                         if owner is population
                                     ),
                                     {
@@ -1191,16 +1362,16 @@ class OptimizationState:
                     "value": encoded,
                 }
             )
-        if self.history is not None:
-            channels = sorted(self.history.enabled)
+        if save_state.history is not None:
+            channels = sorted(save_state.history.enabled)
             history_columns: dict[str, list[str]] = {}
             history_blocks: dict[str, list[str]] = {}
             for channel in channels:
-                channel_columns = self.history.channel(channel)
+                channel_columns = save_state.history.channel(channel)
                 history_columns[channel] = list(channel_columns)
                 for column, values in channel_columns.items():
                     arrays[f"_history__{channel}__{column}"] = values
-                block_storage = self.history._block_storage(channel)
+                block_storage = save_state.history._block_storage(channel)
                 history_blocks[channel] = list(block_storage)
                 for column, (values, offsets) in block_storage.items():
                     arrays[f"_history__{channel}__{column}"] = values
@@ -1369,6 +1540,24 @@ def _encode_state_value(
             "codec": "feedback",
             "value": None if value is None else _feedback_to_json(value),
         }
+    if key == ACQUISITION_RESULT:
+        if value is None:
+            encoded_value = None
+        else:
+            try:
+                scores = value.scores
+                artifacts = value.artifacts
+            except AttributeError as exc:
+                raise CheckpointError(
+                    "acquisition result must provide scores and artifacts"
+                ) from exc
+            encoded_value = {
+                "scores": _encode_portable_value(scores, arrays, f"{prefix}__scores"),
+                "artifacts": _encode_portable_value(
+                    artifacts, arrays, f"{prefix}__artifacts"
+                ),
+            }
+        return {"codec": "acquisition_result", "value": encoded_value}
     if key == FEEDBACK_ACCUMULATOR:
         return {"codec": "feedback_accumulator", "value": value}
     if key == SURROGATES_PREDICTIONS:
@@ -1432,6 +1621,72 @@ def _encode_state_value(
     return {"codec": "json", "value": _json_safe(value)}
 
 
+def _encode_portable_value(
+    value: Any, arrays: dict[str, np.ndarray], prefix: str
+) -> Any:
+    if isinstance(value, np.ndarray):
+        if value.dtype == object:
+            raise CheckpointError("object dtype is not checkpointable")
+        arrays[prefix] = np.array(value, copy=True)
+        return {"codec": "array", "key": prefix}
+    if isinstance(value, np.generic):
+        arrays[prefix] = np.asarray(value)
+        return {"codec": "numpy_scalar", "key": prefix}
+    if isinstance(value, Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise CheckpointError("checkpoint metadata keys must be strings")
+        return {
+            "codec": "mapping",
+            "items": {
+                key: _encode_portable_value(item, arrays, f"{prefix}__{index}")
+                for index, (key, item) in enumerate(value.items())
+            },
+        }
+    if isinstance(value, tuple):
+        return {
+            "codec": "tuple",
+            "items": [
+                _encode_portable_value(item, arrays, f"{prefix}__{index}")
+                for index, item in enumerate(value)
+            ],
+        }
+    if isinstance(value, list):
+        return {
+            "codec": "list",
+            "items": [
+                _encode_portable_value(item, arrays, f"{prefix}__{index}")
+                for index, item in enumerate(value)
+            ],
+        }
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return {"codec": "json", "value": value}
+    raise CheckpointError(f"non-serializable checkpoint value: {type(value).__name__}")
+
+
+def _decode_portable_value(encoded: Any, data: Any) -> Any:
+    if not isinstance(encoded, dict) or not isinstance(encoded.get("codec"), str):
+        raise CheckpointError("portable acquisition value is malformed")
+    codec = encoded["codec"]
+    if codec == "json":
+        return encoded.get("value")
+    if codec == "array":
+        return np.array(data[encoded["key"]], copy=True)
+    if codec == "numpy_scalar":
+        return data[encoded["key"]][()]
+    if codec == "mapping":
+        items = encoded.get("items")
+        if not isinstance(items, dict):
+            raise CheckpointError("portable acquisition mapping is malformed")
+        return {key: _decode_portable_value(item, data) for key, item in items.items()}
+    if codec in {"tuple", "list"}:
+        items = encoded.get("items")
+        if not isinstance(items, list):
+            raise CheckpointError("portable acquisition sequence is malformed")
+        values = [_decode_portable_value(item, data) for item in items]
+        return tuple(values) if codec == "tuple" else values
+    raise CheckpointError(f"unknown portable acquisition codec {codec!r}")
+
+
 def _decode_state_value(
     key: StateKey[Any],
     encoded: Any,
@@ -1472,6 +1727,22 @@ def _decode_state_value(
         return _allocator_scalar(np.array(value), key.name)
     if codec == "feedback":
         return None if value is None else _feedback_from_json(value)
+    if codec == "acquisition_result":
+        if value is None:
+            return None
+        if (
+            not isinstance(value, dict)
+            or "scores" not in value
+            or "artifacts" not in value
+        ):
+            raise CheckpointError("acquisition result is malformed")
+        from saealib.acquisition.base import AcquisitionResult
+
+        scores = value["scores"]
+        return AcquisitionResult(
+            scores=_decode_portable_value(scores, data),
+            artifacts=_decode_portable_value(value["artifacts"], data),
+        )
     if codec == "feedback_accumulator":
         from saealib.core.adapters.accumulator import _validate_state
 
@@ -2379,6 +2650,8 @@ def _load_checkpoint(
             space=problem.space,
             objective_source_targets=objective_source_targets,
         )
+        if key == _ACQUISITION_RESULT_V1:
+            key = ACQUISITION_RESULT
         if key in restored:
             raise CheckpointError(f"duplicate state entry {key.namespace}/{key.name}")
         restored[key] = value

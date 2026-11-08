@@ -546,6 +546,60 @@ def _rewind_to_async_driver(
     return (*frames[:-1], replace(frame, operation_index=driver_index))
 
 
+def _async_resume_frames(
+    frames: tuple[RegionFrame, ...],
+    state: OptimizationState,
+    *,
+    plan_graph: StructuredGraph | None = None,
+    strategy: object | None = None,
+    for_checkpoint: bool = False,
+) -> tuple[RegionFrame, ...] | None:
+    """Return the exact frames used to resume an asynchronous wait point."""
+    if not frames:
+        return None
+    if for_checkpoint and not getattr(state, "pending_evaluations", {}):
+        return None
+    frame = frames[-1]
+    at_driver = frame.operation_index < len(
+        frame.graph.operations
+    ) and _is_async_driver(frame.graph.operations[frame.operation_index])
+    rewound = _rewind_to_async_driver(frames)
+    if not at_driver and rewound == frames:
+        return None
+    source_graph = plan_graph or frames[0].graph
+    if (
+        for_checkpoint
+        and _is_generation_based_strategy(strategy)
+        and _contains_repeat_region(source_graph)
+    ):
+        # The active Repeat iteration is not represented by the frames rebuilt
+        # at load time, even when their static driver positions happen to match.
+        return None
+    expected = _frames_at_nested_async_driver(source_graph)
+    if expected is None or rewound != expected:
+        return None
+    return expected
+
+
+def _is_generation_based_strategy(strategy: object) -> bool:
+    """Match GenerationBasedStrategy subclasses without importing at module load."""
+    from saealib.strategies import GenerationBasedStrategy
+
+    return isinstance(strategy, GenerationBasedStrategy)
+
+
+def _contains_repeat_region(graph: StructuredGraph) -> bool:
+    for operation in graph.operations:
+        if not isinstance(operation, RegionNode):
+            continue
+        if isinstance(operation.region, RepeatRegion):
+            return True
+        body = operation.region.body
+        if isinstance(body, StructuredGraph) and _contains_repeat_region(body):
+            return True
+    return False
+
+
 def _is_async_driver(operation: object) -> bool:
     return (
         isinstance(operation, ComponentNode)
@@ -558,12 +612,15 @@ def _is_async_driver(operation: object) -> bool:
 def _frames_at_nested_async_driver(
     graph: StructuredGraph,
 ) -> tuple[RegionFrame, ...] | None:
-    """Frames that enter sequence regions down to the plan's async driver.
+    """Frames the load path rebuilds to reach an asynchronous driver.
 
     A run resumed from a checkpoint starts without frames; when its active
-    plan still has requests to submit, execution continues at the driver of
-    the sequence region that opened the plan instead of starting a new step.
+    plan still has requests to submit, execution continues at the driver that
+    opened the plan instead of starting a new step.
     """
+    for index, operation in enumerate(graph.operations):
+        if _is_async_driver(operation):
+            return (RegionFrame(graph=graph, operation_index=index),)
     for index, operation in enumerate(graph.operations):
         if not isinstance(operation, RegionNode) or not isinstance(
             operation.region, SequenceRegion
@@ -730,12 +787,25 @@ def _execute_structured(
     _sync_transient_fields_from_store(state)
     current = state
     stack = list(frames or (RegionFrame(graph=plan.graph),))
+    checkpoint_owner = getattr(dispatch, "__self__", None)
     if async_control and resume_async_driver:
-        stack = list(_rewind_to_async_driver(tuple(stack)))
+        strategy = getattr(
+            getattr(checkpoint_owner, "optimizer", None), "strategy", None
+        )
+        reconstructed_frames = _frames_at_nested_async_driver(plan.graph)
+        resumed_frames = _async_resume_frames(
+            reconstructed_frames or tuple(stack),
+            current,
+            plan_graph=plan.graph,
+            strategy=strategy,
+        )
+        if resumed_frames is not None:
+            stack = list(resumed_frames)
     results: list[NodeResult] = []
     executed: list[str] = []
     refused: list[RuntimeCommand] = []
     debug_enabled = logger.isEnabledFor(logging.DEBUG)
+    mark_checkpoint = getattr(checkpoint_owner, "_mark_checkpoint_state", None)
 
     def finish_child() -> bool:
         """Advance an enclosing region after its body reaches its end."""
@@ -766,6 +836,8 @@ def _execute_structured(
         return False
 
     while True:
+        if callable(mark_checkpoint):
+            mark_checkpoint(current, phase="running", frames=tuple(stack[1:]))
         frame = stack[-1]
         if frame.operation_index >= len(frame.graph.operations):
             if finish_child():
@@ -1258,6 +1330,10 @@ class _OptimizerEnvironment:
         self._publication_deferred = False
         self._pending_recompile = False
         self._last_state: OptimizationState | None = None
+        self._checkpoint_phase = "running"
+        self._checkpoint_run_end_callback = False
+        self._checkpoint_reject_run_end_callback = False
+        self._checkpoint_frames: tuple[RegionFrame, ...] = ()
         self._active_snapshot = _BindingSnapshot(
             version=self._version,
             values=self._bindings(),
@@ -1282,6 +1358,20 @@ class _OptimizerEnvironment:
 
     def _remember_state(self, state: OptimizationState) -> None:
         self._last_state = state
+        self._mark_checkpoint_state(state)
+
+    def _mark_checkpoint_state(
+        self,
+        state: OptimizationState,
+        *,
+        phase: str | None = None,
+        frames: tuple[RegionFrame, ...] | None = None,
+    ) -> None:
+        if phase is not None:
+            self._checkpoint_phase = phase
+        if frames is not None:
+            self._checkpoint_frames = tuple(frames)
+        state.__dict__["_checkpoint_guard"] = self
 
     def execute(
         self, plan: SequentialPlan, state: OptimizationState
@@ -1297,6 +1387,7 @@ class _OptimizerEnvironment:
         self, plan: SequentialPlan, state: OptimizationState
     ) -> _ExecutionOutcome:
         self._last_state = state
+        self._mark_checkpoint_state(state, phase="running")
         self._refresh_plan_if_needed(state)
         if not isinstance(self.plan, SequentialPlan):
             raise ValidationError(
@@ -1370,14 +1461,7 @@ class _OptimizerEnvironment:
         self._publish_scheduler(executable)
 
     def _publish_scheduler(self, executable: ExecutablePlan) -> None:
-        """Serve the scheduler from the active snapshot, never live reads.
-
-        The feedback builder is served by the submission that opens each
-        request; requests restored from a checkpoint commit with the builder
-        the scheduler already holds.  The scheduler accumulates partial
-        feedback once a published plan has the compiler-inserted
-        accumulator.
-        """
+        """Serve the scheduler from the active snapshot, never live reads."""
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
         if scheduler is None:
             return
@@ -1391,6 +1475,15 @@ class _OptimizerEnvironment:
             "algorithm": values.get("algorithm"),
             "callback_manager": values.get("cbmanager"),
         }
+        if getattr(scheduler, "_feedback_accumulator", None) is not None:
+            feedback_builder = _structured_true_feedback_builder(self.plan)
+            if feedback_builder is None:
+                feedback_builder = values.get("feedback_builder")
+            if feedback_builder is None:
+                feedback_builder = getattr(
+                    values.get("strategy"), "feedback_builder", None
+                )
+            updated["feedback_builder"] = feedback_builder
         for name, value in updated.items():
             with contextlib.suppress(AttributeError):
                 setattr(scheduler, name, value)
@@ -1477,6 +1570,7 @@ class _OptimizerEnvironment:
         executed, preventing a second tell for the same proposal.
         """
         self._last_state = state
+        self._mark_checkpoint_state(state, phase="running")
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
         if scheduler is None:
             raise ValidationError("Async runtime requires an evaluation scheduler")
@@ -1597,7 +1691,96 @@ class _OptimizerEnvironment:
         return self.optimizer.termination.is_terminated(state)
 
     def dispatch(self, event: Event) -> None:
-        self.optimizer.dispatch(event)
+        boundary = isinstance(event, GenerationEndEvent) and not self._checkpoint_frames
+        run_end = isinstance(event, RunEndEvent)
+        strategy = getattr(self.optimizer, "strategy", None)
+        plan_state = getattr(event.ctx, "evaluation_plan_state", None)
+        deferred = bool(plan_state is not None and plan_state.deferred)
+        run_end_callback = (
+            run_end
+            and bool(self._checkpoint_frames)
+            and getattr(self.optimizer, "async_evaluation_scheduler", None) is not None
+            and _is_generation_based_strategy(strategy)
+            and deferred
+        )
+        self._checkpoint_run_end_callback = (
+            run_end
+            and bool(self._checkpoint_frames)
+            and getattr(self.optimizer, "async_evaluation_scheduler", None) is not None
+            and _is_generation_based_strategy(strategy)
+            and not deferred
+        )
+        self._checkpoint_reject_run_end_callback = run_end_callback
+        if isinstance(event.ctx, OptimizationState):
+            self._mark_checkpoint_state(
+                event.ctx,
+                phase=(
+                    "run-end-callback"
+                    if run_end_callback
+                    else (
+                        "post-run"
+                        if run_end
+                        else ("boundary" if boundary else "callback")
+                    )
+                ),
+            )
+        try:
+            self.optimizer.dispatch(event)
+        finally:
+            self._checkpoint_run_end_callback = False
+            self._checkpoint_reject_run_end_callback = False
+
+    def validate_checkpoint(self, state: OptimizationState) -> None:
+        from saealib.context import (
+            _validate_pending_reattachable,
+        )
+        from saealib.exceptions import CheckpointError
+
+        if self._checkpoint_reject_run_end_callback:
+            raise CheckpointError(
+                "cannot save from this asynchronous RunEndEvent callback while "
+                "the evaluation plan still has requests waiting to be submitted; "
+                "save at a GenerationEndEvent instead, or save the state "
+                "returned by run()"
+            )
+        plan_graph = self.plan.graph if isinstance(self.plan, StructuredPlan) else None
+        strategy = getattr(self.optimizer, "strategy", None)
+        resumable_frames = (
+            _async_resume_frames(
+                self._checkpoint_frames,
+                state,
+                plan_graph=plan_graph,
+                strategy=strategy,
+                for_checkpoint=True,
+            )
+            if self._checkpoint_frames
+            else None
+        )
+        if (
+            self._checkpoint_frames
+            and self._checkpoint_phase != "post-run"
+            and resumable_frames is None
+        ):
+            raise CheckpointError("checkpoint is not supported inside an open region")
+        resumable_async = resumable_frames is not None
+        if (
+            self._checkpoint_phase not in {"boundary", "post-run"}
+            and not resumable_async
+        ):
+            raise CheckpointError(
+                "checkpoint is supported only at a step boundary or run end"
+            )
+        bindings = self._bindings()
+        if self._pending_recompile or not self._active_snapshot.unchanged_by(
+            bindings, self._strategy_values()
+        ):
+            raise CheckpointError(
+                "checkpoint cannot be saved because the optimizer configuration "
+                "changed after this state was produced"
+            )
+        scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
+        if scheduler is not None:
+            _validate_pending_reattachable(state, scheduler.evaluator)
 
     def finish_generation(self, state: OptimizationState) -> None:
         handler = state.problem.handler
@@ -1777,6 +1960,9 @@ class PipelineRuntime:
         if callable(remember_state):
             remember_state(state)
         self.environment.dispatch(RunStartEvent(ctx=state))
+        mark = getattr(self.environment, "_mark_checkpoint_state", None)
+        if callable(mark):
+            mark(state, phase="boundary", frames=())
         return RuntimeSession(
             plan=selected_plan,
             state=state,
@@ -1788,6 +1974,10 @@ class PipelineRuntime:
         """Advance lifecycle state by one runtime-owned step."""
         if not isinstance(session, RuntimeSession):
             raise ValidationError("PipelineRuntime.advance requires a RuntimeSession")
+        if self.environment is not None:
+            mark = getattr(self.environment, "_mark_checkpoint_state", None)
+            if callable(mark):
+                mark(session.state, phase="running", frames=session.frames)
         if isinstance(session.plan, StructuredPlan):
             if self.environment is None:
                 metadata = _execute_structured(
@@ -2090,6 +2280,15 @@ class PipelineRuntime:
             if metadata is not None
             else (frames if frames is not None else session.frames)
         )
+        mark_checkpoint = getattr(self.environment, "_mark_checkpoint_state", None)
+        if callable(mark_checkpoint):
+            phase = "post-run" if step_finished else "running"
+            if observable and getattr(self.environment, "_checkpoint_phase", None) in {
+                "boundary",
+                "post-run",
+            }:
+                phase = "boundary"
+            mark_checkpoint(state, phase=phase, frames=next_frames)
         next_session = RuntimeSession(
             plan=plan or session.plan,
             state=state,
@@ -2465,6 +2664,10 @@ class AsyncPipelineRuntime(PipelineRuntime):
             raise ValidationError(
                 "AsyncPipelineRuntime.advance requires a RuntimeSession"
             )
+        if self.environment is not None:
+            mark = getattr(self.environment, "_mark_checkpoint_state", None)
+            if callable(mark):
+                mark(session.state, phase="running", frames=session.frames)
         if isinstance(session.plan, StructuredPlan):
             return self._advance_structured_async(session)
         if not isinstance(session.plan, SequentialPlan):

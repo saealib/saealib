@@ -228,6 +228,39 @@ DIAGNOSTIC_CODES.register(
     ),
 )
 DIAGNOSTIC_CODES.register(
+    "surrogate_uncertainty_mismatch",
+    VocabularyDescriptor(
+        name="surrogate_uncertainty_mismatch",
+        description=(
+            "An acquisition requires uncertainty estimates that its prediction "
+            "source does not provide."
+        ),
+    ),
+)
+DIAGNOSTIC_CODES.register(
+    "missing_acquisition_channel",
+    VocabularyDescriptor(
+        name="missing_acquisition_channel",
+        description="An acquisition channel has no matching prediction channel.",
+    ),
+)
+DIAGNOSTIC_CODES.register(
+    "cannot_verify_acquisition_channel",
+    VocabularyDescriptor(
+        name="cannot_verify_acquisition_channel",
+        description="The manager's prediction channel names cannot be determined.",
+    ),
+)
+DIAGNOSTIC_CODES.register(
+    "cannot_verify_surrogate_uncertainty",
+    VocabularyDescriptor(
+        name="cannot_verify_surrogate_uncertainty",
+        description=(
+            "Uncertainty support for a prediction channel cannot be determined."
+        ),
+    ),
+)
+DIAGNOSTIC_CODES.register(
     "cannot_verify_port",
     VocabularyDescriptor(
         name="cannot_verify_port",

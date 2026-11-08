@@ -12,6 +12,7 @@ from saealib.acquisition.ei import ExpectedImprovement
 from saealib.acquisition.mean import MeanPrediction
 from saealib.acquisition.pof import ProbabilityOfFeasibility, ProductOfFeasibility
 from saealib.acquisition.uncertainty import MaxUncertainty
+from saealib.algorithms import PSO
 from saealib.comparators import SingleObjectiveComparator
 from saealib.core.contracts import ComponentContract
 from saealib.execution.initializer import LHSInitializer
@@ -148,6 +149,8 @@ def test_comparator_weight_mismatch():
 
 def test_acquisition_uncertainty_mismatch():
     opt = _fully_configured()
+    opt.set_strategy(IndividualBasedStrategy())
+    opt.set_algorithm(PSO())
     opt.set_surrogate_manager(
         GlobalSurrogateManager(
             RBFSurrogate(kernel=GaussianKernel()),

@@ -166,7 +166,7 @@ To use an uncertainty-based [AcquisitionFunction](acquisition_functions.md), `Su
 | `RBFSurrogate` / `SklearnRFRSurrogate` / `SklearnSVMSurrogate` / `SklearnNNSurrogate` / `SklearnXGBSurrogate` / `SklearnLGBMSurrogate` / `TorchSurrogate` | `False` |
 | `PerObjectiveSurrogate` | `True` only if every constituent surrogate is `True` |
 
-`Optimizer.validate()` detects and warns about a mismatch between `AcquisitionFunction`'s `requires_uncertainty` and `Surrogate`'s `provides_uncertainty`.
+`Optimizer.validate()` checks uncertainty support per prediction channel. If an acquisition requires uncertainty and its matching surrogate does not provide it, validation reports an ERROR diagnostic.
 
 ## Related components
 

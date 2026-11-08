@@ -16,7 +16,12 @@ from collections.abc import Callable, Mapping
 from copy import copy
 from typing import TYPE_CHECKING, Any
 
-from saealib.core.compiler import CompileContext, Compiler, ExecutablePlan
+from saealib.core.compiler import (
+    CompileContext,
+    Compiler,
+    ComponentGraph,
+    ExecutablePlan,
+)
 from saealib.exceptions import ValidationError
 from saealib.pipeline import Branch, Loop, Pipeline, PipelineEntry, Repeat, Stage
 
@@ -60,28 +65,56 @@ def _prepare_plan(
     _verification_enabled: bool = True,
 ) -> ExecutablePlan:
     """Build and compile a strategy graph with one consistent context."""
+    graph, compile_context = _prepare_graph_and_context(
+        strategy,
+        provider,
+        problem=problem,
+        offered_runtime_capabilities=offered_runtime_capabilities,
+        initial_state_keys=initial_state_keys,
+        _context_factory=_context_factory,
+        _verification_enabled=_verification_enabled,
+    )
+    return Compiler().compile(
+        graph,
+        compile_context,
+    )
+
+
+def _prepare_graph_and_context(
+    strategy: Any,
+    provider: Any,
+    *,
+    problem: Problem | None,
+    offered_runtime_capabilities: frozenset[str] | None,
+    initial_state_keys: frozenset[StateKey[object]],
+    _context_factory: Callable[[], tuple[Problem | None, frozenset[str] | None]]
+    | None = None,
+    _verification_enabled: bool = True,
+) -> tuple[ComponentGraph, CompileContext]:
+    """Build the graph before resolving runtime capabilities and context."""
+    graph = _build_strategy_graph(strategy, provider)
+    if _context_factory is not None:
+        problem, offered_runtime_capabilities = _context_factory()
+    return graph, CompileContext(
+        space=getattr(problem, "space", None),
+        problem=problem,
+        offered_runtime_capabilities=offered_runtime_capabilities,
+        initial_state_keys=initial_state_keys,
+        _verification_enabled=_verification_enabled,
+    )
+
+
+def _build_strategy_graph(strategy: Any, provider: Any) -> ComponentGraph:
+    """Build the strategy graph using the execution preparation path."""
     build_graph = getattr(strategy, "build_graph", None)
     if not callable(build_graph):
         raise _InvalidStrategyGraphError("strategy requires a callable build_graph")
     graph = build_graph(provider)
-    from saealib.core.compiler.graph import ComponentGraph
-
     if not isinstance(graph, ComponentGraph):
         raise _InvalidStrategyGraphError(
             "strategy.build_graph must return a ComponentGraph"
         )
-    if _context_factory is not None:
-        problem, offered_runtime_capabilities = _context_factory()
-    return Compiler().compile(
-        graph,
-        CompileContext(
-            space=getattr(problem, "space", None),
-            problem=problem,
-            offered_runtime_capabilities=offered_runtime_capabilities,
-            initial_state_keys=initial_state_keys,
-            _verification_enabled=_verification_enabled,
-        ),
-    )
+    return graph
 
 
 def resolve_declaration(

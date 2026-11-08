@@ -840,7 +840,7 @@ def test_strategy_replacement_from_callback_keeps_running(
 def test_template_strategy_build_graph_returns_structured_graph(strategy_factory):
     strategy = strategy_factory()
     optimizer = _optimizer(strategy)
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
 
     graph = cast(Any, strategy).build_graph(optimizer)
 

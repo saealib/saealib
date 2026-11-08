@@ -223,10 +223,10 @@ def _run(
         opt.set_preset(preset)
 
     # Arguments left at _UNSET are not passed to set_*(); Optimizer.run()'s
-    # _resolve_defaults() then fills them from the library's bundled preset.
+    # resolve_defaults() then fills them from the library's bundled preset.
     if algorithm is not _UNSET:
         # An explicit None resolves to None here, same as never calling
-        # set_algorithm(); Optimizer._resolve_defaults() then fills it in.
+        # set_algorithm(); Optimizer.resolve_defaults() then fills it in.
         opt.set_algorithm(_resolve_algorithm(algorithm, bundled_preset, problem))  # type: ignore
     if surrogate is not _UNSET:
         manager, acquisition = _resolve_surrogate(surrogate, problem, bundled_preset)

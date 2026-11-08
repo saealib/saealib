@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`objective_source` population column** records whether each row's objective values come from a true evaluation (`0`), a surrogate prediction (`1`), or an imputed fallback (`2`); `255` marks an unknown source. Populations and archives built by the library initializers always carry it, and `PSO` and `PymooAlgorithm` keep it when they rebuild the population ([#311](https://github.com/saealib/saealib/issues/311))
 - **`Stage.execution_boundary`**: `"transaction"` (default) runs a Stage on its declared reads, `"state"` gives the Stage and its callbacks the whole run state; any other value raises `ValidationError` when the plan is prepared ([#309](https://github.com/saealib/saealib/issues/309))
 
+### Deprecated
+
+- **Direct `execute_strategy_step()` calls with asynchronous evaluation** emit a `DeprecationWarning`; use `Optimizer.iterate()` or `Optimizer.run()` ([#329](https://github.com/saealib/saealib/issues/329))
+- **`Population.dense_view`, `Archive.dense_view`, and `ParetoArchive.dense_view`** emit a `DeprecationWarning`; use `dense_numeric_view` ([#329](https://github.com/saealib/saealib/issues/329))
+
+### Removed
+
+- **Unused execution protocol aliases, a private defaults forwarding method, and compiler rule re-exports outside `__all__`** were removed; use the canonical execution protocols, `Optimizer.resolve_defaults()`, or the implementation modules ([#329](https://github.com/saealib/saealib/issues/329))
+
 ### Changed
 
 - **Execution plans** share preparation logic: adapters, services, and component bindings are resolved against the problem used by the runtime, and runtime capabilities are read from its provider across startup, resume, replacement, recompilation, and direct strategy steps; direct steps reject verification ERROR diagnostics ([#317](https://github.com/saealib/saealib/issues/317))

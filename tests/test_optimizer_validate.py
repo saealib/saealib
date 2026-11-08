@@ -207,7 +207,7 @@ def test_iterate_succeeds_with_no_components_set():
     assert ctx is not None
 
 
-def test_resolve_defaults_exposes_components_for_validation_and_pipeline():
+def test_defaults_resolution_exposes_components_for_validation_and_pipeline():
     opt = Optimizer(_make_problem())
 
     before = opt.validate()

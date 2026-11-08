@@ -75,7 +75,7 @@ class TestNSGA3PopulationScaling:
         """Population size should be 4 * ceil(n_ref / 4)."""
         problem, _ = _problem_with_nsga3(n_obj=3, n_ref=10)
         opt = Optimizer(problem)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert isinstance(opt.initializer, LHSInitializer)
         # 4 * ceil(10 / 4) = 4 * 3 = 12
@@ -86,7 +86,7 @@ class TestNSGA3PopulationScaling:
         for n_ref in [5, 9, 10, 15, 20, 21]:
             problem, _ = _problem_with_nsga3(n_obj=3, n_ref=n_ref)
             opt = Optimizer(problem)
-            opt._resolve_defaults()
+            opt.resolve_defaults()
 
             assert isinstance(opt.initializer, LHSInitializer)
             expected = 4 * math.ceil(n_ref / 4)
@@ -99,7 +99,7 @@ class TestNSGA3PopulationScaling:
         """Archive size should also scale with reference points."""
         problem, _ = _problem_with_nsga3(n_obj=3, n_ref=10)
         opt = Optimizer(problem)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert isinstance(opt.initializer, LHSInitializer)
         # Archive should be at least as large as population
@@ -109,7 +109,7 @@ class TestNSGA3PopulationScaling:
         """Single-objective problems should use generic 4*dim fallback."""
         problem = _problem_single_obj(dim=4)
         opt = Optimizer(problem)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert isinstance(opt.initializer, LHSInitializer)
         assert opt.initializer.n_init_population == 4 * 4  # 16
@@ -186,7 +186,7 @@ class TestExplicitInitializerUnchanged:
             n_init_archive=100, n_init_population=50, seed=42
         )
         opt.set_initializer(explicit_init)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert opt.initializer is explicit_init
         assert opt.initializer.n_init_population == 50

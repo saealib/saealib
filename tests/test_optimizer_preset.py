@@ -70,7 +70,7 @@ def _mutation_uniform_ga() -> GA:
 class TestSavePresetStripsProblemParams:
     def test_saved_preset_has_no_dim_or_direction(self, tmp_path):
         opt = Optimizer(_problem(dim=2))
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         path = opt.save_preset(tmp_path / "p.yaml")
 
@@ -90,13 +90,13 @@ class TestRoundTripAcrossProblems:
         opt.set_algorithm(_mutation_uniform_ga())
         opt.set_strategy(IndividualBasedStrategy(evaluation_ratio=0.3))
         opt.set_termination(Termination(max_fe(123)))
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         path = opt.save_preset(tmp_path / "p.yaml")
 
         problem5 = _problem(dim=5)
         opt5 = Optimizer(problem5).set_preset(path)
-        opt5._resolve_defaults()
+        opt5.resolve_defaults()
 
         assert isinstance(opt5.strategy, IndividualBasedStrategy)
         assert opt5.strategy.evaluation_ratio == 0.3
@@ -131,7 +131,7 @@ class TestPresetPrecedence:
                 }
             }
         )
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert opt.strategy is gb
 
@@ -140,7 +140,7 @@ class TestPresetPrecedence:
         opt.set_preset(
             {"strategy": {"type": "GenerationBasedStrategy", "params": {"gen_ctrl": 9}}}
         )
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert isinstance(opt.strategy, GenerationBasedStrategy)
         assert opt.strategy.gen_ctrl == 9
@@ -204,7 +204,7 @@ class TestPresetEndToEndRun:
         problem2 = _problem(dim=2)
         opt = Optimizer(problem2)
         opt.set_termination(Termination(max_fe(60)))
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         path = opt.save_preset(tmp_path / "p.yaml")
 

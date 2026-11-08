@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, cast
 
+from saealib._deprecation import warn_deprecated
 from saealib.context import OptimizationState
 from saealib.core.compiler.graph import ComponentGraph
 from saealib.core.contracts import ComponentContract, PortContract, StateContract
@@ -106,9 +107,20 @@ class OptimizationStrategy:
         OptimizationState
             Updated state returned by the pipeline.
         """
-        from saealib.execution.runtime import execute_strategy_step
+        from saealib.execution.runtime import _execute_strategy_step
 
-        return execute_strategy_step(self, ctx, provider)
+        if getattr(provider, "async_evaluation_scheduler", None) is not None:
+            # GenerationBased, IndividualBased, and PreSelection forward here
+            # through their own step() methods; the other built-ins inherit
+            # this method directly.
+            stacklevel = 3 if type(self).step is not OptimizationStrategy.step else 2
+            warn_deprecated(
+                "execute_strategy_step() with asynchronous evaluation",
+                since="0.2.0",
+                replacement="Optimizer.iterate() or Optimizer.run()",
+                stacklevel=stacklevel,
+            )
+        return _execute_strategy_step(self, ctx, provider)
 
 
 class TemplateStrategy(OptimizationStrategy):

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar, overload
 import numpy as np
 from typing_extensions import Self
 
+from saealib._deprecation import deprecated_argument_alias
 from saealib.core.contracts.identity import CandidateIds
 from saealib.exceptions import ValidationError
 from saealib.identity import PopulationAttribute
@@ -101,7 +102,7 @@ class Population(Generic[T_Individual]):
         dense_numeric_view
             Service used to obtain a dense numeric view of dense genomes.
         dense_view
-            Compatibility alias for ``dense_numeric_view``.
+            Deprecated alias for ``dense_numeric_view``.
         """
         if genomes is not None:
             init_capacity = max(init_capacity, len(genomes))
@@ -116,8 +117,13 @@ class Population(Generic[T_Individual]):
             self._init_column(attr, self._capacity)
         self._schema = {attr.name: attr for attr in attrs}
         self._dense_genomes_view_cache: tuple[int, int, DenseVectorBatch] | None = None
-        self._dense_numeric_view = (
-            dense_numeric_view if dense_numeric_view is not None else dense_view
+        self._dense_numeric_view = deprecated_argument_alias(
+            dense_view,
+            dense_numeric_view,
+            owner=type(self).__name__,
+            old_name="dense_view",
+            new_name="dense_numeric_view",
+            since="0.2.0",
         )
         self._genome_items: list[object] | None = None
         self._legacy_scalar_x = False

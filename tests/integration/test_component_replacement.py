@@ -478,7 +478,10 @@ def test_direct_async_step_waits_for_the_active_algorithm_to_tell() -> None:
     optimizer.resolve_defaults()
     state = optimizer.initializer.initialize(optimizer, optimizer.problem)
 
-    state = execute_strategy_step(optimizer.strategy, state, optimizer)
+    with pytest.warns(
+        DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+    ):
+        state = execute_strategy_step(optimizer.strategy, state, optimizer)
 
     assert state.pending_evaluations
     pending_ids = tuple(
@@ -492,7 +495,10 @@ def test_direct_async_step_waits_for_the_active_algorithm_to_tell() -> None:
     events.clear()
     optimizer.algorithm = next_algorithm
 
-    drained = execute_strategy_step(optimizer.strategy, state, optimizer)
+    with pytest.warns(
+        DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+    ):
+        drained = execute_strategy_step(optimizer.strategy, state, optimizer)
 
     assert evaluator.completed_ids == list(pending_ids)
     told_ids = [
@@ -504,7 +510,10 @@ def test_direct_async_step_waits_for_the_active_algorithm_to_tell() -> None:
     assert not drained.pending_evaluations
     assert "next:ask" not in events
 
-    state = execute_strategy_step(optimizer.strategy, drained, optimizer)
+    with pytest.warns(
+        DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+    ):
+        state = execute_strategy_step(optimizer.strategy, drained, optimizer)
 
     assert events.index("first:tell") < events.index("next:ask")
     assert len(next_algorithm.asks) == 1

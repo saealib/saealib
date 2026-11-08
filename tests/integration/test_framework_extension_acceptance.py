@@ -117,7 +117,7 @@ def test_representation_graph_profiles_compile_through_current_public_path() -> 
         optimizer = (
             Optimizer(problem, seed=1).set_algorithm(algorithm).set_strategy(strategy)
         )
-        optimizer._resolve_defaults()
+        optimizer.resolve_defaults()
         graph = cast(Any, optimizer.strategy).build_graph(optimizer)
         plan = Compiler().compile(
             graph,

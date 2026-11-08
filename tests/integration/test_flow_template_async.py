@@ -332,7 +332,7 @@ def test_bundled_feedback_default_does_not_reach_the_generation_based_true_gener
     optimizer = Optimizer(_problem(), seed=1).set_termination(
         Termination(lambda state: state.gen >= 2)
     )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
     assert isinstance(optimizer.feedback_builder, ComparatorWorstFallback)
     assert not optimizer.feedback_builder_explicit
 
@@ -473,8 +473,13 @@ def test_generation_based_async_strategy_step_is_rejected() -> None:
     assert initializer is not None
     state = initializer.initialize(optimizer, optimizer.problem)
 
-    with pytest.raises(
-        ValidationError, match=r"^async strategy steps require a sequential graph"
+    with (
+        pytest.warns(
+            DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+        ),
+        pytest.raises(
+            ValidationError, match=r"^async strategy steps require a sequential graph"
+        ),
     ):
         strategy.step(state, optimizer)
 
@@ -490,7 +495,10 @@ def test_steady_state_async_strategy_step_submits_one_candidate() -> None:
     assert initializer is not None
     state = initializer.initialize(optimizer, optimizer.problem)
 
-    stepped = strategy.step(state, optimizer)
+    with pytest.warns(
+        DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+    ):
+        stepped = strategy.step(state, optimizer)
 
     assert len(stepped.pending_evaluations) == 1
     assert evaluator.outstanding == 1

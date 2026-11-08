@@ -14,6 +14,7 @@ from typing import Any, Protocol, cast
 
 import numpy as np
 
+from saealib._deprecation import deprecated_function
 from saealib.callback import (
     Event,
     GenerationEndEvent,
@@ -130,12 +131,6 @@ class RecompileProvider(Protocol):
     def recompile(
         self, plan: SequentialPlan | StructuredPlan
     ) -> SequentialPlan | StructuredPlan: ...
-
-
-# Compatibility aliases.  The capability protocols above are the canonical
-# contracts; these names remain available for callers that imported them.
-RuntimeEnvironment = SequentialExecutionEnvironment
-AsyncRuntimeEnvironment = AsyncExecutionEnvironment
 
 
 @dataclass(frozen=True)
@@ -1801,6 +1796,19 @@ class _OptimizerEnvironment:
             )
 
 
+def _has_async_evaluation_scheduler(*args: Any, **kwargs: Any) -> bool:
+    provider = kwargs.get("provider")
+    if provider is None and len(args) > 2:
+        provider = args[2]
+    return getattr(provider, "async_evaluation_scheduler", None) is not None
+
+
+@deprecated_function(
+    since="0.2.0",
+    replacement="Optimizer.iterate() or Optimizer.run()",
+    name="execute_strategy_step() with asynchronous evaluation",
+    condition=_has_async_evaluation_scheduler,
+)
 def execute_strategy_step(
     strategy: object, state: OptimizationState, provider: object
 ) -> OptimizationState:
@@ -1814,6 +1822,12 @@ def execute_strategy_step(
     ERROR diagnostic, and ``ValidationError`` when the strategy graph cannot
     be prepared or uses an unsupported asynchronous region.
     """
+    return _execute_strategy_step(strategy, state, provider)
+
+
+def _execute_strategy_step(
+    strategy: object, state: OptimizationState, provider: object
+) -> OptimizationState:
     scheduler = getattr(provider, "async_evaluation_scheduler", None)
     if scheduler is not None and state.pending_evaluations:
         if set(state.evaluation_handles) != set(state.pending_evaluations):

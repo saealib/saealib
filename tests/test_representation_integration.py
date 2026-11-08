@@ -119,7 +119,7 @@ def _compile(problem: Problem, algorithm: Any, strategy: Any) -> Optimizer:
     optimizer = (
         Optimizer(problem, seed=1).set_algorithm(algorithm).set_strategy(strategy)
     )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
     assert optimizer._compile_plan() is not None
     assert optimizer.last_contract_diagnostics == ()
     assert len(optimizer.contract_diagnostics()) == 0

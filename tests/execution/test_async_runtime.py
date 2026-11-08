@@ -156,7 +156,10 @@ def test_direct_step_runs_plan_when_handles_have_no_pending_evaluations() -> Non
     state = optimizer.initializer.initialize(optimizer, problem)
     object.__setattr__(state, "evaluation_handles", {1: object()})
 
-    execute_strategy_step(strategy, state, optimizer)
+    with pytest.warns(
+        DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+    ):
+        execute_strategy_step(strategy, state, optimizer)
 
     assert state.pending_evaluations == {}
     assert work.calls == 1

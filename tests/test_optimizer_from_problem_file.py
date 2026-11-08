@@ -107,7 +107,7 @@ class TestPythonRedefinitionWinsOverPreset:
         )
 
         opt = Optimizer.from_problem_file(problem_path, preset=preset_path)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert isinstance(opt.strategy, GenerationBasedStrategy)
         assert opt.strategy.gen_ctrl == 7

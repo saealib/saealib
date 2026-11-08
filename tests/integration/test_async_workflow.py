@@ -1125,11 +1125,18 @@ def test_direct_strategy_uses_scheduler_for_submit_and_poll():
     )
     try:
         strategy = DirectStrategy()
-        pending = strategy.step(state, cast(Any, provider))
+        with pytest.warns(
+            DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+        ):
+            pending = strategy.step(state, cast(Any, provider))
         assert len(pending.pending_evaluations) == 2
         while pending.pending_evaluations:
             time.sleep(0.3)
-            pending = strategy.step(pending, cast(Any, provider))
+            with pytest.warns(
+                DeprecationWarning,
+                match=r"execute_strategy_step.*Optimizer\.iterate",
+            ):
+                pending = strategy.step(pending, cast(Any, provider))
         assert sorted(algorithm.tell_ids) == [10, 11]
         assert pending.fe == 2
     finally:

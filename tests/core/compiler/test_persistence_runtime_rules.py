@@ -332,7 +332,7 @@ def _resolved_optimizer(*, kind: str) -> Optimizer:
         optimizer.set_async_evaluation_scheduler(
             AsyncEvaluationScheduler(SerialEvaluator())
         )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
     return optimizer
 
 

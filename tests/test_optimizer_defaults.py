@@ -1,4 +1,4 @@
-"""Tests for Optimizer._resolve_defaults(): the 4-tier default resolution.
+"""Tests for Optimizer.resolve_defaults(): the 4-tier default resolution.
 
 Precedence: components already set via set_*() > preset selected by the
 algorithm's registered name > preset selected by Problem shape > universal
@@ -39,7 +39,7 @@ class TestSetComponentsAreNeverOverwritten:
         opt = Optimizer(_problem())
         pso = PSO()
         opt.set_algorithm(pso)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         assert opt.algorithm is pso
 
     def test_set_algorithm_after_async_scheduler_waits_for_publication(self):
@@ -67,7 +67,7 @@ class TestSetComponentsAreNeverOverwritten:
         opt = Optimizer(_problem())
         gb = GenerationBasedStrategy(gen_ctrl=3)
         opt.set_strategy(gb)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         assert opt.strategy is gb
 
     def test_set_surrogate_manager_is_preserved(self):
@@ -78,14 +78,14 @@ class TestSetComponentsAreNeverOverwritten:
         opt = Optimizer(_problem())
         manager = GlobalSurrogateManager(RBFSurrogate(GaussianKernel()))
         opt.set_surrogate_manager(manager)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         assert opt.surrogate_manager is manager
 
 
 class TestPolicyResolution:
     def test_defaults_include_explicit_fallback(self):
         opt = Optimizer(_problem())
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         assert isinstance(opt.evaluation_planner, RatioEvaluation)
         assert opt.evaluation_planner.sanitize_nonfinite is True
         assert isinstance(opt.feedback_builder, ComparatorWorstFallback)
@@ -94,7 +94,7 @@ class TestPolicyResolution:
         opt = Optimizer(_problem()).set_strategy(
             PreSelectionStrategy(n_candidates=8, n_select=2)
         )
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         assert opt.evaluation_planner is None
         assert opt.feedback_builder is None
 
@@ -107,7 +107,7 @@ class TestPolicyResolution:
             .set_evaluation_planner(evaluation)
             .set_feedback_builder(feedback)
         )
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         assert opt.evaluation_planner is evaluation
         assert opt.feedback_builder is feedback
 
@@ -153,7 +153,7 @@ class TestPresetPrecedence:
 
         opt = Optimizer(_problem(n_obj=1))
         opt.set_algorithm(PSO())
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert isinstance(opt.strategy, GenerationBasedStrategy)
         assert opt.strategy.gen_ctrl == 7
@@ -162,7 +162,7 @@ class TestPresetPrecedence:
         from saealib.strategies.ib import IndividualBasedStrategy
 
         opt = Optimizer(_problem(n_obj=1))
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert isinstance(opt.strategy, IndividualBasedStrategy)
         assert opt.strategy.evaluation_ratio == 0.2
@@ -171,7 +171,7 @@ class TestPresetPrecedence:
         from saealib.strategies.ib import IndividualBasedStrategy
 
         opt = Optimizer(_problem(n_obj=3))  # no by_algorithm/by_problem_shape match
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert isinstance(opt.strategy, IndividualBasedStrategy)
         assert opt.strategy.evaluation_ratio == 0.99
@@ -188,7 +188,7 @@ class TestSurrogateManagerInjection:
 
         problem = _problem(n_obj=1, dim=3)
         opt = Optimizer(problem)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         manager = opt.surrogate_manager
         assert isinstance(manager, LocalSurrogateManager)
@@ -201,7 +201,7 @@ class TestSurrogateManagerInjection:
         from saealib.surrogate.training_set import KNNObjectiveSet
 
         opt = Optimizer(_problem())
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         manager = opt.surrogate_manager
         assert isinstance(manager, LocalSurrogateManager)
@@ -215,7 +215,7 @@ class TestInitializerAndTerminationDefaults:
 
         problem = _problem(dim=4)
         opt = Optimizer(problem)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
 
         assert isinstance(opt.initializer, LHSInitializer)
         assert opt.initializer.n_init_archive == 5 * 4
@@ -225,25 +225,25 @@ class TestInitializerAndTerminationDefaults:
         from saealib.execution.initializer import LHSInitializer
 
         opt = Optimizer(_problem(), seed=42)
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         initializer = opt.initializer
         assert isinstance(initializer, LHSInitializer)
         assert initializer.seed == 42
 
     def test_termination_is_set(self):
         opt = Optimizer(_problem())
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         assert opt.termination is not None
 
-    def test_resolve_defaults_is_idempotent(self):
+    def test_defaults_resolution_is_idempotent(self):
         opt = Optimizer(_problem())
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         algorithm, strategy, initializer = (
             opt.algorithm,
             opt.strategy,
             opt.initializer,
         )
-        opt._resolve_defaults()
+        opt.resolve_defaults()
         assert opt.algorithm is algorithm
         assert opt.strategy is strategy
         assert opt.initializer is initializer

@@ -297,7 +297,7 @@ def test_optimizer_reports_unavailable_contracts(component: object) -> None:
     assert finding.path == ContractPath(components=("algorithm",))
 
 
-def test_optimizer_accessor_does_not_resolve_defaults_or_mutate_configuration() -> None:
+def test_optimizer_accessor_does_not_fill_defaults_or_mutate_configuration() -> None:
     optimizer = Optimizer(_problem())
     evaluator = optimizer.evaluator
 
@@ -331,6 +331,6 @@ def test_default_and_representative_optimizers_have_no_contract_diagnostics(
     optimizer_factory,
 ) -> None:
     optimizer = optimizer_factory()
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
 
     assert len(optimizer.contract_diagnostics()) == 0

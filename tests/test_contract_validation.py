@@ -39,7 +39,7 @@ def _problem() -> Problem:
 
 def _default_optimizer() -> Optimizer:
     optimizer = Optimizer(_problem())
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
     return optimizer
 
 
@@ -88,7 +88,7 @@ def test_pymoo_complete_batch_with_async_runtime_is_diagnosed() -> None:
     optimizer.set_async_evaluation_scheduler(
         AsyncEvaluationScheduler(SerialEvaluator())
     )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
 
     diagnostics = tuple(optimizer.contract_diagnostics())
 
@@ -112,7 +112,7 @@ def test_pymoo_partial_tell_opt_in_matches_async_runtime() -> None:
     optimizer.set_async_evaluation_scheduler(
         AsyncEvaluationScheduler(SerialEvaluator())
     )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
 
     assert tuple(optimizer.contract_diagnostics()) == ()
 
@@ -126,7 +126,7 @@ def test_supported_component_configurations_have_no_diagnostics(kind: str) -> No
         optimizer.set_async_evaluation_scheduler(
             AsyncEvaluationScheduler(SerialEvaluator())
         )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
 
     assert tuple(optimizer.contract_diagnostics()) == ()
 
@@ -141,7 +141,7 @@ def test_island_component_configurations_have_no_diagnostics() -> None:
     )
 
     for optimizer in model.optimizers:
-        optimizer._resolve_defaults()
+        optimizer.resolve_defaults()
         assert tuple(optimizer.contract_diagnostics()) == ()
 
 

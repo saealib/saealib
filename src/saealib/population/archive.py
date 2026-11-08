@@ -8,6 +8,7 @@ from typing import Any, cast
 import numpy as np
 from scipy.spatial import cKDTree  # type: ignore  # cKDTree has no bundled type stubs
 
+from saealib._deprecation import deprecated_argument_alias
 from saealib.comparators import Dominator
 from saealib.exceptions import ValidationError
 from saealib.population.genome import DenseVectorBatch, GenomeBatch, ObjectBatch
@@ -220,7 +221,7 @@ class ArchiveMixin:
             Service used when archive operations need dense coordinates for a
             non-dense genome representation.
         dense_view : DenseNumericView or None, optional
-            Compatibility alias for ``dense_numeric_view``.
+            Deprecated alias for ``dense_numeric_view``.
         services : object or None, optional
             Service provider or registry used when ``space`` is not supplied.
             Explicit service arguments take precedence over services resolved
@@ -255,12 +256,20 @@ class ArchiveMixin:
                 "duplicate_policy must be 'keep_first', 'replace', or 'append'"
             )
         _validate_observation_schema(attrs, duplicate_policy)
+        dense_numeric_view = deprecated_argument_alias(
+            dense_view,
+            dense_numeric_view,
+            owner=type(self).__name__,
+            old_name="dense_view",
+            new_name="dense_numeric_view",
+            since="0.2.0",
+        )
         cast(Any, super().__init__)(
             attrs=attrs,
             init_capacity=init_capacity,
             genomes=genomes,
             dense_numeric_view=dense_numeric_view,
-            dense_view=dense_view,
+            dense_view=None,
             space=space,
         )
 
@@ -917,12 +926,20 @@ class ParetoMixin:
             raise ValidationError("invalid duplicate_policy")
         if duplicate_policy == "append":
             raise ValidationError("ParetoArchive does not support append policy")
+        dense_numeric_view = deprecated_argument_alias(
+            dense_view,
+            dense_numeric_view,
+            owner=type(self).__name__,
+            old_name="dense_view",
+            new_name="dense_numeric_view",
+            since="0.2.0",
+        )
         cast(Any, super().__init__)(
             attrs=attrs,
             init_capacity=init_capacity,
             genomes=genomes,
             dense_numeric_view=dense_numeric_view,
-            dense_view=dense_view,
+            dense_view=None,
             space=kwargs.pop("space", None),
         )
         if key_attr not in getattr(self, "_schema"):

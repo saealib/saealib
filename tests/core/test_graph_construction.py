@@ -763,7 +763,7 @@ def test_five_strategy_graphs_compile_without_errors_or_self_loops():
 
     for strategy in _strategies():
         optimizer = Optimizer(problem).set_strategy(strategy)
-        optimizer._resolve_defaults()
+        optimizer.resolve_defaults()
         graph = strategy.build_graph(optimizer)
         plan = Compiler().compile(
             graph,

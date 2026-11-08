@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.direct &#8212; saealib 0.1.1.dev36+gf1b9c37cb documentation</title>
+    <title>saealib.strategies.direct &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=348d5805"></script>
+    <script src="../../../_static/documentation_options.js?v=da5d181c"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1045,14 +1045,22 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">n_offspring</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">n_offspring</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;n_offspring must be positive&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_offspring</span> <span class="o">=</span> <span class="n">n_offspring</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">build_direct_template</span><span class="p">(</span><span class="n">n_offspring</span><span class="p">))</span></div>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">build_direct_template</span><span class="p">(</span><span class="n">n_offspring</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generated_ask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;ask&quot;</span><span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_missing_declaration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">build_direct_template</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;n_offspring&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_generated_node_references</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">declaration</span><span class="p">:</span> <span class="n">Pipeline</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_generated_ask&quot;</span><span class="p">,</span> <span class="n">declaration</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;ask&quot;</span><span class="p">))</span>
 
 <div class="viewcode-block" id="DirectStrategy.build_template">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.DirectStrategy.html#saealib.DirectStrategy.build_template">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build_template</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rebuild the declaration from the current ``n_offspring``.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span> <span class="o">=</span> <span class="n">build_direct_template</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_offspring</span><span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the declaration with the current offspring count.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_generated_ask</span><span class="p">,</span> <span class="n">AskStage</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_generated_ask</span><span class="o">.</span><span class="n">_set_n_offspring</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_offspring</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span></div>
 </div>
 
@@ -1072,11 +1080,18 @@ window.runMermaid = runMermaid;</script>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">n_offspring</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
 
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_missing_declaration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">build_direct_template</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_generated_node_references</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">declaration</span><span class="p">:</span> <span class="n">Pipeline</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_generated_ask&quot;</span><span class="p">,</span> <span class="n">declaration</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;ask&quot;</span><span class="p">))</span>
+
 <div class="viewcode-block" id="SteadyStateStrategy.build_template">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.SteadyStateStrategy.html#saealib.SteadyStateStrategy.build_template">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build_template</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Keep the flow at one candidate per step.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span> <span class="o">=</span> <span class="n">build_direct_template</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_generated_ask</span><span class="p">,</span> <span class="n">AskStage</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_generated_ask</span><span class="o">.</span><span class="n">_set_n_offspring</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span></div>
 </div>
 

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.base &#8212; saealib 0.1.1.dev36+gf1b9c37cb ドキュメント</title>
+    <title>saealib.strategies.base &#8212; saealib 0.1.1.dev37+g1d4f74dcd ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=ad97e3ab"></script>
+    <script src="../../../_static/documentation_options.js?v=4347a3b2"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -967,6 +967,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib._deprecation</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn_deprecated</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentGraph</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.regions</span><span class="w"> </span><span class="kn">import</span> <span class="n">_structural_stages</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span><span class="p">,</span> <span class="n">PortContract</span><span class="p">,</span> <span class="n">StateContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">PENDING_EVALUATIONS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">BINDING_SLOTS</span>
@@ -977,6 +978,16 @@ window.runMermaid = runMermaid;</script>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineEntry</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_PipelineRevision</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mutable revision shared by a strategy and its declaration.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;_PipelineRevision(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">)&quot;</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">build_runtime_neutral_graph</span><span class="p">(</span>
@@ -1138,16 +1149,50 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span> <span class="o">=</span> <span class="n">pipeline</span>
         <span class="k">if</span> <span class="n">requires_surrogate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">requires_surrogate</span> <span class="o">=</span> <span class="n">requires_surrogate</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">Pipeline</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">Pipeline</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pipeline_revision</span> <span class="o">=</span> <span class="n">_PipelineRevision</span><span class="p">()</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">pipeline</span><span class="p">,</span> <span class="s2">&quot;_pipeline_revision&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pipeline_revision</span><span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_pipeline_revision&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">declaration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;declaration&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">declaration</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+            <span class="n">declaration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restore_missing_declaration</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">declaration</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span> <span class="o">=</span> <span class="n">declaration</span>
+        <span class="n">declaration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;declaration&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">declaration</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+            <span class="n">shared_revision</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">declaration</span><span class="p">,</span> <span class="s2">&quot;_pipeline_revision&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shared_revision</span><span class="p">,</span> <span class="n">_PipelineRevision</span><span class="p">):</span>
+                <span class="n">stored_revision</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_pipeline_revision&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stored_revision</span><span class="p">,</span> <span class="n">_PipelineRevision</span><span class="p">):</span>
+                    <span class="n">shared_revision</span> <span class="o">=</span> <span class="n">stored_revision</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">shared_revision</span> <span class="o">=</span> <span class="n">_PipelineRevision</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">stored_revision</span><span class="p">))</span>
+                <span class="n">declaration</span><span class="o">.</span><span class="n">_pipeline_revision</span> <span class="o">=</span> <span class="n">shared_revision</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pipeline_revision</span> <span class="o">=</span> <span class="n">shared_revision</span>
+        <span class="n">pipeline</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pipeline&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">declaration</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pipeline</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_link_pipeline_edits</span><span class="p">(</span><span class="n">declaration</span><span class="p">,</span> <span class="n">pipeline</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">declaration</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_restore_generated_node_references</span><span class="p">(</span><span class="n">declaration</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_missing_declaration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rebuild the declaration when a state does not contain one.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_generated_node_references</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">declaration</span><span class="p">:</span> <span class="n">Pipeline</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore caches pointing into *declaration* when they are absent.&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="TemplateStrategy.build_template">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.build_template">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build_template</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the declaration pipeline prepared for this run.</span>
 
-<span class="sd">        Parameterized strategies rebuild their declaration here so</span>
-<span class="sd">        in-place parameter changes take effect at the next commit point.</span>
+<span class="sd">        Parameterized strategies update their declaration here so in-place</span>
+<span class="sd">        parameter changes take effect at the next commit point.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span></div>
 
@@ -1156,11 +1201,33 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.build_pipeline">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the declaration resolved against the active snapshot.&quot;&quot;&quot;</span>
-        <span class="n">resolved</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_template</span><span class="p">())</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_template</span><span class="p">()</span>
+        <span class="n">resolved</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">template</span><span class="p">)</span>
         <span class="n">declared</span> <span class="o">=</span> <span class="n">resolved</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resolved</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">)</span> <span class="k">else</span> <span class="n">Pipeline</span><span class="p">([</span><span class="n">resolved</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span> <span class="o">=</span> <span class="n">declared</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_link_pipeline_edits</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">declared</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">declared</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_link_pipeline_edits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">template</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">facade</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facade</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="s2">&quot;_pipeline_revision&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pipeline_revision</span><span class="p">)</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">on_replace</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="n">PipelineEntry</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">template</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">facade</span><span class="p">:</span>
+                    <span class="n">template</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">stage</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pipeline_revision</span><span class="o">.</span><span class="n">value</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_link_pipeline_edits</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">declaration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">)</span>
+
+            <span class="n">facade</span><span class="o">.</span><span class="n">_on_replace</span> <span class="o">=</span> <span class="n">on_replace</span>
+
+        <span class="n">template_children</span> <span class="o">=</span> <span class="n">_structural_stages</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>
+        <span class="n">facade_children</span> <span class="o">=</span> <span class="n">_structural_stages</span><span class="p">(</span><span class="n">facade</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">template_children</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">facade_children</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">for</span> <span class="n">template_child</span><span class="p">,</span> <span class="n">facade_child</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">template_children</span><span class="p">,</span> <span class="n">facade_children</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_link_pipeline_edits</span><span class="p">(</span><span class="n">template_child</span><span class="p">,</span> <span class="n">facade_child</span><span class="p">)</span>
 
     <span class="c1">#: Node-ID naming for the lowered declaration: ``None`` qualifies nested</span>
     <span class="c1">#: Stages under the declaration&#39;s own name; &quot;&quot; gives them their bare</span>

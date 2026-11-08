@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.ps &#8212; saealib 0.1.1.dev36+gf1b9c37cb documentation</title>
+    <title>saealib.strategies.ps &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=348d5805"></script>
+    <script src="../../../_static/documentation_options.js?v=da5d181c"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1032,8 +1032,15 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_candidates</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_select</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_candidates</span> <span class="o">=</span> <span class="n">n_candidates</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_select</span> <span class="o">=</span> <span class="n">n_select</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">build_ps_template</span><span class="p">(</span><span class="n">n_candidates</span><span class="p">))</span></div>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">build_ps_template</span><span class="p">(</span><span class="n">n_candidates</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generated_ask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;ask&quot;</span><span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_missing_declaration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">build_ps_template</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;n_candidates&quot;</span><span class="p">)))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_generated_node_references</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">declaration</span><span class="p">:</span> <span class="n">Pipeline</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_generated_ask&quot;</span><span class="p">,</span> <span class="n">declaration</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;ask&quot;</span><span class="p">))</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">evaluation_planner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TopKEvaluation</span><span class="p">:</span>
@@ -1052,8 +1059,9 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="PreSelectionStrategy.build_template">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.PreSelectionStrategy.html#saealib.PreSelectionStrategy.build_template">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build_template</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a fresh declaration for the current candidate count.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span> <span class="o">=</span> <span class="n">build_ps_template</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_candidates</span><span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the declaration with the current candidate count.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_generated_ask</span><span class="p">,</span> <span class="n">AskStage</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_generated_ask</span><span class="o">.</span><span class="n">_set_n_offspring</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_candidates</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">declaration</span></div>
 
 

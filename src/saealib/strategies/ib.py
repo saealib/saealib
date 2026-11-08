@@ -77,6 +77,13 @@ class IndividualBasedStrategy(TemplateStrategy):
         self.evaluation_ratio = evaluation_ratio
         super().__init__(build_ib_template())
 
+    def _restore_missing_declaration(self) -> Pipeline:
+        return build_ib_template()
+
+    def _restore_generated_node_references(self, declaration: Pipeline) -> None:
+        """Individual-based declarations do not cache generated nodes."""
+        return None
+
     @property
     def evaluation_planner(self) -> RatioEvaluation:
         """Return the ratio planner for the current evaluation ratio."""
@@ -90,8 +97,7 @@ class IndividualBasedStrategy(TemplateStrategy):
         }
 
     def build_template(self) -> Pipeline:
-        """Return a fresh declaration for the current evaluation ratio."""
-        self.declaration = build_ib_template()
+        """Return the declaration used to prepare the current flow."""
         return self.declaration
 
     def step(

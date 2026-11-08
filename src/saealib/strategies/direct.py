@@ -84,10 +84,18 @@ class DirectStrategy(TemplateStrategy):
             raise ValidationError("n_offspring must be positive")
         self.n_offspring = n_offspring
         super().__init__(build_direct_template(n_offspring))
+        self._generated_ask = self.declaration.find("ask")
+
+    def _restore_missing_declaration(self) -> Pipeline:
+        return build_direct_template(getattr(self, "n_offspring", None))
+
+    def _restore_generated_node_references(self, declaration: Pipeline) -> None:
+        self.__dict__.setdefault("_generated_ask", declaration.find("ask"))
 
     def build_template(self) -> Pipeline:
-        """Rebuild the declaration from the current ``n_offspring``."""
-        self.declaration = build_direct_template(self.n_offspring)
+        """Return the declaration with the current offspring count."""
+        if isinstance(self._generated_ask, AskStage):
+            self._generated_ask._set_n_offspring(self.n_offspring)
         return self.declaration
 
 
@@ -100,7 +108,14 @@ class SteadyStateStrategy(DirectStrategy):
     def __init__(self) -> None:
         super().__init__(n_offspring=1)
 
+    def _restore_missing_declaration(self) -> Pipeline:
+        return build_direct_template(1)
+
+    def _restore_generated_node_references(self, declaration: Pipeline) -> None:
+        self.__dict__.setdefault("_generated_ask", declaration.find("ask"))
+
     def build_template(self) -> Pipeline:
         """Keep the flow at one candidate per step."""
-        self.declaration = build_direct_template(1)
+        if isinstance(self._generated_ask, AskStage):
+            self._generated_ask._set_n_offspring(1)
         return self.declaration

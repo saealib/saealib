@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Surrogate &#8212; saealib 0.1.1.dev33+gb97d11523 ドキュメント</title>
+    <title>Surrogate &#8212; saealib 0.1.1.dev34+g9740e8384 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6db72d4d"></script>
+    <script src="../../_static/documentation_options.js?v=6a202964"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -845,7 +845,7 @@
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code>は、<code class="docutils literal notranslate"><span class="pre">AcquisitionFunction</span></code>の<code class="docutils literal notranslate"><span class="pre">requires_uncertainty</span></code>と<code class="docutils literal notranslate"><span class="pre">Surrogate</span></code>の<code class="docutils literal notranslate"><span class="pre">provides_uncertainty</span></code>の不整合を検出して警告します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code>は予測チャネルごとに不確実性の対応を確認します。獲得関数が不確実性を必要とし、対応するサロゲートが不確実性を提供しない場合、エラー診断を報告します。</p>
 </section>
 <section id="id9">
 <h2>関連コンポーネント<a class="headerlink" href="#id9" title="Link to this heading">#</a></h2>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.core.compiler.diagnostics &#8212; saealib 0.1.1.dev33+gb97d11523 documentation</title>
+    <title>saealib.core.compiler.diagnostics &#8212; saealib 0.1.1.dev34+g9740e8384 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../../_static/documentation_options.js?v=f4ad96e3"></script>
+    <script src="../../../../_static/documentation_options.js?v=f33a92ca"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1185,6 +1185,39 @@ window.runMermaid = runMermaid;</script>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">&quot;A connection names an unregistered data kind or cardinality, so &quot;</span>
             <span class="s2">&quot;its compatibility cannot be verified.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">DIAGNOSTIC_CODES</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+    <span class="s2">&quot;surrogate_uncertainty_mismatch&quot;</span><span class="p">,</span>
+    <span class="n">VocabularyDescriptor</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;surrogate_uncertainty_mismatch&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;An acquisition requires uncertainty estimates that its prediction &quot;</span>
+            <span class="s2">&quot;source does not provide.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">DIAGNOSTIC_CODES</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+    <span class="s2">&quot;missing_acquisition_channel&quot;</span><span class="p">,</span>
+    <span class="n">VocabularyDescriptor</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;missing_acquisition_channel&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;An acquisition channel has no matching prediction channel.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">DIAGNOSTIC_CODES</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+    <span class="s2">&quot;cannot_verify_acquisition_channel&quot;</span><span class="p">,</span>
+    <span class="n">VocabularyDescriptor</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;cannot_verify_acquisition_channel&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The manager&#39;s prediction channel names cannot be determined.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">DIAGNOSTIC_CODES</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+    <span class="s2">&quot;cannot_verify_surrogate_uncertainty&quot;</span><span class="p">,</span>
+    <span class="n">VocabularyDescriptor</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;cannot_verify_surrogate_uncertainty&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Uncertainty support for a prediction channel cannot be determined.&quot;</span>
         <span class="p">),</span>
     <span class="p">),</span>
 <span class="p">)</span>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>AcquisitionFunction &#8212; saealib 0.1.1.dev33+gb97d11523 documentation</title>
+    <title>AcquisitionFunction &#8212; saealib 0.1.1.dev34+g9740e8384 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=f4ad96e3"></script>
+    <script src="../../_static/documentation_options.js?v=f33a92ca"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -728,8 +728,7 @@ The following example is a simple acquisition function that gives a higher score
 <p>Combine it by passing it to <code class="docutils literal notranslate"><span class="pre">Optimizer.set_acquisition()</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> detects and warns about a mismatch between the acquisition function’s <code class="docutils literal notranslate"><span class="pre">requires_uncertainty</span></code> and the surrogate’s <code class="docutils literal notranslate"><span class="pre">provides_uncertainty</span></code>.
-This warning will catch you if you pair an acquisition function with <code class="docutils literal notranslate"><span class="pre">requires_uncertainty=True</span></code> with a surrogate that doesn’t return <code class="docutils literal notranslate"><span class="pre">std</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> checks uncertainty support per prediction channel. If an acquisition requires uncertainty and its matching surrogate does not provide it, validation reports an ERROR diagnostic.</p>
 </div>
 </section>
 <section id="related-components">

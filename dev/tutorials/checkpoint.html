@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Reproducibility and Checkpointing &#8212; saealib 0.1.1.dev34+g9740e8384 documentation</title>
+    <title>Reproducibility and Checkpointing &#8212; saealib 0.1.1.dev35+g744ca861f documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=f33a92ca"></script>
+    <script src="../_static/documentation_options.js?v=83eda972"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -650,6 +650,7 @@ The current API does not support passing an AcquisitionFunction as an argument t
 <span class="n">ctx</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;checkpoint.npz&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>Save at a step boundary: a state yielded by <code class="docutils literal notranslate"><span class="pre">iterate()</span></code>, a <code class="docutils literal notranslate"><span class="pre">GenerationEndEvent</span></code> or <code class="docutils literal notranslate"><span class="pre">RunEndEvent</span></code> callback (including <code class="docutils literal notranslate"><span class="pre">CheckpointCallback</span></code>), or after <code class="docutils literal notranslate"><span class="pre">run()</span></code> returns. A run may end inside an open region; saving after it returns is supported when the state can be resumed. With asynchronous evaluation, a <code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code> run can reach its termination condition while true evaluations are still in flight inside a generation. The state returned by <code class="docutils literal notranslate"><span class="pre">run()</span></code> in that situation may not resume to the same result. Save at <code class="docutils literal notranslate"><span class="pre">GenerationEndEvent</span></code>, or save from a <code class="docutils literal notranslate"><span class="pre">RunEndEvent</span></code> callback instead. The runtime also accepts a suspended point while waiting for asynchronous evaluations when it can continue from that point. Saving from another callback or while a step is executing inside a <code class="docutils literal notranslate"><span class="pre">Repeat</span></code> or other region raises <code class="docutils literal notranslate"><span class="pre">CheckpointError</span></code>. A <code class="docutils literal notranslate"><span class="pre">RunEndEvent</span></code> callback can save when no planned requests are still waiting to be submitted; a plan with requests still waiting to be submitted is rejected. In that case, save at <code class="docutils literal notranslate"><span class="pre">GenerationEndEvent</span></code>, or save the state returned by <code class="docutils literal notranslate"><span class="pre">run()</span></code> if the run ended at a generation boundary. Pending asynchronous requests are supported only when every request can be reattached and the feedback accumulator matches those requests. A request whose callback or feedback update has started, or a pending component replacement made with <code class="docutils literal notranslate"><span class="pre">set_*()</span></code> or attribute assignment, also rejects the save. Pickle saving reports the evaluator type when that evaluator cannot be serialized; portable checkpoints do not contain the evaluator.</p>
 <p>A saved checkpoint can be loaded with <code class="docutils literal notranslate"><span class="pre">OptimizationState.load(path,</span> <span class="pre">problem)</span></code>, and passing it to <code class="docutils literal notranslate"><span class="pre">Optimizer.run_from(ctx)</span></code> resumes from where it left off.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
 

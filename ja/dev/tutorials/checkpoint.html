@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>再現性とチェックポイント &#8212; saealib 0.1.1.dev34+g9740e8384 ドキュメント</title>
+    <title>再現性とチェックポイント &#8212; saealib 0.1.1.dev35+g744ca861f ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=6a202964"></script>
+    <script src="../_static/documentation_options.js?v=1af712dc"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -647,6 +647,7 @@
 <span class="n">ctx</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;checkpoint.npz&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>保存できるのはstep境界です。<code class="docutils literal notranslate"><span class="pre">iterate()</span></code> が返すstate、<code class="docutils literal notranslate"><span class="pre">GenerationEndEvent</span></code>または<code class="docutils literal notranslate"><span class="pre">RunEndEvent</span></code>のcallback（<code class="docutils literal notranslate"><span class="pre">CheckpointCallback</span></code>を含む）、および<code class="docutils literal notranslate"><span class="pre">run()</span></code>の終了後が対象です。<code class="docutils literal notranslate"><span class="pre">run()</span></code>はregionが開いた状態で終了することがありますが、再開可能なstateなら保存できます。非同期評価では、<code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code>のrunが世代の途中で実行中の評価を残したまま終了条件に達することがあります。このとき<code class="docutils literal notranslate"><span class="pre">run()</span></code>が返したstateから再開しても同じ結果にならない場合があります。<code class="docutils literal notranslate"><span class="pre">GenerationEndEvent</span></code>で保存するか、<code class="docutils literal notranslate"><span class="pre">RunEndEvent</span></code> callbackから保存してください。非同期評価を待っている間に、その位置から実行を続けられる停止点も保存できます。step実行中に<code class="docutils literal notranslate"><span class="pre">Repeat</span></code>などのregionが開いている間や、それ以外のcallback内での保存は<code class="docutils literal notranslate"><span class="pre">CheckpointError</span></code>となります。投入待ちの要求がない<code class="docutils literal notranslate"><span class="pre">RunEndEvent</span></code> callbackからは保存できます。投入待ちの要求が残る場合は拒否されるため、<code class="docutils literal notranslate"><span class="pre">GenerationEndEvent</span></code>で保存してください。<code class="docutils literal notranslate"><span class="pre">run()</span></code>が世代境界で終了した場合は、返されたstateを保存できます。非同期の保留要求は、すべての要求を再接続でき、feedback accumulatorが要求と整合する場合に限り保存できます。callbackまたはfeedback更新が開始済みの要求や、<code class="docutils literal notranslate"><span class="pre">set_*()</span></code>または属性代入によるコンポーネント差し替えが保留中の場合も保存できません。pickle保存時にEvaluatorをシリアライズできない場合は、その型名を示して失敗します。portable形式にはEvaluatorを含めません。</p>
 <p>保存したチェックポイントは <code class="docutils literal notranslate"><span class="pre">OptimizationState.load(path,</span> <span class="pre">problem)</span></code> で読み込めます。これを <code class="docutils literal notranslate"><span class="pre">Optimizer.run_from(ctx)</span></code> に渡すと、中断した箇所から再開します。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
 

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev34+g9740e8384 documentation</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev35+g744ca861f documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=f33a92ca"></script>
+    <script src="../../../_static/documentation_options.js?v=83eda972"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1504,6 +1504,60 @@ window.runMermaid = runMermaid;</script>
     <span class="k">return</span> <span class="p">(</span><span class="o">*</span><span class="n">frames</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">replace</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">operation_index</span><span class="o">=</span><span class="n">driver_index</span><span class="p">))</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_async_resume_frames</span><span class="p">(</span>
+    <span class="n">frames</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RegionFrame</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">plan_graph</span><span class="p">:</span> <span class="n">StructuredGraph</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">strategy</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">for_checkpoint</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RegionFrame</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the exact frames used to resume an asynchronous wait point.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">frames</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">for_checkpoint</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;pending_evaluations&quot;</span><span class="p">,</span> <span class="p">{}):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">frames</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">at_driver</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">operation_index</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span>
+        <span class="n">frame</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">operations</span>
+    <span class="p">)</span> <span class="ow">and</span> <span class="n">_is_async_driver</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">operations</span><span class="p">[</span><span class="n">frame</span><span class="o">.</span><span class="n">operation_index</span><span class="p">])</span>
+    <span class="n">rewound</span> <span class="o">=</span> <span class="n">_rewind_to_async_driver</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">at_driver</span> <span class="ow">and</span> <span class="n">rewound</span> <span class="o">==</span> <span class="n">frames</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">source_graph</span> <span class="o">=</span> <span class="n">plan_graph</span> <span class="ow">or</span> <span class="n">frames</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">graph</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">for_checkpoint</span>
+        <span class="ow">and</span> <span class="n">_is_generation_based_strategy</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">_contains_repeat_region</span><span class="p">(</span><span class="n">source_graph</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="c1"># The active Repeat iteration is not represented by the frames rebuilt</span>
+        <span class="c1"># at load time, even when their static driver positions happen to match.</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="n">_frames_at_nested_async_driver</span><span class="p">(</span><span class="n">source_graph</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">expected</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">rewound</span> <span class="o">!=</span> <span class="n">expected</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">expected</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_generation_based_strategy</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Match GenerationBasedStrategy subclasses without importing at module load.&quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenerationBasedStrategy</span>
+
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">GenerationBasedStrategy</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_contains_repeat_region</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">StructuredGraph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">operation</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">operations</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">operation</span><span class="p">,</span> <span class="n">RegionNode</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">operation</span><span class="o">.</span><span class="n">region</span><span class="p">,</span> <span class="n">RepeatRegion</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">body</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">region</span><span class="o">.</span><span class="n">body</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="n">StructuredGraph</span><span class="p">)</span> <span class="ow">and</span> <span class="n">_contains_repeat_region</span><span class="p">(</span><span class="n">body</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_is_async_driver</span><span class="p">(</span><span class="n">operation</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="k">return</span> <span class="p">(</span>
         <span class="nb">isinstance</span><span class="p">(</span><span class="n">operation</span><span class="p">,</span> <span class="n">ComponentNode</span><span class="p">)</span>
@@ -1516,12 +1570,15 @@ window.runMermaid = runMermaid;</script>
 <span class="k">def</span><span class="w"> </span><span class="nf">_frames_at_nested_async_driver</span><span class="p">(</span>
     <span class="n">graph</span><span class="p">:</span> <span class="n">StructuredGraph</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RegionFrame</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Frames that enter sequence regions down to the plan&#39;s async driver.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Frames the load path rebuilds to reach an asynchronous driver.</span>
 
 <span class="sd">    A run resumed from a checkpoint starts without frames; when its active</span>
-<span class="sd">    plan still has requests to submit, execution continues at the driver of</span>
-<span class="sd">    the sequence region that opened the plan instead of starting a new step.</span>
+<span class="sd">    plan still has requests to submit, execution continues at the driver that</span>
+<span class="sd">    opened the plan instead of starting a new step.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">operation</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">operations</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">_is_async_driver</span><span class="p">(</span><span class="n">operation</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">RegionFrame</span><span class="p">(</span><span class="n">graph</span><span class="o">=</span><span class="n">graph</span><span class="p">,</span> <span class="n">operation_index</span><span class="o">=</span><span class="n">index</span><span class="p">),)</span>
     <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">operation</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">operations</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">operation</span><span class="p">,</span> <span class="n">RegionNode</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
             <span class="n">operation</span><span class="o">.</span><span class="n">region</span><span class="p">,</span> <span class="n">SequenceRegion</span>
@@ -1688,12 +1745,25 @@ window.runMermaid = runMermaid;</script>
     <span class="n">_sync_transient_fields_from_store</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
     <span class="n">current</span> <span class="o">=</span> <span class="n">state</span>
     <span class="n">stack</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">frames</span> <span class="ow">or</span> <span class="p">(</span><span class="n">RegionFrame</span><span class="p">(</span><span class="n">graph</span><span class="o">=</span><span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="p">),))</span>
+    <span class="n">checkpoint_owner</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">dispatch</span><span class="p">,</span> <span class="s2">&quot;__self__&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">async_control</span> <span class="ow">and</span> <span class="n">resume_async_driver</span><span class="p">:</span>
-        <span class="n">stack</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_rewind_to_async_driver</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">stack</span><span class="p">)))</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="n">checkpoint_owner</span><span class="p">,</span> <span class="s2">&quot;optimizer&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">reconstructed_frames</span> <span class="o">=</span> <span class="n">_frames_at_nested_async_driver</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
+        <span class="n">resumed_frames</span> <span class="o">=</span> <span class="n">_async_resume_frames</span><span class="p">(</span>
+            <span class="n">reconstructed_frames</span> <span class="ow">or</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">stack</span><span class="p">),</span>
+            <span class="n">current</span><span class="p">,</span>
+            <span class="n">plan_graph</span><span class="o">=</span><span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span>
+            <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">resumed_frames</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">stack</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">resumed_frames</span><span class="p">)</span>
     <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">NodeResult</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">executed</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">refused</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">RuntimeCommand</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">debug_enabled</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+    <span class="n">mark_checkpoint</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">checkpoint_owner</span><span class="p">,</span> <span class="s2">&quot;_mark_checkpoint_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">finish_child</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Advance an enclosing region after its body reaches its end.&quot;&quot;&quot;</span>
@@ -1724,6 +1794,8 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="kc">False</span>
 
     <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">mark_checkpoint</span><span class="p">):</span>
+            <span class="n">mark_checkpoint</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="s2">&quot;running&quot;</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">stack</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
         <span class="n">frame</span> <span class="o">=</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">operation_index</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">operations</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">finish_child</span><span class="p">():</span>
@@ -2216,6 +2288,10 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_phase</span> <span class="o">=</span> <span class="s2">&quot;running&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_reject_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RegionFrame</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span> <span class="o">=</span> <span class="n">_BindingSnapshot</span><span class="p">(</span>
             <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_version</span><span class="p">,</span>
             <span class="n">values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span>
@@ -2240,6 +2316,20 @@ window.runMermaid = runMermaid;</script>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_remember_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mark_checkpoint_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mark_checkpoint_state</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">phase</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">frames</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RegionFrame</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">phase</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_phase</span> <span class="o">=</span> <span class="n">phase</span>
+        <span class="k">if</span> <span class="n">frames</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span>
+        <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_checkpoint_guard&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span>
@@ -2255,6 +2345,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_ExecutionOutcome</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mark_checkpoint_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="s2">&quot;running&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_plan_if_needed</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">SequentialPlan</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
@@ -2328,14 +2419,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publish_scheduler</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_publish_scheduler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executable</span><span class="p">:</span> <span class="n">ExecutablePlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Serve the scheduler from the active snapshot, never live reads.</span>
-
-<span class="sd">        The feedback builder is served by the submission that opens each</span>
-<span class="sd">        request; requests restored from a checkpoint commit with the builder</span>
-<span class="sd">        the scheduler already holds.  The scheduler accumulates partial</span>
-<span class="sd">        feedback once a published plan has the compiler-inserted</span>
-<span class="sd">        accumulator.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Serve the scheduler from the active snapshot, never live reads.&quot;&quot;&quot;</span>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
@@ -2349,6 +2433,15 @@ window.runMermaid = runMermaid;</script>
             <span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">),</span>
             <span class="s2">&quot;callback_manager&quot;</span><span class="p">:</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cbmanager&quot;</span><span class="p">),</span>
         <span class="p">}</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="s2">&quot;_feedback_accumulator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">_structured_true_feedback_builder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">feedback_builder</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">feedback_builder</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">feedback_builder</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+                    <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;strategy&quot;</span><span class="p">),</span> <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span> <span class="kc">None</span>
+                <span class="p">)</span>
+            <span class="n">updated</span><span class="p">[</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">feedback_builder</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">updated</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">AttributeError</span><span class="p">):</span>
                 <span class="nb">setattr</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
@@ -2435,6 +2528,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        executed, preventing a second tell for the same proposal.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mark_checkpoint_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="s2">&quot;running&quot;</span><span class="p">)</span>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;Async runtime requires an evaluation scheduler&quot;</span><span class="p">)</span>
@@ -2555,7 +2649,96 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">termination</span><span class="o">.</span><span class="n">is_terminated</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">dispatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">Event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="n">boundary</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">GenerationEndEvent</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span>
+        <span class="n">run_end</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">RunEndEvent</span><span class="p">)</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">plan_state</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="s2">&quot;evaluation_plan_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">deferred</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">plan_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">plan_state</span><span class="o">.</span><span class="n">deferred</span><span class="p">)</span>
+        <span class="n">run_end_callback</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">run_end</span>
+            <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">_is_generation_based_strategy</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">deferred</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_run_end_callback</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">run_end</span>
+            <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">_is_generation_based_strategy</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">deferred</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_reject_run_end_callback</span> <span class="o">=</span> <span class="n">run_end_callback</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">OptimizationState</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mark_checkpoint_state</span><span class="p">(</span>
+                <span class="n">event</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span>
+                <span class="n">phase</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;run-end-callback&quot;</span>
+                    <span class="k">if</span> <span class="n">run_end_callback</span>
+                    <span class="k">else</span> <span class="p">(</span>
+                        <span class="s2">&quot;post-run&quot;</span>
+                        <span class="k">if</span> <span class="n">run_end</span>
+                        <span class="k">else</span> <span class="p">(</span><span class="s2">&quot;boundary&quot;</span> <span class="k">if</span> <span class="n">boundary</span> <span class="k">else</span> <span class="s2">&quot;callback&quot;</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_reject_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">_validate_pending_reattachable</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointError</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_reject_run_end_callback</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CheckpointError</span><span class="p">(</span>
+                <span class="s2">&quot;cannot save from this asynchronous RunEndEvent callback while &quot;</span>
+                <span class="s2">&quot;the evaluation plan still has requests waiting to be submitted; &quot;</span>
+                <span class="s2">&quot;save at a GenerationEndEvent instead, or save the state &quot;</span>
+                <span class="s2">&quot;returned by run()&quot;</span>
+            <span class="p">)</span>
+        <span class="n">plan_graph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="o">.</span><span class="n">graph</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">resumable_frames</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">_async_resume_frames</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span><span class="p">,</span>
+                <span class="n">state</span><span class="p">,</span>
+                <span class="n">plan_graph</span><span class="o">=</span><span class="n">plan_graph</span><span class="p">,</span>
+                <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span>
+                <span class="n">for_checkpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_phase</span> <span class="o">!=</span> <span class="s2">&quot;post-run&quot;</span>
+            <span class="ow">and</span> <span class="n">resumable_frames</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">CheckpointError</span><span class="p">(</span><span class="s2">&quot;checkpoint is not supported inside an open region&quot;</span><span class="p">)</span>
+        <span class="n">resumable_async</span> <span class="o">=</span> <span class="n">resumable_frames</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_phase</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;boundary&quot;</span><span class="p">,</span> <span class="s2">&quot;post-run&quot;</span><span class="p">}</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">resumable_async</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">CheckpointError</span><span class="p">(</span>
+                <span class="s2">&quot;checkpoint is supported only at a step boundary or run end&quot;</span>
+            <span class="p">)</span>
+        <span class="n">bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span>
+            <span class="n">bindings</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">()</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">CheckpointError</span><span class="p">(</span>
+                <span class="s2">&quot;checkpoint cannot be saved because the optimizer configuration &quot;</span>
+                <span class="s2">&quot;changed after this state was produced&quot;</span>
+            <span class="p">)</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_validate_pending_reattachable</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">evaluator</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">finish_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">handler</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span>
@@ -2735,6 +2918,9 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">remember_state</span><span class="p">):</span>
             <span class="n">remember_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">RunStartEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">))</span>
+        <span class="n">mark</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_mark_checkpoint_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">mark</span><span class="p">):</span>
+            <span class="n">mark</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="s2">&quot;boundary&quot;</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">RuntimeSession</span><span class="p">(</span>
             <span class="n">plan</span><span class="o">=</span><span class="n">selected_plan</span><span class="p">,</span>
             <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
@@ -2746,6 +2932,10 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Advance lifecycle state by one runtime-owned step.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">RuntimeSession</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;PipelineRuntime.advance requires a RuntimeSession&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mark</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_mark_checkpoint_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">mark</span><span class="p">):</span>
+                <span class="n">mark</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">state</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="s2">&quot;running&quot;</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="n">session</span><span class="o">.</span><span class="n">frames</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">):</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">metadata</span> <span class="o">=</span> <span class="n">_execute_structured</span><span class="p">(</span>
@@ -3048,6 +3238,15 @@ window.runMermaid = runMermaid;</script>
             <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="k">else</span> <span class="p">(</span><span class="n">frames</span> <span class="k">if</span> <span class="n">frames</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">session</span><span class="o">.</span><span class="n">frames</span><span class="p">)</span>
         <span class="p">)</span>
+        <span class="n">mark_checkpoint</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_mark_checkpoint_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">mark_checkpoint</span><span class="p">):</span>
+            <span class="n">phase</span> <span class="o">=</span> <span class="s2">&quot;post-run&quot;</span> <span class="k">if</span> <span class="n">step_finished</span> <span class="k">else</span> <span class="s2">&quot;running&quot;</span>
+            <span class="k">if</span> <span class="n">observable</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_checkpoint_phase&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span>
+                <span class="s2">&quot;boundary&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;post-run&quot;</span><span class="p">,</span>
+            <span class="p">}:</span>
+                <span class="n">phase</span> <span class="o">=</span> <span class="s2">&quot;boundary&quot;</span>
+            <span class="n">mark_checkpoint</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="n">phase</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="n">next_frames</span><span class="p">)</span>
         <span class="n">next_session</span> <span class="o">=</span> <span class="n">RuntimeSession</span><span class="p">(</span>
             <span class="n">plan</span><span class="o">=</span><span class="n">plan</span> <span class="ow">or</span> <span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span>
             <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
@@ -3423,6 +3622,10 @@ window.runMermaid = runMermaid;</script>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;AsyncPipelineRuntime.advance requires a RuntimeSession&quot;</span>
             <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mark</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_mark_checkpoint_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">mark</span><span class="p">):</span>
+                <span class="n">mark</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">state</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="s2">&quot;running&quot;</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="n">session</span><span class="o">.</span><span class="n">frames</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_advance_structured_async</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">SequentialPlan</span><span class="p">):</span>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev34+g9740e8384 documentation</title>
+    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev35+g744ca861f documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=f33a92ca"></script>
+    <script src="../../../_static/documentation_options.js?v=83eda972"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1123,6 +1123,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">callback_manager</span> <span class="o">=</span> <span class="n">callback_manager</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_fatal_states</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="n">OptimizationState</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span><span class="p">:</span> <span class="n">FeedbackAccumulator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator_state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_sequences</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_proposal_candidates</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_proposal_owners</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span></div>
@@ -1141,8 +1142,32 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">contract</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span> <span class="o">=</span> <span class="n">FeedbackAccumulator</span><span class="p">(</span><span class="n">contract</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span><span class="o">.</span><span class="n">contract</span> <span class="o">==</span> <span class="n">contract</span>
+        <span class="p">):</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span> <span class="o">=</span> <span class="n">FeedbackAccumulator</span><span class="o">.</span><span class="n">from_state</span><span class="p">(</span>
+                <span class="n">contract</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator_state</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator_state</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span> <span class="o">=</span> <span class="n">FeedbackAccumulator</span><span class="p">(</span><span class="n">contract</span><span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Serialize the accumulator through its portable value state.&quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">accumulator</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_feedback_accumulator&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">accumulator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_feedback_accumulator_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">accumulator</span><span class="o">.</span><span class="n">to_state</span><span class="p">()</span>
+            <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_feedback_accumulator&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_feedback_accumulator_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_sync_feedback_accumulator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1494,15 +1519,19 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.execution.AsyncEvaluationScheduler.html#saealib.execution.AsyncEvaluationScheduler.checkpoint">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Save pending state only when the evaluator can reattach it.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
-            <span class="n">pending</span><span class="o">.</span><span class="n">fatal_error</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">can_reattach</span><span class="p">(</span><span class="n">pending</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">pending</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
-        <span class="p">):</span>
-            <span class="k">raise</span> <span class="n">CheckpointError</span><span class="p">(</span><span class="s2">&quot;evaluator cannot reattach asynchronous pending work&quot;</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">_validate_checkpoint_pending</span><span class="p">,</span>
+            <span class="n">_validate_checkpoint_runtime</span><span class="p">,</span>
+            <span class="n">_validate_pending_reattachable</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">_validate_checkpoint_runtime</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">_validate_pending_reattachable</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
                 <span class="n">feedback_accumulator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span><span class="o">.</span><span class="n">to_state</span><span class="p">()</span>
             <span class="p">)</span>
+        <span class="n">_validate_checkpoint_pending</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">state</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
 
 

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.checkpoint &#8212; saealib 0.1.1.dev34+g9740e8384 ドキュメント</title>
+    <title>saealib.checkpoint &#8212; saealib 0.1.1.dev35+g744ca861f ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6a202964"></script>
+    <script src="../../_static/documentation_options.js?v=1af712dc"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1050,22 +1050,32 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">ctx</span><span class="o">.</span><span class="n">gen</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">interval</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span>
 
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">_validate_checkpoint_runtime</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
+        <span class="n">_validate_checkpoint_runtime</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">optimizer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;optimizer must be provided when format is &#39;pickle&#39; or &#39;both&#39;&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">==</span> <span class="s2">&quot;both&quot;</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">optimizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">_validate_pickle_checkpoint</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">stem</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;checkpoint_</span><span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">gen</span><span class="si">:</span><span class="s2">06d</span><span class="si">}</span><span class="s2">&quot;</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;npz&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
-
-            <span class="n">state</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
             <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">.npz&quot;</span>
             <span class="n">state</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_saved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">optimizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">.pkl&quot;</span>
             <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">save_pickle</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>  <span class="c1"># type: ignore  # save_pickle typing incomplete in stubs</span>
+                <span class="n">optimizer</span><span class="o">.</span><span class="n">save_pickle</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_saved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_on_run_end</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">RunEndEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>

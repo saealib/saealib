@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import numpy as np
@@ -641,3 +642,31 @@ def test_async_runtime_uses_public_async_seam_without_stage_name_dependencies() 
     assert 'getattr(plan_stage, "_planner"' not in source
     assert "AsyncEvaluationSubmitStage" not in source
     assert 'getattr(node.component, "execute_async", None)' in source
+
+
+def test_runtime_uses_strategy_feedback_builder_when_plan_has_no_feedback_stage():
+    builder = object()
+    strategy = SimpleNamespace(feedback_builder=builder)
+    scheduler = SimpleNamespace(_feedback_accumulator=object())
+    executable_plan = ExecutablePlan(
+        graph=StructuredGraph(nodes=()),
+        diagnostics=(),
+        required_runtime_capabilities=frozenset(),
+        active_rule_namespaces=frozenset(),
+        active_rule_names=(),
+    )
+    optimizer = SimpleNamespace(
+        executable_plan=executable_plan,
+        strategy=strategy,
+        problem=_problem(),
+        algorithm=None,
+        evaluator=None,
+        feedback_builder=None,
+        cbmanager=None,
+        async_evaluation_scheduler=scheduler,
+    )
+
+    runtime = create_runtime(optimizer)
+
+    assert runtime is not None
+    assert scheduler.feedback_builder is builder

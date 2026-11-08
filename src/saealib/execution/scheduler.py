@@ -158,6 +158,7 @@ class AsyncEvaluationScheduler:
         self.callback_manager = callback_manager
         self._fatal_states: dict[int, tuple[OptimizationState, OptimizationState]] = {}
         self._feedback_accumulator: FeedbackAccumulator | None = None
+        self._feedback_accumulator_state: dict[str, Any] | None = None
         self._feedback_sequences: dict[int, int] = {}
         self._feedback_proposal_candidates: dict[int, frozenset[int]] = {}
         self._feedback_proposal_owners: dict[int, Any] = {}
@@ -173,7 +174,31 @@ class AsyncEvaluationScheduler:
         )
         if contract is None:
             return
-        self._feedback_accumulator = FeedbackAccumulator(contract)
+        if (
+            self._feedback_accumulator is not None
+            and self._feedback_accumulator.contract == contract
+        ):
+            return
+        if self._feedback_accumulator_state is not None:
+            self._feedback_accumulator = FeedbackAccumulator.from_state(
+                contract, self._feedback_accumulator_state
+            )
+            self._feedback_accumulator_state = None
+        else:
+            self._feedback_accumulator = FeedbackAccumulator(contract)
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Serialize the accumulator through its portable value state."""
+        state = self.__dict__.copy()
+        accumulator = state.get("_feedback_accumulator")
+        if accumulator is not None:
+            state["_feedback_accumulator_state"] = accumulator.to_state()
+            state["_feedback_accumulator"] = None
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        self.__dict__.update(state)
+        self.__dict__.setdefault("_feedback_accumulator_state", None)
 
     def _sync_feedback_accumulator(self, state: OptimizationState) -> None:
         if self._feedback_accumulator is not None:
@@ -502,15 +527,19 @@ class AsyncEvaluationScheduler:
 
     def checkpoint(self, state: OptimizationState, path: str) -> None:
         """Save pending state only when the evaluator can reattach it."""
-        if any(
-            pending.fatal_error is None and not self.evaluator.can_reattach(pending)
-            for pending in state.pending_evaluations.values()
-        ):
-            raise CheckpointError("evaluator cannot reattach asynchronous pending work")
+        from saealib.context import (
+            _validate_checkpoint_pending,
+            _validate_checkpoint_runtime,
+            _validate_pending_reattachable,
+        )
+
+        _validate_checkpoint_runtime(state)
+        _validate_pending_reattachable(state, self.evaluator)
         if self._feedback_accumulator is not None:
             state = state.replace(
                 feedback_accumulator=self._feedback_accumulator.to_state()
             )
+        _validate_checkpoint_pending(state)
         state.save(path)
 
     def reattach(self, state: OptimizationState) -> OptimizationState:

@@ -23,7 +23,12 @@ from saealib.callback import (
     GenerationStartEvent,
     logging_generation,
 )
-from saealib.context import OptimizationState
+from saealib.context import (
+    OptimizationState,
+    _validate_checkpoint_pending,
+    _validate_checkpoint_runtime,
+    _validate_pending_reattachable,
+)
 from saealib.core.compiler import (
     Compiler,
     ContractPath,
@@ -40,7 +45,7 @@ from saealib.core.compiler.contract_diagnostics import (
 from saealib.core.compiler.uncertainty_rules import SurrogateUncertaintyRule
 from saealib.core.contracts import ComponentContract
 from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
-from saealib.exceptions import ConfigurationError, ValidationError
+from saealib.exceptions import CheckpointError, ConfigurationError, ValidationError
 from saealib.execution.evaluator import Evaluator, SerialEvaluator
 from saealib.execution.history import SUPPORTED_HISTORY_CHANNELS
 from saealib.execution.prepare import (
@@ -638,7 +643,20 @@ class Optimizer:
 
     def dispatch(self, event: Event) -> None:
         """Dispatch an event to the callback manager."""
-        self.cbmanager.dispatch(event)
+        context = getattr(event, "ctx", None)
+        marker = object()
+        saved_marker = marker
+        if isinstance(context, OptimizationState):
+            saved_marker = context.__dict__.get("_checkpoint_callback", marker)
+            context.__dict__["_checkpoint_callback"] = type(event).__name__
+        try:
+            self.cbmanager.dispatch(event)
+        finally:
+            if isinstance(context, OptimizationState):
+                if saved_marker is marker:
+                    context.__dict__.pop("_checkpoint_callback", None)
+                else:
+                    context.__dict__["_checkpoint_callback"] = saved_marker
 
     # --- run ---
 
@@ -1474,8 +1492,41 @@ class Optimizer:
         p = Path(path)
         if not p.suffix:
             p = p.with_suffix(".pkl")
+        self._validate_pickle_checkpoint(ctx)
+        save_ctx = ctx
+        guard = ctx.__dict__.get("_checkpoint_guard")
+        if getattr(guard, "_checkpoint_run_end_callback", False):
+            from saealib.execution.history import snapshot_generation_for_checkpoint
+
+            save_ctx = snapshot_generation_for_checkpoint(ctx)
+        try:
+            payload = pickle.dumps((self, save_ctx))
+        except Exception as exc:
+            raise CheckpointError(f"checkpoint cannot be pickled: {exc}") from exc
+        p.parent.mkdir(parents=True, exist_ok=True)
         with open(p, "wb") as f:
-            pickle.dump((self, ctx), f)
+            f.write(payload)
+
+    def _validate_pickle_checkpoint(self, ctx: OptimizationState) -> None:
+        _validate_checkpoint_runtime(ctx)
+        _validate_checkpoint_pending(ctx)
+        scheduler = getattr(self, "async_evaluation_scheduler", None)
+        evaluator = getattr(scheduler, "evaluator", None) or getattr(
+            self, "evaluator", None
+        )
+        if evaluator is not None:
+            _validate_pending_reattachable(ctx, evaluator)
+            try:
+                pickle.dumps(evaluator)
+            except Exception as exc:
+                raise CheckpointError(
+                    f"evaluator {type(evaluator).__name__} cannot be pickled: {exc}"
+                ) from exc
+        # Check the complete object graph before any callback creates a file.
+        try:
+            pickle.dumps((self, ctx))
+        except Exception as exc:
+            raise CheckpointError(f"checkpoint cannot be pickled: {exc}") from exc
 
     @classmethod
     def load_pickle(cls, path: str | Path) -> tuple[Optimizer, OptimizationState]:

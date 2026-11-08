@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -1433,6 +1434,28 @@ def record_initial_evaluation(
         )
     except (AttributeError, TypeError, ValueError, OverflowError, ValidationError):
         return
+
+
+def snapshot_generation_for_checkpoint(state: OptimizationState) -> OptimizationState:
+    """Record the current generation when an enabled history channel is behind."""
+    history = state.history
+    if history is None:
+        return state
+    enabled_channels = tuple(
+        channel
+        for channel in ("summary", "population", "front")
+        if history.is_enabled(channel)
+    )
+    recorded = [
+        int(gen)
+        for channel in enabled_channels
+        for gen in history.channel(channel).get("gen", ())
+    ]
+    if recorded and state.gen <= max(recorded):
+        return state
+    save_state = state.replace(history=copy.deepcopy(history))
+    record_generation(save_state)
+    return save_state
 
 
 def record_generation(state: OptimizationState) -> None:

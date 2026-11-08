@@ -100,7 +100,7 @@ EVALUATIONS_COUNT = StateKey[object](
     namespace="evaluations", name="count", schema_version=1
 )
 ACQUISITION_RESULT = StateKey[object](
-    namespace="evaluations", name="acquisition_result", schema_version=1
+    namespace="evaluations", name="acquisition_result", schema_version=2
 )
 SCORES = StateKey[object](namespace="evaluations", name="scores", schema_version=1)
 EVALUATED_OFFSPRING = StateKey[object](

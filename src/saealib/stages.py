@@ -869,6 +869,10 @@ class AskStage(Stage):
         else:
             self._state_reads = _component_state_reads(component)
 
+    def _set_n_offspring(self, n_offspring: int | None) -> None:
+        """Update the strategy-owned proposal count."""
+        self._n_offspring = n_offspring
+
     def _resolve_stage(
         self,
         bindings: Mapping[str, object],

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pickle
 import warnings
 from typing import Any, cast
 
@@ -27,7 +28,7 @@ from saealib.callback import CallbackManager, GenerationEndEvent, PostAskEvent
 from saealib.callback.events import Event
 from saealib.context import OptimizationState
 from saealib.core.compiler.structured import StructuredGraph
-from saealib.core.contracts import ComponentContract, StateContract
+from saealib.core.contracts import ComponentContract, StageFlowSummary, StateContract
 from saealib.core.state.keys import RUNTIME_GENERATION, USER_DATA
 from saealib.exceptions import ValidationError
 from saealib.execution import (
@@ -79,6 +80,14 @@ from saealib.strategies import (
 from saealib.surrogate.manager import LocalSurrogateManager
 from saealib.surrogate.rbf import RBFSurrogate
 from saealib.surrogate.rbf_kernels import GaussianKernel
+
+
+class UserDirectStrategy(DirectStrategy):
+    pass
+
+
+class UserGenerationBasedStrategy(GenerationBasedStrategy):
+    pass
 
 
 class DeclarationCondition(Condition):
@@ -158,6 +167,50 @@ class MarkerStage(Stage):
         markers.append(self.marker)
         data["declaration_markers"] = markers
         return state.replace(data=data)
+
+
+class StageCallLog:
+    def __init__(self) -> None:
+        self.values: list[int] = []
+
+
+class RecordingCountGenerationStage(CountGenerationStage):
+    def __init__(self, calls: StageCallLog) -> None:
+        super().__init__()
+        self.calls = calls
+
+    def flow_summary(self) -> StageFlowSummary:
+        return cast(StageFlowSummary, None)
+
+    def execute(self, state: OptimizationState) -> OptimizationState:
+        self.calls.values.append(state.gen)
+        return super().execute(state)
+
+
+class RecordingSurrogateFitStage(SurrogateFitStage):
+    def __init__(self, surrogate_manager: Any, calls: StageCallLog) -> None:
+        super().__init__(surrogate_manager)
+        self.calls = calls
+
+    def flow_summary(self) -> StageFlowSummary:
+        return cast(StageFlowSummary, None)
+
+    def execute(self, state: OptimizationState) -> OptimizationState:
+        self.calls.values.append(state.gen)
+        return super().execute(state)
+
+
+class RecordingAskStage(AskStage):
+    def __init__(self, algorithm: Any, n_offspring: int | None, calls: StageCallLog):
+        super().__init__(algorithm, n_offspring=n_offspring)
+        self.calls = calls
+
+    def flow_summary(self) -> StageFlowSummary:
+        return cast(StageFlowSummary, None)
+
+    def execute(self, state: OptimizationState) -> OptimizationState:
+        self.calls.values.append(state.gen)
+        return super().execute(state)
 
 
 def _sphere(x):
@@ -767,6 +820,477 @@ def test_strategy_parameter_change_rebuilds_next_commit(
     else:
         assert ask._n_offspring == 3
         assert planner.k == 1
+
+
+_PIPELINE_REPLACEMENT_CASES = [
+    (DirectStrategy, "count_generation"),
+    (lambda: GenerationBasedStrategy(1), "surrogate_fit"),
+    (lambda: IndividualBasedStrategy(0.5), "count_generation"),
+    (lambda: PreSelectionStrategy(5, 2), "count_generation"),
+    (SteadyStateStrategy, "count_generation"),
+]
+
+
+def _recording_pipeline_stage(strategy, name, calls: StageCallLog):
+    pipeline = cast(Pipeline, strategy.pipeline)
+    stage = pipeline.find(name)
+    if name == "surrogate_fit":
+        assert isinstance(stage, SurrogateFitStage)
+        return RecordingSurrogateFitStage(stage._sm, calls)
+    assert isinstance(stage, CountGenerationStage)
+    return RecordingCountGenerationStage(calls)
+
+
+def _assert_pipeline_replacement_was_prepared(optimizer, initial_plan):
+    plan = optimizer.executable_plan
+    assert plan is not initial_plan
+    assert any(
+        diagnostic.code == "cannot_verify_stage_flow" for diagnostic in plan.diagnostics
+    )
+    return plan
+
+
+@pytest.mark.parametrize(
+    ("strategy_factory", "stage_name"), _PIPELINE_REPLACEMENT_CASES
+)
+def test_strategy_pipeline_replacement_before_run_is_prepared(
+    strategy_factory, stage_name
+):
+    strategy = strategy_factory()
+    optimizer = _optimizer(strategy)
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    initial_plan = optimizer.executable_plan
+    pipeline = cast(Pipeline, strategy.pipeline)
+    calls = StageCallLog()
+    replacement = _recording_pipeline_stage(strategy, stage_name, calls)
+
+    pipeline.replace(stage_name, replacement)
+    assert pipeline.find(stage_name) is replacement
+    assert strategy.declaration.find(stage_name) is replacement
+
+    iterator = optimizer.iterate()
+    plan = _assert_pipeline_replacement_was_prepared(optimizer, initial_plan)
+    next(iterator)
+    next(iterator)
+
+    assert calls.values == [0]
+    assert any(
+        getattr(node.component, "stage", None) is not None
+        and isinstance(
+            node.component.stage,
+            (RecordingCountGenerationStage, RecordingSurrogateFitStage),
+        )
+        for node in plan.graph.nodes
+    )
+
+
+@pytest.mark.parametrize(
+    ("strategy_factory", "stage_name"), _PIPELINE_REPLACEMENT_CASES
+)
+def test_strategy_pipeline_replacement_between_yields_uses_next_step(
+    strategy_factory, stage_name
+):
+    strategy = strategy_factory()
+    optimizer = _optimizer(strategy).set_termination(
+        Termination(lambda state: state.gen >= 6)
+    )
+    iterator = optimizer.iterate()
+    next(iterator)
+    first = next(iterator)
+    initial_plan = optimizer.executable_plan
+    pipeline = cast(Pipeline, strategy.pipeline)
+    calls = StageCallLog()
+    replacement = _recording_pipeline_stage(strategy, stage_name, calls)
+
+    pipeline.replace(stage_name, replacement)
+    assert calls.values == []
+    next(iterator)
+    plan = _assert_pipeline_replacement_was_prepared(optimizer, initial_plan)
+
+    expected_generation = first.gen - (2 if stage_name == "surrogate_fit" else 1)
+    assert calls.values == [expected_generation]
+    assert any(
+        getattr(node.component, "stage", None) is not None
+        and isinstance(
+            node.component.stage,
+            (RecordingCountGenerationStage, RecordingSurrogateFitStage),
+        )
+        for node in plan.graph.nodes
+    )
+
+
+@pytest.mark.parametrize(
+    ("strategy_factory", "stage_name"), _PIPELINE_REPLACEMENT_CASES
+)
+def test_strategy_pipeline_replacement_from_callback_uses_next_step(
+    strategy_factory, stage_name
+):
+    strategy = strategy_factory()
+    optimizer = _optimizer(strategy).set_termination(
+        Termination(lambda state: state.gen >= 6)
+    )
+    calls = StageCallLog()
+    replacement: list[Stage] = []
+    callbacks = CallbackManager()
+
+    def replace_after_ask(event: PostAskEvent) -> None:
+        if replacement:
+            return
+        pipeline = cast(Pipeline, strategy.pipeline)
+        value = _recording_pipeline_stage(strategy, stage_name, calls)
+        replacement.append(value)
+        pipeline.replace(stage_name, value)
+
+    callbacks.register(PostAskEvent, replace_after_ask)
+    optimizer.cbmanager = callbacks
+    iterator = optimizer.iterate()
+    next(iterator)
+    first = next(iterator)
+    initial_plan = optimizer.executable_plan
+
+    assert replacement
+    assert calls.values == []
+    next(iterator)
+    plan = _assert_pipeline_replacement_was_prepared(optimizer, initial_plan)
+
+    expected_generation = first.gen - (2 if stage_name == "surrogate_fit" else 1)
+    assert calls.values == [expected_generation]
+    assert any(
+        getattr(node.component, "stage", None) is not None
+        and isinstance(
+            node.component.stage,
+            (RecordingCountGenerationStage, RecordingSurrogateFitStage),
+        )
+        for node in plan.graph.nodes
+    )
+
+
+def test_generation_based_nested_pipeline_replacement_runs_only_in_true_flow():
+    strategy = GenerationBasedStrategy(1)
+    optimizer = _optimizer(strategy).set_termination(
+        Termination(lambda state: state.gen >= 4)
+    )
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    pipeline = cast(Pipeline, strategy.pipeline)
+    true_generation = cast(Pipeline, pipeline.find("true_generation", recursive=True))
+    surrogate_generation = cast(
+        Pipeline, pipeline.find("surrogate_generation", recursive=True)
+    )
+    original_ask = cast(AskStage, true_generation.find("ask"))
+    calls = StageCallLog()
+    replacement = RecordingAskStage(
+        original_ask._algorithm, original_ask._n_offspring, calls
+    )
+
+    true_generation.replace("ask", replacement)
+    assert true_generation.find("ask") is replacement
+    assert isinstance(surrogate_generation.find("ask"), AskStage)
+    initial_plan = optimizer.executable_plan
+
+    list(optimizer.iterate())
+
+    assert optimizer.executable_plan is not initial_plan
+    assert calls.values == [2, 4]
+    declared_true_generation = cast(
+        Pipeline, strategy.declaration.find("true_generation", recursive=True)
+    )
+    assert declared_true_generation.find("ask") is replacement
+    prepared_true_generation = cast(
+        Pipeline,
+        cast(Pipeline, strategy.pipeline).find("true_generation", recursive=True),
+    )
+    assert isinstance(
+        prepared_true_generation.find("ask"),
+        RecordingAskStage,
+    )
+    plan = optimizer.executable_plan
+    assert plan is not None
+    assert any(
+        diagnostic.code == "cannot_verify_stage_flow" for diagnostic in plan.diagnostics
+    )
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(
+    "strategy_factory",
+    [
+        DirectStrategy,
+        lambda: GenerationBasedStrategy(1),
+        lambda: IndividualBasedStrategy(0.5),
+        lambda: PreSelectionStrategy(5, 2),
+        SteadyStateStrategy,
+    ],
+)
+def test_same_class_ask_replacement_after_start_is_observed(
+    asynchronous, strategy_factory
+):
+    strategy = strategy_factory()
+    optimizer = _optimizer(strategy, asynchronous=asynchronous).set_termination(
+        Termination(lambda state: state.gen >= 6)
+    )
+    iterator = optimizer.iterate()
+    next(iterator)
+    next(iterator)
+    initial_plan = optimizer.executable_plan
+    pipeline = cast(Pipeline, strategy.pipeline)
+    owner = (
+        cast(Pipeline, pipeline.find("true_generation", recursive=True))
+        if isinstance(strategy, GenerationBasedStrategy)
+        else pipeline
+    )
+    original = cast(AskStage, owner.find("ask"))
+    replacement = AskStage(original._algorithm, n_offspring=7)
+    revision = strategy._pipeline_revision.value
+    owner.replace("ask", replacement)
+    assert strategy._pipeline_revision.value == revision + 1
+    next(iterator)
+    assert optimizer.executable_plan is not initial_plan
+    declared_pipeline = (
+        cast(Pipeline, strategy.declaration.find("true_generation", recursive=True))
+        if isinstance(strategy, GenerationBasedStrategy)
+        else strategy.declaration
+    )
+    assert cast(AskStage, declared_pipeline.find("ask"))._n_offspring == 7
+
+
+@pytest.mark.parametrize(
+    "strategy_factory",
+    [
+        DirectStrategy,
+        UserDirectStrategy,
+        lambda: GenerationBasedStrategy(0),
+        lambda: UserGenerationBasedStrategy(0),
+        lambda: IndividualBasedStrategy(0.5),
+        lambda: PreSelectionStrategy(5, 2),
+        SteadyStateStrategy,
+    ],
+)
+@pytest.mark.parametrize(
+    "state_shape", ["without_declaration", "without_generated_nodes"]
+)
+def test_strategy_pickle_without_declaration_resumes(strategy_factory, state_shape):
+    strategy = strategy_factory()
+    revision = strategy._pipeline_revision.value
+    if state_shape == "without_declaration":
+        strategy.__dict__.pop("declaration", None)
+        strategy.__dict__.pop("_pipeline_revision", None)
+    else:
+        strategy.__dict__["_pipeline_revision"] = revision
+        cast(Pipeline, strategy.declaration).__dict__.pop("_pipeline_revision", None)
+    strategy.__dict__.pop("_generated_ask", None)
+    strategy.__dict__.pop("_generated_repeat", None)
+    strategy.__dict__.pop("_built_with_surrogate_generations", None)
+
+    restored = pickle.loads(pickle.dumps(strategy))
+    assert isinstance(restored.declaration, Pipeline)
+    optimizer = _optimizer(restored).set_termination(
+        Termination(lambda state: state.gen >= 1)
+    )
+    list(optimizer.iterate())
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(
+    "strategy_factory",
+    [
+        DirectStrategy,
+        lambda: GenerationBasedStrategy(1),
+        lambda: IndividualBasedStrategy(0.5),
+        lambda: PreSelectionStrategy(5, 2),
+        SteadyStateStrategy,
+    ],
+)
+def test_same_class_ask_replacement_from_callback_is_observed(
+    asynchronous, strategy_factory
+):
+    strategy = strategy_factory()
+    optimizer = _optimizer(strategy, asynchronous=asynchronous).set_termination(
+        Termination(lambda state: state.gen >= 6)
+    )
+    callbacks = CallbackManager()
+    replaced = False
+
+    def replace_after_ask(event: PostAskEvent) -> None:
+        nonlocal replaced
+        if replaced:
+            return
+        replaced = True
+        pipeline = cast(Pipeline, strategy.pipeline)
+        owner = (
+            cast(Pipeline, pipeline.find("true_generation", recursive=True))
+            if isinstance(strategy, GenerationBasedStrategy)
+            else pipeline
+        )
+        original = cast(AskStage, owner.find("ask"))
+        revision = strategy._pipeline_revision.value
+        owner.replace("ask", AskStage(original._algorithm, n_offspring=7))
+        assert strategy._pipeline_revision.value == revision + 1
+
+    callbacks.register(PostAskEvent, replace_after_ask)
+    optimizer.cbmanager = callbacks
+    iterator = optimizer.iterate()
+    next(iterator)
+    initial_plan = optimizer.executable_plan
+    next(iterator)
+    assert replaced
+    next(iterator)
+    assert optimizer.executable_plan is not initial_plan
+    declared_pipeline = (
+        cast(Pipeline, strategy.declaration.find("true_generation", recursive=True))
+        if isinstance(strategy, GenerationBasedStrategy)
+        else strategy.declaration
+    )
+    assert cast(AskStage, declared_pipeline.find("ask"))._n_offspring == 7
+
+
+@pytest.mark.parametrize(
+    "strategy_factory",
+    [DirectStrategy, SteadyStateStrategy, lambda: PreSelectionStrategy(5, 2)],
+)
+def test_renamed_ask_replacement_keeps_its_own_count(strategy_factory):
+    strategy = strategy_factory()
+    optimizer = _optimizer(strategy).set_termination(
+        Termination(lambda state: state.gen >= 1)
+    )
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    calls = StageCallLog()
+    replacement = RecordingAskStage(optimizer.algorithm, 7, calls)
+    replacement.name = "renamed_ask"
+    cast(Pipeline, strategy.pipeline).replace("ask", replacement)
+
+    list(optimizer.iterate())
+
+    assert calls.values == [1]
+    assert strategy.declaration.find("renamed_ask") is replacement
+    assert replacement._n_offspring == 7
+
+
+def test_generation_based_renamed_repeat_replacement_is_kept():
+    strategy = GenerationBasedStrategy(2)
+    optimizer = _optimizer(strategy).set_termination(
+        Termination(lambda state: state.gen >= 1)
+    )
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    pipeline = cast(Pipeline, strategy.pipeline)
+    original = cast(Repeat, pipeline.find("surrogate_generations"))
+    replacement = Repeat(original.body, count=0, name="renamed_repeat")
+    pipeline.replace("surrogate_generations", replacement)
+
+    states = list(optimizer.iterate())
+
+    assert states[-1].gen == 1
+    assert strategy.declaration.find("renamed_repeat") is replacement
+
+
+def test_generation_based_renamed_stage_replacement_is_kept():
+    class ReplacementLoop(RecordingCountGenerationStage):
+        name = "replacement_loop"
+
+    strategy = GenerationBasedStrategy(2)
+    optimizer = _optimizer(strategy).set_termination(
+        Termination(lambda state: state.gen >= 4)
+    )
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    calls = StageCallLog()
+    replacement = ReplacementLoop(calls)
+    cast(Pipeline, strategy.pipeline).replace("surrogate_generations", replacement)
+
+    iterator = optimizer.iterate()
+    next(iterator)
+    first = next(iterator)
+
+    assert first.gen == 2
+    assert calls.values == [0]
+    assert strategy.declaration.find("replacement_loop") is replacement
+
+
+def test_generation_based_toggle_preserves_true_flow_replacement():
+    strategy = GenerationBasedStrategy(1)
+    optimizer = _optimizer(strategy).set_termination(
+        Termination(lambda state: state.gen >= 6)
+    )
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    pipeline = cast(Pipeline, strategy.pipeline)
+    true_generation = cast(Pipeline, pipeline.find("true_generation"))
+    calls = StageCallLog()
+    original = cast(AskStage, true_generation.find("ask"))
+    replacement = RecordingAskStage(original._algorithm, original._n_offspring, calls)
+    replacement.name = "renamed_true_ask"
+    true_generation.replace("ask", replacement)
+
+    iterator = optimizer.iterate()
+    next(iterator)
+    first_gen = next(iterator).gen
+    strategy.gen_ctrl = 0
+    second_gen = next(iterator).gen
+    strategy.gen_ctrl = 1
+    third_gen = next(iterator).gen
+
+    assert (first_gen, second_gen, third_gen) == (2, 3, 5)
+    assert calls.values == [2, 3, 5]
+    assert strategy.declaration.find("renamed_true_ask", recursive=True) is replacement
+
+
+def test_strategy_pipeline_replacement_unknown_name_raises_key_error():
+    strategy = DirectStrategy()
+    optimizer = _optimizer(strategy)
+    optimizer.resolve_defaults()
+    pipeline = strategy.build_pipeline(optimizer)
+
+    with pytest.raises(KeyError, match="missing"):
+        pipeline.replace("missing", CountGenerationStage())
+
+
+def test_async_pipeline_replacement_waits_for_pending_evaluations():
+    evaluator = _ControlledEvaluator()
+    strategy = SteadyStateStrategy()
+    optimizer = _optimizer(
+        strategy, asynchronous=True, evaluator=evaluator, max_pending=2
+    ).set_termination(Termination(lambda state: state.fe >= 50))
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    initializer = optimizer.initializer
+    assert initializer is not None
+    state = initializer.initialize(optimizer, optimizer.problem)
+    runtime = create_runtime(optimizer)
+    session = runtime.initialize(resolve_plan(optimizer), state)
+    assert session is not None
+
+    for _ in range(10):
+        if session.state.pending_evaluations:
+            break
+        session = runtime.advance(session).session
+        assert session is not None
+    assert session.state.pending_evaluations
+    initial_plan = optimizer.executable_plan
+    pipeline = cast(Pipeline, strategy.pipeline)
+    calls = StageCallLog()
+    pipeline.replace("count_generation", RecordingCountGenerationStage(calls))
+
+    for _ in range(3):
+        session = runtime.advance(session).session
+        assert session is not None
+        assert optimizer.executable_plan is initial_plan
+        assert calls.values == []
+
+    evaluator.release_all = True
+    for _ in range(1000):
+        if optimizer.executable_plan is not initial_plan and calls.values:
+            break
+        session = runtime.advance(session).session
+        assert session is not None
+
+    assert calls.values
+    assert isinstance(
+        cast(Pipeline, strategy.pipeline).find("count_generation"),
+        RecordingCountGenerationStage,
+    )
 
 
 @pytest.mark.parametrize(

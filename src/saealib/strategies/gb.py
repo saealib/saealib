@@ -123,6 +123,25 @@ class GenerationBasedStrategy(TemplateStrategy):
     def __init__(self, gen_ctrl: int) -> None:
         self.gen_ctrl = gen_ctrl
         super().__init__(build_gb_template(gen_ctrl))
+        self._built_with_surrogate_generations = gen_ctrl > 0
+        self._generated_repeat = (
+            self.declaration.find("surrogate_generations")
+            if self._built_with_surrogate_generations
+            else None
+        )
+
+    def _restore_missing_declaration(self) -> Pipeline:
+        return build_gb_template(int(getattr(self, "gen_ctrl")))
+
+    def _restore_generated_node_references(self, declaration: Pipeline) -> None:
+        try:
+            generated_repeat = declaration.find("surrogate_generations")
+        except KeyError:
+            generated_repeat = None
+        self.__dict__.setdefault(
+            "_built_with_surrogate_generations", generated_repeat is not None
+        )
+        self.__dict__.setdefault("_generated_repeat", generated_repeat)
 
     def snapshot_bindings(self, provider: ComponentProvider) -> dict[str, object]:
         """Read the slots, keeping the true generation's feedback builder.
@@ -137,8 +156,23 @@ class GenerationBasedStrategy(TemplateStrategy):
         return bindings
 
     def build_template(self) -> Pipeline:
-        """Rebuild the declaration from the current ``gen_ctrl``."""
-        self.declaration = build_gb_template(self.gen_ctrl)
+        """Return the declaration with the current surrogate loop count."""
+        wants_surrogates = self.gen_ctrl > 0
+        if wants_surrogates == self._built_with_surrogate_generations:
+            if wants_surrogates and isinstance(self._generated_repeat, Repeat):
+                self._generated_repeat.count = self.gen_ctrl
+            return self.declaration
+
+        true_generation = self.declaration.steps[-1]
+        if wants_surrogates:
+            declaration = build_gb_template(self.gen_ctrl)
+            declaration.replace("true_generation", true_generation)
+            self.declaration = declaration
+            self._generated_repeat = self.declaration.find("surrogate_generations")
+        else:
+            self.declaration.steps[:] = [true_generation]
+            self._generated_repeat = None
+        self._built_with_surrogate_generations = wants_surrogates
         return self.declaration
 
     def step(

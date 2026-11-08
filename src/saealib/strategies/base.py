@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, cast
 from saealib._deprecation import warn_deprecated
 from saealib.context import OptimizationState
 from saealib.core.compiler.graph import ComponentGraph
+from saealib.core.compiler.regions import _structural_stages
 from saealib.core.contracts import ComponentContract, PortContract, StateContract
 from saealib.core.state import PENDING_EVALUATIONS
 from saealib.execution.prepare import BINDING_SLOTS
@@ -18,6 +19,16 @@ from saealib.policies.feedback import FeedbackBuilder, MixedFeedback
 
 if TYPE_CHECKING:
     from saealib.pipeline import PipelineEntry
+
+
+class _PipelineRevision:
+    """Mutable revision shared by a strategy and its declaration."""
+
+    def __init__(self, value: int = 0) -> None:
+        self.value = value
+
+    def __repr__(self) -> str:
+        return f"_PipelineRevision({self.value})"
 
 
 def build_runtime_neutral_graph(
@@ -161,21 +172,77 @@ class TemplateStrategy(OptimizationStrategy):
         if requires_surrogate is not None:
             self.requires_surrogate = requires_surrogate
         self.pipeline: Pipeline | None = None
+        self._pipeline_revision = _PipelineRevision()
+        setattr(pipeline, "_pipeline_revision", self._pipeline_revision)
+
+    def __setstate__(self, state: Mapping[str, object]) -> None:
+        self.__dict__.update(state)
+        self.__dict__.setdefault("_pipeline_revision", 0)
+        declaration = self.__dict__.get("declaration")
+        if not isinstance(declaration, Pipeline):
+            declaration = self._restore_missing_declaration()
+            if isinstance(declaration, Pipeline):
+                self.declaration = declaration
+        declaration = self.__dict__.get("declaration")
+        if isinstance(declaration, Pipeline):
+            shared_revision = getattr(declaration, "_pipeline_revision", None)
+            if not isinstance(shared_revision, _PipelineRevision):
+                stored_revision = self.__dict__.get("_pipeline_revision", 0)
+                if isinstance(stored_revision, _PipelineRevision):
+                    shared_revision = stored_revision
+                else:
+                    shared_revision = _PipelineRevision(int(stored_revision))
+                declaration._pipeline_revision = shared_revision
+            self._pipeline_revision = shared_revision
+        pipeline = self.__dict__.get("pipeline")
+        if isinstance(declaration, Pipeline) and isinstance(pipeline, Pipeline):
+            self._link_pipeline_edits(declaration, pipeline)
+        if isinstance(declaration, Pipeline):
+            self._restore_generated_node_references(declaration)
+
+    def _restore_missing_declaration(self) -> Pipeline | None:
+        """Rebuild the declaration when a state does not contain one."""
+        return None
+
+    def _restore_generated_node_references(self, declaration: Pipeline) -> None:
+        """Restore caches pointing into *declaration* when they are absent."""
 
     def build_template(self) -> Pipeline:
         """Return the declaration pipeline prepared for this run.
 
-        Parameterized strategies rebuild their declaration here so
-        in-place parameter changes take effect at the next commit point.
+        Parameterized strategies update their declaration here so in-place
+        parameter changes take effect at the next commit point.
         """
         return self.declaration
 
     def build_pipeline(self, provider: ComponentProvider) -> Pipeline:
         """Return the declaration resolved against the active snapshot."""
-        resolved = self._resolve(provider, self.build_template())
+        template = self.build_template()
+        resolved = self._resolve(provider, template)
         declared = resolved if isinstance(resolved, Pipeline) else Pipeline([resolved])
         self.pipeline = declared
+        self._link_pipeline_edits(template, declared)
         return declared
+
+    def _link_pipeline_edits(self, template: object, facade: object) -> None:
+        if isinstance(template, Pipeline) and isinstance(facade, Pipeline):
+            setattr(template, "_pipeline_revision", self._pipeline_revision)
+
+            def on_replace(name: str, stage: PipelineEntry) -> None:
+                if template is not facade:
+                    template.replace(name, stage)
+                self._pipeline_revision.value += 1
+                if self.pipeline is not None:
+                    self._link_pipeline_edits(self.declaration, self.pipeline)
+
+            facade._on_replace = on_replace
+
+        template_children = _structural_stages(template)
+        facade_children = _structural_stages(facade)
+        if template_children is None or facade_children is None:
+            return
+        for template_child, facade_child in zip(template_children, facade_children):
+            self._link_pipeline_edits(template_child, facade_child)
 
     #: Node-ID naming for the lowered declaration: ``None`` qualifies nested
     #: Stages under the declaration's own name; "" gives them their bare

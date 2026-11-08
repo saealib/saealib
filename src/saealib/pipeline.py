@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeAlias, TypeGuard
 
@@ -431,6 +431,7 @@ class Pipeline:
             steps if steps is not None else (stages or ())
         )
         self.stages = self.steps
+        self._on_replace: Callable[[str, PipelineEntry], None] | None = None
         self._validate()
 
     def _validate(self) -> None:
@@ -440,6 +441,15 @@ class Pipeline:
                     f"{stage!r} is not a Stage instance or graph component; "
                     "all elements of a Pipeline must be structural values"
                 )
+
+    def __getstate__(self) -> dict[str, object]:
+        state = self.__dict__.copy()
+        state["_on_replace"] = None
+        return state
+
+    def __setstate__(self, state: Mapping[str, object]) -> None:
+        self.__dict__.update(state)
+        self.__dict__.setdefault("_on_replace", None)
 
     def __getitem__(self, name: str) -> PipelineEntry:
         """Look up a stage by its ``name`` attribute.
@@ -488,6 +498,8 @@ class Pipeline:
         for i, s in enumerate(self.stages):
             if _structural_name(s) == name:
                 self.stages[i] = stage
+                if self._on_replace is not None:
+                    self._on_replace(name, stage)
                 return
         raise KeyError(name)
 

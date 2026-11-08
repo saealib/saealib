@@ -71,6 +71,13 @@ class PreSelectionStrategy(TemplateStrategy):
         self.n_candidates = n_candidates
         self.n_select = n_select
         super().__init__(build_ps_template(n_candidates))
+        self._generated_ask = self.declaration.find("ask")
+
+    def _restore_missing_declaration(self) -> Pipeline:
+        return build_ps_template(int(getattr(self, "n_candidates")))
+
+    def _restore_generated_node_references(self, declaration: Pipeline) -> None:
+        self.__dict__.setdefault("_generated_ask", declaration.find("ask"))
 
     @property
     def evaluation_planner(self) -> TopKEvaluation:
@@ -87,8 +94,9 @@ class PreSelectionStrategy(TemplateStrategy):
         }
 
     def build_template(self) -> Pipeline:
-        """Return a fresh declaration for the current candidate count."""
-        self.declaration = build_ps_template(self.n_candidates)
+        """Return the declaration with the current candidate count."""
+        if isinstance(self._generated_ask, AskStage):
+            self._generated_ask._set_n_offspring(self.n_candidates)
         return self.declaration
 
     def step(

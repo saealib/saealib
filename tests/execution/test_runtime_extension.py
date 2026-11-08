@@ -237,7 +237,7 @@ def test_default_runtime_capability_offers_are_owned_by_runtime_providers() -> N
         {"partial_feedback"}
     )
     partial_sync.set_strategy(DirectStrategy(n_offspring=4))
-    partial_sync._resolve_defaults()
+    partial_sync.resolve_defaults()
     plan = partial_sync._compile_plan()
     assert plan is not None
     runtime = create_runtime(partial_sync)
@@ -263,7 +263,7 @@ def test_real_strategy_graphs_compile_and_initialize_selected_runtimes() -> None
         Optimizer(_problem()).set_strategy(DirectStrategy(n_offspring=4)),
     ]
     for optimizer in island_optimizers:
-        optimizer._resolve_defaults()
+        optimizer.resolve_defaults()
     island_model = IslandModel(island_optimizers, migration_interval=0)
     configurations = {
         "default": [Optimizer(_problem())],
@@ -286,7 +286,7 @@ def test_real_strategy_graphs_compile_and_initialize_selected_runtimes() -> None
     }
     for name, optimizers in configurations.items():
         for optimizer in optimizers:
-            optimizer._resolve_defaults()
+            optimizer.resolve_defaults()
             plan = optimizer._compile_plan()
             assert plan is not None, name
             assert not [
@@ -430,7 +430,7 @@ def test_generation_strategy_runs_as_structured_async_plan() -> None:
         .set_termination(Termination(max_gen(1)))
     )
     try:
-        optimizer._resolve_defaults()
+        optimizer.resolve_defaults()
         plan = optimizer._compile_plan()
         assert plan is not None
         assert isinstance(plan.graph, StructuredGraph)
@@ -494,8 +494,8 @@ def test_strategy_graph_signatures_are_runtime_neutral() -> None:
         async_optimizer.set_async_evaluation_scheduler(
             AsyncEvaluationScheduler(SerialEvaluator())
         )
-        sync._resolve_defaults()
-        async_optimizer._resolve_defaults()
+        sync.resolve_defaults()
+        async_optimizer.resolve_defaults()
 
         assert _graph_signature(sync) == _graph_signature(async_optimizer)
 
@@ -515,8 +515,8 @@ def test_five_strategy_graphs_compile_with_runtime_neutral_topology() -> None:
         asynchronous.set_async_evaluation_scheduler(
             AsyncEvaluationScheduler(SerialEvaluator())
         )
-        sync._resolve_defaults()
-        asynchronous._resolve_defaults()
+        sync.resolve_defaults()
+        asynchronous.resolve_defaults()
         sync_graph = cast(Any, sync.strategy).build_graph(sync)
         async_graph = cast(Any, asynchronous.strategy).build_graph(asynchronous)
 
@@ -546,7 +546,7 @@ def test_async_runtime_uses_canonical_sync_graph_contract() -> None:
     optimizer = Optimizer(_problem()).set_async_evaluation_scheduler(
         AsyncEvaluationScheduler(SerialEvaluator())
     )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
     graph = cast(Any, optimizer.strategy).build_graph(optimizer)
     node = graph.node_by_id("evaluation_plan")
     stage = node.component.stage

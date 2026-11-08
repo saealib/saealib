@@ -1132,10 +1132,6 @@ class Optimizer:
             component_types,
         )
 
-    def _resolve_defaults(self) -> None:
-        """Compatibility wrapper for :meth:`resolve_defaults`."""
-        self.resolve_defaults()
-
     def _inject_acquisition_directions(self) -> None:
         """Auto-inject ``problem.direction`` into unset acquisition directions.
 

@@ -120,7 +120,7 @@ def _problem() -> Problem:
 
 
 def _compile_actual_optimizer(optimizer: Optimizer):
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
     graph = cast(Any, optimizer.strategy).build_graph(optimizer)
     plan = Compiler().compile(
         graph,

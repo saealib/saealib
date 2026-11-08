@@ -17,7 +17,6 @@ from saealib.core.compiler import (
     ComponentNode,
     DataEdge,
     DiagnosticBag,
-    FeedbackAccumulatorRule,
     NodeRef,
     ResolutionResult,
     RuleContext,
@@ -27,6 +26,7 @@ from saealib.core.compiler.adapters import (
     LosslessAdapterRule,
 )
 from saealib.core.compiler.dataflow_rules import StructuredDataflowRule
+from saealib.core.compiler.lifecycle_rules import FeedbackAccumulatorRule
 from saealib.core.contracts import (
     MANY,
     ComponentContract,
@@ -125,7 +125,7 @@ def _feedback_graph(completion: str) -> ComponentGraph:
 
 
 def _compile_actual(optimizer: Optimizer):
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
     graph = cast(Any, optimizer.strategy).build_graph(optimizer)
     plan = Compiler().compile(
         graph,
@@ -227,7 +227,7 @@ def test_stage_internal_feedback_edges_are_claimed() -> None:
     optimizer = Optimizer(_problem()).set_async_evaluation_scheduler(
         AsyncEvaluationScheduler(SerialEvaluator())
     )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
     raw_graph = cast(Any, optimizer.strategy).build_graph(optimizer)
     compile_context = CompileContext(
         space=optimizer.problem.space,
@@ -386,7 +386,7 @@ def test_pymoo_complete_batch_partial_runtime_keeps_j8_diagnostic() -> None:
     optimizer.set_async_evaluation_scheduler(
         AsyncEvaluationScheduler(SerialEvaluator())
     )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
 
     assert [diagnostic.code for diagnostic in optimizer.contract_diagnostics()] == [
         "pymoo_partial_feedback_unsupported"
@@ -410,7 +410,7 @@ def test_resolution_rule_order_is_confluent_for_lifecycle_and_adapters() -> None
     optimizer = Optimizer(_problem()).set_async_evaluation_scheduler(
         AsyncEvaluationScheduler(SerialEvaluator())
     )
-    optimizer._resolve_defaults()
+    optimizer.resolve_defaults()
     graph = cast(Any, optimizer.strategy).build_graph(optimizer)
     context = CompileContext(
         space=optimizer.problem.space,

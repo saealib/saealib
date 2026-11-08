@@ -84,7 +84,7 @@ class TestOptimizerBoundary:
         """An Optimizer with an inconsistency that library defaults cannot
         resolve (comparator direction length mismatched with n_obj), as
         opposed to merely-unset components, which are auto-filled by
-        Optimizer._resolve_defaults() as of the Registry-based defaults."""
+        Optimizer.resolve_defaults() as of the Registry-based defaults."""
         import numpy as np
 
         problem = saealib.Problem(

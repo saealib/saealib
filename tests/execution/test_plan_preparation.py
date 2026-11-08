@@ -272,7 +272,10 @@ def test_direct_step_runs_plan_to_finish_its_unfinished_work() -> None:
         AsyncEvaluationScheduler(SerialEvaluator(), max_pending=2)
     )
 
-    execute_strategy_step(strategy, state, optimizer)
+    with pytest.warns(
+        DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+    ):
+        execute_strategy_step(strategy, state, optimizer)
 
     assert work.calls == 1
     assert not work.unfinished
@@ -557,8 +560,17 @@ def test_direct_strategy_step_rejects_verification_errors_before_evaluation(
     state = _initialize(optimizer)
     evaluations_before = len(calls)
 
-    with pytest.raises(ConfigurationError, match="unreachable_node"):
-        execute_strategy_step(optimizer.strategy, state, optimizer)
+    if asynchronous:
+        with (
+            pytest.warns(
+                DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+            ),
+            pytest.raises(ConfigurationError, match="unreachable_node"),
+        ):
+            execute_strategy_step(optimizer.strategy, state, optimizer)
+    else:
+        with pytest.raises(ConfigurationError, match="unreachable_node"):
+            execute_strategy_step(optimizer.strategy, state, optimizer)
 
     assert len(calls) == evaluations_before
 
@@ -709,7 +721,10 @@ def test_execution_paths_share_plan_preparation_and_runtime_context(
         asynchronous.resolve_defaults()
         asynchronous._compile_plan()
         initial = _initialize(asynchronous)
-        execute_strategy_step(asynchronous.strategy, initial, asynchronous)
+        with pytest.warns(
+            DeprecationWarning, match=r"execute_strategy_step.*Optimizer\.iterate"
+        ):
+            execute_strategy_step(asynchronous.strategy, initial, asynchronous)
 
         assert len(compiled) == len(contexts)
         assert len(compiled) >= 9

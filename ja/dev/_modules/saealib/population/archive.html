@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.population.archive &#8212; saealib 0.1.1.dev35+g744ca861f ドキュメント</title>
+    <title>saealib.population.archive &#8212; saealib 0.1.1.dev36+gf1b9c37cb ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=1af712dc"></script>
+    <script src="../../../_static/documentation_options.js?v=ad97e3ab"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -967,6 +967,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">cKDTree</span>  <span class="c1"># type: ignore  # cKDTree has no bundled type stubs</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib._deprecation</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated_argument_alias</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dominator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.genome</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenseVectorBatch</span><span class="p">,</span> <span class="n">GenomeBatch</span><span class="p">,</span> <span class="n">ObjectBatch</span>
@@ -1183,7 +1184,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            Service used when archive operations need dense coordinates for a</span>
 <span class="sd">            non-dense genome representation.</span>
 <span class="sd">        dense_view : DenseNumericView or None, optional</span>
-<span class="sd">            Compatibility alias for ``dense_numeric_view``.</span>
+<span class="sd">            Deprecated alias for ``dense_numeric_view``.</span>
 <span class="sd">        services : object or None, optional</span>
 <span class="sd">            Service provider or registry used when ``space`` is not supplied.</span>
 <span class="sd">            Explicit service arguments take precedence over services resolved</span>
@@ -1218,12 +1219,20 @@ window.runMermaid = runMermaid;</script>
                 <span class="s2">&quot;duplicate_policy must be &#39;keep_first&#39;, &#39;replace&#39;, or &#39;append&#39;&quot;</span>
             <span class="p">)</span>
         <span class="n">_validate_observation_schema</span><span class="p">(</span><span class="n">attrs</span><span class="p">,</span> <span class="n">duplicate_policy</span><span class="p">)</span>
+        <span class="n">dense_numeric_view</span> <span class="o">=</span> <span class="n">deprecated_argument_alias</span><span class="p">(</span>
+            <span class="n">dense_view</span><span class="p">,</span>
+            <span class="n">dense_numeric_view</span><span class="p">,</span>
+            <span class="n">owner</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">old_name</span><span class="o">=</span><span class="s2">&quot;dense_view&quot;</span><span class="p">,</span>
+            <span class="n">new_name</span><span class="o">=</span><span class="s2">&quot;dense_numeric_view&quot;</span><span class="p">,</span>
+            <span class="n">since</span><span class="o">=</span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)(</span>
             <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span>
             <span class="n">init_capacity</span><span class="o">=</span><span class="n">init_capacity</span><span class="p">,</span>
             <span class="n">genomes</span><span class="o">=</span><span class="n">genomes</span><span class="p">,</span>
             <span class="n">dense_numeric_view</span><span class="o">=</span><span class="n">dense_numeric_view</span><span class="p">,</span>
-            <span class="n">dense_view</span><span class="o">=</span><span class="n">dense_view</span><span class="p">,</span>
+            <span class="n">dense_view</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -1916,12 +1925,20 @@ window.runMermaid = runMermaid;</script>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;invalid duplicate_policy&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">duplicate_policy</span> <span class="o">==</span> <span class="s2">&quot;append&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;ParetoArchive does not support append policy&quot;</span><span class="p">)</span>
+        <span class="n">dense_numeric_view</span> <span class="o">=</span> <span class="n">deprecated_argument_alias</span><span class="p">(</span>
+            <span class="n">dense_view</span><span class="p">,</span>
+            <span class="n">dense_numeric_view</span><span class="p">,</span>
+            <span class="n">owner</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">old_name</span><span class="o">=</span><span class="s2">&quot;dense_view&quot;</span><span class="p">,</span>
+            <span class="n">new_name</span><span class="o">=</span><span class="s2">&quot;dense_numeric_view&quot;</span><span class="p">,</span>
+            <span class="n">since</span><span class="o">=</span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)(</span>
             <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span>
             <span class="n">init_capacity</span><span class="o">=</span><span class="n">init_capacity</span><span class="p">,</span>
             <span class="n">genomes</span><span class="o">=</span><span class="n">genomes</span><span class="p">,</span>
             <span class="n">dense_numeric_view</span><span class="o">=</span><span class="n">dense_numeric_view</span><span class="p">,</span>
-            <span class="n">dense_view</span><span class="o">=</span><span class="n">dense_view</span><span class="p">,</span>
+            <span class="n">dense_view</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">space</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;space&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">key_attr</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_schema&quot;</span><span class="p">):</span>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev35+g744ca861f documentation</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev36+gf1b9c37cb documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=83eda972"></script>
+    <script src="../../../_static/documentation_options.js?v=348d5805"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -972,6 +972,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib._deprecation</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated_function</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.callback</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Event</span><span class="p">,</span>
     <span class="n">GenerationEndEvent</span><span class="p">,</span>
@@ -1088,12 +1089,6 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">recompile</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span><span class="p">:</span> <span class="o">...</span>
-
-
-<span class="c1"># Compatibility aliases.  The capability protocols above are the canonical</span>
-<span class="c1"># contracts; these names remain available for callers that imported them.</span>
-<span class="n">RuntimeEnvironment</span> <span class="o">=</span> <span class="n">SequentialExecutionEnvironment</span>
-<span class="n">AsyncRuntimeEnvironment</span> <span class="o">=</span> <span class="n">AsyncExecutionEnvironment</span>
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -2759,6 +2754,19 @@ window.runMermaid = runMermaid;</script>
             <span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_has_async_evaluation_scheduler</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="n">provider</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;provider&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">provider</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+
+<span class="nd">@deprecated_function</span><span class="p">(</span>
+    <span class="n">since</span><span class="o">=</span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
+    <span class="n">replacement</span><span class="o">=</span><span class="s2">&quot;Optimizer.iterate() or Optimizer.run()&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;execute_strategy_step() with asynchronous evaluation&quot;</span><span class="p">,</span>
+    <span class="n">condition</span><span class="o">=</span><span class="n">_has_async_evaluation_scheduler</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">execute_strategy_step</span><span class="p">(</span>
     <span class="n">strategy</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="nb">object</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
@@ -2772,6 +2780,12 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    ERROR diagnostic, and ``ValidationError`` when the strategy graph cannot</span>
 <span class="sd">    be prepared or uses an unsupported asynchronous region.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_execute_strategy_step</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_execute_strategy_step</span><span class="p">(</span>
+    <span class="n">strategy</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="nb">object</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
     <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">evaluation_handles</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">):</span>

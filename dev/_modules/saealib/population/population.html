@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.population.population &#8212; saealib 0.1.1.dev35+g744ca861f documentation</title>
+    <title>saealib.population.population &#8212; saealib 0.1.1.dev36+gf1b9c37cb documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=83eda972"></script>
+    <script src="../../../_static/documentation_options.js?v=348d5805"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -969,6 +969,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib._deprecation</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated_argument_alias</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">CandidateIds</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">PopulationAttribute</span>
@@ -1063,7 +1064,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        dense_numeric_view</span>
 <span class="sd">            Service used to obtain a dense numeric view of dense genomes.</span>
 <span class="sd">        dense_view</span>
-<span class="sd">            Compatibility alias for ``dense_numeric_view``.</span>
+<span class="sd">            Deprecated alias for ``dense_numeric_view``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">genomes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">init_capacity</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">init_capacity</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">genomes</span><span class="p">))</span>
@@ -1078,8 +1079,13 @@ window.runMermaid = runMermaid;</script>
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_column</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_capacity</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_schema</span> <span class="o">=</span> <span class="p">{</span><span class="n">attr</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">attr</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">attrs</span><span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_dense_genomes_view_cache</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">DenseVectorBatch</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_dense_numeric_view</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">dense_numeric_view</span> <span class="k">if</span> <span class="n">dense_numeric_view</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">dense_view</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dense_numeric_view</span> <span class="o">=</span> <span class="n">deprecated_argument_alias</span><span class="p">(</span>
+            <span class="n">dense_view</span><span class="p">,</span>
+            <span class="n">dense_numeric_view</span><span class="p">,</span>
+            <span class="n">owner</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">old_name</span><span class="o">=</span><span class="s2">&quot;dense_view&quot;</span><span class="p">,</span>
+            <span class="n">new_name</span><span class="o">=</span><span class="s2">&quot;dense_numeric_view&quot;</span><span class="p">,</span>
+            <span class="n">since</span><span class="o">=</span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_genome_items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">object</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_legacy_scalar_x</span> <span class="o">=</span> <span class="kc">False</span>

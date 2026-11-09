@@ -74,6 +74,8 @@ class EvaluationPlan:
 class EvaluationPlanner(ABC):
     """Public contract for planners that may produce multiple requests."""
 
+    _requires_acquisition_scores = False
+
     def contract(self) -> ComponentContract:
         """Return the evaluation-planner family contract."""
         return ComponentContract(
@@ -91,7 +93,7 @@ class EvaluationPlanner(ABC):
                             direction=PortDirection.INPUT,
                             data=DataSpec(kind="RowPredicate"),
                             cardinality=MANY,
-                            optional=True,
+                            optional=not self._requires_acquisition_scores,
                         ),
                     ),
                     outputs=(
@@ -213,6 +215,8 @@ class EvaluateAll(_RequestPlanner):
 class TopKEvaluation(_RequestPlanner):
     """Evaluate the stable top-k acquisition scores."""
 
+    _requires_acquisition_scores = True
+
     def __init__(self, k: int, sanitize_nonfinite: bool = False) -> None:
         self.k = k
         self.sanitize_nonfinite = sanitize_nonfinite
@@ -233,6 +237,8 @@ class TopKEvaluation(_RequestPlanner):
 @register()
 class RatioEvaluation(_RequestPlanner):
     """Evaluate the stable prefix selected by a ratio."""
+
+    _requires_acquisition_scores = True
 
     def __init__(self, ratio: float, sanitize_nonfinite: bool = False) -> None:
         self.ratio = ratio

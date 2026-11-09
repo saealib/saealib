@@ -68,6 +68,11 @@ from saealib.core.state import (
 from saealib.core.state.patch import StatePatch
 from saealib.core.state.readonly import _unwrap_readonly
 from saealib.exceptions import ConfigurationError, EvaluationFatalError, ValidationError
+from saealib.execution.bindings import (
+    _ComponentOrigin,
+    _ComponentResolution,
+    resolve_components,
+)
 from saealib.execution.history import (
     record_decision,
     record_evaluations,
@@ -1188,9 +1193,21 @@ class _SnapshotProviderView:
     through to the optimizer (problem, space, runtime flags).
     """
 
-    def __init__(self, optimizer: Any, bindings: dict[str, object]) -> None:
-        self._optimizer = optimizer
-        self._bindings = bindings
+    _optimizer: Any
+    _bindings: dict[str, object]
+    _component_resolution: _ComponentResolution | None
+    _stage_selections: list[tuple[str, str, object, str]]
+
+    def __init__(
+        self,
+        optimizer: Any,
+        bindings: dict[str, object],
+        resolution: _ComponentResolution | None = None,
+    ) -> None:
+        object.__setattr__(self, "_optimizer", optimizer)
+        object.__setattr__(self, "_bindings", bindings)
+        object.__setattr__(self, "_component_resolution", resolution)
+        object.__setattr__(self, "_stage_selections", [])
 
     def binding_values(self) -> dict[str, object]:
         """Candidate snapshot values for declaration resolution."""
@@ -1207,6 +1224,10 @@ class _SnapshotProviderView:
         optimizer = object.__getattribute__(self, "_optimizer")
         return getattr(optimizer, name)
 
+    def __setattr__(self, name: str, value: object) -> None:
+        optimizer = object.__getattribute__(self, "_optimizer")
+        setattr(optimizer, name, value)
+
 
 @dataclass(frozen=True)
 class _BindingSnapshot:
@@ -1218,19 +1239,32 @@ class _BindingSnapshot:
 
     version: int
     values: dict[str, object]
+    provenance: dict[str, _ComponentOrigin]
     strategy_values: tuple[tuple[str, str], ...]
+    configuration_version: int
 
     def unchanged_by(
         self,
         values: dict[str, object],
         strategy_values: tuple[tuple[str, str], ...],
+        configuration_version: int,
     ) -> bool:
         """Return True when the candidate bindings resolve to this snapshot."""
         if set(values) != set(self.values):
             return False
         if any(values[name] is not bound for name, bound in self.values.items()):
             return False
-        return strategy_values == self.strategy_values
+        return (
+            strategy_values == self.strategy_values
+            and configuration_version == self.configuration_version
+        )
+
+
+@dataclass(frozen=True)
+class _PublishedPlan:
+    plan: SequentialPlan | StructuredPlan
+    executable: ExecutablePlan | None
+    snapshot: _BindingSnapshot
 
 
 def _iter_plan_components(
@@ -1320,8 +1354,6 @@ def _replacement_blocked(
 class _OptimizerEnvironment:
     def __init__(self, optimizer: Any, plan: SequentialPlan | StructuredPlan) -> None:
         self.optimizer = optimizer
-        self.plan = plan
-        self._version = 0
         self._publication_deferred = False
         self._pending_recompile = False
         self._last_state: OptimizationState | None = None
@@ -1329,13 +1361,39 @@ class _OptimizerEnvironment:
         self._checkpoint_run_end_callback = False
         self._checkpoint_reject_run_end_callback = False
         self._checkpoint_frames: tuple[RegionFrame, ...] = ()
-        self._active_snapshot = _BindingSnapshot(
-            version=self._version,
-            values=self._bindings(),
-            strategy_values=self._strategy_values(),
+        resolution = getattr(optimizer, "_component_resolution", None)
+        values = (
+            dict(resolution.bindings)
+            if isinstance(resolution, _ComponentResolution)
+            else self._bindings()
         )
+        self._published = _PublishedPlan(
+            plan=plan,
+            executable=getattr(optimizer, "_executable_plan", None),
+            snapshot=_BindingSnapshot(
+                version=0,
+                values=values,
+                provenance=(
+                    dict(resolution.origins)
+                    if isinstance(resolution, _ComponentResolution)
+                    else {}
+                ),
+                strategy_values=self._strategy_values(),
+                configuration_version=getattr(optimizer, "_configuration_version", 0),
+            ),
+        )
+        self._candidate_resolution: _ComponentResolution | None = None
         self.capabilities = _algorithm_runtime_capabilities(optimizer)
         self._publish_scheduler(plan.plan)
+
+    @property
+    def plan(self) -> SequentialPlan | StructuredPlan:
+        """The plan published with the active component bindings."""
+        return self._published.plan
+
+    @property
+    def _active_snapshot(self) -> _BindingSnapshot:
+        return self._published.snapshot
 
     @property
     def active_version(self) -> int:
@@ -1367,6 +1425,7 @@ class _OptimizerEnvironment:
         if frames is not None:
             self._checkpoint_frames = tuple(frames)
         state.__dict__["_checkpoint_guard"] = self
+        state.__dict__["_binding_version"] = self.active_version
 
     def execute(
         self, plan: SequentialPlan, state: OptimizationState
@@ -1418,7 +1477,11 @@ class _OptimizerEnvironment:
         """
         bindings = self._bindings()
         strategy_values = self._strategy_values()
-        unchanged = self._active_snapshot.unchanged_by(bindings, strategy_values)
+        unchanged = self._active_snapshot.unchanged_by(
+            bindings,
+            strategy_values,
+            getattr(self.optimizer, "_configuration_version", 0),
+        )
         if unchanged and not self._pending_recompile:
             # A swap that was deferred while its evaluations ran may resolve
             # back to the active bindings; a matching commit point then ends
@@ -1442,17 +1505,40 @@ class _OptimizerEnvironment:
         bindings: dict[str, object],
         strategy_values: tuple[tuple[str, str], ...],
     ) -> None:
+        self._candidate_resolution = None
         executable, rebuilt = self._compile_current_plan(bindings)
-        self._gate(executable)
-        self.plan = rebuilt
+        resolution = self._candidate_resolution
+        self._gate(executable, resolution)
+        if resolution is not None:
+            publish_resolution = getattr(
+                self.optimizer, "_publish_component_resolution", None
+            )
+            if callable(publish_resolution):
+                publish_resolution(resolution)
+            values = dict(resolution.bindings)
+            provenance = dict(resolution.origins)
+        else:
+            values = dict(bindings)
+            provenance = dict(self._active_snapshot.provenance)
         if hasattr(self.optimizer, "_executable_plan"):
             self.optimizer._executable_plan = executable
-        self._version += 1
-        self._active_snapshot = _BindingSnapshot(
-            version=self._version,
-            values=bindings,
-            strategy_values=strategy_values,
+        version = self.active_version + 1
+        self._published = _PublishedPlan(
+            plan=rebuilt,
+            executable=executable,
+            snapshot=_BindingSnapshot(
+                version=version,
+                values=values,
+                provenance=provenance,
+                strategy_values=strategy_values,
+                configuration_version=getattr(
+                    self.optimizer, "_configuration_version", 0
+                ),
+            ),
         )
+        if self._last_state is not None:
+            self._last_state.__dict__["_binding_version"] = version
+        self._candidate_resolution = None
         self._publish_scheduler(executable)
 
     def _publish_scheduler(self, executable: ExecutablePlan) -> None:
@@ -1483,7 +1569,11 @@ class _OptimizerEnvironment:
             with contextlib.suppress(AttributeError):
                 setattr(scheduler, name, value)
 
-    def _gate(self, executable: ExecutablePlan) -> None:
+    def _gate(
+        self,
+        executable: ExecutablePlan,
+        resolution: _ComponentResolution | None = None,
+    ) -> None:
         """Run the initial-run validation gate on a candidate plan.
 
         Raises before publication so the previous plan and active version
@@ -1495,6 +1585,22 @@ class _OptimizerEnvironment:
             return
         has_plan = hasattr(optimizer, "_executable_plan")
         previous = getattr(optimizer, "_executable_plan", None)
+        saved_components = {}
+        saved_resolution = getattr(optimizer, "_component_resolution", None)
+        saved_defaults = getattr(optimizer, "_default_resolution", None)
+        saved_origins = getattr(optimizer, "_component_origins", None)
+        saved_materialized = getattr(optimizer, "_materialized_components", None)
+        saved_feedback_explicit = getattr(optimizer, "feedback_builder_explicit", False)
+        if resolution is not None and hasattr(
+            optimizer, "_publish_component_resolution"
+        ):
+            saved_components = {
+                name: getattr(optimizer, name, None) for name in resolution.components
+            }
+            for name, value in resolution.components.items():
+                object.__setattr__(optimizer, name, value)
+            object.__setattr__(optimizer, "_component_resolution", resolution)
+            object.__setattr__(optimizer, "_default_resolution", resolution.defaults)
         if has_plan:
             optimizer._executable_plan = executable
         try:
@@ -1502,6 +1608,18 @@ class _OptimizerEnvironment:
         finally:
             if has_plan:
                 optimizer._executable_plan = previous
+            if resolution is not None and saved_components:
+                for name, value in saved_components.items():
+                    object.__setattr__(optimizer, name, value)
+                object.__setattr__(optimizer, "_component_resolution", saved_resolution)
+                object.__setattr__(optimizer, "_default_resolution", saved_defaults)
+                object.__setattr__(optimizer, "_component_origins", saved_origins)
+                object.__setattr__(
+                    optimizer, "_materialized_components", saved_materialized
+                )
+                object.__setattr__(
+                    optimizer, "feedback_builder_explicit", saved_feedback_explicit
+                )
         if issues:
             raise ConfigurationError(
                 "Component replacement rejected at the commit point:\n"
@@ -1522,24 +1640,40 @@ class _OptimizerEnvironment:
     def _compile_current_plan(
         self, bindings: dict[str, object]
     ) -> tuple[ExecutablePlan, SequentialPlan | StructuredPlan]:
-        strategy = getattr(self.optimizer, "strategy", None)
+        has_resolver = callable(getattr(self.optimizer, "resolve_defaults", None))
+        resolution = (
+            resolve_components(self.optimizer, configured=bindings)
+            if has_resolver
+            else None
+        )
+        strategy = (
+            resolution.components.get("strategy")
+            if resolution is not None
+            else getattr(self.optimizer, "strategy", None)
+        )
         build_graph = getattr(strategy, "build_graph", None)
         problem = getattr(self.optimizer, "problem", None)
         if not callable(build_graph) or problem is None:
             raise ValidationError(
                 "runtime plan refresh requires strategy.build_graph and problem"
             )
+        provider = _SnapshotProviderView(
+            self.optimizer,
+            dict(resolution.bindings) if resolution is not None else bindings,
+            resolution,
+        )
         executable = _prepare_plan(
             strategy,
-            _SnapshotProviderView(self.optimizer, bindings),
+            provider,
             problem=problem,
             offered_runtime_capabilities=default_runtime_registry.offered_capabilities(
-                self.optimizer
+                provider
             ),
             initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
             _verification_enabled=getattr(
                 self.optimizer, "_verification_enabled", True
             ),
+            _component_resolution=resolution,
         )
         validate_plan_contracts(executable)
         rebuilt: SequentialPlan | StructuredPlan
@@ -1547,6 +1681,7 @@ class _OptimizerEnvironment:
             rebuilt = StructuredPlan.from_executable_plan(executable)
         else:
             rebuilt = SequentialPlan.from_executable_plan(executable)
+        self._candidate_resolution = resolution
         return executable, rebuilt
 
     def execute_async(
@@ -1767,7 +1902,9 @@ class _OptimizerEnvironment:
             )
         bindings = self._bindings()
         if self._pending_recompile or not self._active_snapshot.unchanged_by(
-            bindings, self._strategy_values()
+            bindings,
+            self._strategy_values(),
+            getattr(self.optimizer, "_configuration_version", 0),
         ):
             raise CheckpointError(
                 "checkpoint cannot be saved because the optimizer configuration "
@@ -1836,6 +1973,10 @@ def _execute_strategy_step(
     build_graph = cast(Any, getattr(strategy, "build_graph", None))
     if not callable(build_graph):
         raise ValidationError("strategy requires a callable build_graph")
+    resolver = getattr(provider, "resolve_defaults", None)
+    if callable(resolver):
+        resolver()
+    component_resolution = getattr(provider, "_component_resolution", None)
 
     def live_context() -> tuple[Any, frozenset[str] | None]:
         return state.problem, default_runtime_registry.offered_capabilities(provider)
@@ -1848,6 +1989,11 @@ def _execute_strategy_step(
         _context_factory=live_context,
         initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
         _verification_enabled=getattr(provider, "_verification_enabled", True),
+        _component_resolution=(
+            component_resolution
+            if isinstance(component_resolution, _ComponentResolution)
+            else None
+        ),
     )
     if plan.diagnostics:
         errors = [item for item in plan.diagnostics if item.severity is Severity.ERROR]
@@ -3027,10 +3173,14 @@ def resolve_plan(optimizer: object) -> ExecutablePlan:
     plan = getattr(optimizer, "executable_plan", None)
     if isinstance(plan, ExecutablePlan):
         return plan
+    resolver = getattr(optimizer, "resolve_defaults", None)
+    if callable(resolver):
+        resolver()
     strategy = getattr(optimizer, "strategy", None)
     build_graph = getattr(strategy, "build_graph", None)
     if not callable(build_graph):
         raise ValidationError("default runtime requires an executable plan")
+    component_resolution = getattr(optimizer, "_component_resolution", None)
     return _prepare_plan(
         strategy,
         optimizer,
@@ -3042,4 +3192,9 @@ def resolve_plan(optimizer: object) -> ExecutablePlan:
         ),
         initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
         _verification_enabled=getattr(optimizer, "_verification_enabled", True),
+        _component_resolution=(
+            component_resolution
+            if isinstance(component_resolution, _ComponentResolution)
+            else None
+        ),
     )

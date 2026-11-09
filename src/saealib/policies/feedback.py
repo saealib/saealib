@@ -866,6 +866,22 @@ class PredictedFeedback(FeedbackBuilder):
     def __init__(self) -> None:
         pass
 
+    def contract(self) -> ComponentContract:
+        """Return the feedback contract requiring objective predictions."""
+        family = super().contract()
+        builder = family.ports["feedback_builder"]
+        inputs = tuple(
+            replace(port, optional=False) if port.name == "prediction" else port
+            for port in builder.inputs
+        )
+        return replace(
+            family,
+            ports={
+                **family.ports,
+                "feedback_builder": replace(builder, inputs=inputs),
+            },
+        )
+
     def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
         """Build predicted feedback."""
         if prediction is None or "objective" not in prediction.channels:
@@ -975,17 +991,38 @@ class ComparatorWorstFallback(FeedbackBuilder):
         """Return the feedback contract requiring population comparison."""
         family = super().contract()
         builder = family.ports["feedback_builder"]
+        contract_method = getattr(self.inner, "contract", None)
+        try:
+            inner_contract = contract_method() if callable(contract_method) else None
+        except Exception:
+            inner_contract = None
+        inner_builder = (
+            inner_contract.ports.get("feedback_builder")
+            if isinstance(inner_contract, ComponentContract)
+            else None
+        )
+        required_inputs = (
+            {port.name for port in inner_builder.inputs if not port.optional}
+            if inner_builder is not None
+            else set()
+        )
         candidates = replace(
             builder.inputs[0],
             required_services=(ServiceRequirement(name="ComparisonService"),),
         )
+        inputs = []
+        for port in builder.inputs:
+            if port.name == "candidates":
+                inputs.append(candidates)
+            elif port.name in required_inputs:
+                inputs.append(replace(port, optional=False))
+            else:
+                inputs.append(port)
         return replace(
             family,
             ports={
                 **family.ports,
-                "feedback_builder": replace(
-                    builder, inputs=(candidates, *builder.inputs[1:])
-                ),
+                "feedback_builder": replace(builder, inputs=tuple(inputs)),
             },
         )
 

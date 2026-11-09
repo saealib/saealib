@@ -338,14 +338,20 @@ def test_bundled_feedback_default_does_not_reach_the_generation_based_true_gener
 
     strategy = GenerationBasedStrategy(1)
     optimizer.set_strategy(strategy)
+    optimizer.resolve_defaults()
+    assert not optimizer.feedback_builder_explicit
     pipeline = cast(Any, strategy.build_pipeline(optimizer))
 
     builder = pipeline.find("true_generation", recursive=True).stages[7]._builder
-    assert builder is strategy.true_feedback_builder
+    assert builder is optimizer.feedback_builder
+    assert isinstance(builder, TrueOnlyFeedback)
+    resolution = optimizer._component_resolution
+    assert resolution is not None
+    assert resolution.origins["feedback_builder"].source == "strategy default"
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-def test_direct_to_generation_based_swap_keeps_the_strategy_true_feedback_builder(
+def test_direct_feedback_assignment_wins_after_generation_based_swap(
     asynchronous: bool,
 ) -> None:
     slot_builder = _CountingFeedback()
@@ -376,8 +382,11 @@ def test_direct_to_generation_based_swap_keeps_the_strategy_true_feedback_builde
 
     assert state.gen == 6
     assert calls_at_swap and calls_at_swap[0] > 0
-    assert slot_builder.calls == calls_at_swap[0]
-    assert true_builder.calls > 0
+    assert slot_builder.calls > calls_at_swap[0]
+    assert true_builder.calls == 0
+    resolution = optimizer._component_resolution
+    assert resolution is not None
+    assert resolution.origins["feedback_builder"].source == "direct assignment"
 
 
 def test_algorithm_reassigned_after_ask_takes_over_from_the_next_generation() -> None:

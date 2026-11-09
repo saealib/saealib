@@ -364,6 +364,15 @@ def _resolve_reference(
             "optimizer or pass the component explicitly to the stage."
         )
     defaults[key] = component = factory()
+    record_fallback = getattr(defaults, "record_fallback", None)
+    if callable(record_fallback):
+        record_fallback(
+            ref.slot,
+            ref.role,
+            component,
+            f"{type(stage).__name__} supplies {type(component).__name__} "
+            f"for role {ref.role!r}.",
+        )
     return component
 
 

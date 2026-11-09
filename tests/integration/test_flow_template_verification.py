@@ -140,6 +140,25 @@ def test_algorithm_requiring_an_unoffered_runtime_capability_stops_the_run(
         optimizer.run()
 
 
+def test_compiler_diagnostic_reports_selected_source_and_reason() -> None:
+    optimizer = _optimizer(DirectStrategy()).set_algorithm(_ga(_GpuGA))
+    plan = optimizer._compile_plan()
+
+    assert plan is not None
+    findings = [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.code == "missing_runtime_capability"
+    ]
+    assert findings
+    assert any(
+        "algorithm selected _GpuGA from setter: Configured with set_algorithm()"
+        in resolution
+        for diagnostic in findings
+        for resolution in diagnostic.resolutions
+    )
+
+
 @pytest.mark.parametrize("asynchronous", [False, True])
 def test_direct_feedback_with_unrelated_output_kind_is_reported(
     asynchronous: bool,

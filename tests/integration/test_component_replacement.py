@@ -839,12 +839,21 @@ def test_async_generation_based_replacement_waits_for_in_flight_requests() -> No
     def on_post_ask(event: Any) -> None:
         if not swapped and event.ctx.gen == 3:
             swapped.append(len(first.asks))
+            environment = captured["environment"]
+            active_version = environment.active_version
+            assert environment.binding_values()["algorithm"] is first
+            assert environment._active_snapshot.provenance["algorithm"].source == (
+                "setter"
+            )
             optimizer.set_algorithm(second)
+            assert environment.active_version == active_version
+            assert environment.binding_values()["algorithm"] is first
 
     cbm = CallbackManager()
     cbm.register(PostAskEvent, on_post_ask)
     optimizer.cbmanager = cbm
-    state = optimizer.run()
+    runner, captured = _capturing_runner(optimizer)
+    state = runner.run()
 
     first_asked = {row for rows in first.ask_xs for row in rows}
     second_asked = {row for rows in second.ask_xs for row in rows}
@@ -854,6 +863,46 @@ def test_async_generation_based_replacement_waits_for_in_flight_requests() -> No
     assert first_asked.isdisjoint(second_asked)
     assert all(row in first_asked for rows in first.tell_xs for row in rows)
     assert all(row in second_asked for rows in second.tell_xs for row in rows)
+    environment = captured["environment"]
+    assert environment.active_version == 1
+    assert environment.binding_values()["algorithm"] is second
+    assert environment._active_snapshot.provenance["algorithm"].source == "setter"
+
+
+def test_pending_async_work_keeps_active_provenance_until_drain() -> None:
+    first = _RecordingGA()
+    second = _RecordingPSO()
+    optimizer = _build_optimizer(first)
+    evaluator = SerialEvaluator()
+    optimizer.set_async_evaluation_scheduler(
+        AsyncEvaluationScheduler(evaluator, max_pending=1)
+    )
+    optimizer.resolve_defaults()
+    state = optimizer.initializer.initialize(optimizer, optimizer.problem)
+    runtime = create_runtime(optimizer)
+    environment = getattr(runtime, "environment")
+    environment._remember_state(state)
+    object.__setattr__(state, "pending_evaluations", {1: object()})
+    object.__setattr__(state, "evaluation_handles", {1: object()})
+
+    active_version = environment.active_version
+    optimizer.set_algorithm(second)
+    environment._refresh_plan_if_needed(state)
+
+    assert environment._publication_deferred
+    assert environment.active_version == active_version
+    assert environment.binding_values()["algorithm"] is first
+    assert environment._active_snapshot.provenance["algorithm"].source == "setter"
+    assert state.__dict__["_binding_version"] == active_version
+
+    object.__setattr__(state, "pending_evaluations", {})
+    object.__setattr__(state, "evaluation_handles", {})
+    environment._refresh_plan_if_needed(state)
+
+    assert environment.active_version == active_version + 1
+    assert environment.binding_values()["algorithm"] is second
+    assert environment._active_snapshot.provenance["algorithm"].source == "setter"
+    assert state.__dict__["_binding_version"] == active_version + 1
 
 
 # ---------------------------------------------------------------------------

@@ -1,309 +1,597 @@
-"""Failure and composition semantics for semantic default resolution."""
+from __future__ import annotations
 
-from types import SimpleNamespace
+import pickle
+import sys
+from pathlib import Path
 from typing import cast
 
 import numpy as np
 import pytest
 
+import saealib
+from saealib.algorithms.pso import PSO
 from saealib.context import OptimizationState
-from saealib.core.contracts import ComponentContract, PartSpec
-from saealib.defaults.context import DefaultContext
-from saealib.defaults.keys import (
-    INITIAL_ARCHIVE_SIZE,
-    MAX_EVALUATIONS,
-    POPULATION_SIZE,
-    DefaultKey,
+from saealib.core.compiler import Severity
+from saealib.core.contracts.contract import ComponentContract
+from saealib.core.contracts.state import StateContract
+from saealib.defaults.keys import POPULATION_SIZE
+from saealib.defaults.model import (
+    DefaultHint,
+    DefaultResolution,
+    DefaultStrength,
+    ResolvedDefault,
 )
-from saealib.defaults.model import DefaultHint, DefaultStrength
-from saealib.defaults.resolver import DEFAULT_RESOLVER
-from saealib.exceptions import ConfigurationError, ValidationError
-from saealib.execution.initializer import LHSInitializer
+from saealib.exceptions import ConfigurationError
 from saealib.optimizer import Optimizer
+from saealib.pipeline import ComponentRef, Pipeline, Stage
+from saealib.policies import EvaluateAll, RatioEvaluation
+from saealib.policies.feedback import (
+    ComparatorWorstFallback,
+    FeedbackBuilder,
+    MixedFeedback,
+    NoFeedback,
+    PredictedFeedback,
+    TrueOnlyFeedback,
+)
 from saealib.problem import Problem
-from saealib.strategies.base import OptimizationStrategy
-from saealib.termination import Termination
+from saealib.stages import EvaluationPlanStage
+from saealib.strategies.base import TemplateStrategy
+from saealib.strategies.direct import DirectStrategy
+from saealib.strategies.ib import IndividualBasedStrategy
+from saealib.termination import Termination, max_gen
 
 
-def _problem(dim: int = 3) -> Problem:
+def _problem() -> Problem:
     return Problem(
-        func=lambda x: np.sum(x),
-        dim=dim,
+        func=lambda x: np.array([float(np.sum(np.asarray(x) ** 2))]),
+        dim=3,
         n_obj=1,
         direction=np.array([-1.0]),
-        lb=[-1.0] * dim,
-        ub=[1.0] * dim,
+        lb=[-1.0] * 3,
+        ub=[1.0] * 3,
     )
 
 
-class _StaticProvider:
-    def __init__(self, *hints: DefaultHint) -> None:
-        self.hints = hints
+def _preset(ratio: float) -> dict:
+    return {
+        "evaluation_planner": {
+            "type": "RatioEvaluation",
+            "params": {"ratio": ratio, "sanitize_nonfinite": True},
+        }
+    }
 
-    def default_hints(self, ctx: DefaultContext) -> tuple[DefaultHint, ...]:
-        return self.hints
+
+def _bundled(monkeypatch, ratio: float | None) -> None:
+    from saealib import defaults
+
+    preset = {"strategy": {"type": "DirectStrategy", "params": {}}}
+    if ratio is not None:
+        preset.update(
+            {
+                "evaluation_planner": {
+                    "type": "RatioEvaluation",
+                    "params": {"ratio": ratio, "sanitize_nonfinite": True},
+                },
+                "feedback_builder": {
+                    "type": "TrueOnlyFeedback",
+                    "params": {},
+                },
+            }
+        )
+    monkeypatch.setattr(
+        defaults,
+        "load_defaults",
+        lambda: {
+            "presets": {"test": preset},
+            "by_algorithm": {},
+            "by_problem_shape": [],
+            "fallback": "test",
+        },
+    )
 
 
-def test_same_strength_different_values_raise_configuration_error() -> None:
-    ctx = DefaultContext(problem=_problem())
-    providers = [
-        _StaticProvider(
-            DefaultHint(
-                key=POPULATION_SIZE,
-                value=8,
-                strength=DefaultStrength.RECOMMENDED,
-                source="first",
+def _source(optimizer: Optimizer, slot: str) -> str:
+    resolution = optimizer._component_resolution
+    assert resolution is not None
+    origin = resolution.origins[slot]
+    return origin.source
+
+
+def _origins(optimizer: Optimizer):
+    resolution = optimizer._component_resolution
+    assert resolution is not None
+    return resolution.origins
+
+
+def test_setter_precedes_user_bundled_strategy_and_stage_defaults(monkeypatch) -> None:
+    _bundled(monkeypatch, 0.8)
+    selected = RatioEvaluation(0.2)
+    optimizer = (
+        Optimizer(_problem())
+        .set_preset(_preset(0.6))
+        .set_strategy(DirectStrategy())
+        .set_evaluation_planner(selected)
+    )
+
+    optimizer.resolve_defaults()
+
+    assert optimizer.evaluation_planner is selected
+    assert _source(optimizer, "evaluation_planner") == "setter"
+
+
+def test_direct_assignment_precedes_user_preset(monkeypatch) -> None:
+    _bundled(monkeypatch, 0.8)
+    selected = RatioEvaluation(0.2)
+    optimizer = Optimizer(_problem()).set_preset(_preset(0.6))
+    optimizer.evaluation_planner = selected
+
+    optimizer.resolve_defaults()
+
+    assert optimizer.evaluation_planner is selected
+    assert _source(optimizer, "evaluation_planner") == "direct assignment"
+
+
+def test_user_preset_precedes_bundled_preset(monkeypatch) -> None:
+    _bundled(monkeypatch, 0.8)
+    optimizer = Optimizer(_problem()).set_algorithm(PSO()).set_preset(_preset(0.6))
+
+    optimizer.resolve_defaults()
+
+    assert isinstance(optimizer.evaluation_planner, RatioEvaluation)
+    assert optimizer.evaluation_planner.ratio == 0.6
+    assert _source(optimizer, "evaluation_planner") == "user preset"
+    assert _origins(optimizer)["evaluation_planner"].reason
+
+
+def test_bundled_preset_precedes_strategy_default(monkeypatch) -> None:
+    _bundled(monkeypatch, 0.8)
+    optimizer = Optimizer(_problem())
+
+    optimizer.resolve_defaults()
+
+    assert isinstance(optimizer.strategy, DirectStrategy)
+    assert isinstance(optimizer.evaluation_planner, RatioEvaluation)
+    assert optimizer.evaluation_planner.ratio == 0.8
+    assert _source(optimizer, "evaluation_planner") == "bundled preset"
+
+
+def test_explicit_strategy_defaults_precede_bundled_policies(monkeypatch) -> None:
+    _bundled(monkeypatch, 0.1)
+    optimizer = Optimizer(_problem()).set_strategy(IndividualBasedStrategy(0.7))
+
+    optimizer.resolve_defaults()
+
+    assert isinstance(optimizer.evaluation_planner, RatioEvaluation)
+    assert optimizer.evaluation_planner.ratio == 0.7
+    assert _source(optimizer, "evaluation_planner") == "strategy default"
+    assert isinstance(optimizer.feedback_builder, MixedFeedback)
+    assert _source(optimizer, "feedback_builder") == "strategy default"
+
+
+def test_higher_priority_strategies_use_their_own_policy_defaults(monkeypatch) -> None:
+    _bundled(monkeypatch, 0.1)
+    preset = {
+        "strategy": {
+            "type": "IndividualBasedStrategy",
+            "params": {"evaluation_ratio": 0.6},
+        }
+    }
+    user_strategy = Optimizer(_problem()).set_preset(preset)
+    assigned_strategy = Optimizer(_problem())
+    assigned_strategy.strategy = IndividualBasedStrategy(0.7)
+
+    user_strategy.resolve_defaults()
+    assigned_strategy.resolve_defaults()
+
+    assert _source(user_strategy, "strategy") == "user preset"
+    assert isinstance(user_strategy.evaluation_planner, RatioEvaluation)
+    assert user_strategy.evaluation_planner.ratio == 0.6
+    assert _source(user_strategy, "evaluation_planner") == "strategy default"
+    assert _source(assigned_strategy, "strategy") == "direct assignment"
+    assert isinstance(assigned_strategy.evaluation_planner, RatioEvaluation)
+    assert assigned_strategy.evaluation_planner.ratio == 0.7
+    assert _source(assigned_strategy, "evaluation_planner") == "strategy default"
+
+
+def test_strategy_default_precedes_stage_fallback(monkeypatch) -> None:
+    _bundled(monkeypatch, None)
+    optimizer = Optimizer(_problem()).set_strategy(IndividualBasedStrategy(0.7))
+
+    optimizer.resolve_defaults()
+
+    assert isinstance(optimizer.evaluation_planner, RatioEvaluation)
+    assert optimizer.evaluation_planner.ratio == 0.7
+    assert _source(optimizer, "evaluation_planner") == "strategy default"
+
+
+def test_stage_fallback_source_and_reason_are_compiler_diagnostics(monkeypatch) -> None:
+    _bundled(monkeypatch, None)
+
+    class MinimalStrategy(TemplateStrategy):
+        requires_surrogate = False
+
+        def __init__(self) -> None:
+            super().__init__(
+                Pipeline([EvaluationPlanStage(ComponentRef("evaluation_planner"))])
             )
-        ),
-        _StaticProvider(
-            DefaultHint(
-                key=POPULATION_SIZE,
-                value=12,
-                strength=DefaultStrength.RECOMMENDED,
-                source="second",
-            )
-        ),
+
+    optimizer = Optimizer(_problem()).set_strategy(MinimalStrategy())
+    plan = optimizer._compile_plan()
+
+    assert plan is not None
+    messages = [item.message for item in plan.diagnostics]
+    assert any("Stage fallback" in message for message in messages)
+    assert any(
+        "EvaluationPlanStage supplies EvaluateAll" in message for message in messages
+    )
+
+
+def test_incompatible_user_policy_keeps_selection_and_reports_source(
+    monkeypatch,
+) -> None:
+    _bundled(monkeypatch, 0.1)
+    optimizer = (
+        Optimizer(_problem())
+        .set_algorithm(PSO())
+        .set_strategy(DirectStrategy())
+        .set_preset(_preset(0.3))
+    )
+
+    plan = optimizer._compile_plan()
+
+    assert plan is not None
+    assert isinstance(optimizer.evaluation_planner, RatioEvaluation)
+    assert optimizer.evaluation_planner.ratio == 0.3
+    assert _source(optimizer, "evaluation_planner") == "user preset"
+    diagnostics = [
+        item
+        for item in plan.diagnostics
+        if item.code == "unresolved_input" and "evaluation_planner" in item.message
     ]
+    assert len(diagnostics) == 1
+    assert diagnostics[0].severity is Severity.ERROR
+    assert "user preset" in diagnostics[0].message
+    assert "Selected from the user preset" in diagnostics[0].message
+    assert any("acquisition scores" in issue for issue in optimizer.validate())
+    assert any(
+        item.severity is Severity.ERROR
+        and "Selected from the user preset" in item.message
+        for item in optimizer.last_contract_diagnostics
+    )
 
-    with pytest.raises(ConfigurationError, match=r"Conflict for population\.size"):
-        DEFAULT_RESOLVER.resolve(ctx, providers)
+
+def test_incompatible_user_feedback_keeps_selection_and_reports_source(
+    monkeypatch,
+) -> None:
+    _bundled(monkeypatch, 0.1)
+    optimizer = (
+        Optimizer(_problem())
+        .set_algorithm(PSO())
+        .set_strategy(DirectStrategy())
+        .set_preset({"feedback_builder": {"type": "PredictedFeedback"}})
+    )
+    optimizer.resolve_defaults()
+    selected = optimizer.feedback_builder
+
+    plan = optimizer._compile_plan()
+
+    assert plan is not None
+    assert optimizer.feedback_builder is selected
+    assert isinstance(selected, PredictedFeedback)
+    inputs = selected.contract().ports["feedback_builder"].inputs
+    assert not next(port for port in inputs if port.name == "prediction").optional
+    assert next(port for port in inputs if port.name == "evaluation").optional
+    assert _source(optimizer, "feedback_builder") == "user preset"
+    origin = _origins(optimizer)["feedback_builder"]
+    diagnostics = [
+        item
+        for item in plan.diagnostics
+        if item.path.components == ("optimizer", "feedback_builder")
+        and item.code == "unresolved_input"
+    ]
+    assert len(diagnostics) == 1
+    assert diagnostics[0].severity is Severity.ERROR
+    assert "objective predictions" in diagnostics[0].message
+    assert "user preset" in diagnostics[0].message
+    assert origin.reason in diagnostics[0].message
+    issues = optimizer.validate()
+    assert any("objective predictions" in issue for issue in issues)
+    assert any("user preset" in issue and origin.reason in issue for issue in issues)
+    assert any(item is diagnostics[0] for item in optimizer.last_contract_diagnostics)
+    with pytest.raises(ConfigurationError, match="objective predictions"):
+        optimizer.run()
 
 
-def test_same_strength_same_value_is_resolved_once() -> None:
-    ctx = DefaultContext(problem=_problem())
+class _OptionalFeedback(FeedbackBuilder):
+    def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+        return NoFeedback().build(
+            candidates, prediction, evaluation, evaluated_indices, ctx
+        )
+
+
+@pytest.mark.parametrize(
+    "builder",
+    [
+        TrueOnlyFeedback(),
+        MixedFeedback(),
+        NoFeedback(),
+        ComparatorWorstFallback(MixedFeedback()),
+        _OptionalFeedback(),
+    ],
+    ids=["true_only", "mixed", "none", "fallback", "custom"],
+)
+def test_feedback_without_required_prediction_is_accepted(builder) -> None:
+    optimizer = Optimizer(_problem()).set_strategy(DirectStrategy())
+    optimizer.set_feedback_builder(builder)
+
+    plan = optimizer._compile_plan()
+
+    assert plan is not None
+    builder = optimizer.feedback_builder
+    assert builder is not None
+    inputs = builder.contract().ports["feedback_builder"].inputs
+    assert next(port for port in inputs if port.name == "prediction").optional
+    assert next(port for port in inputs if port.name == "evaluation").optional
+    assert not any(
+        item.severity is Severity.ERROR and item.code == "unresolved_input"
+        for item in plan.diagnostics
+    )
+
+
+def test_feedback_wrapper_preserves_required_prediction_fact() -> None:
+    optimizer = Optimizer(_problem()).set_strategy(DirectStrategy())
+    optimizer.set_feedback_builder(ComparatorWorstFallback(PredictedFeedback()))
+
+    plan = optimizer._compile_plan()
+
+    assert plan is not None
+    diagnostics = [
+        item
+        for item in plan.diagnostics
+        if item.path.components == ("optimizer", "feedback_builder")
+        and item.code == "unresolved_input"
+    ]
+    assert len(diagnostics) == 1
+    assert "objective predictions" in diagnostics[0].message
+
+
+class _OpaqueStateStage(Stage):
+    def contract(self) -> ComponentContract:
+        return ComponentContract(state=StateContract(writes_enumerable=False))
+
+    def execute(self, state: OptimizationState) -> OptimizationState:
+        return state
+
+
+def test_required_feedback_is_not_rejected_when_state_writes_are_unknown() -> None:
+    strategy = DirectStrategy()
+    feedback_index = strategy.declaration.steps.index(
+        strategy.declaration.find("feedback")
+    )
+    strategy.declaration.steps.insert(feedback_index, _OpaqueStateStage())
+    optimizer = (
+        Optimizer(_problem())
+        .set_algorithm(PSO())
+        .set_strategy(strategy)
+        .set_preset({"feedback_builder": {"type": "PredictedFeedback"}})
+    )
+
+    plan = optimizer._compile_plan()
+
+    assert plan is not None
+    assert not any(
+        item.severity is Severity.ERROR and item.code == "unresolved_input"
+        for item in plan.diagnostics
+    )
+
+
+def test_feedback_error_is_not_hidden_by_downstream_unknown_state_writes() -> None:
+    strategy = DirectStrategy()
+    feedback_index = strategy.declaration.steps.index(
+        strategy.declaration.find("feedback")
+    )
+    strategy.declaration.steps.insert(feedback_index + 1, _OpaqueStateStage())
+    optimizer = (
+        Optimizer(_problem())
+        .set_algorithm(PSO())
+        .set_strategy(strategy)
+        .set_preset({"feedback_builder": {"type": "PredictedFeedback"}})
+    )
+
+    plan = optimizer._compile_plan()
+
+    assert plan is not None
+    diagnostics = [
+        item
+        for item in plan.diagnostics
+        if item.path.components == ("optimizer", "feedback_builder")
+        and item.code == "unresolved_input"
+    ]
+    assert len(diagnostics) == 1
+    assert "user preset" in diagnostics[0].message
+
+
+def test_explicit_direct_strategy_runs_with_bundled_ga() -> None:
+    optimizer = Optimizer(_problem(), seed=17).set_strategy(DirectStrategy())
+    optimizer.set_termination(Termination(max_gen(1)))
+
+    state = optimizer.run()
+
+    assert state.gen == 1
+    assert type(optimizer.algorithm).__name__ == "GA"
+    assert isinstance(optimizer.evaluation_planner, EvaluateAll)
+    assert _source(optimizer, "evaluation_planner") == "strategy default"
+    assert isinstance(optimizer.feedback_builder, TrueOnlyFeedback)
+    assert _source(optimizer, "feedback_builder") == "strategy default"
+
+
+def test_repeated_resolution_keeps_default_origin_and_component(monkeypatch) -> None:
+    _bundled(monkeypatch, 0.8)
+    optimizer = Optimizer(_problem())
+
+    optimizer.resolve_defaults()
+    first = optimizer.evaluation_planner
+    first_source = _source(optimizer, "evaluation_planner")
+    optimizer.resolve_defaults()
+
+    assert optimizer.evaluation_planner is first
+    assert first_source == "bundled preset"
+    assert _source(optimizer, "evaluation_planner") == first_source
+
+
+def test_clearing_a_replaced_slot_selects_the_user_preset(monkeypatch) -> None:
+    _bundled(monkeypatch, 0.8)
+    optimizer = Optimizer(_problem()).set_preset(_preset(0.6))
+    optimizer.resolve_defaults()
+    replacement = RatioEvaluation(0.3)
+    optimizer.evaluation_planner = replacement
+    optimizer.resolve_defaults()
+    assert optimizer.evaluation_planner is replacement
+    assert _source(optimizer, "evaluation_planner") == "direct assignment"
+
+    optimizer.evaluation_planner = None
+    optimizer.resolve_defaults()
+
+    assert isinstance(optimizer.evaluation_planner, RatioEvaluation)
+    assert optimizer.evaluation_planner.ratio == 0.6
+    assert _source(optimizer, "evaluation_planner") == "user preset"
+
+
+def test_strategy_default_components_are_owned_per_optimizer() -> None:
+    strategy = DirectStrategy()
+    first = Optimizer(_problem()).set_strategy(strategy)
+    second = Optimizer(_problem()).set_strategy(strategy)
+
+    first.resolve_defaults()
+    second.resolve_defaults()
+
+    assert first.strategy is strategy
+    assert second.strategy is strategy
+    assert first.feedback_builder is not second.feedback_builder
+    assert first.evaluation_planner is not second.evaluation_planner
+
+
+def test_stage_local_component_does_not_replace_a_shared_binding() -> None:
+    from saealib.execution.prepare import resolve_declaration
+
+    local = EvaluateAll()
+    shared = RatioEvaluation(0.5)
+    resolved = resolve_declaration(
+        Pipeline([EvaluationPlanStage(local)]),
+        {"evaluation_planner": shared},
+    )
+
+    assert isinstance(resolved, Pipeline)
+    assert isinstance(resolved.steps[0], EvaluationPlanStage)
+    assert resolved.steps[0]._planner is local
+    assert shared is not local
+
+
+def test_resolution_metadata_is_not_a_public_optimizer_api() -> None:
+    optimizer = Optimizer(_problem())
+    optimizer.resolve_defaults()
+
+    assert not hasattr(optimizer, "component_resolutions")
+    assert not hasattr(optimizer, "prepare")
+    assert not hasattr(saealib, "ComponentResolution")
+
+
+def test_optimizer_state_without_binding_metadata_keeps_stored_components() -> None:
+    optimizer = (
+        Optimizer(_problem())
+        .set_algorithm(PSO())
+        .set_strategy(DirectStrategy())
+        .set_termination(Termination(max_gen(2)))
+    )
+    optimizer.resolve_defaults()
+    algorithm = optimizer.algorithm
+    strategy = optimizer.strategy
+    state = optimizer.__getstate__()
+    for name in (
+        "_component_origins",
+        "_component_resolution",
+        "_materialized_components",
+        "_configuration_version",
+        "_track_component_assignments",
+    ):
+        state.pop(name, None)
     hint = DefaultHint(
         key=POPULATION_SIZE,
-        value=8,
-        strength=DefaultStrength.RECOMMENDED,
-        source="provider",
-    )
-
-    resolution = DEFAULT_RESOLVER.resolve(
-        ctx, [_StaticProvider(hint), _StaticProvider(hint)]
-    )
-
-    assert resolution.get(POPULATION_SIZE) == 8
-    assert resolution.resolved[POPULATION_SIZE].selected_hint is hint
-
-
-def test_provider_exception_fails_fast_as_configuration_error() -> None:
-    class ExplodingProvider:
-        def default_hints(self, ctx: DefaultContext) -> tuple[DefaultHint, ...]:
-            raise RuntimeError("provider bug")
-
-    with pytest.raises(ConfigurationError, match="provider bug"):
-        DEFAULT_RESOLVER.resolve(
-            DefaultContext(problem=_problem()), [ExplodingProvider()]
-        )
-
-
-def test_default_hint_rejects_wrong_types_and_bool_integer_values() -> None:
-    with pytest.raises(ValidationError, match="not bool"):
-        DefaultHint(
-            key=POPULATION_SIZE,
-            value=True,
-            strength=DefaultStrength.FALLBACK,
-            source="test",
-        )
-
-    with pytest.raises(ValidationError, match="must be an int"):
-        DefaultHint(
-            key=POPULATION_SIZE,
-            value=4.0,
-            strength=DefaultStrength.FALLBACK,
-            source="test",
-        )
-
-
-class _NestedLeaf:
-    def default_hints(self, ctx: DefaultContext) -> tuple[DefaultHint, ...]:
-        return (
-            DefaultHint(
-                key=POPULATION_SIZE,
-                value=92,
-                strength=DefaultStrength.RECOMMENDED,
-                source="nested-leaf",
-            ),
-            DefaultHint(
-                key=INITIAL_ARCHIVE_SIZE,
-                value=80,
-                strength=DefaultStrength.RECOMMENDED,
-                source="nested-leaf",
-            ),
-        )
-
-
-class _NestedMiddle:
-    def __init__(self) -> None:
-        self.leaf = _NestedLeaf()
-
-
-class _NestedRoot(OptimizationStrategy):
-    def __init__(self) -> None:
-        self.nested = _NestedMiddle()
-        self.context: DefaultContext | None = None
-
-    def default_hints(self, ctx: DefaultContext) -> tuple[DefaultHint, ...]:
-        self.context = ctx
-        return (
-            DefaultHint(
-                key=MAX_EVALUATIONS,
-                value=37,
-                strength=DefaultStrength.RECOMMENDED,
-                source="custom-root",
-            ),
-        )
-
-    def contract(self) -> ComponentContract:
-        return ComponentContract(
-            parts=(
-                PartSpec(
-                    name="nested",
-                    contract=ComponentContract(
-                        parts=(
-                            PartSpec(
-                                name="leaf",
-                                contract=ComponentContract(),
-                            ),
-                        )
-                    ),
-                ),
-            )
-        )
-
-
-class _RequiredArchiveRoot(_NestedRoot):
-    def default_hints(self, ctx: DefaultContext) -> tuple[DefaultHint, ...]:
-        return (
-            DefaultHint(
-                key=POPULATION_SIZE,
-                value=92,
-                strength=DefaultStrength.RECOMMENDED,
-                source="required-archive-root",
-            ),
-            DefaultHint(
-                key=INITIAL_ARCHIVE_SIZE,
-                value=80,
-                strength=DefaultStrength.REQUIRED,
-                source="required-archive-root",
-            ),
-        )
-
-
-class _InitializerHintProvider(LHSInitializer):
-    def default_hints(self, ctx: DefaultContext) -> tuple[DefaultHint, ...]:
-        return (
-            DefaultHint(
-                key=MAX_EVALUATIONS,
-                value=41,
-                strength=DefaultStrength.RECOMMENDED,
-                source="initializer-root",
-            ),
-        )
-
-
-def test_optimizer_discovers_custom_nested_providers_and_uses_all_keys() -> None:
-    root = _NestedRoot()
-    optimizer = Optimizer(_problem(dim=25)).set_strategy(root)
-
-    optimizer.resolve_defaults()
-
-    initializer = cast(LHSInitializer, optimizer.initializer)
-    termination = cast(Termination, optimizer.termination)
-    assert initializer.n_init_population == 92
-    assert initializer.n_init_archive == 92
-    assert (
-        termination.is_terminated(cast(OptimizationState, SimpleNamespace(fe=36)))
-        is False
-    )
-    assert (
-        termination.is_terminated(cast(OptimizationState, SimpleNamespace(fe=37)))
-        is True
-    )
-
-    resolution = optimizer._default_resolution
-    assert resolution is not None
-    assert resolution.resolved[POPULATION_SIZE].selected_hint.source == "nested-leaf"
-    assert resolution.get(INITIAL_ARCHIVE_SIZE) == 92
-    assert resolution.resolved[INITIAL_ARCHIVE_SIZE].selected_hint.source == "optimizer"
-    assert (
-        any(
-            hint.source == "nested-leaf"
-            for hint in resolution.resolved[INITIAL_ARCHIVE_SIZE].alternatives
-        )
-        is True
-    )
-    assert resolution.resolved[MAX_EVALUATIONS].selected_hint.source == "custom-root"
-    assert root.context is not None
-    assert root.context.components is not None
-    assert root.context.components["strategy.nested.leaf"] is root.nested.leaf
-
-
-def test_resolution_normalization_is_idempotent_and_matches_initializer() -> None:
-    optimizer = Optimizer(_problem(dim=25)).set_strategy(_NestedRoot())
-
-    optimizer.resolve_defaults()
-    first = optimizer._default_resolution
-    assert first is not None
-    initializer = cast(LHSInitializer, optimizer.initializer)
-    assert first.get(POPULATION_SIZE) == initializer.n_init_population
-    assert first.get(INITIAL_ARCHIVE_SIZE) == initializer.n_init_archive
-
-    optimizer.resolve_defaults()
-    second = optimizer._default_resolution
-    assert second is not None
-    assert second == first
-    assert second.get(INITIAL_ARCHIVE_SIZE) == 92
-
-
-def test_required_archive_smaller_than_population_is_an_error() -> None:
-    optimizer = Optimizer(_problem(dim=25)).set_strategy(_RequiredArchiveRoot())
-
-    with pytest.raises(ConfigurationError, match=r"REQUIRED.*archive\.initial_size"):
-        optimizer.resolve_defaults()
-
-
-def test_added_root_component_provider_is_discovered() -> None:
-    initializer = _InitializerHintProvider(n_init_archive=10, n_init_population=10)
-    optimizer = Optimizer(_problem()).set_initializer(initializer)
-
-    optimizer.resolve_defaults()
-
-    resolution = optimizer._default_resolution
-    assert resolution is not None
-    assert resolution.get(MAX_EVALUATIONS) == 41
-    assert resolution.resolved[MAX_EVALUATIONS].selected_hint.source == (
-        "initializer-root"
-    )
-    termination = cast(Termination, optimizer.termination)
-    assert termination.is_terminated(cast(OptimizationState, SimpleNamespace(fe=41)))
-
-
-def test_semantic_resolution_runs_with_explicit_initializer() -> None:
-    root = _NestedRoot()
-    explicit = LHSInitializer(n_init_archive=100, n_init_population=80)
-    optimizer = Optimizer(_problem(dim=25)).set_strategy(root).set_initializer(explicit)
-
-    optimizer.resolve_defaults()
-
-    assert optimizer.initializer is explicit
-    assert optimizer._default_resolution is not None
-    assert optimizer._default_resolution.get(POPULATION_SIZE) == 92
-    assert optimizer._default_resolution.get(INITIAL_ARCHIVE_SIZE) == 92
-
-
-def test_default_resolution_uses_default_key_mapping() -> None:
-    custom_key = DefaultKey("test.value", str)
-    hint = DefaultHint(
-        key=custom_key,
-        value="ok",
+        value=12,
         strength=DefaultStrength.FALLBACK,
-        source="test",
+        source="BuiltinDefaultProvider",
+    )
+    record = object.__new__(ResolvedDefault)
+    object.__setattr__(record, "key", POPULATION_SIZE)
+    object.__setattr__(record, "value", 12)
+    object.__setattr__(record, "selected_hint", hint)
+    object.__setattr__(record, "alternatives", (hint,))
+    stored_resolution = object.__new__(DefaultResolution)
+    object.__setattr__(stored_resolution, "values", {POPULATION_SIZE: 12})
+    object.__setattr__(stored_resolution, "resolved", {POPULATION_SIZE: record})
+    state["_default_resolution"] = pickle.loads(pickle.dumps(stored_resolution))
+    stored_resolution = cast(DefaultResolution, state["_default_resolution"])
+    stored_hint = cast(
+        DefaultHint,
+        getattr(stored_resolution.resolved[POPULATION_SIZE], "selected_hint"),
+    )
+    assert stored_hint.source == "BuiltinDefaultProvider"
+
+    restored = Optimizer.__new__(Optimizer)
+    restored.__setstate__(state)
+    restored.resolve_defaults()
+
+    assert restored.algorithm is algorithm
+    assert restored.strategy is strategy
+    assert _origins(restored)["algorithm"].source == "persisted"
+    assert _origins(restored)["strategy"].source == "persisted"
+
+
+def test_saved_direct_strategy_resumes_with_its_policy_defaults(monkeypatch) -> None:
+    def sphere(x: object) -> np.ndarray:
+        return np.array([float(np.sum(np.asarray(x) ** 2))])
+
+    monkeypatch.setattr(sys.modules["__main__"], "sphere", sphere, raising=False)
+    checkpoint = (
+        Path(__file__).parent / "fixtures" / ("direct_strategy_missing_policies.pkl")
+    )
+    optimizer, state = Optimizer.load_pickle(checkpoint)
+    strategy = optimizer.strategy
+
+    resumed = optimizer.run_from(state)
+
+    assert (resumed.gen, resumed.fe) == (3, 34)
+    assert optimizer.strategy is strategy
+    assert isinstance(strategy, DirectStrategy)
+    assert isinstance(optimizer.evaluation_planner, EvaluateAll)
+    assert _source(optimizer, "evaluation_planner") == "strategy default"
+    assert isinstance(optimizer.feedback_builder, TrueOnlyFeedback)
+    assert _source(optimizer, "feedback_builder") == "strategy default"
+
+
+def test_first_yield_and_resume_reuse_component_sources(monkeypatch) -> None:
+    _bundled(monkeypatch, None)
+    optimizer = (
+        Optimizer(_problem(), seed=17)
+        .set_algorithm(PSO())
+        .set_strategy(DirectStrategy())
+        .set_termination(Termination(max_gen(1)))
     )
 
-    resolution = DEFAULT_RESOLVER.resolve(
-        DefaultContext(problem=_problem()), [_StaticProvider(hint)]
-    )
+    iterator = optimizer.iterate()
+    sources = {name: origin.source for name, origin in _origins(optimizer).items()}
+    state = next(iterator)
+    iterator.close()
 
-    assert custom_key in resolution.values
-    assert resolution.resolved[custom_key].value == "ok"
+    assert state.gen == 0
+    assert _origins(optimizer)["algorithm"].source == "setter"
+    assert _origins(optimizer)["strategy"].source == "setter"
+    assert _origins(optimizer)["evaluation_planner"].source == "strategy default"
+
+    optimizer.set_termination(Termination(max_gen(3)))
+    resumed = optimizer.run_from(state)
+
+    assert resumed.gen == 3
+    assert {
+        name: origin.source for name, origin in _origins(optimizer).items()
+    } == sources

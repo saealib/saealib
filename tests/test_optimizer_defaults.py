@@ -1,10 +1,4 @@
-"""Tests for Optimizer.resolve_defaults(): the 4-tier default resolution.
-
-Precedence: components already set via set_*() > preset selected by the
-algorithm's registered name > preset selected by Problem shape > universal
-fallback preset. initializer/termination are computed from problem.dim
-directly (not part of the presets file).
-"""
+"""Tests for Optimizer.resolve_defaults() and component source precedence."""
 
 import numpy as np
 import pytest
@@ -95,8 +89,10 @@ class TestPolicyResolution:
             PreSelectionStrategy(n_candidates=8, n_select=2)
         )
         opt.resolve_defaults()
-        assert opt.evaluation_planner is None
-        assert opt.feedback_builder is None
+        from saealib.policies import TopKEvaluation, TrueOnlyFeedback
+
+        assert isinstance(opt.evaluation_planner, TopKEvaluation)
+        assert isinstance(opt.feedback_builder, TrueOnlyFeedback)
 
     def test_explicit_components_win_over_bundled_defaults(self):
         evaluation = EvaluateAll()

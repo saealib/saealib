@@ -271,9 +271,12 @@ class TemplateStrategy(OptimizationStrategy):
     def _resolve(
         self, provider: ComponentProvider, declaration: PipelineEntry
     ) -> PipelineEntry:
-        from saealib.execution.prepare import resolve_declaration
+        from saealib.execution.prepare import _resolve_declaration
 
-        return resolve_declaration(declaration, self.snapshot_bindings(provider))
+        selections = getattr(provider, "_stage_selections", None)
+        return _resolve_declaration(
+            declaration, self.snapshot_bindings(provider), selections
+        )
 
     def _default_components(self) -> Mapping[str, object]:
         """Components the strategy instance provides for empty slots.
@@ -286,20 +289,16 @@ class TemplateStrategy(OptimizationStrategy):
         return {}
 
     def snapshot_bindings(self, provider: ComponentProvider) -> dict[str, object]:
-        """Read the slots a declaration resolves from.
-
-        The runtime serves slots from the active binding snapshot; a bare
-        provider resolves from its current slot values.  Slots the binding
-        leaves empty are filled from the strategy instance's own default
-        components before the Stages' built-in fallbacks apply.
-        """
+        """Read the slots selected during execution preparation."""
         values = getattr(provider, "binding_values", None)
         if callable(values):
             values = cast(dict[str, object], values())
         else:
             values = {name: getattr(provider, name, None) for name in BINDING_SLOTS}
-        defaults = self._default_components()
-        return {
-            slot: value if value is not None else defaults.get(slot, value)
-            for slot, value in values.items()
-        }
+            if not callable(getattr(provider, "resolve_defaults", None)):
+                defaults = self._default_components()
+                values = {
+                    slot: value if value is not None else defaults.get(slot, value)
+                    for slot, value in values.items()
+                }
+        return values

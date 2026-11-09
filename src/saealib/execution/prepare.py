@@ -14,15 +14,21 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from copy import copy
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from saealib.core.compiler import (
     CompileContext,
     Compiler,
     ComponentGraph,
+    ContractPath,
+    Diagnostic,
     ExecutablePlan,
+    Severity,
 )
+from saealib.core.state import SCORES, SURROGATES_PREDICTIONS
 from saealib.exceptions import ValidationError
+from saealib.execution.bindings import BINDING_SLOTS, _ComponentResolution
 from saealib.pipeline import Branch, Loop, Pipeline, PipelineEntry, Repeat, Stage
 
 if TYPE_CHECKING:
@@ -35,22 +41,140 @@ __all__ = [
     "resolve_declaration",
 ]
 
-#: The Optimizer slots a binding snapshot carries.  Declaration references
-#: resolve against these; ``cbmanager`` is served as a runtime service.
-BINDING_SLOTS = (
-    "algorithm",
-    "strategy",
-    "surrogate_manager",
-    "acquisition",
-    "evaluation_planner",
-    "feedback_builder",
-    "evaluator",
-    "cbmanager",
-)
-
 
 class _InvalidStrategyGraphError(ValidationError):
     pass
+
+
+class _StageDefaults(dict):
+    def __init__(self, selections: list[tuple[str, str, object, str]] | None) -> None:
+        super().__init__()
+        self.selections = selections
+
+    def record_fallback(
+        self, slot: str, role: str, component: object, reason: str
+    ) -> None:
+        if self.selections is not None:
+            self.selections.append((slot, role, component, reason))
+
+
+class _PreparedProvider:
+    _provider: Any
+    _resolution: _ComponentResolution
+    _component_resolution: _ComponentResolution
+    _stage_selections: list[tuple[str, str, object, str]]
+
+    def __init__(
+        self,
+        provider: Any,
+        resolution: _ComponentResolution,
+        selections: list[tuple[str, str, object, str]],
+    ) -> None:
+        object.__setattr__(self, "_provider", provider)
+        object.__setattr__(self, "_resolution", resolution)
+        object.__setattr__(self, "_component_resolution", resolution)
+        object.__setattr__(self, "_stage_selections", selections)
+
+    def binding_values(self) -> dict[str, object]:
+        return dict(self._resolution.bindings)
+
+    def __getattr__(self, name: str) -> object:
+        if name in BINDING_SLOTS:
+            return self._resolution.bindings.get(name)
+        return getattr(self._provider, name)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in BINDING_SLOTS:
+            setattr(self._provider, name, value)
+        else:
+            setattr(self._provider, name, value)
+
+
+def _requires_input(component: object, input_name: str) -> bool:
+    contract_method = getattr(component, "contract", None)
+    if not callable(contract_method):
+        return False
+    try:
+        contract = contract_method()
+    except Exception:
+        return False
+    return any(
+        port.name == input_name and not port.optional
+        for role in contract.ports.values()
+        for port in role.inputs
+    )
+
+
+def _component_node_ids(graph: ComponentGraph, component: object) -> tuple[str, ...]:
+    selected = []
+    for node in graph.nodes:
+        if node.component is component:
+            selected.append(node.component_id)
+        stage = getattr(node.component, "stage", None)
+        attributes = getattr(stage, "__dict__", {})
+        if (
+            stage is not None
+            and isinstance(attributes, Mapping)
+            and any(value is component for value in attributes.values())
+        ):
+            selected.append(node.component_id)
+    return tuple(dict.fromkeys(selected))
+
+
+def _graph_uses_component(graph: ComponentGraph, component: object) -> bool:
+    return bool(_component_node_ids(graph, component))
+
+
+def _graph_precedes(
+    graph: ComponentGraph, source_id: str, target_ids: tuple[str, ...]
+) -> bool | None:
+    successors: dict[str, set[str]] = {}
+    for edge in (*graph.control_edges, *graph.data_edges):
+        successors.setdefault(edge.source.component_id, set()).add(
+            edge.target.component_id
+        )
+
+    def reachable(source: str, target: str) -> bool:
+        pending = [source]
+        visited = set()
+        while pending:
+            current = pending.pop()
+            if current == target:
+                return True
+            if current in visited:
+                continue
+            visited.add(current)
+            pending.extend(successors.get(current, ()))
+        return False
+
+    if any(reachable(source_id, target) for target in target_ids):
+        return True
+    if any(reachable(target, source_id) for target in target_ids):
+        return False
+    return None
+
+
+def _state_producer_status(
+    graph: ComponentGraph,
+    state_key: StateKey[object],
+    consumer: object,
+) -> bool | None:
+    targets = _component_node_ids(graph, consumer)
+    if not targets:
+        return None
+    uncertain = False
+    for node in graph.nodes:
+        relation = _graph_precedes(graph, node.component_id, targets)
+        if state_key in node.analysis_contract.state.writes:
+            if relation is True:
+                return True
+            if relation is None:
+                uncertain = True
+        elif (
+            not node.analysis_contract.state.writes_enumerable and relation is not False
+        ):
+            uncertain = True
+    return None if uncertain else False
 
 
 def _prepare_plan(
@@ -63,8 +187,10 @@ def _prepare_plan(
     _context_factory: Callable[[], tuple[Problem | None, frozenset[str] | None]]
     | None = None,
     _verification_enabled: bool = True,
+    _component_resolution: _ComponentResolution | None = None,
 ) -> ExecutablePlan:
     """Build and compile a strategy graph with one consistent context."""
+    stage_selections: list[tuple[str, str, object, str]] = []
     graph, compile_context = _prepare_graph_and_context(
         strategy,
         provider,
@@ -73,10 +199,96 @@ def _prepare_plan(
         initial_state_keys=initial_state_keys,
         _context_factory=_context_factory,
         _verification_enabled=_verification_enabled,
+        _component_resolution=_component_resolution,
+        _stage_selections=stage_selections,
     )
-    return Compiler().compile(
+    executable = Compiler().compile(
         graph,
         compile_context,
+    )
+    if _component_resolution is None:
+        return executable
+    diagnostics = list(executable.diagnostics)
+    required_inputs = (
+        (
+            "evaluation_planner",
+            "acquisition",
+            SCORES,
+            "acquisition scores",
+            "score-producing component",
+            "Use a strategy that produces acquisition scores or select a planner "
+            "that does not require them.",
+        ),
+        (
+            "feedback_builder",
+            "prediction",
+            SURROGATES_PREDICTIONS,
+            "objective predictions",
+            "prediction-producing component",
+            "Use a strategy that produces objective predictions or select a "
+            "feedback builder that does not require them.",
+        ),
+    )
+    for slot, input_name, state_key, required, producer, resolution in required_inputs:
+        component = _component_resolution.bindings.get(slot)
+        if (
+            component is None
+            or not _requires_input(component, input_name)
+            or not _graph_uses_component(graph, component)
+            or _state_producer_status(graph, state_key, component) is not False
+        ):
+            continue
+        origin = _component_resolution.origins.get(slot)
+        selected = (
+            f"selected {type(component).__name__} from {origin.source}: {origin.reason}"
+            if origin is not None
+            else f"selected {type(component).__name__}"
+        )
+        diagnostics.append(
+            Diagnostic(
+                severity=Severity.ERROR,
+                code="unresolved_input",
+                message=(
+                    f"{slot} {selected} requires {required}, but the prepared "
+                    f"graph has no {producer}."
+                ),
+                path=ContractPath(
+                    components=("optimizer", slot),
+                    port=input_name,
+                ),
+                resolutions=(resolution,),
+            )
+        )
+    selection_resolutions = tuple(
+        f"{slot} selected {type(origin.value).__name__} from "
+        f"{origin.source}: {origin.reason}"
+        for slot, origin in _component_resolution.origins.items()
+        if slot in {"algorithm", "strategy"}
+    )
+    diagnosed = tuple(
+        replace(
+            diagnostic,
+            resolutions=(*diagnostic.resolutions, *selection_resolutions),
+        )
+        if diagnostic.code in {"missing_runtime_capability", "unresolved_input"}
+        else diagnostic
+        for diagnostic in diagnostics
+    )
+    stage_diagnostics = tuple(
+        Diagnostic(
+            severity=Severity.INFO,
+            code="component_binding_selected",
+            message=(
+                f"{slot}[{role}] selected {type(component).__name__} from "
+                f"Stage fallback: {reason}"
+            ),
+            path=ContractPath(components=("optimizer", slot), role=role),
+        )
+        for slot, role, component, reason in stage_selections
+    )
+    return replace(
+        executable,
+        diagnostics=tuple((*diagnosed, *stage_diagnostics)),
     )
 
 
@@ -90,8 +302,16 @@ def _prepare_graph_and_context(
     _context_factory: Callable[[], tuple[Problem | None, frozenset[str] | None]]
     | None = None,
     _verification_enabled: bool = True,
+    _component_resolution: _ComponentResolution | None = None,
+    _stage_selections: list[tuple[str, str, object, str]] | None = None,
 ) -> tuple[ComponentGraph, CompileContext]:
     """Build the graph before resolving runtime capabilities and context."""
+    if _component_resolution is not None:
+        provider = _PreparedProvider(
+            provider,
+            _component_resolution,
+            [] if _stage_selections is None else _stage_selections,
+        )
     graph = _build_strategy_graph(strategy, provider)
     if _context_factory is not None:
         problem, offered_runtime_capabilities = _context_factory()
@@ -125,7 +345,15 @@ def resolve_declaration(
     Returns a plan-owned resolved structure; the declaration *entry* and the
     Stage objects inside it are never mutated.
     """
-    return _resolve_entry(entry, bindings, {})
+    return _resolve_declaration(entry, bindings, None)
+
+
+def _resolve_declaration(
+    entry: PipelineEntry,
+    bindings: Mapping[str, object],
+    selections: list[tuple[str, str, object, str]] | None,
+) -> PipelineEntry:
+    return _resolve_entry(entry, bindings, _StageDefaults(selections))
 
 
 def declared_components(entry: Any) -> Any:

@@ -10,7 +10,7 @@ import pickle
 import warnings
 from collections.abc import Callable, Generator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 from typing_extensions import Self
 
@@ -46,6 +46,13 @@ from saealib.core.compiler.uncertainty_rules import SurrogateUncertaintyRule
 from saealib.core.contracts import ComponentContract
 from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.exceptions import CheckpointError, ConfigurationError, ValidationError
+from saealib.execution.bindings import (
+    BINDING_SLOTS,
+    _ComponentOrigin,
+    _ComponentResolution,
+    _signature,
+    resolve_components,
+)
 from saealib.execution.evaluator import Evaluator, SerialEvaluator
 from saealib.execution.history import SUPPORTED_HISTORY_CHANNELS
 from saealib.execution.prepare import (
@@ -65,7 +72,6 @@ from saealib.surrogate.manager import (
 )
 from saealib.surrogate.rbf_kernels import GaussianKernel
 from saealib.termination import Termination
-from saealib.termination import max_fe as max_fe_cond
 
 logger = logging.getLogger(__name__)
 
@@ -225,6 +231,59 @@ class Optimizer:
         The name of the optimizer instance.
     """
 
+    _COMPONENT_ASSIGNMENTS = frozenset((*BINDING_SLOTS, "initializer", "termination"))
+
+    if TYPE_CHECKING:
+        algorithm: Algorithm
+        strategy: OptimizationStrategy
+        surrogate_manager: SurrogateManager
+        termination: Termination
+
+    def __setattr__(self, name: str, value: object) -> None:
+        tracking = self.__dict__.get("_track_component_assignments", False)
+        prior_value = getattr(self, name, None) if tracking else None
+        prior_origin = self.__dict__.get("_component_origins", {}).get(name)
+        object.__setattr__(self, name, value)
+        if tracking and name in self._COMPONENT_ASSIGNMENTS:
+            origins = self.__dict__.setdefault("_component_origins", {})
+            origins[name] = _ComponentOrigin(
+                value,
+                "direct assignment",
+                "Assigned directly to the optimizer.",
+                "",
+            )
+            self.__dict__.setdefault("_materialized_components", {}).pop(name, None)
+            if (
+                prior_value is not value
+                or getattr(prior_origin, "source", None) != "direct assignment"
+            ):
+                object.__setattr__(
+                    self,
+                    "_configuration_version",
+                    self.__dict__.get("_configuration_version", 0) + 1,
+                )
+            if name == "feedback_builder" and value is not None:
+                object.__setattr__(self, "feedback_builder_explicit", True)
+
+    def _set_component(self, name: str, value: object, reason: str) -> None:
+        prior_value = getattr(self, name, None)
+        prior_origin = self._component_origins.get(name)
+        object.__setattr__(self, name, value)
+        self._component_origins[name] = _ComponentOrigin(value, "setter", reason, "")
+        self._materialized_components.pop(name, None)
+        if (
+            prior_value is not value
+            or getattr(prior_origin, "source", None) != "setter"
+        ):
+            self._configuration_version += 1
+
+    def _set_framework_component(self, name: str, value: object, reason: str) -> None:
+        object.__setattr__(self, name, value)
+        self._component_origins[name] = _ComponentOrigin(
+            value, "framework default", reason, ""
+        )
+        self._materialized_components.pop(name, None)
+
     def __init__(self, problem: Problem, seed: int | None = None):
         """
         Initialize the Optimizer.
@@ -253,9 +312,26 @@ class Optimizer:
         self.instance_name: str = ""
         self._preset: dict | None = None
         self._default_resolution: DefaultResolution | None = None
+        self._component_resolution: _ComponentResolution | None = None
+        self._component_origins: dict[str, _ComponentOrigin] = {}
+        self._materialized_components: dict[str, object] = {}
+        self._configuration_version = 0
         self._last_contract_diagnostics: tuple[Diagnostic, ...] = ()
         self._executable_plan: ExecutablePlan | None = None
         self._verification_enabled = True
+        self._component_origins["evaluator"] = _ComponentOrigin(
+            self.evaluator,
+            "bundled preset",
+            "Uses serial objective evaluation.",
+            _signature(self.evaluator),
+        )
+        self._component_origins["cbmanager"] = _ComponentOrigin(
+            self.cbmanager,
+            "bundled preset",
+            "Uses the optimizer callback manager.",
+            _signature(self.cbmanager),
+        )
+        self._track_component_assignments = True
 
     # --- setters (all return self for chaining) ---
 
@@ -366,7 +442,11 @@ class Optimizer:
             try:
                 strategy = copy.copy(getattr(self, "strategy", None))
                 validation_provider = copy.copy(self)
-                validation_provider.strategy = strategy
+                validation_provider._component_origins = self._component_origins.copy()
+                validation_provider._materialized_components = (
+                    self._materialized_components.copy()
+                )
+                object.__setattr__(validation_provider, "strategy", strategy)
                 graph, compile_context = _prepare_graph_and_context(
                     strategy,
                     validation_provider,
@@ -433,28 +513,37 @@ class Optimizer:
 
     def _compile_plan(self) -> ExecutablePlan | None:
         """Build and compile the configured strategy graph once per run."""
+        self.resolve_defaults()
         strategy = getattr(self, "strategy", None)
         if not callable(getattr(strategy, "build_graph", None)):
             self._executable_plan = None
             return None
-        try:
-            plan = _prepare_plan(
-                strategy,
-                self,
-                problem=None,
-                offered_runtime_capabilities=None,
-                _context_factory=lambda: (
-                    getattr(self, "problem", None),
-                    default_runtime_registry.offered_capabilities(self),
-                ),
-                initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-                _verification_enabled=getattr(self, "_verification_enabled", True),
-            )
-        except _InvalidStrategyGraphError:
-            self._executable_plan = None
-            return None
-        self._executable_plan = plan
-        return plan
+        for _ in range(8):
+            configuration_version = self._configuration_version
+            resolution = self._component_resolution
+            try:
+                plan = _prepare_plan(
+                    strategy,
+                    self,
+                    problem=None,
+                    offered_runtime_capabilities=None,
+                    _context_factory=lambda: (
+                        getattr(self, "problem", None),
+                        default_runtime_registry.offered_capabilities(self),
+                    ),
+                    initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+                    _verification_enabled=getattr(self, "_verification_enabled", True),
+                    _component_resolution=resolution,
+                )
+            except _InvalidStrategyGraphError:
+                self._executable_plan = None
+                return None
+            if configuration_version == self._configuration_version:
+                self._executable_plan = plan
+                return plan
+            self.resolve_defaults()
+            strategy = getattr(self, "strategy", None)
+        raise ConfigurationError("component bindings changed during plan preparation")
 
     def set_seed(self, seed: int | None) -> Self:
         """Set the master random seed. Returns self."""
@@ -478,24 +567,34 @@ class Optimizer:
 
     def set_initializer(self, initializer: Initializer) -> Self:
         """Set the initializer. Returns self."""
-        self.initializer = initializer
+        self._set_component(
+            "initializer", initializer, "Configured with set_initializer()."
+        )
         return self
 
     def set_algorithm(self, algorithm: Algorithm) -> Self:
         """Set the evolutionary algorithm. Returns self."""
-        self.algorithm = algorithm
+        self._set_component("algorithm", algorithm, "Configured with set_algorithm().")
         return self
 
     def set_surrogate_manager(self, manager: SurrogateManager) -> Self:
         """Set the surrogate manager. Returns self."""
-        self.surrogate_manager = manager
+        self._set_component(
+            "surrogate_manager", manager, "Configured with set_surrogate_manager()."
+        )
         if isinstance(manager, PairwiseSurrogateManager) and self.acquisition is None:
-            self.acquisition = WinRateAcquisition()
+            self._set_framework_component(
+                "acquisition",
+                WinRateAcquisition(),
+                "Uses the pairwise manager's win-rate acquisition.",
+            )
         return self
 
     def set_acquisition(self, acquisition) -> Self:
         """Set the independent acquisition component."""
-        self.acquisition = acquisition
+        self._set_component(
+            "acquisition", acquisition, "Configured with set_acquisition()."
+        )
         return self
 
     @property
@@ -509,12 +608,18 @@ class Optimizer:
 
     def set_evaluation_planner(self, planner: EvaluationPlanner) -> Self:
         """Set the evaluation planner."""
-        self.evaluation_planner = planner
+        self._set_component(
+            "evaluation_planner",
+            planner,
+            "Configured with set_evaluation_planner().",
+        )
         return self
 
     def set_feedback_builder(self, builder: FeedbackBuilder) -> Self:
         """Set the feedback builder."""
-        self.feedback_builder = builder
+        self._set_component(
+            "feedback_builder", builder, "Configured with set_feedback_builder()."
+        )
         self.feedback_builder_explicit = True
         return self
 
@@ -526,16 +631,24 @@ class Optimizer:
         """
         from saealib.surrogate.training_set import KNNObjectiveSet
 
-        self.surrogate_manager = LocalSurrogateManager(
-            surrogate,
-            training_set=KNNObjectiveSet(n_neighbors=n_neighbors),
+        self._set_component(
+            "surrogate_manager",
+            LocalSurrogateManager(
+                surrogate,
+                training_set=KNNObjectiveSet(n_neighbors=n_neighbors),
+            ),
+            "Configured with set_surrogate().",
         )
-        self.acquisition = MeanPrediction(direction=self.problem.direction)
+        self._set_framework_component(
+            "acquisition",
+            MeanPrediction(direction=self.problem.direction),
+            "Uses the prediction acquisition paired with set_surrogate().",
+        )
         return self
 
     def set_strategy(self, strategy: OptimizationStrategy) -> Self:
         """Set the optimization strategy. Returns self."""
-        self.strategy = strategy
+        self._set_component("strategy", strategy, "Configured with set_strategy().")
         return self
 
     def set_evaluator(self, evaluator: Evaluator) -> Self:
@@ -544,7 +657,7 @@ class Optimizer:
             raise ConfigurationError(
                 "submit(), collect(), and acknowledge() must be overridden together"
             )
-        self.evaluator = evaluator
+        self._set_component("evaluator", evaluator, "Configured with set_evaluator().")
         return self
 
     def set_async_evaluation_scheduler(
@@ -560,7 +673,9 @@ class Optimizer:
 
     def set_termination(self, termination: Termination) -> Self:
         """Set the termination condition. Returns self."""
-        self.termination = termination
+        self._set_component(
+            "termination", termination, "Configured with set_termination()."
+        )
         return self
 
     def set_instance_name(self, name: str) -> Self:
@@ -578,6 +693,7 @@ class Optimizer:
         from saealib.defaults import load_preset
 
         self._preset = load_preset(preset)
+        self._configuration_version += 1
         return self
 
     # --- preset export ---
@@ -799,337 +915,48 @@ class Optimizer:
                     f"not match problem.n_obj ({self.problem.n_obj})"
                 )
 
-    def _discover_default_hint_providers(self) -> tuple[list[Any], dict[str, object]]:
-        """Discover default providers from the configured component graph.
-
-        The component contracts describe constructor-held parts, so following
-        ``ComponentContract.parts`` keeps discovery independent of concrete
-        component classes and supports arbitrarily nested custom components.
-        """
-        from saealib.defaults.builtin import BUILTIN_DEFAULT_PROVIDER
-
-        roots = (
-            ("initializer", getattr(self, "initializer", None)),
-            ("algorithm", getattr(self, "algorithm", None)),
-            ("strategy", getattr(self, "strategy", None)),
-            ("surrogate_manager", getattr(self, "surrogate_manager", None)),
-            ("acquisition", getattr(self, "acquisition", None)),
-            ("comparator", self.problem.comparator),
-            ("termination", getattr(self, "termination", None)),
-            ("evaluator", getattr(self, "evaluator", None)),
-            ("evaluation_planner", getattr(self, "evaluation_planner", None)),
-            ("feedback_builder", getattr(self, "feedback_builder", None)),
-            (
-                "async_evaluation_scheduler",
-                getattr(self, "async_evaluation_scheduler", None),
-            ),
+    def _publish_component_resolution(self, resolution: _ComponentResolution) -> None:
+        """Publish resolved bindings for this optimizer execution session."""
+        for name, value in resolution.components.items():
+            object.__setattr__(self, name, value)
+            origin = resolution.origins.get(name)
+            if origin is None:
+                self._component_origins.pop(name, None)
+                self._materialized_components.pop(name, None)
+                continue
+            self._component_origins[name] = origin
+            if origin.source in {"setter", "direct assignment"}:
+                self._materialized_components.pop(name, None)
+            else:
+                self._materialized_components[name] = value
+        self._component_resolution = resolution
+        self._default_resolution = resolution.defaults
+        feedback_origin = resolution.origins.get("feedback_builder")
+        self.feedback_builder_explicit = feedback_origin is not None and (
+            feedback_origin.source in {"setter", "direct assignment", "user preset"}
         )
-        providers: list[Any] = [BUILTIN_DEFAULT_PROVIDER]
-        components: dict[str, object] = {}
-        visited: set[int] = set()
-        provider_ids = {id(BUILTIN_DEFAULT_PROVIDER)}
-
-        def visit(
-            component: object,
-            path: str,
-            declared_contract: ComponentContract | None = None,
-        ) -> None:
-            if component is None:
-                return
-            # Keep every reachable path in the context even when a component
-            # instance is shared by multiple roots or parts.  Providers and
-            # child contracts are still visited only once per instance.
-            components[path] = component
-            if id(component) in visited:
-                return
-            visited.add(id(component))
-
-            try:
-                default_hints = getattr(component, "default_hints", None)
-            except Exception as error:
-                raise ConfigurationError(
-                    f"Cannot inspect {path}.default_hints: "
-                    f"{type(error).__name__}: {error}"
-                ) from error
-            if callable(default_hints) and id(component) not in provider_ids:
-                providers.append(component)
-                provider_ids.add(id(component))
-
-            contract = declared_contract
-            if contract is None:
-                try:
-                    contract_method = getattr(component, "contract", None)
-                except Exception as error:
-                    raise ConfigurationError(
-                        f"Cannot inspect {path}.contract: "
-                        f"{type(error).__name__}: {error}"
-                    ) from error
-                if not callable(contract_method):
-                    return
-                try:
-                    contract = cast(ComponentContract, contract_method())
-                except Exception as error:
-                    raise ConfigurationError(
-                        f"Cannot inspect {path}.contract(): "
-                        f"{type(error).__name__}: {error}"
-                    ) from error
-                if not isinstance(contract, ComponentContract):
-                    raise ConfigurationError(
-                        f"{path}.contract() returned "
-                        f"{type(contract).__name__}, expected ComponentContract"
-                    )
-
-            for part in contract.parts:
-                part_path = f"{path}.{part.name}"
-                try:
-                    child = getattr(component, part.name)
-                except AttributeError as error:
-                    if part.optional:
-                        continue
-                    raise ConfigurationError(
-                        f"Cannot discover component part {part_path!r}: "
-                        f"attribute is missing"
-                    ) from error
-                except Exception as error:
-                    raise ConfigurationError(
-                        f"Cannot inspect component part {part_path!r}: "
-                        f"{type(error).__name__}: {error}"
-                    ) from error
-                if child is None:
-                    if part.optional:
-                        continue
-                    raise ConfigurationError(
-                        f"Cannot discover component part {part_path!r}: "
-                        "required part is None"
-                    )
-                visit(child, part_path, part.contract)
-
-        for name, component in roots:
-            if component is not None:
-                visit(component, name)
-        return providers, components
-
-    def resolve_defaults(self) -> None:
-        """Fill unset components with library defaults (Registry + presets file).
-
-        Components already set via ``set_*()`` are never overwritten. Gaps
-        are filled first from a user preset (``set_preset()``), if any, then
-        from a bundled preset selected by (1) the algorithm's registered
-        name if ``algorithm`` is set, else (2) a Problem-shape rule, else
-        (3) the universal fallback preset. ``initializer`` is computed
-        from semantic defaults and is not part of any preset;
-        ``termination`` falls back to the resolved maximum-evaluations default
-        (``200 * problem.dim`` unless a provider recommends another value)
-        only if neither ``set_*()`` nor a preset supplies one.
-        """
-        from saealib.defaults import load_defaults
-        from saealib.registry import _inject_params, build
-
-        algorithm = getattr(self, "algorithm", None)
-        strategy = getattr(self, "strategy", None)
-        surrogate_manager = getattr(self, "surrogate_manager", None)
-        bundled_preset_name = None
-
-        user_preset = getattr(self, "_preset", None)
-        if user_preset is not None:
-            dim = self.problem.dim
-            direction = self.problem.direction
-            if algorithm is None and "algorithm" in user_preset:
-                algorithm = build(
-                    _inject_params(
-                        user_preset["algorithm"], dim=dim, direction=direction
-                    )
-                )
-                self.algorithm = algorithm
-            if surrogate_manager is None and "surrogate_manager" in user_preset:
-                surrogate_manager, acquisition = self._build_components_from_spec(
-                    user_preset["surrogate_manager"]
-                )
-                self.surrogate_manager = surrogate_manager
-                if self.acquisition is None:
-                    self.acquisition = acquisition
-            if strategy is None and "strategy" in user_preset:
-                strategy = build(
-                    _inject_params(
-                        user_preset["strategy"], dim=dim, direction=direction
-                    )
-                )
-                self.strategy = strategy
-            if self.evaluation_planner is None:
-                spec = user_preset.get("evaluation_planner")
-                if spec is not None:
-                    self.evaluation_planner = build(spec)
-            if self.feedback_builder is None and "feedback_builder" in user_preset:
-                self.feedback_builder = build(user_preset["feedback_builder"])
-                self.feedback_builder_explicit = True
-            if (
-                getattr(self, "termination", None) is None
-                and "termination" in user_preset
-            ):
-                self.termination = build(
-                    _inject_params(
-                        user_preset["termination"], dim=dim, direction=direction
-                    )
-                )
-
-        use_bundled_policies = strategy is None
-        if (
-            algorithm is None
-            or strategy is None
-            or surrogate_manager is None
-            or self.evaluation_planner is None
-            or self.feedback_builder is None
-        ):
-            defaults = load_defaults()
-            bundled_preset_name = self._select_preset_name(defaults, algorithm)
-            preset = defaults["presets"][bundled_preset_name]
-            if algorithm is None and "algorithm" in preset:
-                self.algorithm = build(
-                    _inject_params(
-                        preset["algorithm"],
-                        dim=self.problem.dim,
-                        direction=self.problem.direction,
-                    )
-                )
-            if surrogate_manager is None and "surrogate_manager" in preset:
-                manager, acquisition = self._build_components_from_spec(
-                    preset["surrogate_manager"]
-                )
-                self.surrogate_manager = manager
-                if self.acquisition is None:
-                    self.acquisition = acquisition
-            if strategy is None and "strategy" in preset:
-                self.strategy = build(
-                    _inject_params(
-                        preset["strategy"],
-                        dim=self.problem.dim,
-                        direction=self.problem.direction,
-                    )
-                )
-            if (
-                use_bundled_policies
-                and self.evaluation_planner is None
-                and "evaluation_planner" in preset
-            ):
-                self.evaluation_planner = build(preset["evaluation_planner"])
-            if (
-                use_bundled_policies
-                and self.feedback_builder is None
-                and "feedback_builder" in preset
-            ):
-                self.feedback_builder = build(preset["feedback_builder"])
-
-        from saealib.defaults.context import DefaultContext
-        from saealib.defaults.keys import (
-            INITIAL_ARCHIVE_SIZE,
-            MAX_EVALUATIONS,
-            POPULATION_SIZE,
-        )
-        from saealib.defaults.model import (
-            DefaultHint,
-            DefaultResolution,
-            DefaultStrength,
-            ResolvedDefault,
-        )
-        from saealib.defaults.resolver import DEFAULT_RESOLVER
-        from saealib.execution.initializer import LHSInitializer
-
-        # Resolve semantic defaults for the complete configured composition,
-        # even when materialization of one of the defaults is unnecessary
-        # because the user supplied that component explicitly.
-        providers, components = self._discover_default_hint_providers()
-        ctx = DefaultContext(
-            problem=self.problem,
-            seed=self.seed,
-            components=components,
-        )
-        resolution = DEFAULT_RESOLVER.resolve(ctx, providers)
-
-        dim = self.problem.dim
-        n_population = resolution.get(POPULATION_SIZE, 4 * dim)
-        n_archive = resolution.get(INITIAL_ARCHIVE_SIZE, 5 * dim)
-
-        # Ensure archive is at least as large as population, and retain that
-        # invariant in the provenance trace as well.  This semantic step must
-        # run even when the initializer was supplied explicitly: otherwise a
-        # second resolve_defaults() call would replace the normalized trace
-        # with the raw resolver result.
-        if n_archive < n_population:
-            archive_resolution = resolution.resolved.get(INITIAL_ARCHIVE_SIZE)
-            if (
-                archive_resolution is not None
-                and archive_resolution.selected_hint.strength
-                == DefaultStrength.REQUIRED
-            ):
-                selected = archive_resolution.selected_hint
-                raise ConfigurationError(
-                    "REQUIRED default for "
-                    f"{INITIAL_ARCHIVE_SIZE.name!r} ({n_archive}) from "
-                    f"{selected.source!r} is smaller than the resolved "
-                    f"population size ({n_population})"
-                )
-
-            adjusted_hint = DefaultHint(
-                key=INITIAL_ARCHIVE_SIZE,
-                value=n_population,
-                strength=DefaultStrength.REQUIRED,
-                source="optimizer",
-                reason=(
-                    f"Raised to match the resolved population size: {n_population}"
-                ),
-            )
-            resolution = DefaultResolution(
-                values={
-                    **resolution.values,
-                    INITIAL_ARCHIVE_SIZE: n_population,
-                },
-                resolved={
-                    **resolution.resolved,
-                    INITIAL_ARCHIVE_SIZE: ResolvedDefault(
-                        key=INITIAL_ARCHIVE_SIZE,
-                        value=n_population,
-                        selected_hint=adjusted_hint,
-                        alternatives=(
-                            archive_resolution.alternatives
-                            if archive_resolution is not None
-                            else ()
-                        ),
-                    ),
-                },
-            )
-            n_archive = n_population
-
-        if self.initializer is None:
-            self.initializer = LHSInitializer(
-                n_init_archive=n_archive, n_init_population=n_population, seed=self.seed
-            )
-
-        self._default_resolution = resolution
-
-        if getattr(self, "termination", None) is None:
-            max_evaluations = resolution.get(MAX_EVALUATIONS, 200 * dim)
-            self.termination = Termination(max_fe_cond(max_evaluations))
         if self.async_evaluation_scheduler is not None:
             self.async_evaluation_scheduler.algorithm = self.algorithm
 
+    def resolve_defaults(self) -> None:
+        """Resolve component and semantic defaults for the current composition."""
+        resolution = resolve_components(self)
+        self._publish_component_resolution(resolution)
         component_types = {
             name: type(component).__name__
-            for name in (
-                "algorithm",
-                "strategy",
-                "surrogate_manager",
-                "acquisition",
-                "evaluation_planner",
-                "feedback_builder",
-                "termination",
-                "initializer",
-            )
-            if (component := getattr(self, name, None)) is not None
+            for name, component in resolution.components.items()
+            if component is not None
+        }
+        selected_sources = {
+            name: f"{origin.source}: {origin.reason}"
+            for name, origin in resolution.origins.items()
         }
         logger.debug(
-            "Resolved defaults: bundled_preset=%s components=%s",
-            bundled_preset_name,
+            "Resolved defaults: bundled_preset=%s components=%s values=%s sources=%s",
+            resolution.bundled_preset,
             component_types,
+            {key.name: value for key, value in resolution.defaults.values.items()},
+            selected_sources,
         )
 
     def _inject_acquisition_directions(self) -> None:
@@ -1465,6 +1292,26 @@ class Optimizer:
         self.__dict__.setdefault("_executable_plan", None)
         self.__dict__.setdefault("_default_resolution", None)
         self.__dict__.setdefault("_verification_enabled", True)
+        self.__dict__.setdefault("_component_resolution", None)
+        self.__dict__.setdefault("_component_origins", {})
+        self.__dict__.setdefault("_materialized_components", {})
+        self.__dict__.setdefault("_configuration_version", 0)
+        self.__dict__.setdefault("_track_component_assignments", True)
+        if "_component_origins" not in state:
+            source = (
+                "persisted"
+                if self._default_resolution is not None
+                else "direct assignment"
+            )
+            for name in self._COMPONENT_ASSIGNMENTS:
+                value = getattr(self, name, None)
+                if value is not None:
+                    self._component_origins[name] = _ComponentOrigin(
+                        value,
+                        source,
+                        "Retained the component stored in optimizer state.",
+                        _signature(value),
+                    )
 
     def save_pickle(self, ctx: OptimizationState, path: str | Path) -> None:
         """

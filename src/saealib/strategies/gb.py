@@ -120,6 +120,15 @@ class GenerationBasedStrategy(TemplateStrategy):
             "feedback_builder": self.true_feedback_builder,
         }
 
+    def snapshot_bindings(self, provider: ComponentProvider) -> dict[str, object]:
+        """Keep the true-generation policy for compatibility providers."""
+        bindings = super().snapshot_bindings(provider)
+        if getattr(provider, "_component_resolution", None) is None and not getattr(
+            provider, "feedback_builder_explicit", False
+        ):
+            bindings["feedback_builder"] = self.true_feedback_builder
+        return bindings
+
     def __init__(self, gen_ctrl: int) -> None:
         self.gen_ctrl = gen_ctrl
         super().__init__(build_gb_template(gen_ctrl))
@@ -142,18 +151,6 @@ class GenerationBasedStrategy(TemplateStrategy):
             "_built_with_surrogate_generations", generated_repeat is not None
         )
         self.__dict__.setdefault("_generated_repeat", generated_repeat)
-
-    def snapshot_bindings(self, provider: ComponentProvider) -> dict[str, object]:
-        """Read the slots, keeping the true generation's feedback builder.
-
-        The Optimizer's ``feedback_builder`` reaches the true generation only
-        when it was configured explicitly (``feedback_builder_explicit``);
-        otherwise ``true_feedback_builder`` builds the true feedback.
-        """
-        bindings = super().snapshot_bindings(provider)
-        if not getattr(provider, "feedback_builder_explicit", False):
-            bindings["feedback_builder"] = self.true_feedback_builder
-        return bindings
 
     def build_template(self) -> Pipeline:
         """Return the declaration with the current surrogate loop count."""

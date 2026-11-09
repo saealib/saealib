@@ -26,6 +26,9 @@ from saealib.core.compiler import (
     ExecutablePlan,
     Severity,
 )
+from saealib.core.compiler.contract_diagnostics import (
+    _optimizer_configuration_diagnostics,
+)
 from saealib.core.state import SCORES, SURROGATES_PREDICTIONS
 from saealib.exceptions import ValidationError
 from saealib.execution.bindings import BINDING_SLOTS, _ComponentResolution
@@ -188,6 +191,7 @@ def _prepare_plan(
     | None = None,
     _verification_enabled: bool = True,
     _component_resolution: _ComponentResolution | None = None,
+    _require_initializer: bool = True,
 ) -> ExecutablePlan:
     """Build and compile a strategy graph with one consistent context."""
     stage_selections: list[tuple[str, str, object, str]] = []
@@ -209,6 +213,20 @@ def _prepare_plan(
     if _component_resolution is None:
         return executable
     diagnostics = list(executable.diagnostics)
+    diagnostics.extend(
+        _optimizer_configuration_diagnostics(
+            _component_resolution.components,
+            {
+                slot: (origin.source, origin.reason)
+                for slot, origin in _component_resolution.origins.items()
+            },
+            compile_context.problem,
+            _component_resolution.components.get(
+                "evaluator", getattr(provider, "evaluator", None)
+            ),
+            require_initializer=_require_initializer,
+        )
+    )
     required_inputs = (
         (
             "evaluation_planner",
@@ -268,6 +286,10 @@ def _prepare_plan(
     diagnosed = tuple(
         replace(
             diagnostic,
+            message=(
+                f"{diagnostic.message} Prepared selections: "
+                f"{'; '.join(selection_resolutions)}."
+            ),
             resolutions=(*diagnostic.resolutions, *selection_resolutions),
         )
         if diagnostic.code in {"missing_runtime_capability", "unresolved_input"}
@@ -288,7 +310,7 @@ def _prepare_plan(
     )
     return replace(
         executable,
-        diagnostics=tuple((*diagnosed, *stage_diagnostics)),
+        diagnostics=tuple(dict.fromkeys((*diagnosed, *stage_diagnostics))),
     )
 
 

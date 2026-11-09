@@ -179,14 +179,16 @@ _TRANSFORM_TRANSITIONS: dict[str, tuple[DataSpec, DataSpec, frozenset[str]]] = {
 def _apply_transforms(
     data: DataSpec, transforms: tuple[Transform, ...]
 ) -> tuple[DataSpec | None, str | None]:
-    """Return the known output type, or an explanation for an invalid chain."""
+    """Return the declared transform output, or an explanation for an invalid chain."""
     current = data
     for transform in transforms:
         transition = _TRANSFORM_TRANSITIONS.get(transform.name)
         if transition is None:
             return None, f"unknown transform {transform.name!r}"
         required, produced, preserved_bindings = transition
-        if not is_data_spec_compatible(current, required):
+        if current.kind != "UnverifiedFlowValue" and not is_data_spec_compatible(
+            current, required
+        ):
             return (
                 None,
                 f"transform {transform.name!r} requires {required.kind}, "

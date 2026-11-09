@@ -30,7 +30,6 @@ from saealib.context import (
     _validate_pending_reattachable,
 )
 from saealib.core.compiler import (
-    Compiler,
     ContractPath,
     Diagnostic,
     DiagnosticBag,
@@ -38,11 +37,11 @@ from saealib.core.compiler import (
     Severity,
     check_component_contract,
 )
-from saealib.core.compiler.compiler import RuleContext
 from saealib.core.compiler.contract_diagnostics import (
+    _optimizer_configuration_diagnostics,
+    _strategy_graph_diagnostic,
     check_pymoo_feedback_compatibility,
 )
-from saealib.core.compiler.uncertainty_rules import SurrogateUncertaintyRule
 from saealib.core.contracts import ComponentContract
 from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.exceptions import CheckpointError, ConfigurationError, ValidationError
@@ -57,7 +56,6 @@ from saealib.execution.evaluator import Evaluator, SerialEvaluator
 from saealib.execution.history import SUPPORTED_HISTORY_CHANNELS
 from saealib.execution.prepare import (
     _InvalidStrategyGraphError,
-    _prepare_graph_and_context,
     _prepare_plan,
 )
 from saealib.execution.runner import Runner
@@ -74,15 +72,6 @@ from saealib.surrogate.rbf_kernels import GaussianKernel
 from saealib.termination import Termination
 
 logger = logging.getLogger(__name__)
-
-_PLAN_UNCERTAINTY_DIAGNOSTIC_CODES = frozenset(
-    {
-        "surrogate_uncertainty_mismatch",
-        "missing_acquisition_channel",
-        "cannot_verify_acquisition_channel",
-        "cannot_verify_surrogate_uncertainty",
-    }
-)
 
 if TYPE_CHECKING:
     from saealib.algorithms.base import Algorithm
@@ -318,6 +307,9 @@ class Optimizer:
         self._configuration_version = 0
         self._last_contract_diagnostics: tuple[Diagnostic, ...] = ()
         self._executable_plan: ExecutablePlan | None = None
+        self._prepared_diagnostic_cache: (
+            tuple[tuple[object, ...], tuple[Diagnostic, ...]] | None
+        ) = None
         self._verification_enabled = True
         self._component_origins["evaluator"] = _ComponentOrigin(
             self.evaluator,
@@ -336,9 +328,19 @@ class Optimizer:
     # --- setters (all return self for chaining) ---
 
     def contract_diagnostics(self) -> DiagnosticBag:
-        """Return diagnostics for the currently configured component graph."""
+        """Return diagnostics for the prepared optimizer composition."""
+        return self._collect_contract_diagnostics(require_initializer=True)
+
+    def _collect_contract_diagnostics(
+        self, *, require_initializer: bool
+    ) -> DiagnosticBag:
+        resolution = resolve_components(self)
         diagnostics = DiagnosticBag()
         contracts: dict[str, ComponentContract] = {}
+        provenance = {
+            slot: (origin.source, origin.reason)
+            for slot, origin in resolution.origins.items()
+        }
         component_names = (
             "initializer",
             "algorithm",
@@ -352,7 +354,11 @@ class Optimizer:
             "strategy",
         )
         for name in component_names:
-            component = getattr(self, name, None)
+            component = (
+                getattr(self, name, None)
+                if name == "async_evaluation_scheduler"
+                else resolution.components.get(name)
+            )
             if component is None:
                 continue
             missing = object()
@@ -438,42 +444,84 @@ class Optimizer:
                     path=ContractPath(components=(name,)),
                 )
             )
-        if self._verification_enabled:
-            try:
-                strategy = copy.copy(getattr(self, "strategy", None))
-                validation_provider = copy.copy(self)
-                validation_provider._component_origins = self._component_origins.copy()
-                validation_provider._materialized_components = (
-                    self._materialized_components.copy()
+        diagnostics.extend(
+            _optimizer_configuration_diagnostics(
+                resolution.components,
+                provenance,
+                self.problem,
+                resolution.components.get("evaluator", self.evaluator),
+                require_initializer=require_initializer,
+            )
+        )
+        graph_blocked = any(
+            diagnostic.severity is Severity.ERROR
+            and (
+                diagnostic.code
+                in {"contract_unavailable", "component_protocol_mismatch"}
+                or diagnostic.code
+                in {"missing_surrogate_manager", "missing_acquisition"}
+                or (
+                    diagnostic.code == "missing_required_component"
+                    and diagnostic.path.components
+                    in {
+                        ("optimizer", "algorithm"),
+                        ("optimizer", "strategy"),
+                    }
                 )
-                object.__setattr__(validation_provider, "strategy", strategy)
-                graph, compile_context = _prepare_graph_and_context(
-                    strategy,
-                    validation_provider,
-                    problem=getattr(self, "problem", None),
-                    offered_runtime_capabilities=None,
-                    initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-                    _context_factory=lambda: (
-                        getattr(validation_provider, "problem", None),
-                        default_runtime_registry.offered_capabilities(
-                            validation_provider
-                        ),
-                    ),
-                    _verification_enabled=self._verification_enabled,
-                )
-                graph = Compiler()._prepare(graph, compile_context).graph
-            except Exception:
-                graph = None
-            if graph is not None:
-                findings = SurrogateUncertaintyRule().apply(
-                    RuleContext(
-                        graph=graph,
-                        compile_context=compile_context,
-                        diagnostics=DiagnosticBag(),
+            )
+            for diagnostic in diagnostics
+        )
+        if not graph_blocked:
+            strategy = resolution.components.get("strategy")
+            if strategy is not None:
+                try:
+                    if not callable(getattr(strategy, "build_graph", None)):
+                        raise TypeError(
+                            f"{type(strategy).__name__} does not provide a callable "
+                            "build_graph() operation"
+                        )
+                    signature = self._diagnostic_plan_signature(
+                        resolution, require_initializer=require_initializer
                     )
-                )
-                diagnostics.extend(findings.diagnostics)
-        algorithm = getattr(self, "algorithm", None)
+                    cached = self._prepared_diagnostic_cache
+                    if cached is not None and cached[0] == signature:
+                        plan_diagnostics = cached[1]
+                        self._prepared_diagnostic_cache = None
+                    else:
+                        validation_strategy = copy.copy(strategy)
+                        validation_provider = copy.copy(self)
+                        validation_provider._component_origins = (
+                            self._component_origins.copy()
+                        )
+                        validation_provider._materialized_components = (
+                            self._materialized_components.copy()
+                        )
+                        object.__setattr__(
+                            validation_provider, "strategy", validation_strategy
+                        )
+                        plan = _prepare_plan(
+                            validation_strategy,
+                            validation_provider,
+                            problem=None,
+                            offered_runtime_capabilities=None,
+                            _context_factory=lambda: (
+                                getattr(validation_provider, "problem", None),
+                                default_runtime_registry.offered_capabilities(
+                                    validation_provider
+                                ),
+                            ),
+                            initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
+                            _verification_enabled=self._verification_enabled,
+                            _component_resolution=resolution,
+                            _require_initializer=require_initializer,
+                        )
+                        plan_diagnostics = plan.diagnostics
+                    diagnostics.extend(plan_diagnostics)
+                except Exception as error:
+                    diagnostics.append(
+                        _strategy_graph_diagnostic(strategy, provenance, error)
+                    )
+        algorithm = resolution.components.get("algorithm")
         scheduler = self.async_evaluation_scheduler
         from saealib.algorithms.pymoo_algorithm import PymooAlgorithm
 
@@ -493,7 +541,29 @@ class Optimizer:
                         ),
                     )
                 )
-        return diagnostics
+        return DiagnosticBag(dict.fromkeys(diagnostics))
+
+    def _diagnostic_plan_signature(
+        self,
+        resolution: _ComponentResolution,
+        *,
+        require_initializer: bool = True,
+    ) -> tuple[object, ...]:
+        return (
+            self._configuration_version,
+            tuple(
+                (name, _signature(value))
+                for name, value in resolution.components.items()
+            ),
+            tuple(
+                (name, origin.source, origin.reason)
+                for name, origin in resolution.origins.items()
+            ),
+            _signature(self.problem.comparator),
+            repr(self.problem.direction),
+            self._verification_enabled,
+            require_initializer,
+        )
 
     @property
     def last_contract_diagnostics(self) -> tuple[Diagnostic, ...]:
@@ -511,16 +581,19 @@ class Optimizer:
             return "Optimizer(uncompiled)"
         return self._executable_plan.describe()
 
-    def _compile_plan(self) -> ExecutablePlan | None:
+    def _compile_plan(
+        self, *, require_initializer: bool = True
+    ) -> ExecutablePlan | None:
         """Build and compile the configured strategy graph once per run."""
         self.resolve_defaults()
+        self._prepared_diagnostic_cache = None
         strategy = getattr(self, "strategy", None)
         if not callable(getattr(strategy, "build_graph", None)):
             self._executable_plan = None
             return None
         for _ in range(8):
             configuration_version = self._configuration_version
-            resolution = self._component_resolution
+            resolution = cast(_ComponentResolution, self._component_resolution)
             try:
                 plan = _prepare_plan(
                     strategy,
@@ -534,12 +607,19 @@ class Optimizer:
                     initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
                     _verification_enabled=getattr(self, "_verification_enabled", True),
                     _component_resolution=resolution,
+                    _require_initializer=require_initializer,
                 )
             except _InvalidStrategyGraphError:
                 self._executable_plan = None
                 return None
             if configuration_version == self._configuration_version:
                 self._executable_plan = plan
+                self._prepared_diagnostic_cache = (
+                    self._diagnostic_plan_signature(
+                        resolution, require_initializer=require_initializer
+                    ),
+                    plan.diagnostics,
+                )
                 return plan
             self.resolve_defaults()
             strategy = getattr(self, "strategy", None)
@@ -780,8 +860,7 @@ class Optimizer:
         """
         Check configuration consistency. Returns list of issues.
 
-        Call :meth:`resolve_defaults` first when validation results should
-        reflect the components that will be used for execution.
+        Component defaults are resolved before checking the composition.
 
         Parameters
         ----------
@@ -789,131 +868,17 @@ class Optimizer:
             When False, skip the initializer presence check.  Use this when
             resuming from a checkpoint where initialization is not needed.
         """
-        issues: list[str] = []
-
-        self._validate_evaluator_lifecycle(issues)
-
-        algorithm = getattr(self, "algorithm", None)
-        strategy = getattr(self, "strategy", None)
-        termination = getattr(self, "termination", None)
-        surrogate_manager = getattr(self, "surrogate_manager", None)
-
-        self._validate_required_components(
-            issues, algorithm, strategy, termination, require_initializer
+        diagnostics = tuple(
+            self.contract_diagnostics()
+            if require_initializer
+            else self._collect_contract_diagnostics(require_initializer=False)
         )
-        self._validate_component_protocols(issues)
-        self._validate_strategy_requirements(issues, strategy, surrogate_manager)
-        self._validate_comparator_direction(issues)
-
-        if surrogate_manager is not None:
-            self._validate_acquisition_directions(issues)
-
-        diagnostics = tuple(self.contract_diagnostics())
-        if self._executable_plan is not None:
-            diagnostics = tuple(
-                dict.fromkeys(
-                    (
-                        *diagnostics,
-                        *(
-                            diagnostic
-                            for diagnostic in self._executable_plan.diagnostics
-                            if diagnostic.code not in _PLAN_UNCERTAINTY_DIAGNOSTIC_CODES
-                        ),
-                    )
-                )
-            )
         self._last_contract_diagnostics = diagnostics
-        issues.extend(
+        return [
             str(diagnostic)
             for diagnostic in self._last_contract_diagnostics
             if diagnostic.severity is Severity.ERROR
-        )
-
-        return issues
-
-    def _validate_evaluator_lifecycle(self, issues: list[str]) -> None:
-        if self.evaluator.has_partial_lifecycle_override():
-            issues.append(
-                "submit(), collect(), and acknowledge() must be overridden together"
-            )
-
-    def _validate_required_components(
-        self,
-        issues: list[str],
-        algorithm: object,
-        strategy: object,
-        termination: object,
-        require_initializer: bool,
-    ) -> None:
-        if algorithm is None:
-            issues.append("algorithm is not set; call set_algorithm()")
-        if strategy is None:
-            issues.append("strategy is not set; call set_strategy()")
-        if require_initializer and self.initializer is None:
-            issues.append("initializer is not set; call set_initializer()")
-        if termination is None:
-            issues.append("termination is not set; call set_termination()")
-
-    def _validate_component_protocols(self, issues: list[str]) -> None:
-        if self.evaluation_planner is not None and not isinstance(
-            self.evaluation_planner, EvaluationPlanner
-        ):
-            issues.append("evaluation_planner must be an EvaluationPlanner")
-        if self.feedback_builder is not None and not isinstance(
-            self.feedback_builder, FeedbackBuilder
-        ):
-            issues.append("feedback_builder must be a FeedbackBuilder")
-
-    def _validate_strategy_requirements(
-        self,
-        issues: list[str],
-        strategy: object,
-        surrogate_manager: object,
-    ) -> None:
-        if (
-            strategy is not None
-            and getattr(strategy, "requires_surrogate", False)
-            and surrogate_manager is None
-        ):
-            issues.append(
-                f"{type(strategy).__name__} requires a surrogate_manager; "
-                "call set_surrogate_manager() or set_surrogate()"
-            )
-        if (
-            strategy is not None
-            and getattr(strategy, "requires_surrogate", False)
-            and self.acquisition is None
-        ):
-            issues.append(
-                "a provider-owned acquisition is required; call set_acquisition()"
-            )
-
-    def _validate_comparator_direction(self, issues: list[str]) -> None:
-        _dim = getattr(self.problem.comparator, "direction", None)
-        if (
-            _dim is not None
-            and hasattr(_dim, "__len__")
-            and len(_dim) > 0
-            and len(_dim) != self.problem.n_obj
-        ):
-            issues.append(
-                f"comparator direction length ({len(_dim)}) does not match "
-                f"problem.n_obj ({self.problem.n_obj})"
-            )
-
-    def _validate_acquisition_directions(self, issues: list[str]) -> None:
-        for acq in self._iter_acquisitions():
-            _adir = getattr(acq, "direction", None)
-            if (
-                _adir is not None
-                and hasattr(_adir, "__len__")
-                and len(_adir) > 0
-                and len(_adir) != self.problem.n_obj
-            ):
-                issues.append(
-                    f"{type(acq).__name__} direction length ({len(_adir)}) does "
-                    f"not match problem.n_obj ({self.problem.n_obj})"
-                )
+        ]
 
     def _publish_component_resolution(self, resolution: _ComponentResolution) -> None:
         """Publish resolved bindings for this optimizer execution session."""
@@ -1204,7 +1169,7 @@ class Optimizer:
         -------
         Generator[OptimizationState, None, None]
         """
-        self._compile_plan()
+        self._compile_plan(require_initializer=False)
         issues = self.validate(require_initializer=False)
         if issues:
             raise ConfigurationError(
@@ -1252,7 +1217,7 @@ class Optimizer:
         OptimizationState
             The final optimization context.
         """
-        self._compile_plan()
+        self._compile_plan(require_initializer=False)
         issues = self.validate(require_initializer=False)
         if issues:
             raise ConfigurationError(
@@ -1284,12 +1249,14 @@ class Optimizer:
         """Exclude the compiled graph plan from legacy pickle checkpoints."""
         state = self.__dict__.copy()
         state["_executable_plan"] = None
+        state["_prepared_diagnostic_cache"] = None
         return state
 
     def __setstate__(self, state: dict[str, object]) -> None:
         """Restore an optimizer without a stale compiled execution plan."""
         self.__dict__.update(state)
         self.__dict__.setdefault("_executable_plan", None)
+        self.__dict__.setdefault("_prepared_diagnostic_cache", None)
         self.__dict__.setdefault("_default_resolution", None)
         self.__dict__.setdefault("_verification_enabled", True)
         self.__dict__.setdefault("_component_resolution", None)

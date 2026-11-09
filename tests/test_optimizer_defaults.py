@@ -253,10 +253,10 @@ class TestTemplateStrategyDefaults:
         assert strategy.requires_surrogate is True
         assert GenerationBasedStrategy.requires_surrogate is True
 
-    def test_validation_reports_missing_surrogate_components(self):
+    def test_validation_uses_prepared_surrogate_components(self):
         from saealib.strategies import GenerationBasedStrategy
 
         opt = Optimizer(_problem()).set_strategy(GenerationBasedStrategy(1))
         issues = opt.validate(require_initializer=False)
-        assert any("surrogate_manager" in issue for issue in issues)
-        assert any("acquisition" in issue for issue in issues)
+        assert not any("missing_surrogate_manager" in issue for issue in issues)
+        assert not any("missing_acquisition" in issue for issue in issues)

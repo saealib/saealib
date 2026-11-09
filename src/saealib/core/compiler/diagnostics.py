@@ -162,6 +162,44 @@ for _name, _description in (
         "selecting one.",
     ),
     ("unresolved_input", "A required input has no compatible upstream producer."),
+    (
+        "missing_required_component",
+        "A required optimizer component is not available after resolution.",
+    ),
+    (
+        "component_protocol_mismatch",
+        "A configured component does not provide a required callable operation.",
+    ),
+    (
+        "cannot_verify_component_requirement",
+        "A component requirement cannot be determined from the available declarations.",
+    ),
+    (
+        "missing_surrogate_manager",
+        "The selected strategy requires a surrogate manager that is not available.",
+    ),
+    (
+        "missing_acquisition",
+        "The selected strategy requires an acquisition component that is not "
+        "available.",
+    ),
+    (
+        "direction_length_mismatch",
+        "An objective direction vector does not match the problem objective count.",
+    ),
+    (
+        "cannot_verify_direction_length",
+        "An objective direction length cannot be determined.",
+    ),
+    (
+        "inconsistent_evaluator_lifecycle",
+        "Evaluator submit, collect, and acknowledge methods are not consistently "
+        "implemented.",
+    ),
+    (
+        "strategy_graph_unavailable",
+        "The selected strategy could not provide a graph for preparation.",
+    ),
     ("ambiguous_input", "An input has multiple compatible upstream producers."),
     (
         "invalid_flow_transform",

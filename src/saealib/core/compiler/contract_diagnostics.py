@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sized
+from typing import cast
+
 from saealib.core.compiler.diagnostics import (
     DIAGNOSTIC_CODES,
     ContractPath,
@@ -24,7 +27,400 @@ from saealib.core.contracts import (
 from saealib.core.contracts.vocabulary import Vocabulary
 from saealib.core.state import STATE_NAMESPACES
 
-__all__ = ["check_component_contract", "check_pymoo_feedback_compatibility"]
+__all__ = [
+    "check_component_contract",
+    "check_pymoo_feedback_compatibility",
+]
+
+
+_MISSING = object()
+
+
+def _selection_note(
+    slot: str, component: object, provenance: Mapping[str, tuple[str, str]]
+) -> str:
+    selected = provenance.get(slot)
+    if selected is None:
+        return ""
+    source, reason = selected
+    return f" Selected {type(component).__name__} from {source}: {reason}"
+
+
+def _optimizer_configuration_diagnostics(
+    bindings: Mapping[str, object],
+    provenance: Mapping[str, tuple[str, str]],
+    problem: object,
+    evaluator: object,
+    *,
+    require_initializer: bool = True,
+) -> tuple[Diagnostic, ...]:
+    """Check optimizer component requirements using resolved bindings."""
+    findings: list[Diagnostic] = []
+    for slot in ("algorithm", "strategy", "initializer", "termination"):
+        if slot == "initializer" and not require_initializer:
+            continue
+        if bindings.get(slot) is None:
+            findings.append(
+                Diagnostic(
+                    severity=Severity.ERROR,
+                    code="missing_required_component",
+                    message=(
+                        f"{slot} is not set after component resolution; configure "
+                        f"{slot} or select a composition that provides it."
+                    ),
+                    path=ContractPath(components=("optimizer", slot)),
+                    resolutions=(f"Configure {slot} before execution.",),
+                )
+            )
+
+    strategy = bindings.get("strategy")
+    if strategy is not None:
+        requirement_read_failed = False
+        try:
+            requires_surrogate = getattr(strategy, "requires_surrogate", _MISSING)
+        except Exception as error:
+            requirement_read_failed = True
+            requires_surrogate = _MISSING
+            findings.append(
+                Diagnostic(
+                    severity=Severity.WARNING,
+                    code="cannot_verify_component_requirement",
+                    message=(
+                        f"The surrogate requirement for {type(strategy).__name__} "
+                        f"cannot be read: {type(error).__name__}: {error}."
+                        f"{_selection_note('strategy', strategy, provenance)}"
+                    ),
+                    path=ContractPath(components=("optimizer", "strategy")),
+                    resolutions=(
+                        "Make the strategy's surrogate requirement readable.",
+                    ),
+                )
+            )
+        if requires_surrogate is _MISSING and not requirement_read_failed:
+            findings.append(
+                Diagnostic(
+                    severity=Severity.WARNING,
+                    code="cannot_verify_component_requirement",
+                    message=(
+                        f"The surrogate requirement for {type(strategy).__name__} "
+                        "cannot be verified because the strategy does not declare "
+                        "requires_surrogate."
+                        f"{_selection_note('strategy', strategy, provenance)}"
+                    ),
+                    path=ContractPath(components=("optimizer", "strategy")),
+                    resolutions=(
+                        "Declare the requirement when the strategy depends on a "
+                        "surrogate manager.",
+                    ),
+                )
+            )
+        if requires_surrogate is True:
+            if bindings.get("surrogate_manager") is None:
+                findings.append(
+                    Diagnostic(
+                        severity=Severity.ERROR,
+                        code="missing_surrogate_manager",
+                        message=(
+                            f"{type(strategy).__name__} requires a "
+                            "surrogate_manager, but no manager is available after "
+                            "component resolution."
+                            f"{_selection_note('strategy', strategy, provenance)}"
+                        ),
+                        path=ContractPath(
+                            components=("optimizer", "surrogate_manager")
+                        ),
+                        resolutions=(
+                            "Configure a surrogate manager or choose a strategy "
+                            "that does not require one.",
+                        ),
+                    )
+                )
+            if bindings.get("acquisition") is None:
+                findings.append(
+                    Diagnostic(
+                        severity=Severity.ERROR,
+                        code="missing_acquisition",
+                        message=(
+                            f"{type(strategy).__name__} requires an acquisition, "
+                            "but no provider-owned acquisition is available after "
+                            "component resolution."
+                            f"{_selection_note('strategy', strategy, provenance)}"
+                        ),
+                        path=ContractPath(components=("optimizer", "acquisition")),
+                        resolutions=(
+                            "Configure an acquisition component for the selected "
+                            "surrogate manager.",
+                        ),
+                    )
+                )
+
+    for slot, method_name in (
+        ("evaluation_planner", "plan"),
+        ("feedback_builder", "build"),
+    ):
+        component = bindings.get(slot)
+        if component is None:
+            continue
+        try:
+            method = getattr(component, method_name, None)
+        except Exception as error:
+            message = (
+                f"{slot}.{method_name} could not be read from "
+                f"{type(component).__name__}: {type(error).__name__}: {error}."
+            )
+        else:
+            if callable(method):
+                if not _declares_attribute(component, "contract"):
+                    findings.append(
+                        Diagnostic(
+                            severity=Severity.WARNING,
+                            code="cannot_verify_component_requirement",
+                            message=(
+                                f"The requirements of {type(component).__name__} "
+                                f"in {slot} cannot be verified because it does "
+                                "not declare a contract."
+                                f"{_selection_note(slot, component, provenance)}"
+                            ),
+                            path=ContractPath(components=("optimizer", slot)),
+                            resolutions=(
+                                "Declare component input requirements when they "
+                                "must be checked against the prepared flow.",
+                            ),
+                        )
+                    )
+                continue
+            message = (
+                f"{slot} must provide a callable {method_name}() operation; "
+                f"{type(component).__name__} does not."
+            )
+        findings.append(
+            Diagnostic(
+                severity=Severity.ERROR,
+                code="component_protocol_mismatch",
+                message=message + _selection_note(slot, component, provenance),
+                path=ContractPath(components=("optimizer", slot)),
+                resolutions=(f"Provide a callable {method_name}() operation.",),
+            )
+        )
+
+    comparator = _safe_attribute(problem, "comparator")
+    if comparator is not _MISSING:
+        findings.extend(
+            _direction_length_diagnostics(
+                comparator,
+                slot="comparator",
+                n_obj=_safe_attribute(problem, "n_obj"),
+                provenance={},
+            )
+        )
+
+    acquisition = bindings.get("acquisition")
+    for channel, component in _acquisition_components(acquisition):
+        findings.extend(
+            _direction_length_diagnostics(
+                component,
+                slot="acquisition",
+                n_obj=_safe_attribute(problem, "n_obj"),
+                provenance=provenance,
+                channel=channel,
+            )
+        )
+
+    lifecycle_status = _evaluator_lifecycle_status(evaluator)
+    if lifecycle_status is True:
+        findings.append(
+            Diagnostic(
+                severity=Severity.ERROR,
+                code="inconsistent_evaluator_lifecycle",
+                message=(
+                    "submit(), collect(), and acknowledge() must be overridden "
+                    "together."
+                    f"{_selection_note('evaluator', evaluator, provenance)}"
+                ),
+                path=ContractPath(components=("optimizer", "evaluator")),
+                resolutions=(
+                    "Override submit(), collect(), and acknowledge() together, "
+                    "or inherit all three methods.",
+                ),
+            )
+        )
+    elif lifecycle_status is None:
+        findings.append(
+            Diagnostic(
+                severity=Severity.WARNING,
+                code="cannot_verify_component_requirement",
+                message=(
+                    f"The lifecycle consistency of {type(evaluator).__name__} "
+                    "cannot be verified because it does not provide a lifecycle "
+                    "verification method."
+                    f"{_selection_note('evaluator', evaluator, provenance)}"
+                ),
+                path=ContractPath(components=("optimizer", "evaluator")),
+                resolutions=(
+                    "Ensure submit(), collect(), and acknowledge() implement one "
+                    "consistent lifecycle.",
+                ),
+            )
+        )
+    return tuple(findings)
+
+
+def _safe_attribute(value: object, name: str) -> object:
+    try:
+        return getattr(value, name)
+    except Exception:
+        return _MISSING
+
+
+def _declares_attribute(value: object, name: str) -> bool:
+    if name in getattr(value, "__dict__", {}):
+        return True
+    return any(name in base.__dict__ for base in type(value).__mro__)
+
+
+def _acquisition_components(
+    acquisition: object | None,
+) -> tuple[tuple[str | None, object], ...]:
+    if acquisition is None:
+        return ()
+    found: list[tuple[str | None, object]] = []
+    visited: set[int] = set()
+
+    def visit(component: object, channel: str | None) -> None:
+        if id(component) in visited:
+            return
+        visited.add(id(component))
+        children = _safe_attribute(component, "acquisitions")
+        if isinstance(children, Mapping):
+            for name, child in children.items():
+                visit(child, str(name) if channel is None else f"{channel}.{name}")
+        else:
+            found.append((channel, component))
+
+    visit(acquisition, None)
+    return tuple(found)
+
+
+def _direction_length_diagnostics(
+    component: object,
+    *,
+    slot: str,
+    n_obj: object,
+    provenance: Mapping[str, tuple[str, str]],
+    channel: str | None = None,
+) -> tuple[Diagnostic, ...]:
+    direction = _safe_attribute(component, "direction")
+    if direction is _MISSING or direction is None:
+        return ()
+    path = (
+        ContractPath(components=("problem", "comparator"))
+        if slot == "comparator"
+        else ContractPath(
+            components=("optimizer", "acquisition"),
+            role="acquisition",
+            port=channel,
+        )
+    )
+    if not isinstance(direction, Sized):
+        return (
+            Diagnostic(
+                severity=Severity.WARNING,
+                code="cannot_verify_direction_length",
+                message=(
+                    f"The direction length for {type(component).__name__} cannot "
+                    f"be determined.{_selection_note(slot, component, provenance)}"
+                ),
+                path=path,
+                resolutions=("Provide a direction value with a known length.",),
+            ),
+        )
+    try:
+        length = len(direction)
+    except Exception:
+        return (
+            Diagnostic(
+                severity=Severity.WARNING,
+                code="cannot_verify_direction_length",
+                message=(
+                    f"The direction length for {type(component).__name__} cannot "
+                    f"be determined.{_selection_note(slot, component, provenance)}"
+                ),
+                path=path,
+                resolutions=("Provide a direction value with a known length.",),
+            ),
+        )
+    if length == 0 or not isinstance(n_obj, int) or length == n_obj:
+        return ()
+    return (
+        Diagnostic(
+            severity=Severity.ERROR,
+            code="direction_length_mismatch",
+            message=(
+                f"{type(component).__name__} direction length ({length}) does not "
+                f"match problem.n_obj ({n_obj})."
+                f"{_selection_note(slot, component, provenance)}"
+            ),
+            path=path,
+            resolutions=(
+                f"Provide a direction vector with {n_obj} entries, or leave the "
+                "direction unset for automatic injection.",
+            ),
+        ),
+    )
+
+
+def _evaluator_lifecycle_status(evaluator: object) -> bool | None:
+    checker = _safe_attribute(evaluator, "has_partial_lifecycle_override")
+    if callable(checker):
+        try:
+            return bool(cast(Callable[[], object], checker)())
+        except Exception:
+            return None
+    methods = ("submit", "collect", "acknowledge")
+    implementations = tuple(getattr(type(evaluator), name, None) for name in methods)
+    if any(not callable(getattr(evaluator, name, None)) for name in methods):
+        return True
+    checker_owner = next(
+        (
+            base
+            for base in type(evaluator).__mro__
+            if "has_partial_lifecycle_override" in base.__dict__
+        ),
+        None,
+    )
+    if checker_owner is None:
+        return None
+    overridden = tuple(
+        implementation is not getattr(checker_owner, name, None)
+        for name, implementation in zip(methods, implementations, strict=True)
+    )
+    return any(overridden) and not all(overridden)
+
+
+def _strategy_graph_diagnostic(
+    strategy: object,
+    provenance: Mapping[str, tuple[str, str]],
+    error: BaseException | None = None,
+) -> Diagnostic:
+    """Describe a strategy whose graph could not be prepared."""
+    detail = (
+        "does not provide a callable build_graph() operation"
+        if error is None
+        else f"failed to build its graph: {type(error).__name__}: {error}"
+    )
+    return Diagnostic(
+        severity=Severity.ERROR,
+        code="strategy_graph_unavailable",
+        message=(
+            f"{type(strategy).__name__} could not be prepared: {detail}."
+            f"{_selection_note('strategy', strategy, provenance)}"
+        ),
+        path=ContractPath(components=("optimizer", "strategy")),
+        resolutions=(
+            "Make build_graph() return a ComponentGraph and ensure its declared "
+            "contracts can be prepared.",
+        ),
+    )
 
 
 def check_component_contract(

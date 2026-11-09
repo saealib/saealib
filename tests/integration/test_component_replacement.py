@@ -375,7 +375,8 @@ def test_replacement_with_error_diagnostic_keeps_previous_plan_usable() -> None:
 
     with pytest.raises(ConfigurationError) as error:
         next(generator)
-    assert "evaluation_planner must be an EvaluationPlanner" in str(error.value)
+    assert "component_protocol_mismatch" in str(error.value)
+    assert "optimizer.evaluation_planner" in str(error.value)
     generator.close()
     assert optimizer._executable_plan is plan_before
     assert captured["environment"].active_version == version_before
@@ -887,6 +888,12 @@ def test_pending_async_work_keeps_active_provenance_until_drain() -> None:
 
     active_version = environment.active_version
     optimizer.set_algorithm(second)
+    candidate_diagnostics = tuple(optimizer.contract_diagnostics())
+    assert not [
+        diagnostic
+        for diagnostic in candidate_diagnostics
+        if diagnostic.severity.value == "error"
+    ]
     environment._refresh_plan_if_needed(state)
 
     assert environment._publication_deferred
@@ -903,6 +910,7 @@ def test_pending_async_work_keeps_active_provenance_until_drain() -> None:
     assert environment.binding_values()["algorithm"] is second
     assert environment._active_snapshot.provenance["algorithm"].source == "setter"
     assert state.__dict__["_binding_version"] == active_version + 1
+    assert tuple(optimizer.contract_diagnostics()) == candidate_diagnostics
 
 
 # ---------------------------------------------------------------------------

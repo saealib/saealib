@@ -1591,6 +1591,8 @@ class _OptimizerEnvironment:
         saved_origins = getattr(optimizer, "_component_origins", None)
         saved_materialized = getattr(optimizer, "_materialized_components", None)
         saved_feedback_explicit = getattr(optimizer, "feedback_builder_explicit", False)
+        has_diagnostic_cache = hasattr(optimizer, "_prepared_diagnostic_cache")
+        saved_diagnostic_cache = getattr(optimizer, "_prepared_diagnostic_cache", None)
         if resolution is not None and hasattr(
             optimizer, "_publish_component_resolution"
         ):
@@ -1604,10 +1606,18 @@ class _OptimizerEnvironment:
         if has_plan:
             optimizer._executable_plan = executable
         try:
+            signature_builder = getattr(optimizer, "_diagnostic_plan_signature", None)
+            if resolution is not None and callable(signature_builder):
+                optimizer._prepared_diagnostic_cache = (
+                    signature_builder(resolution, require_initializer=False),
+                    executable.diagnostics,
+                )
             issues = validate(require_initializer=False)
         finally:
             if has_plan:
                 optimizer._executable_plan = previous
+            if has_diagnostic_cache:
+                optimizer._prepared_diagnostic_cache = saved_diagnostic_cache
             if resolution is not None and saved_components:
                 for name, value in saved_components.items():
                     object.__setattr__(optimizer, name, value)
@@ -1674,6 +1684,7 @@ class _OptimizerEnvironment:
                 self.optimizer, "_verification_enabled", True
             ),
             _component_resolution=resolution,
+            _require_initializer=False,
         )
         validate_plan_contracts(executable)
         rebuilt: SequentialPlan | StructuredPlan
@@ -1994,6 +2005,7 @@ def _execute_strategy_step(
             if isinstance(component_resolution, _ComponentResolution)
             else None
         ),
+        _require_initializer=False,
     )
     if plan.diagnostics:
         errors = [item for item in plan.diagnostics if item.severity is Severity.ERROR]

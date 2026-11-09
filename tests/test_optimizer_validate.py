@@ -56,10 +56,7 @@ def _contract_mock() -> MagicMock:
 
 def _fully_configured() -> Optimizer:
     opt = Optimizer(_make_problem())
-    opt.set_algorithm(_contract_mock())
-    opt.set_strategy(_stub_strategy(requires_surrogate=False))
-    opt.initializer = _contract_mock()
-    opt.set_termination(_contract_mock())
+    opt.resolve_defaults()
     return opt
 
 
@@ -77,35 +74,35 @@ def test_fully_configured_returns_empty():
 # ---------------------------------------------------------------------------
 
 
-def test_missing_algorithm():
+def test_missing_algorithm_is_resolved_before_validation():
     opt = _fully_configured()
     del opt.algorithm
-    assert any("algorithm" in m for m in opt.validate())
+    assert not any("missing_required_component" in m for m in opt.validate())
 
 
-def test_missing_strategy():
+def test_missing_strategy_is_resolved_before_validation():
     opt = _fully_configured()
     del opt.strategy
-    assert any("strategy" in m for m in opt.validate())
+    assert not any("missing_required_component" in m for m in opt.validate())
 
 
-def test_missing_initializer():
+def test_missing_initializer_is_resolved_before_validation():
     opt = _fully_configured()
     opt.initializer = None
-    assert any("initializer" in m for m in opt.validate())
+    assert not any("missing_required_component" in m for m in opt.validate())
 
 
-def test_missing_termination():
+def test_missing_termination_is_resolved_before_validation():
     opt = _fully_configured()
     del opt.termination
-    assert any("termination" in m for m in opt.validate())
+    assert not any("missing_required_component" in m for m in opt.validate())
 
 
-def test_multiple_issues_reported_together():
+def test_all_required_components_are_available_after_default_preparation():
     opt = Optimizer(_make_problem())
-    issues = opt.validate()
-    for kw in ("algorithm", "strategy", "initializer", "termination"):
-        assert any(kw in m for m in issues), f"expected issue about '{kw}'"
+    assert opt.validate() == []
+    assert not hasattr(opt, "algorithm")
+    assert not hasattr(opt, "strategy")
 
 
 # ---------------------------------------------------------------------------
@@ -113,10 +110,12 @@ def test_multiple_issues_reported_together():
 # ---------------------------------------------------------------------------
 
 
-def test_strategy_requires_surrogate_missing():
+def test_strategy_surrogate_requirement_uses_prepared_manager():
     opt = _fully_configured()
     opt.set_strategy(IndividualBasedStrategy())
-    assert any("surrogate_manager" in m for m in opt.validate())
+    assert not any(
+        "missing_surrogate_manager" in item.code for item in opt.contract_diagnostics()
+    )
 
 
 def test_strategy_requires_surrogate_present():
@@ -210,9 +209,9 @@ def test_iterate_succeeds_with_no_components_set():
 def test_defaults_resolution_exposes_components_for_validation_and_pipeline():
     opt = Optimizer(_make_problem())
 
-    before = opt.validate()
-    assert any("algorithm is not set" in issue for issue in before)
-    assert any("strategy is not set" in issue for issue in before)
+    assert opt.validate() == []
+    assert not hasattr(opt, "algorithm")
+    assert not hasattr(opt, "strategy")
 
     opt.resolve_defaults()
     algorithm, strategy = opt.algorithm, opt.strategy

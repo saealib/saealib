@@ -544,6 +544,7 @@ class _PortResolution:
     role: str | None = None
     spec: PortSpec | None = None
     error: str | None = None
+    transform_input_unverified: bool = False
 
 
 def _resolve_port(
@@ -572,14 +573,21 @@ def _resolve_port(
     if len(candidates) > 1:
         return _PortResolution(status="ambiguous")
     role, spec = candidates[0]
+    transform_input_unverified = False
     if direction is PortDirection.OUTPUT and transforms:
+        transform_input_unverified = spec.data.kind == "UnverifiedFlowValue"
         data, error = _apply_transforms(spec.data, transforms)
         if error is not None or data is None:
             return _PortResolution(
                 status="invalid_transform", role=role, spec=spec, error=error
             )
         spec = replace(spec, data=data)
-    return _PortResolution(status="resolved", role=role, spec=spec)
+    return _PortResolution(
+        status="resolved",
+        role=role,
+        spec=spec,
+        transform_input_unverified=transform_input_unverified,
+    )
 
 
 def _compatibility_details(compatibility: PortCompatibility) -> str:
@@ -711,6 +719,23 @@ class PortCompatibilityRule:
             assert consumer_port.spec is not None
             producer_spec = producer_port.spec
             consumer_spec = consumer_port.spec
+            if producer_port.transform_input_unverified:
+                findings.append(
+                    Diagnostic(
+                        severity=Severity.WARNING,
+                        code="cannot_verify_data_kind",
+                        message=(
+                            f"Connection {connection} cannot verify the input to "
+                            "its transform chain because the producer data kind "
+                            "is unknown."
+                        ),
+                        path=source_path,
+                        related=(target_path,),
+                        resolutions=(
+                            "Declare the producer data kind when it is known.",
+                        ),
+                    )
+                )
             compatibility = check_port_compatibility(producer_spec, consumer_spec)
             if compatibility.compatible:
                 continue

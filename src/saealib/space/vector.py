@@ -327,7 +327,6 @@ class VectorSpace:
             "BoundsService", _VectorBoundsService(self._lb, self._ub)
         )
         self._services.register("DenseNumericView", _VectorDenseNumericView())
-        self._services.register("FeatureEncoder", _VectorFeatureEncoder())
         self._services.register("GenomeCodec", _VectorGenomeCodec())
         self._services.register("CloneService", _VectorCloneService())
         self._services.register("DistanceService", _VectorDistanceService())

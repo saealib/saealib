@@ -1142,6 +1142,7 @@ def ctx_pairwise(archive_pairwise: Archive) -> OptimizationState:
         eps_cv=1e-6,
         comparator=SingleObjectiveComparator(),
     )
+    problem.space.services.register("FeatureEncoder", _IdentityFeatureEncoder())
     pop_attrs = _PAIRWISE_ATTRS
     pop = Population(pop_attrs, init_capacity=10)
     rng = np.random.default_rng(0)
@@ -1276,6 +1277,11 @@ class TestPairwiseSurrogateManager:
         assert state.scores is not None
         assert state.scores.shape == (len(candidates),)
         assert np.all(state.scores >= 0.0) and np.all(state.scores <= 1.0)
+
+
+class _IdentityFeatureEncoder:
+    def encode(self, genomes):
+        return genomes.array
 
 
 # ===========================================================================

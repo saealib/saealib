@@ -303,7 +303,10 @@ def test_optimizer_accessor_does_not_fill_defaults_or_mutate_configuration() -> 
 
     findings = optimizer.contract_diagnostics()
 
-    assert len(findings) == 0
+    assert [finding.code for finding in findings] == [
+        "feature_encoder_default_selected"
+    ]
+    assert next(iter(findings)).severity is Severity.INFO
     assert optimizer.evaluator is evaluator
     assert not hasattr(optimizer, "algorithm")
     assert not hasattr(optimizer, "strategy")
@@ -333,4 +336,8 @@ def test_default_and_representative_optimizers_have_no_contract_diagnostics(
     optimizer = optimizer_factory()
     optimizer.resolve_defaults()
 
-    assert len(optimizer.contract_diagnostics()) == 0
+    findings = tuple(optimizer.contract_diagnostics())
+    assert all(finding.severity is not Severity.ERROR for finding in findings)
+    assert all(
+        finding.code == "feature_encoder_default_selected" for finding in findings
+    )

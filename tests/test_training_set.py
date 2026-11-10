@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import warnings
+from typing import Any
+
 import numpy as np
 import pytest
 
 from saealib.comparators import SingleObjectiveComparator
 from saealib.context import OptimizationState
+from saealib.exceptions import ValidationError
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
+from saealib.population.genome import PermutationBatch, VariableLengthBatch
 from saealib.problem import Problem
+from saealib.space import PermutationSpace, SequenceSpace
+from saealib.space.space import ServiceRegistry
 from saealib.surrogate.training_set import (
     ArchiveObjectiveSet,
     ConstraintObjectiveSet,
@@ -155,6 +162,213 @@ class TestArchiveObjectiveSet:
         cand = np.zeros(DIM)
         data = ts.build(arc, None, None, candidate_x=cand)
         assert data.train_x.shape == (5, DIM)
+
+
+def _make_attrs(dim: int) -> list[PopulationAttribute]:
+    return [
+        PopulationAttribute(name="x", dtype=np.float64, shape=(dim,)),
+        PopulationAttribute(name="f", dtype=np.float64, shape=(N_OBJ,)),
+        PopulationAttribute(name="g", dtype=np.float64, shape=(0,)),
+        PopulationAttribute(name="cv", dtype=np.float64, shape=()),
+    ]
+
+
+def _make_space_problem(space: Any) -> Problem:
+    return Problem(
+        func=lambda x: np.array([0.0]),
+        dim=None,
+        n_obj=N_OBJ,
+        direction=np.array([-1.0]),
+        space=space,
+        comparator=SingleObjectiveComparator(),
+    )
+
+
+def _make_genome_archive(space: Any, genomes: Any, dim: int) -> Archive:
+    """Archive backed by a real genome batch for a non-vector space."""
+    arc = Archive(_make_attrs(dim), init_capacity=4, genomes=genomes, space=space)
+    n = len(genomes)
+    arc.update_rows(
+        np.arange(n),
+        {"f": np.arange(1, n + 1, dtype=float).reshape(-1, 1), "cv": np.zeros(n)},
+    )
+    return arc
+
+
+def _make_space_ctx(problem: Problem, archive: Archive, dim: int) -> OptimizationState:
+    attrs = _make_attrs(dim)
+    return OptimizationState(
+        problem=problem,
+        population=Population(attrs, init_capacity=4),
+        archive=archive,
+        pareto_archive=ParetoArchive(
+            attrs, init_capacity=8, direction=np.array([-1.0])
+        ),
+        rng=np.random.default_rng(0),
+        fe=2,
+        gen=1,
+    )
+
+
+class _DoublingEncoder:
+    def encode(self, genomes: Any) -> np.ndarray:
+        return 2.0 * np.asarray(genomes.array, dtype=np.float64)
+
+
+class _FailingEncoder:
+    def encode(self, genomes: Any) -> np.ndarray:
+        raise ValueError("encoder exploded")
+
+
+class _UnsupportedSpace:
+    """Search space without a supported default encoder."""
+
+    def __init__(self) -> None:
+        self.services = ServiceRegistry()
+        self.dim = DIM
+
+
+class TestArchiveObjectiveSetFeatureEncoding:
+    def test_standalone_state_uses_default_encoder_and_warns(self) -> None:
+        arc = _make_archive(4)
+        ctx = _make_ctx(archive=arc)
+        space = ctx.problem.space
+        assert space.services.get("FeatureEncoder") is None
+
+        with pytest.warns(
+            UserWarning, match="encode_features used the default FeatureEncoder"
+        ) as emitted:
+            data = ArchiveObjectiveSet().build(arc, None, ctx)
+
+        assert len(emitted) == 1
+        assert emitted[0].filename == __file__
+        np.testing.assert_array_equal(data.train_x, arc.x)
+        np.testing.assert_array_equal(data.train_y, arc.f)
+        assert space.services.get("FeatureEncoder") is None
+
+    def test_permutation_archive_uses_default_encoder_and_warns(self) -> None:
+        space = PermutationSpace(length=3)
+        genomes = PermutationBatch([[0, 2, 1], [2, 1, 0]], length=3)
+        arc = _make_genome_archive(space, genomes, 3)
+        ctx = _make_space_ctx(_make_space_problem(space), arc, 3)
+        assert space.services.get("FeatureEncoder") is None
+
+        with pytest.warns(
+            UserWarning, match="encode_features used the default FeatureEncoder"
+        ) as emitted:
+            data = ArchiveObjectiveSet().build(arc, None, ctx)
+
+        assert len(emitted) == 1
+        assert emitted[0].filename == __file__
+        np.testing.assert_array_equal(data.train_x, genomes.array)
+        np.testing.assert_array_equal(data.train_y, arc.f)
+        assert space.services.get("FeatureEncoder") is None
+
+    def test_sequence_archive_uses_default_encoder_and_warns(self) -> None:
+        space = SequenceSpace(["a", "b"], max_length=3)
+        genomes = VariableLengthBatch([["a", "b"], ["b"]])
+        arc = _make_genome_archive(space, genomes, 4)
+        ctx = _make_space_ctx(_make_space_problem(space), arc, 4)
+        assert space.services.get("FeatureEncoder") is None
+
+        with pytest.warns(
+            UserWarning, match="encode_features used the default FeatureEncoder"
+        ) as emitted:
+            data = ArchiveObjectiveSet().build(arc, None, ctx)
+
+        assert len(emitted) == 1
+        assert emitted[0].filename == __file__
+        np.testing.assert_array_equal(data.train_x, [[2, 1, 2, 0], [1, 2, 0, 0]])
+        np.testing.assert_array_equal(data.train_y, arc.f)
+        assert space.services.get("FeatureEncoder") is None
+
+    def test_registered_encoder_is_used_without_default_warning(self) -> None:
+        arc = _make_archive(4)
+        ctx = _make_ctx(archive=arc)
+        encoder = _DoublingEncoder()
+        ctx.problem.space.services.register("FeatureEncoder", encoder)
+
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always")
+            data = ArchiveObjectiveSet().build(arc, None, ctx)
+
+        assert emitted == []
+        np.testing.assert_array_equal(data.train_x, 2.0 * arc.x)
+        assert ctx.problem.space.services.get("FeatureEncoder") is encoder
+
+    def test_prepared_encoder_takes_priority_without_warning(self) -> None:
+        arc = _make_archive(4)
+        ctx = _make_ctx(archive=arc)
+        registered = _FailingEncoder()
+        prepared = _DoublingEncoder()
+        ctx.problem.space.services.register("FeatureEncoder", registered)
+        ctx.bind_compiled_services({"FeatureEncoder": prepared})
+
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always")
+            data = ArchiveObjectiveSet().build(arc, None, ctx)
+
+        assert emitted == []
+        np.testing.assert_array_equal(data.train_x, 2.0 * arc.x)
+        assert ctx.compiled_service("FeatureEncoder") is prepared
+        assert ctx.problem.space.services.get("FeatureEncoder") is registered
+
+    def test_ctx_none_keeps_archive_columns_without_warning(self) -> None:
+        arc = _make_archive(5)
+
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always")
+            data = ArchiveObjectiveSet().build(arc, None, None)
+
+        assert emitted == []
+        np.testing.assert_array_equal(data.train_x, arc.x)
+
+    def test_unsupported_space_keeps_encoder_error_without_warning(self) -> None:
+        space = _UnsupportedSpace()
+        arc = _make_archive(3)
+        ctx = _make_space_ctx(_make_space_problem(space), arc, DIM)
+
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always")
+            with pytest.raises(
+                ValidationError, match="require the FeatureEncoder service"
+            ):
+                ArchiveObjectiveSet().build(arc, None, ctx)
+
+        assert emitted == []
+        assert space.services.get("FeatureEncoder") is None
+
+    def test_incompatible_registered_encoder_is_not_replaced_by_default(self) -> None:
+        arc = _make_archive(3)
+        ctx = _make_ctx(archive=arc)
+        encoder = object()
+        ctx.problem.space.services.register("FeatureEncoder", encoder)
+
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always")
+            with pytest.raises(
+                ValidationError, match="require the FeatureEncoder service"
+            ):
+                ArchiveObjectiveSet().build(arc, None, ctx)
+
+        assert emitted == []
+        assert ctx.problem.space.services.get("FeatureEncoder") is encoder
+
+    def test_registered_encoder_failure_propagates(self) -> None:
+        arc = _make_archive(3)
+        ctx = _make_ctx(archive=arc)
+        ctx.problem.space.services.register("FeatureEncoder", _FailingEncoder())
+
+        with pytest.raises(ValueError, match="encoder exploded"):
+            ArchiveObjectiveSet().build(arc, None, ctx)
+
+    def test_prepared_encoder_failure_propagates(self) -> None:
+        arc = _make_archive(3)
+        ctx = _make_ctx(archive=arc)
+        ctx.bind_compiled_services({"FeatureEncoder": _FailingEncoder()})
+
+        with pytest.raises(ValueError, match="encoder exploded"):
+            ArchiveObjectiveSet().build(arc, None, ctx)
 
 
 # ===========================================================================

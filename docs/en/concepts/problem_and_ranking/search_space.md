@@ -39,7 +39,10 @@ For example, `ObjectSpace` does not register default services, so the configurat
 This description says how candidates are stored; it is not itself an implementation of sampling or feature encoding.
 
 Services are the executable boundaries that fill this gap.
-In the current implementation, the SurrogateManager contract declares `ServiceRequirement("FeatureEncoder")`, and `VectorSpace` registers a default encoder as a service, so numeric vector spaces resolve without extra configuration. `ObjectSpace`, `PermutationSpace`, and `SequenceSpace` raise an error unless the user provides a `FeatureEncoder`. The user decides what to pass to the surrogate.
+When a prepared strategy consumes `FeatureEncoder`, execution preparation selects a visible default if the space has no explicit encoder. `VectorSpace` uses identity encoding and reports INFO with the selection source and reason; `PermutationSpace` and `SequenceSpace` keep their built-in encodings and report a non-blocking WARNING recommending explicit selection because encoding shapes what the surrogate learns.
+An encoder explicitly provided through `SearchSpace.services` takes priority and produces no default-selection diagnostic. `ObjectSpace` and custom spaces do not receive an inferred encoder, so they must provide one when the selected strategy consumes it.
+Direct calls to `encode_features()` use the same defaults for built-in spaces and emit a Python `UserWarning` when they do; custom spaces without a supported default still require an explicit encoder.
+Use `optimizer.contract_diagnostics()` to inspect the structured stream, or inspect `optimizer.last_contract_diagnostics` after `optimizer.validate()`. `Optimizer.validate()` returns ERROR findings only; INFO and WARNING selections remain in the diagnostic stream.
 
 ## Extending SearchSpace
 

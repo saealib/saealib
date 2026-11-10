@@ -26,7 +26,7 @@ from saealib.algorithms import GA
 from saealib.callback import CallbackManager, GenerationEndEvent, PostAskEvent
 from saealib.core.runtime import NodeResult
 from saealib.core.state import StatePatch
-from saealib.exceptions import ConfigurationError
+from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.execution import (
     AsyncEvaluationScheduler,
     EvaluationHandle,
@@ -1098,6 +1098,31 @@ def test_async_strategy_replacement_drains_in_flight_requests(
     assert len(algorithm.asks) > asks_at_switch
     assert replacement.pipeline is not None
     assert environment.binding_values()["strategy"] is replacement
+    if replacement.requires_surrogate:
+        encoder = final.compiled_service("FeatureEncoder")
+        assert environment.binding_values()["feature_encoder"] is encoder
+        assert (
+            environment._active_snapshot.provenance["feature_encoder"].value is encoder
+        )
+        assert final.__dict__["_binding_version"] == environment.active_version
+        assert (
+            environment._active_snapshot.provenance["feature_encoder"].source
+            == "framework default"
+        )
+        assert any(
+            item.code == "feature_encoder_default_selected"
+            for item in optimizer.executable_plan.diagnostics
+        )
+    else:
+        assert not any(
+            item.code == "feature_encoder_default_selected"
+            for item in optimizer.executable_plan.diagnostics
+        )
+        assert "feature_encoder" not in environment.binding_values()
+        assert "feature_encoder" not in environment._active_snapshot.provenance
+        assert final.__dict__["_binding_version"] == environment.active_version
+        with pytest.raises(ValidationError, match="compiled service 'FeatureEncoder'"):
+            final.compiled_service("FeatureEncoder")
     acked = [int(request_id) for request_id, _ in evaluator.acks]
     submitted = [int(request.request_id) for request in evaluator.submitted]
     assert len(acked) == len(submitted)
@@ -1111,6 +1136,67 @@ def test_async_strategy_replacement_drains_in_flight_requests(
     assert all(
         np.count_nonzero(np.asarray(evaluation["request_id"]) == request_id) == 1
         for request_id in submitted
+    )
+
+
+def test_async_same_encoder_registration_publishes_after_pending_work_drains() -> None:
+    evaluator = _DeterministicEvaluator(
+        order="lifo", release_after_collects=3, max_collects=50_000
+    )
+    optimizer = (
+        _surrogate_optimizer_for_swap(IndividualBasedStrategy(0.5), seed=37)
+        .set_evaluator(evaluator)
+        .set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=3)
+        )
+        .set_termination(
+            Termination(lambda state: state.fe + len(state.pending_evaluations) >= 30)
+        )
+    )
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    initializer = optimizer.initializer
+    assert initializer is not None
+    state = initializer.initialize(optimizer, optimizer.problem)
+    runtime: Any = create_runtime(optimizer)
+    environment = runtime.environment
+    session: Any = runtime.initialize(resolve_plan(optimizer), state)
+
+    for _ in range(1000):
+        if session.state.pending_evaluations:
+            break
+        session = runtime.advance(session).session
+    assert session.state.pending_evaluations
+
+    encoder = session.state.compiled_service("FeatureEncoder")
+    version_before = environment.active_version
+    optimizer.problem.space.services.register("FeatureEncoder", encoder)
+    published = False
+    for _ in range(10_000):
+        pending_before = bool(session.state.pending_evaluations)
+        session = runtime.advance(session).session
+        if pending_before:
+            assert environment.active_version == version_before
+        if environment.active_version > version_before:
+            published = True
+            break
+
+    assert published
+    assert environment.active_version == version_before + 1
+    assert session.state.compiled_service("FeatureEncoder") is encoder
+    assert environment.binding_values()["feature_encoder"] is encoder
+    assert (
+        environment._active_snapshot.provenance["feature_encoder"].source
+        == "explicit SearchSpace configuration"
+    )
+    assert not any(
+        item.code == "feature_encoder_default_selected"
+        for item in optimizer.executable_plan.diagnostics
+    )
+    optimizer.contract_diagnostics()
+    assert not any(
+        item.code == "feature_encoder_default_selected"
+        for item in optimizer.last_contract_diagnostics
     )
 
 

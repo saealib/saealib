@@ -764,15 +764,8 @@ def test_five_strategy_graphs_compile_without_errors_or_self_loops():
     for strategy in _strategies():
         optimizer = Optimizer(problem).set_strategy(strategy)
         optimizer.resolve_defaults()
-        graph = strategy.build_graph(optimizer)
-        plan = Compiler().compile(
-            graph,
-            CompileContext(
-                space=problem.space,
-                problem=problem,
-                initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-            ),
-        )
+        plan = optimizer._compile_plan()
+        assert plan is not None
         errors = [item for item in plan.diagnostics if item.severity.value == "error"]
         assert errors == []
         assert all(
@@ -798,14 +791,8 @@ def test_five_strategy_graphs_compile_without_errors_or_self_loops():
                     stage, declared[call_name].attribute
                 )
 
-        repeated_plan = Compiler().compile(
-            strategy.build_graph(optimizer),
-            CompileContext(
-                space=problem.space,
-                problem=problem,
-                initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-            ),
-        )
+        repeated_plan = optimizer._compile_plan()
+        assert repeated_plan is not None
         node_ids = {node.component_id for node in plan.graph.nodes}
         repeated_ids = {node.component_id for node in repeated_plan.graph.nodes}
         assert node_ids == repeated_ids

@@ -52,6 +52,15 @@ def _diagnostic(severity: Severity, message: str) -> Diagnostic:
     )
 
 
+def _assert_only_encoder_defaults(optimizer: Optimizer) -> None:
+    diagnostics = tuple(optimizer.contract_diagnostics())
+    assert all(diagnostic.severity is not Severity.ERROR for diagnostic in diagnostics)
+    assert all(
+        diagnostic.code == "feature_encoder_default_selected"
+        for diagnostic in diagnostics
+    )
+
+
 def test_error_contract_diagnostic_fails_validate(monkeypatch) -> None:
     optimizer = _default_optimizer()
     finding = _diagnostic(Severity.ERROR, "fatal contract finding")
@@ -92,13 +101,22 @@ def test_pymoo_complete_batch_with_async_runtime_is_diagnosed() -> None:
 
     diagnostics = tuple(optimizer.contract_diagnostics())
 
-    assert [diagnostic.code for diagnostic in diagnostics] == [
+    errors = [
+        diagnostic
+        for diagnostic in diagnostics
+        if diagnostic.severity is Severity.ERROR
+    ]
+    assert [diagnostic.code for diagnostic in errors] == [
         "pymoo_partial_feedback_unsupported"
     ]
-    assert diagnostics[0].severity is Severity.ERROR
-    assert diagnostics[0].path == ContractPath(components=("algorithm",))
-    assert diagnostics[0].related == (
+    assert errors[0].path == ContractPath(components=("algorithm",))
+    assert errors[0].related == (
         ContractPath(components=("async_evaluation_scheduler",)),
+    )
+    assert all(
+        diagnostic.code
+        in {"feature_encoder_default_selected", "pymoo_partial_feedback_unsupported"}
+        for diagnostic in diagnostics
     )
     assert any(
         "pymoo_partial_feedback_unsupported" in issue for issue in optimizer.validate()
@@ -114,11 +132,11 @@ def test_pymoo_partial_tell_opt_in_matches_async_runtime() -> None:
     )
     optimizer.resolve_defaults()
 
-    assert tuple(optimizer.contract_diagnostics()) == ()
+    _assert_only_encoder_defaults(optimizer)
 
 
 @pytest.mark.parametrize("kind", ("default", "surrogate", "async"))
-def test_supported_component_configurations_have_no_diagnostics(kind: str) -> None:
+def test_supported_component_configurations_have_no_errors(kind: str) -> None:
     optimizer = Optimizer(_problem())
     if kind == "surrogate":
         optimizer.set_surrogate(RBFSurrogate(kernel=GaussianKernel()))
@@ -128,7 +146,7 @@ def test_supported_component_configurations_have_no_diagnostics(kind: str) -> No
         )
     optimizer.resolve_defaults()
 
-    assert tuple(optimizer.contract_diagnostics()) == ()
+    _assert_only_encoder_defaults(optimizer)
 
 
 def test_island_component_configurations_have_no_diagnostics() -> None:
@@ -142,7 +160,7 @@ def test_island_component_configurations_have_no_diagnostics() -> None:
 
     for optimizer in model.optimizers:
         optimizer.resolve_defaults()
-        assert tuple(optimizer.contract_diagnostics()) == ()
+        _assert_only_encoder_defaults(optimizer)
 
 
 def test_pymoo_diagnostic_code_is_persistently_registered() -> None:

@@ -29,7 +29,10 @@ page_type: concept
 
 `RepresentationSpec` はパラメータの種類、形状、表現種別を記述します。 表現の記述は、候補をどのように保存するかを示すものであり、サンプリングや特徴量化の実装そのものではありません。
 
-サービスはこの差を埋める実行可能な境界です。 現在の実装ではSurrogateManagerの契約が`ServiceRequirement("FeatureEncoder")`を宣言し、`VectorSpace`は既定のエンコーダをサービスとして登録するため、数値ベクトル空間では追加設定なしに解決されます。`ObjectSpace`、`PermutationSpace`、`SequenceSpace`などでは、利用者が`FeatureEncoder`を用意しない限り解決されずエラーになります。代理モデルへ何を入力するかは利用者が決めます。
+`FeatureEncoder`を使う戦略では、実行準備時に明示設定の有無を確認してエンコーダを選びます。`VectorSpace`は恒等エンコーディングを既定にし、選択元と理由をINFOで報告します。`PermutationSpace`と`SequenceSpace`は組み込みの既定エンコーダを使い、エンコーディングがサロゲートの学習対象を決めることを示して、明示選択を勧めるWARNINGを報告します。このWARNINGは実行を妨げません。
+`SearchSpace.services`に明示されたエンコーダは既定より優先され、既定選択の診断は出ません。`ObjectSpace`と独自の空間にはエンコーダを推測して割り当てないため、選択した戦略が必要とする場合は空間が提供します。
+`encode_features()`を直接呼ぶ場合も、組み込み空間では同じ既定値を使い、その選択をPythonの`UserWarning`で知らせます。対応する既定値がない独自空間では、引き続き明示エンコーダが必要です。
+構造化診断は`optimizer.contract_diagnostics()`で確認できます。`optimizer.validate()`を呼んだ後は`optimizer.last_contract_diagnostics`からも確認できます。`Optimizer.validate()`はERRORだけを返すため、INFOとWARNINGは診断ストリームで確認します。
 
 ## SearchSpaceの拡張
 

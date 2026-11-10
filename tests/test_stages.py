@@ -53,7 +53,7 @@ _ATTRS = [
 
 
 def _make_problem() -> Problem:
-    return Problem(
+    problem = Problem(
         func=lambda x: np.array([np.sum(x**2)]),
         dim=DIM,
         n_obj=N_OBJ,
@@ -62,6 +62,13 @@ def _make_problem() -> Problem:
         ub=[5.0] * DIM,
         comparator=SingleObjectiveComparator(),
     )
+    problem.space.services.register("FeatureEncoder", _IdentityFeatureEncoder())
+    return problem
+
+
+class _IdentityFeatureEncoder:
+    def encode(self, genomes):
+        return genomes.array
 
 
 def _make_state() -> OptimizationState:

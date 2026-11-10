@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -82,20 +83,30 @@ def test_sequence_profile_services_and_mutation() -> None:
     np.testing.assert_array_equal(
         distance.pairwise_distance(left, right), [[1, 1], [1, 2]]
     )
-    features = cast(Any, space.services.require("FeatureEncoder")).encode(left)
-    assert features.shape == (2, 4)
+    assert space.services.get("FeatureEncoder") is None
+    with pytest.warns(
+        UserWarning, match="encode_features used the default FeatureEncoder"
+    ):
+        features = encode_features(space, left)
+    np.testing.assert_array_equal(features, [[2, 1, 2, 0], [1, 1, 0, 0]])
+    assert space.services.get("FeatureEncoder") is None
     mutated = SequenceMutation(
         alphabet=space.alphabet, min_length=1, max_length=3
     ).apply(left, np.random.default_rng(7))
     assert space.validate(mutated).valid
 
 
-def test_vector_feature_encoder_is_lossless_identity_service() -> None:
+def test_vector_standalone_feature_encoder_is_lossless_identity() -> None:
     space = VectorSpace(dim=2, lb=[-1.0, -1.0], ub=[1.0, 1.0])
     batch = space.sample(3, np.random.default_rng(8))
-    encoder = cast(Any, space.services.require("FeatureEncoder"))
-    np.testing.assert_array_equal(encoder.encode(batch), batch.array)
-    np.testing.assert_array_equal(encode_features(space, batch), batch.array)
+    assert space.services.get("FeatureEncoder") is None
+    with pytest.warns(
+        UserWarning, match="encode_features used the default FeatureEncoder"
+    ):
+        features = encode_features(space, batch)
+    np.testing.assert_array_equal(features, batch.array)
+    assert np.shares_memory(features, batch.array)
+    assert space.services.get("FeatureEncoder") is None
 
 
 def _vector_problem() -> Problem:
@@ -120,13 +131,17 @@ def _compile(problem: Problem, algorithm: Any, strategy: Any) -> Optimizer:
         Optimizer(problem, seed=1).set_algorithm(algorithm).set_strategy(strategy)
     )
     optimizer.resolve_defaults()
-    assert optimizer._compile_plan() is not None
-    assert optimizer.last_contract_diagnostics == ()
-    assert len(optimizer.contract_diagnostics()) == 0
+    plan = optimizer._compile_plan()
+    assert plan is not None
+    assert not [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.severity.value == "error"
+    ]
     return optimizer
 
 
-def test_five_real_graphs_compile_without_diagnostics() -> None:
+def test_five_real_graphs_compile_with_visible_defaults() -> None:
     vector_ga = GA(
         CrossoverSBX(0.9, 15.0),
         MutationUniform(),
@@ -166,8 +181,20 @@ def test_five_real_graphs_compile_without_diagnostics() -> None:
         ),
     )
     assert len(profiles) == 5
-    for problem, algorithm, strategy in profiles:
+    compiled = [
         _compile(problem, algorithm, strategy)
+        for problem, algorithm, strategy in profiles
+    ]
+    findings = [
+        tuple(
+            diagnostic
+            for diagnostic in optimizer.contract_diagnostics()
+            if diagnostic.code == "feature_encoder_default_selected"
+        )
+        for optimizer in compiled
+    ]
+    assert [len(items) for items in findings] == [0, 1, 0, 0, 0]
+    assert findings[1][0].severity.value == "info"
 
 
 class _CustomBatch:
@@ -480,11 +507,14 @@ def test_external_representation_rejects_missing_feature_encoder() -> None:
     services = cast(Any, space.services)
     feature_encoder = services._services.pop("FeatureEncoder")
     try:
-        with pytest.raises(
-            ValidationError,
-            match="require the FeatureEncoder service",
-        ):
-            encode_features(cast(Any, space), cast(Any, space.sample(3)))
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always")
+            with pytest.raises(
+                ValidationError,
+                match="require the FeatureEncoder service",
+            ):
+                encode_features(cast(Any, space), cast(Any, space.sample(3)))
+        assert emitted == []
     finally:
         services.register("FeatureEncoder", feature_encoder)
 

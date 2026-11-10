@@ -179,7 +179,7 @@ def test_resolved_service_is_a_direct_reference_on_the_node() -> None:
 
 def test_service_requirement_without_environment_is_a_warning() -> None:
     component = _ContractComponent(
-        required_services=(ServiceRequirement(name="BoundsService"),)
+        required_services=(ServiceRequirement(name="FeatureEncoder"),)
     )
     graph = ComponentGraph(
         nodes=(ComponentNode(component_id="component", component=component),),
@@ -214,9 +214,25 @@ def test_component_service_is_resolved_without_compiler_insertion() -> None:
 
     space = VectorSpace(dim=1, lb=[0.0], ub=[1.0])
     resolved = Compiler().compile(graph, CompileContext(space=space))
-    assert resolved.graph.node_by_id("component").resolved_services[
-        "FeatureEncoder"
-    ] is space.services.require("FeatureEncoder")
+    assert any(
+        diagnostic.code == "unresolved_service"
+        and diagnostic.severity is Severity.ERROR
+        for diagnostic in resolved.diagnostics
+    )
+
+    class Encoder:
+        def encode(self, genomes):
+            return genomes.array
+
+    encoder = Encoder()
+    space.services.register("FeatureEncoder", encoder)
+    explicitly_resolved = Compiler().compile(graph, CompileContext(space=space))
+    assert (
+        explicitly_resolved.graph.node_by_id("component").resolved_services[
+            "FeatureEncoder"
+        ]
+        is encoder
+    )
 
     no_requirement = Compiler().compile(
         ComponentGraph(

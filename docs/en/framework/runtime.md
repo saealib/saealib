@@ -60,7 +60,7 @@ For ordinary use, call `minimize()`, `maximize()`, `Optimizer.run()`, or `Optimi
 ## Invariants and diagnostics
 
 The Runtime verifies that the environment provides the capabilities required by the plan, that `NodeResult` StatePatches stay within declared state effects, and that a waiting request is not applied twice.
-Plan diagnostics, undeclared state writes, invalid execution positions, and uncollectable asynchronous requests stop execution and are reported as Diagnostics or failure results.
+ERROR-level plan diagnostics, undeclared state writes, invalid execution positions, and uncollectable asynchronous requests stop execution and are reported as Diagnostics or failure results. INFO and WARNING plan diagnostics do not stop execution.
 Missing runtime capabilities become the Compiler diagnostic `missing_runtime_capability`.
 
 ## Extension points

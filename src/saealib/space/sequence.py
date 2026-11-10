@@ -236,9 +236,6 @@ class SequenceSpace:
         )
         self._services.register("GenomeCodec", _SequenceCodec())
         self._services.register("DistanceService", _SequenceDistanceService())
-        self._services.register(
-            "FeatureEncoder", _SequenceFeatureEncoder(values, max_length)
-        )
 
     @property
     def alphabet(self) -> tuple[Hashable, ...]:

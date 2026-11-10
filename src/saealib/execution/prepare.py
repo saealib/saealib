@@ -31,7 +31,11 @@ from saealib.core.compiler.contract_diagnostics import (
 )
 from saealib.core.state import SCORES, SURROGATES_PREDICTIONS
 from saealib.exceptions import ValidationError
-from saealib.execution.bindings import BINDING_SLOTS, _ComponentResolution
+from saealib.execution.bindings import (
+    BINDING_SLOTS,
+    _ComponentResolution,
+    _resolve_feature_encoder,
+)
 from saealib.pipeline import Branch, Loop, Pipeline, PipelineEntry, Repeat, Stage
 
 if TYPE_CHECKING:
@@ -91,6 +95,32 @@ class _PreparedProvider:
             setattr(self._provider, name, value)
         else:
             setattr(self._provider, name, value)
+
+
+class _PreparedServices:
+    def __init__(self, services: object, feature_encoder: object) -> None:
+        self._services = services
+        self._feature_encoder = feature_encoder
+
+    def get(self, name: str) -> object | None:
+        if name == "FeatureEncoder":
+            return self._feature_encoder
+        getter = getattr(self._services, "get", None)
+        return getter(name) if callable(getter) else None
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._services, name)
+
+
+class _PreparedSearchSpace:
+    def __init__(self, space: object, feature_encoder: object) -> None:
+        self._space = space
+        self.services = _PreparedServices(
+            getattr(space, "services", None), feature_encoder
+        )
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._space, name)
 
 
 def _requires_input(component: object, input_name: str) -> bool:
@@ -206,27 +236,116 @@ def _prepare_plan(
         _component_resolution=_component_resolution,
         _stage_selections=stage_selections,
     )
+    consumes_feature_encoder = _graph_requires_service(graph, "FeatureEncoder")
+    effective_resolution = _component_resolution
+    if effective_resolution is not None:
+        if consumes_feature_encoder:
+            feature_encoder, feature_encoder_origin = _resolve_feature_encoder(
+                provider, compile_context.space
+            )
+            effective_resolution = replace(
+                effective_resolution,
+                feature_encoder=feature_encoder,
+                feature_encoder_origin=feature_encoder_origin,
+                feature_encoder_space=compile_context.space,
+            )
+        elif (
+            effective_resolution.feature_encoder_origin is not None
+            and effective_resolution.feature_encoder_origin.source
+            == "framework default"
+        ):
+            effective_resolution = replace(
+                effective_resolution,
+                feature_encoder=None,
+                feature_encoder_origin=None,
+            )
+    else:
+        feature_encoder = None
+    feature_encoder = (
+        None if effective_resolution is None else effective_resolution.feature_encoder
+    )
+    feature_encoder_origin = (
+        None
+        if effective_resolution is None
+        else effective_resolution.feature_encoder_origin
+    )
+    if consumes_feature_encoder and feature_encoder is not None:
+        compile_context = replace(
+            compile_context,
+            space=_PreparedSearchSpace(compile_context.space, feature_encoder),
+        )
     executable = Compiler().compile(
         graph,
         compile_context,
     )
-    if _component_resolution is None:
+    if effective_resolution is None:
         return executable
+    object.__setattr__(provider, "_component_resolution", effective_resolution)
     diagnostics = list(executable.diagnostics)
     diagnostics.extend(
         _optimizer_configuration_diagnostics(
-            _component_resolution.components,
+            effective_resolution.components,
             {
                 slot: (origin.source, origin.reason)
-                for slot, origin in _component_resolution.origins.items()
+                for slot, origin in effective_resolution.origins.items()
             },
             compile_context.problem,
-            _component_resolution.components.get(
+            effective_resolution.components.get(
                 "evaluator", getattr(provider, "evaluator", None)
             ),
             require_initializer=_require_initializer,
         )
     )
+    if consumes_feature_encoder and feature_encoder_origin is not None:
+        if feature_encoder_origin.source == "framework default":
+            space_kind = getattr(
+                getattr(compile_context.space, "representation", None), "kind", ""
+            )
+            if space_kind == "vector":
+                message = (
+                    "FeatureEncoder selected identity encoding from framework "
+                    f"default. Source: {feature_encoder_origin.source}. "
+                    f"Reason: {feature_encoder_origin.reason}"
+                )
+                severity = Severity.INFO
+            else:
+                message = (
+                    "A default encoder was selected. Encoding affects what the "
+                    "surrogate learns; an explicit choice is recommended. "
+                    f"Selected {type(feature_encoder).__name__} from "
+                    f"{feature_encoder_origin.source}: "
+                    f"{feature_encoder_origin.reason}"
+                )
+                severity = Severity.WARNING
+            diagnostics.append(
+                Diagnostic(
+                    severity=severity,
+                    code="feature_encoder_default_selected",
+                    message=message,
+                    path=ContractPath(components=("optimizer", "feature_encoder")),
+                )
+            )
+        else:
+            try:
+                has_encoder = callable(getattr(feature_encoder, "encode", None))
+            except Exception:
+                has_encoder = False
+            if not has_encoder:
+                diagnostics.append(
+                    Diagnostic(
+                        severity=Severity.ERROR,
+                        code="component_protocol_mismatch",
+                        message=(
+                            "The explicitly configured FeatureEncoder does not "
+                            "provide a callable encode() method."
+                        ),
+                        path=ContractPath(components=("optimizer", "feature_encoder")),
+                        resolutions=(
+                            "Provide an explicit SearchSpace FeatureEncoder with "
+                            "a callable encode() method.",
+                        ),
+                    )
+                )
     required_inputs = (
         (
             "evaluation_planner",
@@ -248,7 +367,7 @@ def _prepare_plan(
         ),
     )
     for slot, input_name, state_key, required, producer, resolution in required_inputs:
-        component = _component_resolution.bindings.get(slot)
+        component = effective_resolution.bindings.get(slot)
         if (
             component is None
             or not _requires_input(component, input_name)
@@ -256,7 +375,7 @@ def _prepare_plan(
             or _state_producer_status(graph, state_key, component) is not False
         ):
             continue
-        origin = _component_resolution.origins.get(slot)
+        origin = effective_resolution.origins.get(slot)
         selected = (
             f"selected {type(component).__name__} from {origin.source}: {origin.reason}"
             if origin is not None
@@ -280,7 +399,7 @@ def _prepare_plan(
     selection_resolutions = tuple(
         f"{slot} selected {type(origin.value).__name__} from "
         f"{origin.source}: {origin.reason}"
-        for slot, origin in _component_resolution.origins.items()
+        for slot, origin in effective_resolution.origins.items()
         if slot in {"algorithm", "strategy"}
     )
     diagnosed = tuple(
@@ -357,6 +476,31 @@ def _build_strategy_graph(strategy: Any, provider: Any) -> ComponentGraph:
             "strategy.build_graph must return a ComponentGraph"
         )
     return graph
+
+
+def _contract_requires_service(contract: object, service_name: str) -> bool:
+    if any(
+        getattr(requirement, "name", None) == service_name
+        for requirement in getattr(contract, "required_services", ())
+    ):
+        return True
+    for port_contract in getattr(contract, "ports", {}).values():
+        for port in (*port_contract.inputs, *port_contract.outputs):
+            if any(
+                requirement.name == service_name
+                for requirement in port.required_services
+            ):
+                return True
+    return any(
+        _contract_requires_service(part.contract, service_name)
+        for part in getattr(contract, "parts", ())
+    )
+
+
+def _graph_requires_service(graph: ComponentGraph, service_name: str) -> bool:
+    return any(
+        _contract_requires_service(node.contract, service_name) for node in graph.nodes
+    )
 
 
 def resolve_declaration(

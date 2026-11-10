@@ -34,7 +34,9 @@ DataSpec kind compatibility, schema unification, and service resolution are sepa
 SearchSpace services such as `SamplingService` and `ValidationService` are matched as space capabilities.
 `EvaluationAdapter` is an adapter at the evaluation boundary, while `FeatureEncoder` is an adapter subtype exposed as `saealib.space.FeatureEncoder`.
 `FeatureEncoder` converts a `GenomeBatch` to a `FeatureBatch` and provides the semantic transformation that determines features a surrogate model can learn. It differs in nature from space capabilities such as `SamplingService`.
-In the current implementation, the SurrogateManager contract declares `ServiceRequirement("FeatureEncoder")`, and `VectorSpace` registers a default FeatureEncoder as a service, so numeric vector spaces resolve it without extra configuration. `ObjectSpace`, `PermutationSpace`, and `SequenceSpace` raise an error unless the user supplies a FeatureEncoder. The user determines the input passed to the surrogate model.
+During execution preparation, a strategy that consumes `FeatureEncoder` receives a visible default when its space has no explicit encoder. `VectorSpace` uses identity encoding and reports the choice, source, and reason at INFO; `PermutationSpace` and `SequenceSpace` retain their built-in encodings and report a non-blocking WARNING recommending an explicit choice because encoding affects what the surrogate learns.
+An encoder explicitly provided through `SearchSpace.services` takes priority over these defaults and is used without a default-selection diagnostic. `ObjectSpace` and custom spaces receive no inferred encoder; a strategy that consumes one must have the space provide it.
+Inspect the structured stream with `optimizer.contract_diagnostics()`, or read `optimizer.last_contract_diagnostics` after `optimizer.validate()`. `Optimizer.validate()` returns ERROR findings only, so the structured stream is where INFO and WARNING selections are visible.
 
 ## RepresentationSpec boundary
 

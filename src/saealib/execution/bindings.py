@@ -41,6 +41,9 @@ class _ComponentResolution:
     origins: Mapping[str, _ComponentOrigin]
     defaults: DefaultResolution
     bundled_preset: str
+    feature_encoder: object | None
+    feature_encoder_origin: _ComponentOrigin | None
+    feature_encoder_space: object | None
 
 
 @dataclass(frozen=True)
@@ -58,6 +61,15 @@ def _signature(value: object) -> str:
     except Exception:
         state = getattr(value, "__dict__", None)
         return repr((type(value), state))
+
+
+def _feature_encoder_signature(value: object) -> str:
+    from saealib.registry import to_spec
+
+    try:
+        return repr(to_spec(value))
+    except Exception:
+        return ""
 
 
 def _clone_default(value: object) -> object:
@@ -223,6 +235,99 @@ def _resolve_defaults(optimizer: object) -> DefaultResolution:
     )
 
 
+def _feature_encoder_default(space: object) -> tuple[object, str] | None:
+    from saealib.space.permutation import (
+        PermutationSpace,
+        _PermutationFeatureEncoder,
+    )
+    from saealib.space.sequence import SequenceSpace, _SequenceFeatureEncoder
+    from saealib.space.vector import VectorSpace, _VectorFeatureEncoder
+
+    if isinstance(space, VectorSpace):
+        return (
+            _VectorFeatureEncoder(),
+            "Identity encoding preserves dense vector values.",
+        )
+    if isinstance(space, PermutationSpace):
+        return (
+            _PermutationFeatureEncoder(),
+            "The default preserves permutation positions as numeric features.",
+        )
+    if isinstance(space, SequenceSpace):
+        return (
+            _SequenceFeatureEncoder(space.alphabet, space.max_length),
+            "The default represents sequence elements with padded positional features.",
+        )
+    return None
+
+
+def _resolve_feature_encoder(
+    optimizer: object, space: object | None
+) -> tuple[object | None, _ComponentOrigin | None]:
+    if space is None:
+        return None, None
+    explicit, origin = _resolve_explicit_feature_encoder(optimizer, space)
+    if explicit is not None:
+        return explicit, origin
+
+    cached = getattr(optimizer, "_feature_encoder_default", None)
+    if (
+        isinstance(cached, tuple)
+        and len(cached) == 3
+        and cached[0] is space
+        and cached[1] is not None
+    ):
+        encoder, reason = cached[1], cached[2]
+    else:
+        default = _feature_encoder_default(space)
+        if default is None:
+            return None, None
+        encoder, reason = default
+    return encoder, _ComponentOrigin(
+        encoder,
+        "framework default",
+        reason,
+        f"{id(space)}:{_feature_encoder_signature(encoder)}",
+    )
+
+
+def _resolve_explicit_feature_encoder(
+    optimizer: object, space: object | None
+) -> tuple[object | None, _ComponentOrigin | None]:
+    if space is None:
+        return None, None
+    services = getattr(space, "services", None)
+    getter = getattr(services, "get", None)
+    explicit = getter("FeatureEncoder") if callable(getter) else None
+    if explicit is None:
+        return None, None
+    restored_origins = getattr(optimizer, "_component_origins", {})
+    restored = (
+        restored_origins.get("feature_encoder")
+        if isinstance(restored_origins, dict)
+        else None
+    )
+    registration_count = getattr(services, "_feature_encoder_registration_count", None)
+    if (
+        isinstance(restored, _ComponentOrigin)
+        and restored.source == "persisted"
+        and restored.value is explicit
+        and registration_count is None
+    ):
+        return explicit, _ComponentOrigin(
+            explicit,
+            restored.source,
+            restored.reason,
+            _feature_encoder_signature(explicit),
+        )
+    return explicit, _ComponentOrigin(
+        explicit,
+        "explicit SearchSpace configuration",
+        "Provided by the configured SearchSpace.",
+        _feature_encoder_signature(explicit),
+    )
+
+
 def resolve_components(
     optimizer: object,
     configured: Mapping[str, object] | None = None,
@@ -234,6 +339,10 @@ def resolve_components(
             {slot: configured[slot] for slot in BINDING_SLOTS if slot in configured}
         )
     problem = getattr(optimizer, "problem")
+    feature_encoder_space = getattr(problem, "space", None)
+    feature_encoder, feature_encoder_origin = _resolve_explicit_feature_encoder(
+        optimizer, feature_encoder_space
+    )
 
     explicit: dict[str, _Candidate] = {}
     materialized: dict[str, _ComponentOrigin | None] = {}
@@ -545,4 +654,7 @@ def resolve_components(
         origins=origins,
         defaults=defaults_resolution,
         bundled_preset=bundled_name,
+        feature_encoder=feature_encoder,
+        feature_encoder_origin=feature_encoder_origin,
+        feature_encoder_space=feature_encoder_space,
     )

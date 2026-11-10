@@ -71,6 +71,8 @@ from saealib.exceptions import ConfigurationError, EvaluationFatalError, Validat
 from saealib.execution.bindings import (
     _ComponentOrigin,
     _ComponentResolution,
+    _feature_encoder_signature,
+    _resolve_explicit_feature_encoder,
     resolve_components,
 )
 from saealib.execution.history import (
@@ -1240,6 +1242,7 @@ class _BindingSnapshot:
     version: int
     values: dict[str, object]
     provenance: dict[str, _ComponentOrigin]
+    feature_encoder_selection: tuple[str, str, str] | None
     strategy_values: tuple[tuple[str, str], ...]
     configuration_version: int
 
@@ -1248,6 +1251,7 @@ class _BindingSnapshot:
         values: dict[str, object],
         strategy_values: tuple[tuple[str, str], ...],
         configuration_version: int,
+        feature_encoder_selection: tuple[str, str, str] | None,
     ) -> bool:
         """Return True when the candidate bindings resolve to this snapshot."""
         if set(values) != set(self.values):
@@ -1255,9 +1259,17 @@ class _BindingSnapshot:
         if any(values[name] is not bound for name, bound in self.values.items()):
             return False
         return (
-            strategy_values == self.strategy_values
+            feature_encoder_selection == self.feature_encoder_selection
+            and strategy_values == self.strategy_values
             and configuration_version == self.configuration_version
         )
+
+
+def _executable_uses_service(executable: object, service_name: str) -> bool:
+    graph = getattr(executable, "graph", None)
+    return any(
+        service_name in node.resolved_services for node in getattr(graph, "nodes", ())
+    )
 
 
 @dataclass(frozen=True)
@@ -1367,17 +1379,35 @@ class _OptimizerEnvironment:
             if isinstance(resolution, _ComponentResolution)
             else self._bindings()
         )
+        provenance = (
+            dict(resolution.origins)
+            if isinstance(resolution, _ComponentResolution)
+            else {}
+        )
+        executable = getattr(optimizer, "_executable_plan", None)
+        feature_encoder_selection = None
+        if (
+            isinstance(resolution, _ComponentResolution)
+            and _executable_uses_service(executable, "FeatureEncoder")
+            and resolution.feature_encoder is not None
+        ):
+            values["feature_encoder"] = resolution.feature_encoder
+            if resolution.feature_encoder_origin is not None:
+                origin = resolution.feature_encoder_origin
+                provenance["feature_encoder"] = origin
+                feature_encoder_selection = (
+                    origin.source,
+                    origin.reason,
+                    origin.signature,
+                )
         self._published = _PublishedPlan(
             plan=plan,
             executable=getattr(optimizer, "_executable_plan", None),
             snapshot=_BindingSnapshot(
                 version=0,
                 values=values,
-                provenance=(
-                    dict(resolution.origins)
-                    if isinstance(resolution, _ComponentResolution)
-                    else {}
-                ),
+                provenance=provenance,
+                feature_encoder_selection=feature_encoder_selection,
                 strategy_values=self._strategy_values(),
                 configuration_version=getattr(optimizer, "_configuration_version", 0),
             ),
@@ -1457,7 +1487,55 @@ class _OptimizerEnvironment:
         return outcome
 
     def _bindings(self) -> dict[str, object]:
-        return {name: getattr(self.optimizer, name, None) for name in _BINDING_SLOTS}
+        bindings = {
+            name: getattr(self.optimizer, name, None) for name in _BINDING_SLOTS
+        }
+        executable = getattr(
+            getattr(self, "_published", None), "executable", None
+        ) or getattr(self.optimizer, "_executable_plan", None)
+        if _executable_uses_service(executable, "FeatureEncoder"):
+            problem = getattr(self.optimizer, "problem", None)
+            space = getattr(problem, "space", None)
+            services = getattr(space, "services", None)
+            getter = getattr(services, "get", None)
+            explicit = getter("FeatureEncoder") if callable(getter) else None
+            cached = getattr(self.optimizer, "_feature_encoder_default", None)
+            if explicit is not None:
+                bindings["feature_encoder"] = explicit
+            elif isinstance(cached, tuple) and len(cached) == 3 and cached[0] is space:
+                bindings["feature_encoder"] = cached[1]
+        return bindings
+
+    def _feature_encoder_selection(self) -> tuple[str, str, str] | None:
+        executable = getattr(
+            getattr(self, "_published", None), "executable", None
+        ) or getattr(self.optimizer, "_executable_plan", None)
+        if not _executable_uses_service(executable, "FeatureEncoder"):
+            return None
+        problem = getattr(self.optimizer, "problem", None)
+        space = getattr(problem, "space", None)
+        explicit, origin = _resolve_explicit_feature_encoder(self.optimizer, space)
+        if explicit is not None:
+            assert origin is not None
+            return (
+                origin.source,
+                origin.reason,
+                origin.signature,
+            )
+        cached = getattr(self.optimizer, "_feature_encoder_default", None)
+        if (
+            isinstance(cached, tuple)
+            and len(cached) == 3
+            and cached[0] is space
+            and cached[1] is not None
+        ):
+            encoder, reason = cached[1], cached[2]
+            return (
+                "framework default",
+                reason,
+                f"{id(space)}:{_feature_encoder_signature(encoder)}",
+            )
+        return None
 
     def _strategy_values(self) -> tuple[tuple[str, str], ...]:
         strategy = getattr(self.optimizer, "strategy", None)
@@ -1481,6 +1559,7 @@ class _OptimizerEnvironment:
             bindings,
             strategy_values,
             getattr(self.optimizer, "_configuration_version", 0),
+            self._feature_encoder_selection(),
         )
         if unchanged and not self._pending_recompile:
             # A swap that was deferred while its evaluations ran may resolve
@@ -1509,17 +1588,34 @@ class _OptimizerEnvironment:
         executable, rebuilt = self._compile_current_plan(bindings)
         resolution = self._candidate_resolution
         self._gate(executable, resolution)
+        consumes_feature_encoder = _executable_uses_service(
+            executable, "FeatureEncoder"
+        )
         if resolution is not None:
             publish_resolution = getattr(
                 self.optimizer, "_publish_component_resolution", None
             )
             if callable(publish_resolution):
-                publish_resolution(resolution)
+                publish_resolution(
+                    resolution,
+                    feature_encoder_consumed=consumes_feature_encoder,
+                )
             values = dict(resolution.bindings)
             provenance = dict(resolution.origins)
         else:
             values = dict(bindings)
             provenance = dict(self._active_snapshot.provenance)
+        if (
+            resolution is not None
+            and consumes_feature_encoder
+            and resolution.feature_encoder is not None
+        ):
+            values["feature_encoder"] = resolution.feature_encoder
+            if resolution.feature_encoder_origin is not None:
+                provenance["feature_encoder"] = resolution.feature_encoder_origin
+        elif not consumes_feature_encoder:
+            values.pop("feature_encoder", None)
+            provenance.pop("feature_encoder", None)
         if hasattr(self.optimizer, "_executable_plan"):
             self.optimizer._executable_plan = executable
         version = self.active_version + 1
@@ -1530,6 +1626,17 @@ class _OptimizerEnvironment:
                 version=version,
                 values=values,
                 provenance=provenance,
+                feature_encoder_selection=(
+                    None
+                    if not consumes_feature_encoder
+                    or resolution is None
+                    or resolution.feature_encoder_origin is None
+                    else (
+                        resolution.feature_encoder_origin.source,
+                        resolution.feature_encoder_origin.reason,
+                        resolution.feature_encoder_origin.signature,
+                    )
+                ),
                 strategy_values=strategy_values,
                 configuration_version=getattr(
                     self.optimizer, "_configuration_version", 0
@@ -1537,6 +1644,17 @@ class _OptimizerEnvironment:
             ),
         )
         if self._last_state is not None:
+            current_services = self._last_state.__dict__.get("_compiled_services")
+            if consumes_feature_encoder and resolution is not None:
+                if resolution.feature_encoder is not None:
+                    if not isinstance(current_services, dict):
+                        current_services = {}
+                        self._last_state.__dict__["_compiled_services"] = (
+                            current_services
+                        )
+                    current_services["FeatureEncoder"] = resolution.feature_encoder
+            elif isinstance(current_services, dict):
+                current_services.pop("FeatureEncoder", None)
             self._last_state.__dict__["_binding_version"] = version
         self._candidate_resolution = None
         self._publish_scheduler(executable)
@@ -1692,7 +1810,9 @@ class _OptimizerEnvironment:
             rebuilt = StructuredPlan.from_executable_plan(executable)
         else:
             rebuilt = SequentialPlan.from_executable_plan(executable)
-        self._candidate_resolution = resolution
+        self._candidate_resolution = getattr(
+            provider, "_component_resolution", resolution
+        )
         return executable, rebuilt
 
     def execute_async(
@@ -1916,6 +2036,7 @@ class _OptimizerEnvironment:
             bindings,
             self._strategy_values(),
             getattr(self.optimizer, "_configuration_version", 0),
+            self._feature_encoder_selection(),
         ):
             raise CheckpointError(
                 "checkpoint cannot be saved because the optimizer configuration "
@@ -2007,6 +2128,13 @@ def _execute_strategy_step(
         ),
         _require_initializer=False,
     )
+    resolution = getattr(provider, "_component_resolution", component_resolution)
+    publish_resolution = getattr(provider, "_publish_component_resolution", None)
+    if isinstance(resolution, _ComponentResolution) and callable(publish_resolution):
+        publish_resolution(
+            resolution,
+            feature_encoder_consumed=_executable_uses_service(plan, "FeatureEncoder"),
+        )
     if plan.diagnostics:
         errors = [item for item in plan.diagnostics if item.severity is Severity.ERROR]
         if errors:
@@ -2086,6 +2214,7 @@ class PipelineRuntime:
         validate_plan_contracts(plan)
         structured_graph = isinstance(plan.graph, StructuredGraph)
         services: dict[str, object] = {}
+        feature_encoders: dict[str, object] = {}
         for node in plan.graph.nodes:
             required = {
                 requirement.name
@@ -2099,8 +2228,16 @@ class PipelineRuntime:
                     f"compiled plan node {node.component_id!r} is missing resolved "
                     f"services: {missing}"
                 )
-            if not structured_graph:
-                for name, service in node.resolved_services.items():
+            for name, service in node.resolved_services.items():
+                if name == "FeatureEncoder":
+                    existing_encoder = feature_encoders.get(name)
+                    if existing_encoder is not None and existing_encoder is not service:
+                        raise ValidationError(
+                            "compiled plan resolves FeatureEncoder to conflicting "
+                            "objects"
+                        )
+                    feature_encoders[name] = service
+                if not structured_graph:
                     previous = services.get(name)
                     if previous is not None and previous is not service:
                         raise ValidationError(
@@ -2111,7 +2248,13 @@ class PipelineRuntime:
         structured = (
             StructuredPlan.from_executable_plan(plan) if structured_graph else None
         )
-        if structured is None:
+        services.update(feature_encoders)
+        current_services = state.__dict__.get("_compiled_services", {})
+        if "FeatureEncoder" in services and "FeatureEncoder" in current_services:
+            current_services["FeatureEncoder"] = services.pop("FeatureEncoder")
+        else:
+            current_services.pop("FeatureEncoder", None)
+        if services:
             state.bind_compiled_services(services)
         selected_plan = structured or SequentialPlan.from_executable_plan(plan)
         capabilities = self.capabilities | frozenset(
@@ -3193,7 +3336,7 @@ def resolve_plan(optimizer: object) -> ExecutablePlan:
     if not callable(build_graph):
         raise ValidationError("default runtime requires an executable plan")
     component_resolution = getattr(optimizer, "_component_resolution", None)
-    return _prepare_plan(
+    plan = _prepare_plan(
         strategy,
         optimizer,
         problem=None,
@@ -3210,3 +3353,11 @@ def resolve_plan(optimizer: object) -> ExecutablePlan:
             else None
         ),
     )
+    resolution = getattr(optimizer, "_component_resolution", component_resolution)
+    publish_resolution = getattr(optimizer, "_publish_component_resolution", None)
+    if isinstance(resolution, _ComponentResolution) and callable(publish_resolution):
+        publish_resolution(
+            resolution,
+            feature_encoder_consumed=_executable_uses_service(plan, "FeatureEncoder"),
+        )
+    return plan

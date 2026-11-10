@@ -45,6 +45,11 @@ class _Component:
         return ComponentContract()
 
 
+class _IdentityFeatureEncoder:
+    def encode(self, genomes):
+        return genomes.array
+
+
 def _problem() -> Problem:
     return Problem(
         func=lambda x: float(np.sum(np.asarray(x) ** 2)),
@@ -58,6 +63,7 @@ def _problem() -> Problem:
 
 def _strategy_inputs(key: str):
     problem = _problem()
+    problem.space.services.register("FeatureEncoder", _IdentityFeatureEncoder())
     optimizer = Optimizer(problem)
     if key == "direct":
         optimizer.set_strategy(DirectStrategy(n_offspring=4))

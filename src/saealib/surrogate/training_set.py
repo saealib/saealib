@@ -52,7 +52,7 @@ from saealib.exceptions import ValidationError
 from saealib.population.archive import Archive
 from saealib.population.genome import DenseVectorBatch
 from saealib.registry import register
-from saealib.space.space import encode_features
+from saealib.space.space import _encode_features, _encode_features_with_default
 
 if TYPE_CHECKING:
     from saealib.context import OptimizationState
@@ -211,7 +211,14 @@ class ArchiveObjectiveSet(TrainingSet):
         """Return all archive points with raw objective values."""
         genomes = getattr(archive, "genomes", None)
         if ctx is not None and genomes is not None:
-            train_x = encode_features(ctx.problem.space, genomes)
+            try:
+                feature_encoder = ctx.compiled_service("FeatureEncoder")
+            except ValidationError:
+                feature_encoder = None
+            if feature_encoder is None:
+                train_x = _encode_features_with_default(ctx.problem.space, genomes)
+            else:
+                train_x = _encode_features(ctx.problem.space, genomes, feature_encoder)
         else:
             train_x = archive.x
         return TrainingData(train_x=train_x, train_y=archive.f)

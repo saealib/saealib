@@ -224,7 +224,16 @@ def test_generation_based_async_plan_delivers_complete_batches() -> None:
         getattr(insertion, "adapter_name", None) == "feedback_accumulator"
         for insertion in plan.inserted_adapters
     )
-    assert not plan.diagnostics
+    assert not [
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if diagnostic.severity.value == "error"
+    ]
+    assert any(
+        diagnostic.code == "feature_encoder_default_selected"
+        and diagnostic.severity.value == "info"
+        for diagnostic in plan.diagnostics
+    )
 
 
 def test_misspelled_execution_boundary_stops_plan_preparation() -> None:

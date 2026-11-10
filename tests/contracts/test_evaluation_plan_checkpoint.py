@@ -87,8 +87,14 @@ class _RecordingPlanner:
         )
 
 
+class _IdentityFeatureEncoder:
+    def encode(self, genomes):
+        return genomes.array
+
+
 def test_acquisition_result_artifacts_reach_evaluation_planner():
     state = _state()
+    state.problem.space.services.register("FeatureEncoder", _IdentityFeatureEncoder())
     state = state.replace(offspring=state.population)
     scored = AcquisitionStage(_ArtifactAcquisition(), cbmanager=None).execute(state)
 

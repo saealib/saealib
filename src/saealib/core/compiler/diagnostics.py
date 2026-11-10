@@ -87,6 +87,10 @@ for _name, _description in (
         "component_binding_selected",
         "A component or semantic value was selected during execution preparation.",
     ),
+    (
+        "feature_encoder_default_selected",
+        "A default FeatureEncoder was selected during execution preparation.",
+    ),
     ("uninitialized_state_write", "A state write has no initialized predecessor."),
     ("concurrent_state_write", "Two state writes are not ordered."),
     ("unreachable_state_read", "A state read has no reachable initialized writer."),

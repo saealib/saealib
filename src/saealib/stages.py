@@ -121,7 +121,7 @@ from saealib.policies.feedback import (
     _set_objectives_true,
 )
 from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
-from saealib.space.space import encode_features
+from saealib.space.space import _encode_features
 
 if TYPE_CHECKING:
     from saealib.acquisition.base import AcquisitionFunction
@@ -184,6 +184,13 @@ def _dispatch_callback(cbmanager: CallbackManager | None, event: Event) -> None:
     """Dispatch through ``cbmanager`` with the run's own state ctx."""
     if cbmanager is not None:
         cbmanager.dispatch(_state_ctx(event))
+
+
+def _prepared_feature_encoder(state: OptimizationState) -> object | None:
+    try:
+        return state.compiled_service("FeatureEncoder")
+    except ValidationError:
+        return None
 
 
 class _DispatchProxy:
@@ -1035,7 +1042,11 @@ class SurrogatePredictStage(Stage):
             )
 
         prediction = self._sm.predict(
-            encode_features(state.problem.space, candidates.genomes),
+            _encode_features(
+                state.problem.space,
+                candidates.genomes,
+                _prepared_feature_encoder(state),
+            ),
             state.archive,
             state,
             refit=self._refit,
@@ -1206,7 +1217,11 @@ class AcquisitionStage(Stage):
             prepared = self._prepared_cache_value
 
             raw = self._acquisition.evaluate(
-                encode_features(state.problem.space, candidates.genomes),
+                _encode_features(
+                    state.problem.space,
+                    candidates.genomes,
+                    _prepared_feature_encoder(state),
+                ),
                 state.predictions,
                 archive,
                 state,

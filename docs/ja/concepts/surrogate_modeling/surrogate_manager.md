@@ -28,7 +28,11 @@ page_type: concept
 | Stage互換境界 | `archive`、`candidates_x: np.ndarray`、`ctx`、`refit` | `SurrogatePrediction`、fit の完了状態 | 互換Stage、逐次互換ランタイム |
 | graph-native境界 | `GenomeBatch`、`FeatureEncoder`、`FeatureBatch`、宣言済みサービス | Surrogateがフィット・予測できる特徴と予測結果 | コンポーネント、Compiler、構造化ランタイム |
 
-Stage互換経路の現行vector形式のManager APIでは、`fit(archive, ctx=None)`と`predict(candidates_x: np.ndarray, archive, ctx=None, *, refit=True) -> SurrogatePrediction`を使います。現行APIには、`GlobalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`、`LocalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`、`PairwiseSurrogateManager(surrogate, training_set=None, n_ref=10)`などのコンストラクタも含まれます。構造化ランタイムでは、Surrogateの入力境界は`GenomeBatch → FeatureEncoder → FeatureBatch → Surrogate`です。`FeatureEncoder`は意味変換を行い、Surrogateが学習できる特徴を決めます。これは`SamplingService`のような空間の能力とは異なります。現行実装ではSurrogateManagerの契約が`ServiceRequirement("FeatureEncoder")`を宣言し、`VectorSpace`が既定のエンコーダをサービスとして登録するため、数値ベクトル空間は追加設定なしで解決されます。`ObjectSpace`、`PermutationSpace`、`SequenceSpace`は、利用者が`FeatureEncoder`を指定しないとエラーになります。Surrogateへ渡す内容は利用者が決めます。
+Stage互換経路の現行vector形式のManager APIでは、`fit(archive, ctx=None)`と`predict(candidates_x: np.ndarray, archive, ctx=None, *, refit=True) -> SurrogatePrediction`を使います。現行APIには、`GlobalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`、`LocalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`、`PairwiseSurrogateManager(surrogate, training_set=None, n_ref=10)`などのコンストラクタも含まれます。
+構造化ランタイムでは、Surrogateの入力境界は`GenomeBatch → FeatureEncoder → FeatureBatch → Surrogate`です。`FeatureEncoder`は意味変換を行い、Surrogateが学習できる特徴を決めます。
+実行準備は、選択した戦略が`FeatureEncoder`を使う場合にエンコーダを選びます。`VectorSpace`は恒等エンコーディングを既定にし、選択元と理由をINFOで報告します。`PermutationSpace`と`SequenceSpace`は組み込みの既定エンコーダを使い、エンコーディングがサロゲートの学習対象を決めることを示して、明示選択を勧めるWARNINGを報告します。このWARNINGは実行を妨げません。
+`SearchSpace.services`に明示されたエンコーダは既定より優先され、既定選択の診断は出ません。`ObjectSpace`と独自の空間はエンコーダを自動で補わないため、必要な戦略を使う場合は空間が提供します。
+診断ストリームは`optimizer.contract_diagnostics()`で確認できます。`optimizer.validate()`の後は`optimizer.last_contract_diagnostics`にも診断が残ります。`Optimizer.validate()`が返すのはERRORだけなので、INFOとWARNINGは診断ストリームで確認してください。
 
 ## 組み込みSurrogateManager
 

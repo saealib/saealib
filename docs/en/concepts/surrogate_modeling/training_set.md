@@ -13,6 +13,8 @@ Pass it via the `training_set` argument.
 `TrainingSet` requires only one method, `build(archive, population, ctx, candidate_x=None) -> TrainingData`, to be implemented.
 `candidate_x` is an argument `LocalSurrogateManager` passes as the k-NN query center per candidate; `GlobalSurrogateManager` calls it with `None`.
 
+When `ctx` provides no prepared `FeatureEncoder` and the space registers none, `ArchiveObjectiveSet` uses the same supported default encoder as optimizer preparation and emits a Python `UserWarning`; a prepared or explicitly registered encoder keeps priority without the default warning.
+
 `TrainingData` is a dataclass holding `train_x` (normally shape `(n_train, dim)`; only `PairwiseComparisonSet` uses `(n_train, 2*dim)`) and `train_y` (`(n_train, n_obj)` for regression, `(n_train,)` for classification or ranking).
 
 The 8 built-in classes are organized along two orthogonal axes.

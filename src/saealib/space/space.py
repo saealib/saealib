@@ -11,6 +11,7 @@ It owns NO mutation, crossover, selection, surrogate, acquisition, or algorithm.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -63,12 +64,17 @@ class ServiceRegistry:
 
     def __init__(self) -> None:
         self._services: dict[str, object] = {}
+        self._feature_encoder_registration_count = 0
 
     def register(self, name: str, service: object) -> None:
         """Register a service under a name defined in SERVICE_VOCABULARY."""
         if SERVICE_VOCABULARY.get(name) is None:
             raise ValidationError(f"Unknown service name: {name!r}")
         self._services[name] = service
+        if name == "FeatureEncoder":
+            self._feature_encoder_registration_count = (
+                getattr(self, "_feature_encoder_registration_count", 0) + 1
+            )
 
     def get(self, name: str) -> object | None:
         """Return the service registered for name, or None if not present."""
@@ -95,14 +101,48 @@ class ServiceRegistry:
         return tuple(self._services)
 
 
-def encode_features(space: SearchSpace, genomes: GenomeBatch) -> np.ndarray:
-    """Encode genomes for a surrogate through an explicit space service."""
-    feature_encoder = space.services.get("FeatureEncoder")
+def _encode_features(
+    space: SearchSpace,
+    genomes: GenomeBatch,
+    feature_encoder: object | None = None,
+) -> np.ndarray:
+    """Encode genomes for a surrogate through a prepared encoder or space service."""
+    if feature_encoder is None:
+        feature_encoder = space.services.get("FeatureEncoder")
     if feature_encoder is not None:
         encode = getattr(feature_encoder, "encode", None)
         if callable(encode):
             return np.asarray(encode(genomes), dtype=np.float64)
     raise ValidationError("surrogate features require the FeatureEncoder service")
+
+
+def _encode_features_with_default(
+    space: SearchSpace, genomes: GenomeBatch
+) -> np.ndarray:
+    """Encode genomes with a registered encoder or a supported default."""
+    explicit = space.services.get("FeatureEncoder")
+    if explicit is not None:
+        return _encode_features(space, genomes, explicit)
+
+    from saealib.execution.bindings import _feature_encoder_default
+
+    default = _feature_encoder_default(space)
+    if default is None:
+        return _encode_features(space, genomes)
+    encoder, reason = default
+    features = _encode_features(space, genomes, encoder)
+    warnings.warn(
+        "encode_features used the default FeatureEncoder for "
+        f"{type(space).__name__}: {reason}",
+        UserWarning,
+        stacklevel=3,
+    )
+    return features
+
+
+def encode_features(space: SearchSpace, genomes: GenomeBatch) -> np.ndarray:
+    """Encode genomes with a registered or supported default feature encoder."""
+    return _encode_features_with_default(space, genomes)
 
 
 @runtime_checkable

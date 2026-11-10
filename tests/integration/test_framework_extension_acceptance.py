@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
-from saealib.core.compiler import CompileContext, Compiler
 from saealib.core.compiler.diagnostics import Severity
-from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.optimizer import Optimizer
 from saealib.space import PermutationSpace, SequenceSpace
 from saealib.strategies.direct import DirectStrategy
@@ -118,15 +116,8 @@ def test_representation_graph_profiles_compile_through_current_public_path() -> 
             Optimizer(problem, seed=1).set_algorithm(algorithm).set_strategy(strategy)
         )
         optimizer.resolve_defaults()
-        graph = cast(Any, optimizer.strategy).build_graph(optimizer)
-        plan = Compiler().compile(
-            graph,
-            CompileContext(
-                space=optimizer.problem.space,
-                problem=optimizer.problem,
-                initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-            ),
-        )
+        plan = optimizer._compile_plan()
+        assert plan is not None
         assert [
             diagnostic
             for diagnostic in plan.diagnostics

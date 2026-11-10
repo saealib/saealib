@@ -14,7 +14,7 @@ from pymoo.algorithms.soo.nonconvex.ga import GA as PymooGA  # noqa: N811
 
 from saealib.algorithms.pymoo_algorithm import PymooAlgorithm
 from saealib.context import OptimizationState
-from saealib.core.compiler.compiler import CompileContext, Compiler, ExecutablePlan
+from saealib.core.compiler.compiler import ExecutablePlan
 from saealib.core.compiler.graph import ComponentGraph, ComponentNode, NodeRef
 from saealib.core.compiler.structured import StructuredGraph
 from saealib.core.contracts import ComponentContract, ExecutionContract
@@ -25,7 +25,6 @@ from saealib.core.runtime import (
     RuntimeStep,
     StructuredPlan,
 )
-from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.core.state.patch import StatePatch
 from saealib.exceptions import ConfigurationError, StalePlanError, ValidationError
 from saealib.execution import (
@@ -522,19 +521,8 @@ def test_five_strategy_graphs_compile_with_runtime_neutral_topology() -> None:
 
         assert _graph_signature(sync) == _graph_signature(asynchronous)
         for optimizer, graph in ((sync, sync_graph), (asynchronous, async_graph)):
-            plan = Compiler().compile(
-                graph,
-                CompileContext(
-                    space=optimizer.problem.space,
-                    problem=optimizer.problem,
-                    offered_runtime_capabilities=(
-                        frozenset({"partial_feedback"})
-                        if optimizer.async_evaluation_scheduler is not None
-                        else frozenset()
-                    ),
-                    initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-                ),
-            )
+            plan = optimizer._compile_plan()
+            assert plan is not None
             assert [
                 diagnostic
                 for diagnostic in plan.diagnostics

@@ -40,7 +40,6 @@ from saealib.core.contracts import (
 from saealib.core.contracts.feedback import COMPLETE_BATCH, PARTIAL_ALLOWED
 from saealib.core.state import FEEDBACK_RESULT, OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.execution.evaluator import SerialEvaluator
-from saealib.execution.runtime import default_runtime_registry
 from saealib.execution.scheduler import AsyncEvaluationScheduler
 from saealib.islands import IslandModel
 from saealib.optimizer import Optimizer
@@ -127,17 +126,8 @@ def _feedback_graph(completion: str) -> ComponentGraph:
 def _compile_actual(optimizer: Optimizer):
     optimizer.resolve_defaults()
     graph = cast(Any, optimizer.strategy).build_graph(optimizer)
-    plan = Compiler().compile(
-        graph,
-        CompileContext(
-            space=optimizer.problem.space,
-            problem=optimizer.problem,
-            offered_runtime_capabilities=default_runtime_registry.offered_capabilities(
-                optimizer
-            ),
-            initial_state_keys=OPTIMIZATION_STATE_INITIAL_KEYS,
-        ),
-    )
+    plan = optimizer._compile_plan()
+    assert plan is not None
     return graph, plan
 
 
@@ -388,9 +378,11 @@ def test_pymoo_complete_batch_partial_runtime_keeps_j8_diagnostic() -> None:
     )
     optimizer.resolve_defaults()
 
-    assert [diagnostic.code for diagnostic in optimizer.contract_diagnostics()] == [
-        "pymoo_partial_feedback_unsupported"
-    ]
+    assert [
+        diagnostic.code
+        for diagnostic in optimizer.contract_diagnostics()
+        if diagnostic.severity.value == "error"
+    ] == ["pymoo_partial_feedback_unsupported"]
 
 
 def test_sync_graph_does_not_insert_accumulator() -> None:

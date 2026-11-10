@@ -161,7 +161,6 @@ class PermutationSpace:
         self._services.register("EquivalenceService", _PermutationEquivalenceService())
         self._services.register("GenomeCodec", _PermutationCodec())
         self._services.register("DistanceService", _PermutationDistanceService())
-        self._services.register("FeatureEncoder", _PermutationFeatureEncoder())
 
     @property
     def length(self) -> int:

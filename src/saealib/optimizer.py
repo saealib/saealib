@@ -49,12 +49,14 @@ from saealib.execution.bindings import (
     BINDING_SLOTS,
     _ComponentOrigin,
     _ComponentResolution,
+    _feature_encoder_signature,
     _signature,
     resolve_components,
 )
 from saealib.execution.evaluator import Evaluator, SerialEvaluator
 from saealib.execution.history import SUPPORTED_HISTORY_CHANNELS
 from saealib.execution.prepare import (
+    _graph_requires_service,
     _InvalidStrategyGraphError,
     _prepare_plan,
 )
@@ -304,6 +306,7 @@ class Optimizer:
         self._component_resolution: _ComponentResolution | None = None
         self._component_origins: dict[str, _ComponentOrigin] = {}
         self._materialized_components: dict[str, object] = {}
+        self._feature_encoder_default: tuple[object, object, str] | None = None
         self._configuration_version = 0
         self._last_contract_diagnostics: tuple[Diagnostic, ...] = ()
         self._executable_plan: ExecutablePlan | None = None
@@ -480,10 +483,37 @@ class Optimizer:
                             f"{type(strategy).__name__} does not provide a callable "
                             "build_graph() operation"
                         )
-                    signature = self._diagnostic_plan_signature(
-                        resolution, require_initializer=require_initializer
-                    )
                     cached = self._prepared_diagnostic_cache
+                    signature_resolution = resolution
+                    cached_default = self._feature_encoder_default
+                    if (
+                        cached is not None
+                        and resolution.feature_encoder_origin is None
+                        and isinstance(cached_default, tuple)
+                        and len(cached_default) == 3
+                        and cached_default[0] is self.problem.space
+                        and cached_default[1] is not None
+                        and self._executable_plan is not None
+                        and _graph_requires_service(
+                            self._executable_plan.graph, "FeatureEncoder"
+                        )
+                    ):
+                        encoder, reason = cached_default[1], cached_default[2]
+                        signature_resolution = dataclasses.replace(
+                            resolution,
+                            feature_encoder=encoder,
+                            feature_encoder_origin=_ComponentOrigin(
+                                encoder,
+                                "framework default",
+                                reason,
+                                f"{id(self.problem.space)}:{_feature_encoder_signature(encoder)}",
+                            ),
+                            feature_encoder_space=self.problem.space,
+                        )
+                    signature = self._diagnostic_plan_signature(
+                        signature_resolution,
+                        require_initializer=require_initializer,
+                    )
                     if cached is not None and cached[0] == signature:
                         plan_diagnostics = cached[1]
                         self._prepared_diagnostic_cache = None
@@ -559,6 +589,15 @@ class Optimizer:
                 (name, origin.source, origin.reason)
                 for name, origin in resolution.origins.items()
             ),
+            (
+                None
+                if resolution.feature_encoder_origin is None
+                else (
+                    resolution.feature_encoder_origin.source,
+                    resolution.feature_encoder_origin.reason,
+                    resolution.feature_encoder_origin.signature,
+                )
+            ),
             _signature(self.problem.comparator),
             repr(self.problem.direction),
             self._verification_enabled,
@@ -613,6 +652,14 @@ class Optimizer:
                 self._executable_plan = None
                 return None
             if configuration_version == self._configuration_version:
+                resolution = cast(_ComponentResolution, self._component_resolution)
+                consumes_feature_encoder = _graph_requires_service(
+                    plan.graph, "FeatureEncoder"
+                )
+                self._publish_component_resolution(
+                    resolution,
+                    feature_encoder_consumed=consumes_feature_encoder,
+                )
                 self._executable_plan = plan
                 self._prepared_diagnostic_cache = (
                     self._diagnostic_plan_signature(
@@ -880,7 +927,12 @@ class Optimizer:
             if diagnostic.severity is Severity.ERROR
         ]
 
-    def _publish_component_resolution(self, resolution: _ComponentResolution) -> None:
+    def _publish_component_resolution(
+        self,
+        resolution: _ComponentResolution,
+        *,
+        feature_encoder_consumed: bool | None = None,
+    ) -> None:
         """Publish resolved bindings for this optimizer execution session."""
         for name, value in resolution.components.items():
             object.__setattr__(self, name, value)
@@ -896,6 +948,28 @@ class Optimizer:
                 self._materialized_components[name] = value
         self._component_resolution = resolution
         self._default_resolution = resolution.defaults
+        if (
+            resolution.feature_encoder_origin is not None
+            and resolution.feature_encoder_origin.source == "framework default"
+        ):
+            self._feature_encoder_default = (
+                resolution.feature_encoder_space,
+                resolution.feature_encoder,
+                resolution.feature_encoder_origin.reason,
+            )
+        elif (
+            resolution.feature_encoder_origin is not None
+            or feature_encoder_consumed is False
+        ):
+            self._feature_encoder_default = None
+        feature_encoder_origin = resolution.feature_encoder_origin
+        if (
+            feature_encoder_origin is not None
+            and feature_encoder_origin.source == "persisted"
+        ):
+            self._component_origins["feature_encoder"] = feature_encoder_origin
+        elif feature_encoder_origin is not None or feature_encoder_consumed is False:
+            self._component_origins.pop("feature_encoder", None)
         feedback_origin = resolution.origins.get("feedback_builder")
         self.feedback_builder_explicit = feedback_origin is not None and (
             feedback_origin.source in {"setter", "direct assignment", "user preset"}
@@ -1250,6 +1324,7 @@ class Optimizer:
         state = self.__dict__.copy()
         state["_executable_plan"] = None
         state["_prepared_diagnostic_cache"] = None
+        state["_feature_encoder_default"] = None
         return state
 
     def __setstate__(self, state: dict[str, object]) -> None:
@@ -1262,6 +1337,7 @@ class Optimizer:
         self.__dict__.setdefault("_component_resolution", None)
         self.__dict__.setdefault("_component_origins", {})
         self.__dict__.setdefault("_materialized_components", {})
+        self.__dict__.setdefault("_feature_encoder_default", None)
         self.__dict__.setdefault("_configuration_version", 0)
         self.__dict__.setdefault("_track_component_assignments", True)
         if "_component_origins" not in state:
@@ -1279,6 +1355,22 @@ class Optimizer:
                         "Retained the component stored in optimizer state.",
                         _signature(value),
                     )
+        space = getattr(getattr(self, "problem", None), "space", None)
+        services = getattr(space, "services", None)
+        getter = getattr(services, "get", None)
+        feature_encoder = getter("FeatureEncoder") if callable(getter) else None
+        if (
+            feature_encoder is not None
+            and self._component_origins.get("feature_encoder") is None
+            and getattr(services, "_feature_encoder_registration_count", None) is None
+        ):
+            self._component_origins["feature_encoder"] = _ComponentOrigin(
+                feature_encoder,
+                "persisted",
+                "Retained the FeatureEncoder stored with the SearchSpace; its "
+                "original selection source is unavailable.",
+                _feature_encoder_signature(feature_encoder),
+            )
 
     def save_pickle(self, ctx: OptimizationState, path: str | Path) -> None:
         """

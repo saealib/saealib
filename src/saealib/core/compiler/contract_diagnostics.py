@@ -780,3 +780,62 @@ def _check_parts(
             continue
         _check_vocabularies(child_contract, part_path, diagnostics)
         _check_parts(child_contract, child, part_path, diagnostics)
+    _check_undeclared_part_attributes(contract, component, path, diagnostics)
+
+
+def _child_contract_or_none(value: object) -> ComponentContract | None:
+    """Return the child's contract when *value* looks like a component."""
+    try:
+        contract_method = getattr(value, "contract", None)
+    except Exception:
+        return None
+    if not callable(contract_method):
+        return None
+    try:
+        child_contract = contract_method()
+    except Exception:
+        return None
+    return child_contract if isinstance(child_contract, ComponentContract) else None
+
+
+def _check_undeclared_part_attributes(
+    contract: ComponentContract,
+    component: object,
+    path: ContractPath,
+    diagnostics: DiagnosticBag,
+) -> None:
+    """Warn once per static attribute that holds an undeclared child component.
+
+    The inspection covers static instance attributes only (``vars(component)``);
+    it does not enumerate dynamic or property attributes, does not register the
+    child, and does not alter the contract or the execution graph.
+    """
+    try:
+        attributes = vars(component)
+    except TypeError:
+        return
+    declared = {part.name for part in contract.parts}
+    for name, value in attributes.items():
+        if name in declared:
+            continue
+        child_contract = _child_contract_or_none(value)
+        if child_contract is None:
+            continue
+        child_path = ContractPath(components=(*path.components, name))
+        _finding(
+            diagnostics,
+            "undeclared_part",
+            child_path,
+            (
+                f"{type(component).__name__} holds a child component of type "
+                f"{type(value).__name__} in attribute {name!r}, which is not "
+                "declared in parts at "
+                f"{child_path}."
+            ),
+            (
+                f"Declare the attribute {name!r} with PartSpec(name={name!r}, "
+                f"contract=...) on {type(component).__name__}, or rename it if "
+                "it is not a child component."
+            ),
+            severity=Severity.WARNING,
+        )

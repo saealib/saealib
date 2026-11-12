@@ -25,6 +25,7 @@ Use `Population` as an instance in ordinary cases, and subclass it only when cus
 
 Define the attribute schema as a list of `PopulationAttribute(name, dtype, shape, default)` values.
 On the legacy vector path, add `x`, `f`, `g`, `cv`, and the auxiliary attributes returned by `Algorithm.get_required_attrs(problem)` to this schema.
+`get_required_attrs` returns `[]` by default — an algorithm declares attributes only when it stores algorithm-specific state in the population.
 On the Genome-native path, the GenomeBatch and SearchSpace contracts own the representation structure; individuals are not represented by a column schema alone.
 
 ## What Population holds
@@ -112,7 +113,7 @@ The `0.0` default only matters when using `ParetoArchive` standalone, detached f
 
 `ArchiveMixin`/`ParetoMixin` are designed on the assumption that they're mixed into a subclass of `Population` via multiple inheritance.
 If you need custom population-management logic, you can define a new class combining these mixins (`class MyArchive(ArchiveMixin, Population): ...`).
-You can also override [Algorithm](../search_algorithms/algorithm.md)'s `population_class`/`archive_class` to swap the Population/Archive that `Initializer` generates for your own custom subclass.
+You can also override [Algorithm](../search_algorithms/algorithm.md)'s `population_class`/`archive_class` to swap the Population/Archive that `Initializer` generates for your own custom subclass. Both default to the standard `Population`/`Archive`, so the override is optional.
 
 ## Related components
 

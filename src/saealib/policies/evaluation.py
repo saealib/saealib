@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, cast
 
@@ -17,6 +17,10 @@ from saealib.core.contracts import (
     PortContract,
     PortDirection,
     PortSpec,
+)
+from saealib.core.state import (
+    RUNTIME_CANDIDATE_ID_ALLOCATOR,
+    RUNTIME_REQUEST_ID_ALLOCATOR,
 )
 from saealib.exceptions import ValidationError
 from saealib.execution.evaluator import (
@@ -160,6 +164,24 @@ def select_ratio(scores: np.ndarray, ratio: float) -> np.ndarray:
 
 
 class _RequestPlanner(EvaluationPlanner):
+    def contract(self) -> ComponentContract:
+        """Return the request-planner contract declaring allocator state use."""
+        family = super().contract()
+        state = replace(
+            family.state,
+            reads=(
+                *family.state.reads,
+                RUNTIME_CANDIDATE_ID_ALLOCATOR,
+                RUNTIME_REQUEST_ID_ALLOCATOR,
+            ),
+            writes=(
+                *family.state.writes,
+                RUNTIME_CANDIDATE_ID_ALLOCATOR,
+                RUNTIME_REQUEST_ID_ALLOCATOR,
+            ),
+        )
+        return replace(family, state=state)
+
     @staticmethod
     def _request(
         candidates: Population,

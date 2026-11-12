@@ -53,7 +53,7 @@ The Runtime uses the generated ExecutablePlan and does not repeat Compiler resol
 
 `Diagnostic` is a verification result with severity, code, message, contract path, and resolution hint.
 The Compiler does not represent failures only as arbitrary exceptions; it collects multiple issues in a DiagnosticBag for plan decisions.
-Typical failures include unknown node endpoints, unconnected required ports, mismatched DataSpecs, missing required services, undeclared state access, and missing Runtime capabilities.
+Typical failures include unknown node endpoints, unconnected required ports, mismatched DataSpecs, missing required services, undeclared state access, missing Runtime capabilities, and components that hold undeclared child components (`undeclared_part` WARNING).
 The implementation reports them with codes such as `invalid_graph_edge`, `incompatible_port`, `unresolved_service`, and `unknown_runtime_capability`.
 Compiler rules do not change undeclared Graph locations or arbitrarily change a StructuredRegion execution tree during resolution.
 Violations become Diagnostics such as `unclaimed_rewrite`, `conflicting_rewrite`, and `structured_execution_mutation`.

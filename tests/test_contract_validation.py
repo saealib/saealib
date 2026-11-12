@@ -14,11 +14,13 @@ from saealib.core.compiler import (
     DiagnosticBag,
     Severity,
 )
+from saealib.core.compiler.contract_diagnostics import check_component_contract
 from saealib.core.compiler.diagnostics import DIAGNOSTIC_CODES
 from saealib.execution.evaluator import SerialEvaluator
 from saealib.execution.scheduler import AsyncEvaluationScheduler
 from saealib.islands import IslandModel
 from saealib.optimizer import Optimizer
+from saealib.policies.feedback import ComparatorWorstFallback, MixedFeedback
 from saealib.problem import Problem
 from saealib.strategies.direct import DirectStrategy
 from saealib.surrogate.rbf import RBFSurrogate
@@ -121,6 +123,45 @@ def test_pymoo_complete_batch_with_async_runtime_is_diagnosed() -> None:
     assert any(
         "pymoo_partial_feedback_unsupported" in issue for issue in optimizer.validate()
     )
+
+
+def test_scheduler_contract_treats_raising_contract_property_as_no_part() -> None:
+    class _RaisingContract:
+        @property
+        def contract(self) -> object:
+            raise RuntimeError("algorithm contract property failed")
+
+    scheduler = AsyncEvaluationScheduler(
+        SerialEvaluator(), algorithm=_RaisingContract()
+    )
+
+    contract = scheduler.contract()
+
+    assert [part.name for part in contract.parts] == ["evaluator"]
+
+
+def test_async_scheduler_with_feedback_builder_declares_no_undeclared_parts() -> None:
+    scheduler = AsyncEvaluationScheduler(
+        SerialEvaluator(),
+        feedback_builder=ComparatorWorstFallback(MixedFeedback()),
+    )
+
+    findings = check_component_contract(
+        scheduler.contract(),
+        component=scheduler,
+        path=ContractPath(components=("async_evaluation_scheduler",)),
+    )
+
+    undeclared = [
+        finding
+        for finding in findings
+        if finding.code == "undeclared_part" and finding.severity is Severity.WARNING
+    ]
+    assert undeclared == []
+    assert [part.name for part in scheduler.contract().parts] == [
+        "evaluator",
+        "feedback_builder",
+    ]
 
 
 def test_pymoo_partial_tell_opt_in_matches_async_runtime() -> None:

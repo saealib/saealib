@@ -63,7 +63,7 @@ Comparatorが `NSGA3Comparator` で内部乱数生成器をまだ持たない場
 
 Genome-nativeな初期化では、次の順序を保ちます。
 
-1. Algorithmの `population_class`、`archive_class`、`create_pareto_archive()` で入れ物を作る。
+1. Algorithmの `population_class`、`archive_class`、`create_pareto_archive()` で入れ物を作る。最初の2つは標準の `Population`/`Archive` が既定です。
 2. `OptimizationState` を構築する。
 3. `problem.space.sample(n, rng)` でGenomeを生成し、`problem.space.validate()` で検証する。
 4. `provider.evaluator.evaluate_batch(genomes, problem)` で評価する。

@@ -120,6 +120,11 @@ for _name, _description in (
         "with its held component.",
     ),
     (
+        "undeclared_part",
+        "A component attribute holds a child component that is not declared "
+        "in the contract's parts.",
+    ),
+    (
         "duplicate_component_id",
         "A component id occurs more than once in a component graph.",
     ),

@@ -14,6 +14,7 @@ from saealib.core.contracts import (
     ComponentContract,
     DataSpec,
     FeedbackBatch,
+    PartSpec,
     PortContract,
     PortDirection,
     PortSpec,
@@ -37,6 +38,7 @@ from saealib.core.contracts.observations import (
     ObservationRecords,
     ObservationSchema,
 )
+from saealib.core.state import POPULATIONS_MAIN
 from saealib.exceptions import ValidationError
 from saealib.execution.evaluator import EvaluationResult
 from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
@@ -1062,12 +1064,20 @@ class ComparatorWorstFallback(FeedbackBuilder):
                 inputs.append(replace(port, optional=False))
             else:
                 inputs.append(port)
+        parts = family.parts
+        if inner_contract is not None:
+            parts = (*parts, PartSpec(name="inner", contract=inner_contract))
         return replace(
             family,
             ports={
                 **family.ports,
                 "feedback_builder": replace(builder, inputs=tuple(inputs)),
             },
+            parts=parts,
+            state=replace(
+                family.state,
+                reads=(*family.state.reads, POPULATIONS_MAIN),
+            ),
         )
 
     def build(

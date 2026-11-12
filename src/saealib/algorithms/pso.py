@@ -24,7 +24,7 @@ from saealib.core.contracts import (
 )
 from saealib.core.state import POPULATIONS_MAIN, StatePatch, StateView
 from saealib.exceptions import ConfigurationError
-from saealib.population import Archive, Population, PopulationAttribute
+from saealib.population import Population, PopulationAttribute
 from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.problem import Problem
 from saealib.registry import register
@@ -162,16 +162,6 @@ class PSO(AskTellAlgorithm):
                 name="pbest_cv", dtype=np.float64, shape=(), default=np.nan
             ),
         ]
-
-    @property
-    def population_class(self):
-        """Return the population class."""
-        return Population
-
-    @property
-    def archive_class(self):
-        """Return the archive class."""
-        return Archive
 
     @property
     def ask_notation(self) -> list[str]:

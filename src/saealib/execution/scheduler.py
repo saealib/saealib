@@ -26,6 +26,7 @@ from saealib.core.contracts import (
     QuantityRequirement,
     StateContract,
 )
+from saealib.core.contracts.contract import ComponentContract as _ComponentContract
 from saealib.core.runtime import PollResult
 from saealib.core.state import (
     ARCHIVES_MAIN,
@@ -83,6 +84,26 @@ if TYPE_CHECKING:
 class AsyncEvaluationScheduler:
     """Coordinate asynchronous requests and serialized state mutation."""
 
+    @staticmethod
+    def _held_part_contract(held: Any) -> _ComponentContract | None:
+        """Return the held object's contract when it exposes one."""
+        try:
+            contract_method = getattr(held, "contract", None)
+        except Exception:
+            return None
+        if not callable(contract_method):
+            return None
+        try:
+            contract = contract_method()
+        except Exception:
+            return None
+        return contract if isinstance(contract, _ComponentContract) else None
+
+    @staticmethod
+    def _algorithm_part_contract(algorithm: Any) -> _ComponentContract | None:
+        """Return the held algorithm's contract when it is a component."""
+        return AsyncEvaluationScheduler._held_part_contract(algorithm)
+
     def contract(self) -> ComponentContract:
         """Return the scheduler contract and its evaluator part."""
         reads = (
@@ -110,8 +131,15 @@ class AsyncEvaluationScheduler:
         if self.algorithm is not None:
             reads += (POPULATIONS_MAIN, RUNTIME_RNG)
             writes += (POPULATIONS_MAIN, RUNTIME_RNG)
+        parts = [PartSpec(name="evaluator", contract=self.evaluator.contract())]
+        algorithm_contract = self._algorithm_part_contract(self.algorithm)
+        if algorithm_contract is not None:
+            parts.append(PartSpec(name="algorithm", contract=algorithm_contract))
+        builder_contract = self._held_part_contract(self.feedback_builder)
+        if builder_contract is not None:
+            parts.append(PartSpec(name="feedback_builder", contract=builder_contract))
         return ComponentContract(
-            parts=(PartSpec(name="evaluator", contract=self.evaluator.contract()),),
+            parts=tuple(parts),
             state=StateContract(
                 reads=reads,
                 writes=writes,

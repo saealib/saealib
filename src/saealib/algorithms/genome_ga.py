@@ -23,9 +23,7 @@ from saealib.core.contracts import (
 )
 from saealib.core.state import POPULATIONS_MAIN, StatePatch, StateView
 from saealib.exceptions import ConfigurationError, ValidationError
-from saealib.population import Archive, Population, PopulationAttribute
 from saealib.population.genome import GenomeBatch
-from saealib.problem import Problem
 
 if TYPE_CHECKING:
     from saealib.operators.selection import ParentSelection, SurvivorSelection
@@ -115,20 +113,6 @@ class GenomeGA(AskTellAlgorithm):
                 ),
             ),
         )
-
-    def get_required_attrs(self, problem: Problem) -> list[PopulationAttribute]:
-        """Return population attributes required by this algorithm."""
-        return []
-
-    @property
-    def population_class(self) -> type[Population]:
-        """Return the population implementation used by the algorithm."""
-        return Population
-
-    @property
-    def archive_class(self) -> type[Archive]:
-        """Return the archive implementation used by the algorithm."""
-        return Archive
 
     def ask(
         self,

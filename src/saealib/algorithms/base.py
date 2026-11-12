@@ -88,22 +88,35 @@ class Algorithm(ABC):
             ),
         )
 
-    @abstractmethod
     def get_required_attrs(self, problem: Problem) -> list[PopulationAttribute]:
-        """Return the list of attributes required for Population."""
-        pass
+        """
+        Return population attributes required beyond the standard schema.
+
+        The initializer builds the standard ``x``/``f``/``g``/``cv``/``id``
+        schema itself; return additional attributes only when the algorithm
+        stores algorithm-specific state in the population.
+
+        Parameters
+        ----------
+        problem : Problem
+            The problem the population is initialized for.
+
+        Returns
+        -------
+        list[PopulationAttribute]
+            Algorithm-specific attributes; empty by default.
+        """
+        return []
 
     @property
-    @abstractmethod
     def population_class(self) -> type[Population]:
-        """Return the population class."""
-        pass
+        """Return the population collection used for the main population."""
+        return Population
 
     @property
-    @abstractmethod
     def archive_class(self) -> type[Archive]:
-        """Return the archive class."""
-        pass
+        """Return the population collection used for the archive."""
+        return Archive
 
     @property
     def pareto_archive_class(self) -> type[ParetoArchive]:

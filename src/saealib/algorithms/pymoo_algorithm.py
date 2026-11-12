@@ -32,7 +32,7 @@ from saealib.core.state import (
 )
 from saealib.exceptions import ConfigurationError
 from saealib.identity import IDAllocator
-from saealib.population import Archive, Population, PopulationAttribute
+from saealib.population import Population, PopulationAttribute
 from saealib.population.population import (
     OBJECTIVE_SOURCE_COLUMN,
     UNKNOWN_SOURCE_CODE,
@@ -207,16 +207,6 @@ class PymooAlgorithm(AskTellAlgorithm):
     def get_required_attrs(self, problem: Problem) -> list[PopulationAttribute]:
         """Add a ``pymoo_idx`` column tracking position in the pymoo infill pop."""
         return [PopulationAttribute("pymoo_idx", np.int64, (), default=-1)]
-
-    @property
-    def population_class(self) -> type[Population]:
-        """Return the population class."""
-        return Population
-
-    @property
-    def archive_class(self) -> type[Archive]:
-        """Return the archive class."""
-        return Archive
 
     @property
     def ask_notation(self) -> list[str]:

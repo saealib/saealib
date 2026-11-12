@@ -36,7 +36,7 @@ from saealib.operators.mutation import (
     MutationCategorical,
     MutationIntegerUniform,
 )
-from saealib.population import Archive, Population, PopulationAttribute
+from saealib.population import Population
 from saealib.population.genome import DenseVectorBatch
 from saealib.problem import Problem
 from saealib.registry import register
@@ -364,22 +364,23 @@ class GA(AskTellAlgorithm):
                     name="survivor_selection",
                     contract=self.survivor_selection.contract(),
                 ),
+                PartSpec(
+                    name="integer_crossover",
+                    contract=self.integer_crossover.contract(),
+                ),
+                PartSpec(
+                    name="integer_mutation", contract=self.integer_mutation.contract()
+                ),
+                PartSpec(
+                    name="categorical_crossover",
+                    contract=self.categorical_crossover.contract(),
+                ),
+                PartSpec(
+                    name="categorical_mutation",
+                    contract=self.categorical_mutation.contract(),
+                ),
             ),
         )
-
-    def get_required_attrs(self, problem: Problem) -> list[PopulationAttribute]:
-        """Return algorithm-specific attributes (GA needs none beyond the defaults)."""
-        return []
-
-    @property
-    def population_class(self):
-        """Return the population class."""
-        return Population
-
-    @property
-    def archive_class(self):
-        """Return the archive class."""
-        return Archive
 
     @property
     def ask_notation(self) -> list[str]:

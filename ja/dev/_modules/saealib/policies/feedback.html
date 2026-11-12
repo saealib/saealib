@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.policies.feedback &#8212; saealib 0.1.1.dev37+g1d4f74dcd ドキュメント</title>
+    <title>saealib.policies.feedback &#8212; saealib 0.1.1.dev40+gd14c83649 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=4347a3b2"></script>
+    <script src="../../../_static/documentation_options.js?v=985a6ed4"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1851,6 +1851,25 @@ window.runMermaid = runMermaid;</script>
         <span class="k">pass</span></div>
 
 
+<div class="viewcode-block" id="PredictedFeedback.contract">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.PredictedFeedback.html#saealib.PredictedFeedback.contract">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the feedback contract requiring objective predictions.&quot;&quot;&quot;</span>
+        <span class="n">family</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">contract</span><span class="p">()</span>
+        <span class="n">builder</span> <span class="o">=</span> <span class="n">family</span><span class="o">.</span><span class="n">ports</span><span class="p">[</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">]</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">replace</span><span class="p">(</span><span class="n">port</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">if</span> <span class="n">port</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;prediction&quot;</span> <span class="k">else</span> <span class="n">port</span>
+            <span class="k">for</span> <span class="n">port</span> <span class="ow">in</span> <span class="n">builder</span><span class="o">.</span><span class="n">inputs</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span>
+            <span class="n">family</span><span class="p">,</span>
+            <span class="n">ports</span><span class="o">=</span><span class="p">{</span>
+                <span class="o">**</span><span class="n">family</span><span class="o">.</span><span class="n">ports</span><span class="p">,</span>
+                <span class="s2">&quot;feedback_builder&quot;</span><span class="p">:</span> <span class="n">replace</span><span class="p">(</span><span class="n">builder</span><span class="p">,</span> <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">),</span>
+            <span class="p">},</span>
+        <span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="PredictedFeedback.build">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.PredictedFeedback.html#saealib.PredictedFeedback.build">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">evaluated_indices</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
@@ -1982,17 +2001,38 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the feedback contract requiring population comparison.&quot;&quot;&quot;</span>
         <span class="n">family</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">contract</span><span class="p">()</span>
         <span class="n">builder</span> <span class="o">=</span> <span class="n">family</span><span class="o">.</span><span class="n">ports</span><span class="p">[</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">]</span>
+        <span class="n">contract_method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="p">,</span> <span class="s2">&quot;contract&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">inner_contract</span> <span class="o">=</span> <span class="n">contract_method</span><span class="p">()</span> <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">contract_method</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">inner_contract</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">inner_builder</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">inner_contract</span><span class="o">.</span><span class="n">ports</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inner_contract</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">)</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">required_inputs</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">{</span><span class="n">port</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">port</span> <span class="ow">in</span> <span class="n">inner_builder</span><span class="o">.</span><span class="n">inputs</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">port</span><span class="o">.</span><span class="n">optional</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">inner_builder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="p">)</span>
         <span class="n">candidates</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span>
             <span class="n">builder</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
             <span class="n">required_services</span><span class="o">=</span><span class="p">(</span><span class="n">ServiceRequirement</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;ComparisonService&quot;</span><span class="p">),),</span>
         <span class="p">)</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">port</span> <span class="ow">in</span> <span class="n">builder</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">port</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;candidates&quot;</span><span class="p">:</span>
+                <span class="n">inputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">port</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">required_inputs</span><span class="p">:</span>
+                <span class="n">inputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">replace</span><span class="p">(</span><span class="n">port</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">inputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">replace</span><span class="p">(</span>
             <span class="n">family</span><span class="p">,</span>
             <span class="n">ports</span><span class="o">=</span><span class="p">{</span>
                 <span class="o">**</span><span class="n">family</span><span class="o">.</span><span class="n">ports</span><span class="p">,</span>
-                <span class="s2">&quot;feedback_builder&quot;</span><span class="p">:</span> <span class="n">replace</span><span class="p">(</span>
-                    <span class="n">builder</span><span class="p">,</span> <span class="n">inputs</span><span class="o">=</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="o">*</span><span class="n">builder</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
-                <span class="p">),</span>
+                <span class="s2">&quot;feedback_builder&quot;</span><span class="p">:</span> <span class="n">replace</span><span class="p">(</span><span class="n">builder</span><span class="p">,</span> <span class="n">inputs</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">inputs</span><span class="p">)),</span>
             <span class="p">},</span>
         <span class="p">)</span>
 

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.policies.evaluation &#8212; saealib 0.1.1.dev37+g1d4f74dcd ドキュメント</title>
+    <title>saealib.policies.evaluation &#8212; saealib 0.1.1.dev40+gd14c83649 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=4347a3b2"></script>
+    <script src="../../../_static/documentation_options.js?v=985a6ed4"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1038,6 +1038,8 @@ window.runMermaid = runMermaid;</script>
 <span class="k">class</span><span class="w"> </span><span class="nc">EvaluationPlanner</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Public contract for planners that may produce multiple requests.&quot;&quot;&quot;</span>
 
+    <span class="n">_requires_acquisition_scores</span> <span class="o">=</span> <span class="kc">False</span>
+
 <div class="viewcode-block" id="EvaluationPlanner.contract">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.EvaluationPlanner.html#saealib.EvaluationPlanner.contract">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
@@ -1057,7 +1059,7 @@ window.runMermaid = runMermaid;</script>
                             <span class="n">direction</span><span class="o">=</span><span class="n">PortDirection</span><span class="o">.</span><span class="n">INPUT</span><span class="p">,</span>
                             <span class="n">data</span><span class="o">=</span><span class="n">DataSpec</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s2">&quot;RowPredicate&quot;</span><span class="p">),</span>
                             <span class="n">cardinality</span><span class="o">=</span><span class="n">MANY</span><span class="p">,</span>
-                            <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">optional</span><span class="o">=</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_requires_acquisition_scores</span><span class="p">,</span>
                         <span class="p">),</span>
                     <span class="p">),</span>
                     <span class="n">outputs</span><span class="o">=</span><span class="p">(</span>
@@ -1192,6 +1194,8 @@ window.runMermaid = runMermaid;</script>
 <span class="k">class</span><span class="w"> </span><span class="nc">TopKEvaluation</span><span class="p">(</span><span class="n">_RequestPlanner</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Evaluate the stable top-k acquisition scores.&quot;&quot;&quot;</span>
 
+    <span class="n">_requires_acquisition_scores</span> <span class="o">=</span> <span class="kc">True</span>
+
 <div class="viewcode-block" id="TopKEvaluation.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.TopKEvaluation.html#saealib.TopKEvaluation.__init__">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">sanitize_nonfinite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1221,6 +1225,8 @@ window.runMermaid = runMermaid;</script>
 <span class="nd">@register</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RatioEvaluation</span><span class="p">(</span><span class="n">_RequestPlanner</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Evaluate the stable prefix selected by a ratio.&quot;&quot;&quot;</span>
+
+    <span class="n">_requires_acquisition_scores</span> <span class="o">=</span> <span class="kc">True</span>
 
 <div class="viewcode-block" id="RatioEvaluation.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.RatioEvaluation.html#saealib.RatioEvaluation.__init__">[ドキュメント]</a>

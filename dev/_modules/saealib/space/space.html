@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.space.space &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>saealib.space.space &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -969,6 +969,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">runtime_checkable</span>
 
@@ -1027,7 +1028,8 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="ServiceRegistry.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.space.ServiceRegistry.html#saealib.space.ServiceRegistry.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_services</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_services</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_registration_count</span> <span class="o">=</span> <span class="mi">0</span></div>
 
 
 <div class="viewcode-block" id="ServiceRegistry.register">
@@ -1036,7 +1038,11 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Register a service under a name defined in SERVICE_VOCABULARY.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">SERVICE_VOCABULARY</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown service name: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_services</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">service</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_services</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">service</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_registration_count</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_feature_encoder_registration_count&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ServiceRegistry.get">
@@ -1077,14 +1083,48 @@ window.runMermaid = runMermaid;</script>
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">encode_features</span><span class="p">(</span><span class="n">space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span> <span class="n">genomes</span><span class="p">:</span> <span class="n">GenomeBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Encode genomes for a surrogate through an explicit space service.&quot;&quot;&quot;</span>
-    <span class="n">feature_encoder</span> <span class="o">=</span> <span class="n">space</span><span class="o">.</span><span class="n">services</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_encode_features</span><span class="p">(</span>
+    <span class="n">space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+    <span class="n">genomes</span><span class="p">:</span> <span class="n">GenomeBatch</span><span class="p">,</span>
+    <span class="n">feature_encoder</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Encode genomes for a surrogate through a prepared encoder or space service.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">feature_encoder</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">feature_encoder</span> <span class="o">=</span> <span class="n">space</span><span class="o">.</span><span class="n">services</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">feature_encoder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">encode</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">feature_encoder</span><span class="p">,</span> <span class="s2">&quot;encode&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">encode</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">genomes</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;surrogate features require the FeatureEncoder service&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_encode_features_with_default</span><span class="p">(</span>
+    <span class="n">space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span> <span class="n">genomes</span><span class="p">:</span> <span class="n">GenomeBatch</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Encode genomes with a registered encoder or a supported default.&quot;&quot;&quot;</span>
+    <span class="n">explicit</span> <span class="o">=</span> <span class="n">space</span><span class="o">.</span><span class="n">services</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">explicit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_encode_features</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="n">genomes</span><span class="p">,</span> <span class="n">explicit</span><span class="p">)</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.bindings</span><span class="w"> </span><span class="kn">import</span> <span class="n">_feature_encoder_default</span>
+
+    <span class="n">default</span> <span class="o">=</span> <span class="n">_feature_encoder_default</span><span class="p">(</span><span class="n">space</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_encode_features</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="n">genomes</span><span class="p">)</span>
+    <span class="n">encoder</span><span class="p">,</span> <span class="n">reason</span> <span class="o">=</span> <span class="n">default</span>
+    <span class="n">features</span> <span class="o">=</span> <span class="n">_encode_features</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="n">genomes</span><span class="p">,</span> <span class="n">encoder</span><span class="p">)</span>
+    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+        <span class="s2">&quot;encode_features used the default FeatureEncoder for &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">space</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="ne">UserWarning</span><span class="p">,</span>
+        <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">features</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">encode_features</span><span class="p">(</span><span class="n">space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span> <span class="n">genomes</span><span class="p">:</span> <span class="n">GenomeBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Encode genomes with a registered or supported default feature encoder.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_encode_features_with_default</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="n">genomes</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="SearchSpace">

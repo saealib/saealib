@@ -11,6 +11,8 @@ page_type: concept
 
 `TrainingSet`が実装する必要があるメソッドは`build(archive, population, ctx, candidate_x=None) -> TrainingData`の1つだけです。`candidate_x`は、`LocalSurrogateManager`が候補ごとのk-NN検索中心として渡す引数です。`GlobalSurrogateManager`は`None`を渡して呼び出します。
 
+`ctx`に準備済みの`FeatureEncoder`がなく、空間にも明示登録がない場合、`ArchiveObjectiveSet`は最適化の実行準備と同じ対応済みの既定エンコーダを使い、Pythonの`UserWarning`を出します。準備済みまたは明示登録されたエンコーダは優先され、既定を使ったという警告は出ません。
+
 `TrainingData`は、`train_x`（通常は形状`(n_train, dim)`で、`PairwiseComparisonSet`だけが`(n_train, 2*dim)`を使います）と、回帰では`(n_train, n_obj)`、分類またはランキングでは`(n_train,)`となる`train_y`を保持するデータクラスです。
 
 組み込みの8クラスは、直交する2つの軸に沿って整理されています。

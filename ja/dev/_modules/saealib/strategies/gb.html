@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.gb &#8212; saealib 0.1.1.dev37+g1d4f74dcd ドキュメント</title>
+    <title>saealib.strategies.gb &#8212; saealib 0.1.1.dev40+gd14c83649 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=4347a3b2"></script>
+    <script src="../../../_static/documentation_options.js?v=985a6ed4"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1081,6 +1081,18 @@ window.runMermaid = runMermaid;</script>
             <span class="s2">&quot;feedback_builder&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">true_feedback_builder</span><span class="p">,</span>
         <span class="p">}</span>
 
+<div class="viewcode-block" id="GenerationBasedStrategy.snapshot_bindings">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.GenerationBasedStrategy.html#saealib.GenerationBasedStrategy.snapshot_bindings">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">snapshot_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Keep the true-generation policy for compatibility providers.&quot;&quot;&quot;</span>
+        <span class="n">bindings</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">snapshot_bindings</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span>
+            <span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;feedback_builder_explicit&quot;</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="p">):</span>
+            <span class="n">bindings</span><span class="p">[</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">true_feedback_builder</span>
+        <span class="k">return</span> <span class="n">bindings</span></div>
+
+
 <div class="viewcode-block" id="GenerationBasedStrategy.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.GenerationBasedStrategy.html#saealib.GenerationBasedStrategy.__init__">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_ctrl</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1106,21 +1118,6 @@ window.runMermaid = runMermaid;</script>
             <span class="s2">&quot;_built_with_surrogate_generations&quot;</span><span class="p">,</span> <span class="n">generated_repeat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_generated_repeat&quot;</span><span class="p">,</span> <span class="n">generated_repeat</span><span class="p">)</span>
-
-<div class="viewcode-block" id="GenerationBasedStrategy.snapshot_bindings">
-<a class="viewcode-back" href="../../../api/_autosummary/saealib.GenerationBasedStrategy.html#saealib.GenerationBasedStrategy.snapshot_bindings">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">snapshot_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read the slots, keeping the true generation&#39;s feedback builder.</span>
-
-<span class="sd">        The Optimizer&#39;s ``feedback_builder`` reaches the true generation only</span>
-<span class="sd">        when it was configured explicitly (``feedback_builder_explicit``);</span>
-<span class="sd">        otherwise ``true_feedback_builder`` builds the true feedback.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">bindings</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">snapshot_bindings</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;feedback_builder_explicit&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-            <span class="n">bindings</span><span class="p">[</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">true_feedback_builder</span>
-        <span class="k">return</span> <span class="n">bindings</span></div>
-
 
 <div class="viewcode-block" id="GenerationBasedStrategy.build_template">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.GenerationBasedStrategy.html#saealib.GenerationBasedStrategy.build_template">[ドキュメント]</a>

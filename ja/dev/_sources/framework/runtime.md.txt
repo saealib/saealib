@@ -45,7 +45,7 @@ StatePatchの適用、イベントの配送、コマンドの処理が完了し�
 
 ## 不変条件と診断
 
-Runtimeは、環境がPlanに必要な能力を提供すること、`NodeResult`のStatePatchが宣言された状態効果の範囲内にあること、待機要求が二重適用されないことを検証します。計画の診断、未宣言の状態書き込み、無効な実行位置、回収できない非同期要求は実行を停止し、Diagnosticsまたは失敗結果として報告します。ランタイム能力の不足はCompilerの`missing_runtime_capability`診断になります。
+Runtimeは、環境がPlanに必要な能力を提供すること、`NodeResult`のStatePatchが宣言された状態効果の範囲内にあること、待機要求が二重適用されないことを検証します。ERRORレベルの計画診断、未宣言の状態書き込み、無効な実行位置、回収できない非同期要求は実行を停止し、Diagnosticsまたは失敗結果として報告します。INFOとWARNINGの計画診断では実行を停止しません。ランタイム能力の不足はCompilerの`missing_runtime_capability`診断になります。
 
 ## 拡張点
 

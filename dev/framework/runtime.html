@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Runtime &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>Runtime &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -613,7 +613,7 @@ For ordinary use, call <code class="docutils literal notranslate"><span class="p
 <section id="invariants-and-diagnostics">
 <h2>Invariants and diagnostics<a class="headerlink" href="#invariants-and-diagnostics" title="Link to this heading">#</a></h2>
 <p>The Runtime verifies that the environment provides the capabilities required by the plan, that <code class="docutils literal notranslate"><span class="pre">NodeResult</span></code> StatePatches stay within declared state effects, and that a waiting request is not applied twice.
-Plan diagnostics, undeclared state writes, invalid execution positions, and uncollectable asynchronous requests stop execution and are reported as Diagnostics or failure results.
+ERROR-level plan diagnostics, undeclared state writes, invalid execution positions, and uncollectable asynchronous requests stop execution and are reported as Diagnostics or failure results. INFO and WARNING plan diagnostics do not stop execution.
 Missing runtime capabilities become the Compiler diagnostic <code class="docutils literal notranslate"><span class="pre">missing_runtime_capability</span></code>.</p>
 </section>
 <section id="extension-points">

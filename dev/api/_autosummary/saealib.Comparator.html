@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Comparator &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>saealib.Comparator &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -965,6 +965,20 @@ None means all objectives are minimized.</p>
 </dl>
 </dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="saealib.Comparator.aligns_population_to_reference_points">
+<span class="sig-name descname"><span class="pre">aligns_population_to_reference_points</span></span><a class="headerlink" href="#saealib.Comparator.aligns_population_to_reference_points" title="Link to this definition">#</a></dt>
+<dd><p>Whether the default population size is aligned to this comparator’s
+<code class="docutils literal notranslate"><span class="pre">reference_points</span></code> as <code class="docutils literal notranslate"><span class="pre">4</span> <span class="pre">*</span> <span class="pre">ceil(n_ref</span> <span class="pre">/</span> <span class="pre">4)</span></code>. The base class
+defaults to False; set it to True on a comparator that needs the default
+population to follow its reference-point layout.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <p class="rubric">Methods</p>
@@ -1194,6 +1208,7 @@ ranking.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Comparator.eps_cv"><code class="docutils literal notranslate"><span class="pre">Comparator.eps_cv</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Comparator.eps_obj"><code class="docutils literal notranslate"><span class="pre">Comparator.eps_obj</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Comparator.direction"><code class="docutils literal notranslate"><span class="pre">Comparator.direction</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Comparator.aligns_population_to_reference_points"><code class="docutils literal notranslate"><span class="pre">Comparator.aligns_population_to_reference_points</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Comparator.__init__"><code class="docutils literal notranslate"><span class="pre">Comparator.__init__()</span></code></a></li>

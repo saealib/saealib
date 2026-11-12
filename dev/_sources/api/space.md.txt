@@ -48,7 +48,10 @@ SearchSpace services such as sampling and validation are capabilities provided b
 
 `EvaluationAdapter` is an adapter at the evaluation boundary that converts a `GenomeBatch` into an `EvaluationPayload`.
 `FeatureEncoder` is an adapter subtype exposed as `saealib.space.FeatureEncoder`. It converts a `GenomeBatch` into a `FeatureBatch` and determines which features a surrogate can learn. It differs in kind from space capabilities such as `SamplingService`.
-In the current implementation, the `SurrogateManager` contract declares `ServiceRequirement("FeatureEncoder")`, and `VectorSpace` registers a default encoder as a service, so numeric vector spaces resolve it without extra configuration. `ObjectSpace`, `PermutationSpace`, and `SequenceSpace` fail to resolve it unless the user provides a `FeatureEncoder`. The user decides which input is passed to the surrogate.
+When a prepared strategy consumes `FeatureEncoder`, execution preparation selects a default if `SearchSpace.services` has no explicit encoder. `VectorSpace` uses identity encoding and reports INFO with its source and reason; `PermutationSpace` and `SequenceSpace` keep their built-in encodings and report a non-blocking WARNING that encoding affects surrogate learning and an explicit choice is recommended.
+An explicitly provided encoder always takes priority and does not produce a default-selection diagnostic. `ObjectSpace` and custom spaces receive no inferred encoder; provide one when the selected strategy consumes it.
+Direct calls to `encode_features(space, genomes)` use the same built-in defaults when no encoder is registered and emit a Python `UserWarning`. An explicit encoder is used without a warning, and a custom space without a supported default still raises `ValidationError`; the helper does not register its fallback in the space.
+Inspect choices with `optimizer.contract_diagnostics()`, or use `optimizer.last_contract_diagnostics` after `optimizer.validate()`. `Optimizer.validate()` returns ERROR findings only, while the structured stream also includes INFO and WARNING.
 
 ```{eval-rst}
 .. autosummary::

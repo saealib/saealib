@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Optimizer &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>saealib.Optimizer &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1058,7 +1058,7 @@ model manager, and termination condition, and manages the optimization process.<
 <td><p>Initialize the Optimizer.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.contract_diagnostics" title="saealib.Optimizer.contract_diagnostics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract_diagnostics</span></code></a></p></td>
-<td><p>Return diagnostics for the currently configured component graph.</p></td>
+<td><p>Return diagnostics for the prepared optimizer composition.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.describe" title="saealib.Optimizer.describe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">describe</span></code></a></p></td>
 <td><p>Describe the most recently compiled plan, if one exists.</p></td>
@@ -1079,7 +1079,7 @@ model manager, and termination condition, and manages the optimization process.<
 <td><p>Load an optimizer and context from a pickle checkpoint.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.resolve_defaults" title="saealib.Optimizer.resolve_defaults"><code class="xref py py-obj docutils literal notranslate"><span class="pre">resolve_defaults</span></code></a></p></td>
-<td><p>Fill unset components with library defaults (Registry + presets file).</p></td>
+<td><p>Resolve component and semantic defaults for the current composition.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.run" title="saealib.Optimizer.run"><code class="xref py py-obj docutils literal notranslate"><span class="pre">run</span></code></a></p></td>
 <td><p>Run the optimization process.</p></td>
@@ -1163,7 +1163,7 @@ means non-deterministic.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.contract_diagnostics">
 <span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">contract_diagnostics</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.contract_diagnostics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Optimizer.contract_diagnostics" title="Link to this definition">#</a></dt>
-<dd><p>Return diagnostics for the currently configured component graph.</p>
+<dd><p>Return diagnostics for the prepared optimizer composition.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><em>DiagnosticBag</em></p>
@@ -1315,16 +1315,7 @@ to continue the optimization.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.resolve_defaults">
 <span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">resolve_defaults</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.resolve_defaults"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Optimizer.resolve_defaults" title="Link to this definition">#</a></dt>
-<dd><p>Fill unset components with library defaults (Registry + presets file).</p>
-<p>Components already set via <code class="docutils literal notranslate"><span class="pre">set_*()</span></code> are never overwritten. Gaps
-are filled first from a user preset (<code class="docutils literal notranslate"><span class="pre">set_preset()</span></code>), if any, then
-from a bundled preset selected by (1) the algorithm’s registered
-name if <code class="docutils literal notranslate"><span class="pre">algorithm</span></code> is set, else (2) a Problem-shape rule, else
-(3) the universal fallback preset. <code class="docutils literal notranslate"><span class="pre">initializer</span></code> is computed
-from semantic defaults and is not part of any preset;
-<code class="docutils literal notranslate"><span class="pre">termination</span></code> falls back to the resolved maximum-evaluations default
-(<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">*</span> <span class="pre">problem.dim</span></code> unless a provider recommends another value)
-only if neither <code class="docutils literal notranslate"><span class="pre">set_*()</span></code> nor a preset supplies one.</p>
+<dd><p>Resolve component and semantic defaults for the current composition.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
@@ -1649,8 +1640,7 @@ to <code class="docutils literal notranslate"><span class="pre">history_channels
 <dt class="sig sig-object py" id="saealib.Optimizer.validate">
 <span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">require_initializer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.validate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Optimizer.validate" title="Link to this definition">#</a></dt>
 <dd><p>Check configuration consistency. Returns list of issues.</p>
-<p>Call <a class="reference internal" href="#saealib.Optimizer.resolve_defaults" title="saealib.Optimizer.resolve_defaults"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve_defaults()</span></code></a> first when validation results should
-reflect the components that will be used for execution.</p>
+<p>Component defaults are resolved before checking the composition.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>require_initializer</strong> (<em>bool</em><em>, </em><em>optional</em>) – When False, skip the initializer presence check.  Use this when

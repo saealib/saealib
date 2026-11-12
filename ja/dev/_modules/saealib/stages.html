@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.stages &#8212; saealib 0.1.1.dev37+g1d4f74dcd ドキュメント</title>
+    <title>saealib.stages &#8212; saealib 0.1.1.dev40+gd14c83649 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=4347a3b2"></script>
+    <script src="../../_static/documentation_options.js?v=985a6ed4"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1080,7 +1080,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">_set_objectives_true</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">OBJECTIVE_SOURCE_COLUMN</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.space.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">encode_features</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.space.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">_encode_features</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.acquisition.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcquisitionFunction</span>
@@ -1143,6 +1143,13 @@ window.runMermaid = runMermaid;</script>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Dispatch through ``cbmanager`` with the run&#39;s own state ctx.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">_state_ctx</span><span class="p">(</span><span class="n">event</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_prepared_feature_encoder</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">compiled_service</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">ValidationError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_DispatchProxy</span><span class="p">:</span>
@@ -1323,6 +1330,15 @@ window.runMermaid = runMermaid;</script>
             <span class="s2">&quot;optimizer or pass the component explicitly to the stage.&quot;</span>
         <span class="p">)</span>
     <span class="n">defaults</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">component</span> <span class="o">=</span> <span class="n">factory</span><span class="p">()</span>
+    <span class="n">record_fallback</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">defaults</span><span class="p">,</span> <span class="s2">&quot;record_fallback&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">record_fallback</span><span class="p">):</span>
+        <span class="n">record_fallback</span><span class="p">(</span>
+            <span class="n">ref</span><span class="o">.</span><span class="n">slot</span><span class="p">,</span>
+            <span class="n">ref</span><span class="o">.</span><span class="n">role</span><span class="p">,</span>
+            <span class="n">component</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> supplies </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">component</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;for role </span><span class="si">{</span><span class="n">ref</span><span class="o">.</span><span class="n">role</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="k">return</span> <span class="n">component</span>
 
 
@@ -2028,7 +2044,11 @@ window.runMermaid = runMermaid;</script>
             <span class="p">)</span>
 
         <span class="n">prediction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
-            <span class="n">encode_features</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">candidates</span><span class="o">.</span><span class="n">genomes</span><span class="p">),</span>
+            <span class="n">_encode_features</span><span class="p">(</span>
+                <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span>
+                <span class="n">candidates</span><span class="o">.</span><span class="n">genomes</span><span class="p">,</span>
+                <span class="n">_prepared_feature_encoder</span><span class="p">(</span><span class="n">state</span><span class="p">),</span>
+            <span class="p">),</span>
             <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span>
             <span class="n">state</span><span class="p">,</span>
             <span class="n">refit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_refit</span><span class="p">,</span>
@@ -2214,7 +2234,11 @@ window.runMermaid = runMermaid;</script>
             <span class="n">prepared</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_cache_value</span>
 
             <span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_acquisition</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-                <span class="n">encode_features</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">candidates</span><span class="o">.</span><span class="n">genomes</span><span class="p">),</span>
+                <span class="n">_encode_features</span><span class="p">(</span>
+                    <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span>
+                    <span class="n">candidates</span><span class="o">.</span><span class="n">genomes</span><span class="p">,</span>
+                    <span class="n">_prepared_feature_encoder</span><span class="p">(</span><span class="n">state</span><span class="p">),</span>
+                <span class="p">),</span>
                 <span class="n">state</span><span class="o">.</span><span class="n">predictions</span><span class="p">,</span>
                 <span class="n">archive</span><span class="p">,</span>
                 <span class="n">state</span><span class="p">,</span>

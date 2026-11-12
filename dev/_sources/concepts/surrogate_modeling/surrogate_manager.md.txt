@@ -36,7 +36,9 @@ The current vector-form Manager API on the Stage compatibility path uses `fit(ar
 The current API also includes constructors such as `GlobalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`, `LocalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`, and `PairwiseSurrogateManager(surrogate, training_set=None, n_ref=10)`.
 In the structured runtime, the Surrogate input boundary is `GenomeBatch → FeatureEncoder → FeatureBatch → Surrogate`.
 `FeatureEncoder` performs semantic conversion and determines the features the surrogate can learn. It differs from a space capability such as `SamplingService`.
-In the current implementation, the SurrogateManager contract declares `ServiceRequirement("FeatureEncoder")`, and `VectorSpace` registers a default encoder as a service, so numeric vector spaces resolve without extra configuration. `ObjectSpace`, `PermutationSpace`, and `SequenceSpace` raise an error unless the user provides a `FeatureEncoder`. The user decides what to pass to the surrogate.
+Execution preparation selects an encoder only when the prepared strategy consumes it. `VectorSpace` defaults to identity encoding and reports INFO with the selection source and reason; `PermutationSpace` and `SequenceSpace` retain their built-in encodings and report a non-blocking WARNING recommending an explicit choice because encoding affects what the surrogate learns.
+An encoder explicitly provided through `SearchSpace.services` takes priority and does not produce a default-selection diagnostic. `ObjectSpace` and custom spaces need to provide an encoder when the selected strategy consumes one.
+Inspect the structured diagnostics with `optimizer.contract_diagnostics()`, or read `optimizer.last_contract_diagnostics` after `optimizer.validate()`. `Optimizer.validate()` returns ERROR findings only; INFO and WARNING remain available in the diagnostic stream.
 
 ## Built-in SurrogateManagers
 

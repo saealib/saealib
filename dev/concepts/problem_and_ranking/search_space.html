@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>SearchSpace &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>SearchSpace &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -621,7 +621,10 @@ For example, <code class="docutils literal notranslate"><span class="pre">Object
 <p><code class="docutils literal notranslate"><span class="pre">RepresentationSpec</span></code> describes parameter types, shapes, and representation kinds.
 This description says how candidates are stored; it is not itself an implementation of sampling or feature encoding.</p>
 <p>Services are the executable boundaries that fill this gap.
-In the current implementation, the SurrogateManager contract declares <code class="docutils literal notranslate"><span class="pre">ServiceRequirement(&quot;FeatureEncoder&quot;)</span></code>, and <code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code> registers a default encoder as a service, so numeric vector spaces resolve without extra configuration. <code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code>, <code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code>, and <code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code> raise an error unless the user provides a <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>. The user decides what to pass to the surrogate.</p>
+When a prepared strategy consumes <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>, execution preparation selects a visible default if the space has no explicit encoder. <code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code> uses identity encoding and reports INFO with the selection source and reason; <code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code> and <code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code> keep their built-in encodings and report a non-blocking WARNING recommending explicit selection because encoding shapes what the surrogate learns.
+An encoder explicitly provided through <code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code> takes priority and produces no default-selection diagnostic. <code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code> and custom spaces do not receive an inferred encoder, so they must provide one when the selected strategy consumes it.
+Direct calls to <code class="docutils literal notranslate"><span class="pre">encode_features()</span></code> use the same defaults for built-in spaces and emit a Python <code class="docutils literal notranslate"><span class="pre">UserWarning</span></code> when they do; custom spaces without a supported default still require an explicit encoder.
+Use <code class="docutils literal notranslate"><span class="pre">optimizer.contract_diagnostics()</span></code> to inspect the structured stream, or inspect <code class="docutils literal notranslate"><span class="pre">optimizer.last_contract_diagnostics</span></code> after <code class="docutils literal notranslate"><span class="pre">optimizer.validate()</span></code>. <code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> returns ERROR findings only; INFO and WARNING selections remain in the diagnostic stream.</p>
 </section>
 <section id="extending-searchspace">
 <h2>Extending SearchSpace<a class="headerlink" href="#extending-searchspace" title="Link to this heading">#</a></h2>

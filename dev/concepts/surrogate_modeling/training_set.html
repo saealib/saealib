@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TrainingSet &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>TrainingSet &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -597,6 +597,7 @@ Pass it via the <code class="docutils literal notranslate"><span class="pre">tra
 <h2>TrainingSet’s role<a class="headerlink" href="#trainingset-s-role" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code> requires only one method, <code class="docutils literal notranslate"><span class="pre">build(archive,</span> <span class="pre">population,</span> <span class="pre">ctx,</span> <span class="pre">candidate_x=None)</span> <span class="pre">-&gt;</span> <span class="pre">TrainingData</span></code>, to be implemented.
 <code class="docutils literal notranslate"><span class="pre">candidate_x</span></code> is an argument <code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager</span></code> passes as the k-NN query center per candidate; <code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager</span></code> calls it with <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">ctx</span></code> provides no prepared <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code> and the space registers none, <code class="docutils literal notranslate"><span class="pre">ArchiveObjectiveSet</span></code> uses the same supported default encoder as optimizer preparation and emits a Python <code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>; a prepared or explicitly registered encoder keeps priority without the default warning.</p>
 <p><code class="docutils literal notranslate"><span class="pre">TrainingData</span></code> is a dataclass holding <code class="docutils literal notranslate"><span class="pre">train_x</span></code> (normally shape <code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">dim)</span></code>; only <code class="docutils literal notranslate"><span class="pre">PairwiseComparisonSet</span></code> uses <code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">2*dim)</span></code>) and <code class="docutils literal notranslate"><span class="pre">train_y</span></code> (<code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">n_obj)</span></code> for regression, <code class="docutils literal notranslate"><span class="pre">(n_train,)</span></code> for classification or ranking).</p>
 <p>The 8 built-in classes are organized along two orthogonal axes.</p>
 <ul class="simple">

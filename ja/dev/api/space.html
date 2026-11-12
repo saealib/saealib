@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>探索空間API &#8212; saealib 0.1.1.dev37+g1d4f74dcd ドキュメント</title>
+    <title>探索空間API &#8212; saealib 0.1.1.dev40+gd14c83649 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=4347a3b2"></script>
+    <script src="../_static/documentation_options.js?v=985a6ed4"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -956,7 +956,10 @@
 </section>
 <section id="id3">
 <h3>アダプター<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code>は評価境界に置かれ、<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>を<code class="docutils literal notranslate"><span class="pre">EvaluationPayload</span></code>に変換するアダプターです。<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>は<code class="docutils literal notranslate"><span class="pre">saealib.space.FeatureEncoder</span></code>として公開されるアダプターのサブタイプで、<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>を<code class="docutils literal notranslate"><span class="pre">FeatureBatch</span></code>に変換し、サロゲートが学習できる特徴量を決めます。<code class="docutils literal notranslate"><span class="pre">SamplingService</span></code>などの空間能力とは種類が異なります。現在の実装では<code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>契約が<code class="docutils literal notranslate"><span class="pre">ServiceRequirement(&quot;FeatureEncoder&quot;)</span></code>を宣言し、<code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code>が既定のエンコーダーをサービスとして登録するため、数値ベクトル空間では追加設定なしに解決されます。<code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code>、<code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code>、<code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code>では、利用者が<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>を提供しない限り解決に失敗します。サロゲートに渡す入力は利用者が決めます。</p>
+<p><code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code>は評価境界に置かれ、<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>を<code class="docutils literal notranslate"><span class="pre">EvaluationPayload</span></code>に変換するアダプターです。<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>は<code class="docutils literal notranslate"><span class="pre">saealib.space.FeatureEncoder</span></code>として公開されるアダプターのサブタイプで、<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>を<code class="docutils literal notranslate"><span class="pre">FeatureBatch</span></code>に変換し、サロゲートが学習できる特徴量を決めます。
+<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>を使う戦略は、実行準備時に<code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code>の明示設定を優先してエンコーダを選びます。明示設定がない場合、<code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code>は恒等エンコーディングを選び、選択元と理由をINFOで報告します。<code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code>と<code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code>は組み込みの既定エンコーダを使い、明示選択を勧めるWARNINGを報告します。エンコーディングはサロゲートの学習対象を決めますが、このWARNINGは実行を妨げません。
+<code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code>と独自の空間にはエンコーダを推測して割り当てません。選択した戦略が必要とする場合は、空間が<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>を提供します。診断は<code class="docutils literal notranslate"><span class="pre">optimizer.contract_diagnostics()</span></code>で確認できます。<code class="docutils literal notranslate"><span class="pre">optimizer.validate()</span></code>の後は<code class="docutils literal notranslate"><span class="pre">optimizer.last_contract_diagnostics</span></code>にも残ります。<code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code>が返すのはERRORだけなので、INFOとWARNINGは診断ストリームを確認してください。
+<code class="docutils literal notranslate"><span class="pre">encode_features(space,</span> <span class="pre">genomes)</span></code>を直接呼ぶ場合も、エンコーダが未登録なら同じ組み込み既定値を使い、Pythonの<code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>を出します。明示エンコーダがあれば警告なしで使い、対応する既定値がない独自空間では<code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>になります。このヘルパーは既定エンコーダを空間へ登録しません。</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/saealib.space.FeatureEncoder.html#saealib.space.FeatureEncoder" title="saealib.space.FeatureEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.space.FeatureEncoder</span></code></a></p></td>

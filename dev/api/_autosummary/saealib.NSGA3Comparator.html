@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.NSGA3Comparator &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>saealib.NSGA3Comparator &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -969,19 +969,16 @@ Computation, 18(4), 577-601.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.compare_population" title="saealib.NSGA3Comparator.compare_population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compare_population</span></code></a></p></td>
 <td><p>Compare via Pareto dominance; -1=a dominates, 1=b dominates, 0=equal.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.default_hints" title="saealib.NSGA3Comparator.default_hints"><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_hints</span></code></a></p></td>
-<td><p>Provide default hints based on reference points.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.get_required_attrs" title="saealib.NSGA3Comparator.get_required_attrs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_required_attrs</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.get_required_attrs" title="saealib.NSGA3Comparator.get_required_attrs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_required_attrs</span></code></a></p></td>
 <td><p>Return population attributes this comparator needs to persist.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.prepare_population" title="saealib.NSGA3Comparator.prepare_population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prepare_population</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.prepare_population" title="saealib.NSGA3Comparator.prepare_population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prepare_population</span></code></a></p></td>
 <td><p>Freshly recompute and materialize population-relative ranking state.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.rank_population" title="saealib.NSGA3Comparator.rank_population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rank_population</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.rank_population" title="saealib.NSGA3Comparator.rank_population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rank_population</span></code></a></p></td>
 <td><p>Prepare population-relative ranking state, then sort.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.sort_population" title="saealib.NSGA3Comparator.sort_population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sort_population</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.NSGA3Comparator.sort_population" title="saealib.NSGA3Comparator.sort_population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sort_population</span></code></a></p></td>
 <td><p>Sort by Pareto front rank then NSGA-III niche preservation.</p></td>
 </tr>
 </tbody>
@@ -1042,28 +1039,6 @@ Computation, 18(4), 577-601.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="saealib.NSGA3Comparator.default_hints">
-<span class="sig-prename descclassname"><span class="pre">NSGA3Comparator.</span></span><span class="sig-name descname"><span class="pre">default_hints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/comparators/comparators.html#NSGA3Comparator.default_hints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.NSGA3Comparator.default_hints" title="Link to this definition">#</a></dt>
-<dd><p>Provide default hints based on reference points.</p>
-<p>Calculates canonical population size from reference points:
-<code class="docutils literal notranslate"><span class="pre">n_population</span> <span class="pre">=</span> <span class="pre">4</span> <span class="pre">*</span> <span class="pre">ceil(n_ref</span> <span class="pre">/</span> <span class="pre">4)</span></code></p>
-<p>This provides the canonical population size for NSGA-III’s reference
-point layout: a multiple of 4 and at least as large as the number of
-reference points.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ctx</strong> (<em>DefaultContext</em>) – The default resolution context (unused, but required by protocol).</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Hints for population size based on reference points.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>tuple[DefaultHint, …]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1200,7 +1175,6 @@ ranking.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.NSGA3Comparator.__init__"><code class="docutils literal notranslate"><span class="pre">NSGA3Comparator.__init__()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.NSGA3Comparator.compare"><code class="docutils literal notranslate"><span class="pre">NSGA3Comparator.compare()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.NSGA3Comparator.compare_population"><code class="docutils literal notranslate"><span class="pre">NSGA3Comparator.compare_population()</span></code></a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.NSGA3Comparator.default_hints"><code class="docutils literal notranslate"><span class="pre">NSGA3Comparator.default_hints()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.NSGA3Comparator.get_required_attrs"><code class="docutils literal notranslate"><span class="pre">NSGA3Comparator.get_required_attrs()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.NSGA3Comparator.prepare_population"><code class="docutils literal notranslate"><span class="pre">NSGA3Comparator.prepare_population()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.NSGA3Comparator.rank_population"><code class="docutils literal notranslate"><span class="pre">NSGA3Comparator.rank_population()</span></code></a></li>

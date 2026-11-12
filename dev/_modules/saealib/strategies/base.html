@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.base &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>saealib.strategies.base &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1258,9 +1258,12 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">,</span> <span class="n">declaration</span><span class="p">:</span> <span class="n">PipelineEntry</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PipelineEntry</span><span class="p">:</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">resolve_declaration</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">_resolve_declaration</span>
 
-        <span class="k">return</span> <span class="n">resolve_declaration</span><span class="p">(</span><span class="n">declaration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_bindings</span><span class="p">(</span><span class="n">provider</span><span class="p">))</span>
+        <span class="n">selections</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;_stage_selections&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_resolve_declaration</span><span class="p">(</span>
+            <span class="n">declaration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_bindings</span><span class="p">(</span><span class="n">provider</span><span class="p">),</span> <span class="n">selections</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_default_components</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Components the strategy instance provides for empty slots.</span>
@@ -1275,23 +1278,19 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="TemplateStrategy.snapshot_bindings">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.snapshot_bindings">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">snapshot_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read the slots a declaration resolves from.</span>
-
-<span class="sd">        The runtime serves slots from the active binding snapshot; a bare</span>
-<span class="sd">        provider resolves from its current slot values.  Slots the binding</span>
-<span class="sd">        leaves empty are filled from the strategy instance&#39;s own default</span>
-<span class="sd">        components before the Stages&#39; built-in fallbacks apply.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read the slots selected during execution preparation.&quot;&quot;&quot;</span>
         <span class="n">values</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;binding_values&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
             <span class="n">values</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">values</span><span class="p">())</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">values</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">BINDING_SLOTS</span><span class="p">}</span>
-        <span class="n">defaults</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_components</span><span class="p">()</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="n">slot</span><span class="p">:</span> <span class="n">value</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">defaults</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span></div>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;resolve_defaults&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+                <span class="n">defaults</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_components</span><span class="p">()</span>
+                <span class="n">values</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="n">slot</span><span class="p">:</span> <span class="n">value</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">defaults</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">}</span>
+        <span class="k">return</span> <span class="n">values</span></div>
 </div>
 
 </pre></div>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Runtime &#8212; saealib 0.1.1.dev37+g1d4f74dcd ドキュメント</title>
+    <title>Runtime &#8212; saealib 0.1.1.dev40+gd14c83649 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=4347a3b2"></script>
+    <script src="../_static/documentation_options.js?v=985a6ed4"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -599,7 +599,7 @@
 </section>
 <section id="id3">
 <h2>不変条件と診断<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>
-<p>Runtimeは、環境がPlanに必要な能力を提供すること、<code class="docutils literal notranslate"><span class="pre">NodeResult</span></code>のStatePatchが宣言された状態効果の範囲内にあること、待機要求が二重適用されないことを検証します。計画の診断、未宣言の状態書き込み、無効な実行位置、回収できない非同期要求は実行を停止し、Diagnosticsまたは失敗結果として報告します。ランタイム能力の不足はCompilerの<code class="docutils literal notranslate"><span class="pre">missing_runtime_capability</span></code>診断になります。</p>
+<p>Runtimeは、環境がPlanに必要な能力を提供すること、<code class="docutils literal notranslate"><span class="pre">NodeResult</span></code>のStatePatchが宣言された状態効果の範囲内にあること、待機要求が二重適用されないことを検証します。ERRORレベルの計画診断、未宣言の状態書き込み、無効な実行位置、回収できない非同期要求は実行を停止し、Diagnosticsまたは失敗結果として報告します。INFOとWARNINGの計画診断では実行を停止しません。ランタイム能力の不足はCompilerの<code class="docutils literal notranslate"><span class="pre">missing_runtime_capability</span></code>診断になります。</p>
 </section>
 <section id="id4">
 <h2>拡張点<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.optimizer &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>saealib.optimizer &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -968,7 +968,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
 
@@ -988,7 +988,6 @@ window.runMermaid = runMermaid;</script>
     <span class="n">_validate_pending_reattachable</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Compiler</span><span class="p">,</span>
     <span class="n">ContractPath</span><span class="p">,</span>
     <span class="n">Diagnostic</span><span class="p">,</span>
     <span class="n">DiagnosticBag</span><span class="p">,</span>
@@ -996,19 +995,27 @@ window.runMermaid = runMermaid;</script>
     <span class="n">Severity</span><span class="p">,</span>
     <span class="n">check_component_contract</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.compiler</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuleContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.contract_diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_optimizer_configuration_diagnostics</span><span class="p">,</span>
+    <span class="n">_strategy_graph_diagnostic</span><span class="p">,</span>
     <span class="n">check_pymoo_feedback_compatibility</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.uncertainty_rules</span><span class="w"> </span><span class="kn">import</span> <span class="n">SurrogateUncertaintyRule</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointError</span><span class="p">,</span> <span class="n">ConfigurationError</span><span class="p">,</span> <span class="n">ValidationError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.bindings</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BINDING_SLOTS</span><span class="p">,</span>
+    <span class="n">_ComponentOrigin</span><span class="p">,</span>
+    <span class="n">_ComponentResolution</span><span class="p">,</span>
+    <span class="n">_feature_encoder_signature</span><span class="p">,</span>
+    <span class="n">_signature</span><span class="p">,</span>
+    <span class="n">resolve_components</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">SerialEvaluator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.history</span><span class="w"> </span><span class="kn">import</span> <span class="n">SUPPORTED_HISTORY_CHANNELS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_graph_requires_service</span><span class="p">,</span>
     <span class="n">_InvalidStrategyGraphError</span><span class="p">,</span>
-    <span class="n">_prepare_graph_and_context</span><span class="p">,</span>
     <span class="n">_prepare_plan</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.runner</span><span class="w"> </span><span class="kn">import</span> <span class="n">Runner</span>
@@ -1023,18 +1030,8 @@ window.runMermaid = runMermaid;</script>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.surrogate.rbf_kernels</span><span class="w"> </span><span class="kn">import</span> <span class="n">GaussianKernel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.termination</span><span class="w"> </span><span class="kn">import</span> <span class="n">Termination</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.termination</span><span class="w"> </span><span class="kn">import</span> <span class="n">max_fe</span> <span class="k">as</span> <span class="n">max_fe_cond</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-
-<span class="n">_PLAN_UNCERTAINTY_DIAGNOSTIC_CODES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
-    <span class="p">{</span>
-        <span class="s2">&quot;surrogate_uncertainty_mismatch&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;missing_acquisition_channel&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;cannot_verify_acquisition_channel&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;cannot_verify_surrogate_uncertainty&quot;</span><span class="p">,</span>
-    <span class="p">}</span>
-<span class="p">)</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.algorithms.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Algorithm</span>
@@ -1185,6 +1182,59 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        The name of the optimizer instance.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="n">_COMPONENT_ASSIGNMENTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="o">*</span><span class="n">BINDING_SLOTS</span><span class="p">,</span> <span class="s2">&quot;initializer&quot;</span><span class="p">,</span> <span class="s2">&quot;termination&quot;</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+        <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span>
+        <span class="n">strategy</span><span class="p">:</span> <span class="n">OptimizationStrategy</span>
+        <span class="n">surrogate_manager</span><span class="p">:</span> <span class="n">SurrogateManager</span>
+        <span class="n">termination</span><span class="p">:</span> <span class="n">Termination</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tracking</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_track_component_assignments&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">prior_value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">tracking</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">prior_origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tracking</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_COMPONENT_ASSIGNMENTS</span><span class="p">:</span>
+            <span class="n">origins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="n">origins</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span>
+                <span class="n">value</span><span class="p">,</span>
+                <span class="s2">&quot;direct assignment&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Assigned directly to the optimizer.&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">prior_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">value</span>
+                <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">prior_origin</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;direct assignment&quot;</span>
+            <span class="p">):</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="p">,</span>
+                    <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;feedback_builder&quot;</span> <span class="ow">and</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;feedback_builder_explicit&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">prior_value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">prior_origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;setter&quot;</span><span class="p">,</span> <span class="n">reason</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">prior_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">value</span>
+            <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">prior_origin</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;setter&quot;</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_version</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_framework_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span>
+            <span class="n">value</span><span class="p">,</span> <span class="s2">&quot;framework default&quot;</span><span class="p">,</span> <span class="n">reason</span><span class="p">,</span> <span class="s2">&quot;&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
 <div class="viewcode-block" id="Optimizer.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
@@ -1215,9 +1265,30 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">instance_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_preset</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_default_resolution</span><span class="p">:</span> <span class="n">DefaultResolution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_component_resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_ComponentOrigin</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_default</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_version</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_contract_diagnostics</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span><span class="p">:</span> <span class="n">ExecutablePlan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_verification_enabled</span> <span class="o">=</span> <span class="kc">True</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_diagnostic_cache</span><span class="p">:</span> <span class="p">(</span>
+            <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verification_enabled</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="s2">&quot;evaluator&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="p">,</span>
+            <span class="s2">&quot;bundled preset&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Uses serial objective evaluation.&quot;</span><span class="p">,</span>
+            <span class="n">_signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="s2">&quot;cbmanager&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cbmanager</span><span class="p">,</span>
+            <span class="s2">&quot;bundled preset&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Uses the optimizer callback manager.&quot;</span><span class="p">,</span>
+            <span class="n">_signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cbmanager</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_track_component_assignments</span> <span class="o">=</span> <span class="kc">True</span></div>
 
 
     <span class="c1"># --- setters (all return self for chaining) ---</span>
@@ -1225,9 +1296,20 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="Optimizer.contract_diagnostics">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.contract_diagnostics">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">contract_diagnostics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticBag</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return diagnostics for the currently configured component graph.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return diagnostics for the prepared optimizer composition.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_contract_diagnostics</span><span class="p">(</span><span class="n">require_initializer</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_collect_contract_diagnostics</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">require_initializer</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticBag</span><span class="p">:</span>
+        <span class="n">resolution</span> <span class="o">=</span> <span class="n">resolve_components</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">diagnostics</span> <span class="o">=</span> <span class="n">DiagnosticBag</span><span class="p">()</span>
         <span class="n">contracts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">provenance</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">slot</span><span class="p">:</span> <span class="p">(</span><span class="n">origin</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">origin</span><span class="o">.</span><span class="n">reason</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">origin</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">origins</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
         <span class="n">component_names</span> <span class="o">=</span> <span class="p">(</span>
             <span class="s2">&quot;initializer&quot;</span><span class="p">,</span>
             <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span>
@@ -1241,7 +1323,11 @@ window.runMermaid = runMermaid;</script>
             <span class="s2">&quot;strategy&quot;</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">component_names</span><span class="p">:</span>
-            <span class="n">component</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">component</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span>
+                <span class="k">else</span> <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="p">)</span>
             <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="n">missing</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
@@ -1327,38 +1413,111 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">path</span><span class="o">=</span><span class="n">ContractPath</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="p">(</span><span class="n">name</span><span class="p">,)),</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verification_enabled</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">strategy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
-                <span class="n">validation_provider</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-                <span class="n">validation_provider</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="n">strategy</span>
-                <span class="n">graph</span><span class="p">,</span> <span class="n">compile_context</span> <span class="o">=</span> <span class="n">_prepare_graph_and_context</span><span class="p">(</span>
-                    <span class="n">strategy</span><span class="p">,</span>
-                    <span class="n">validation_provider</span><span class="p">,</span>
-                    <span class="n">problem</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                    <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                    <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
-                    <span class="n">_context_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">(</span>
-                        <span class="nb">getattr</span><span class="p">(</span><span class="n">validation_provider</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                        <span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span>
-                            <span class="n">validation_provider</span>
-                        <span class="p">),</span>
-                    <span class="p">),</span>
-                    <span class="n">_verification_enabled</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_verification_enabled</span><span class="p">,</span>
+        <span class="n">diagnostics</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+            <span class="n">_optimizer_configuration_diagnostics</span><span class="p">(</span>
+                <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="p">,</span>
+                <span class="n">provenance</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="p">,</span>
+                <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="p">),</span>
+                <span class="n">require_initializer</span><span class="o">=</span><span class="n">require_initializer</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">graph_blocked</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">diagnostic</span><span class="o">.</span><span class="n">severity</span> <span class="ow">is</span> <span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span>
+            <span class="ow">and</span> <span class="p">(</span>
+                <span class="n">diagnostic</span><span class="o">.</span><span class="n">code</span>
+                <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;contract_unavailable&quot;</span><span class="p">,</span> <span class="s2">&quot;component_protocol_mismatch&quot;</span><span class="p">}</span>
+                <span class="ow">or</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">code</span>
+                <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;missing_surrogate_manager&quot;</span><span class="p">,</span> <span class="s2">&quot;missing_acquisition&quot;</span><span class="p">}</span>
+                <span class="ow">or</span> <span class="p">(</span>
+                    <span class="n">diagnostic</span><span class="o">.</span><span class="n">code</span> <span class="o">==</span> <span class="s2">&quot;missing_required_component&quot;</span>
+                    <span class="ow">and</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">components</span>
+                    <span class="ow">in</span> <span class="p">{</span>
+                        <span class="p">(</span><span class="s2">&quot;optimizer&quot;</span><span class="p">,</span> <span class="s2">&quot;algorithm&quot;</span><span class="p">),</span>
+                        <span class="p">(</span><span class="s2">&quot;optimizer&quot;</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">),</span>
+                    <span class="p">}</span>
                 <span class="p">)</span>
-                <span class="n">graph</span> <span class="o">=</span> <span class="n">Compiler</span><span class="p">()</span><span class="o">.</span><span class="n">_prepare</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">compile_context</span><span class="p">)</span><span class="o">.</span><span class="n">graph</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="n">graph</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">if</span> <span class="n">graph</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">findings</span> <span class="o">=</span> <span class="n">SurrogateUncertaintyRule</span><span class="p">()</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-                    <span class="n">RuleContext</span><span class="p">(</span>
-                        <span class="n">graph</span><span class="o">=</span><span class="n">graph</span><span class="p">,</span>
-                        <span class="n">compile_context</span><span class="o">=</span><span class="n">compile_context</span><span class="p">,</span>
-                        <span class="n">diagnostics</span><span class="o">=</span><span class="n">DiagnosticBag</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">diagnostic</span> <span class="ow">in</span> <span class="n">diagnostics</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">graph_blocked</span><span class="p">:</span>
+            <span class="n">strategy</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;strategy&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+                        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> does not provide a callable &quot;</span>
+                            <span class="s2">&quot;build_graph() operation&quot;</span>
+                        <span class="p">)</span>
+                    <span class="n">cached</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_diagnostic_cache</span>
+                    <span class="n">signature_resolution</span> <span class="o">=</span> <span class="n">resolution</span>
+                    <span class="n">cached_default</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_default</span>
+                    <span class="k">if</span> <span class="p">(</span>
+                        <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                        <span class="ow">and</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="kc">None</span>
+                        <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cached_default</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span>
+                        <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">cached_default</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
+                        <span class="ow">and</span> <span class="n">cached_default</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span>
+                        <span class="ow">and</span> <span class="n">cached_default</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                        <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                        <span class="ow">and</span> <span class="n">_graph_requires_service</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span>
+                        <span class="p">)</span>
+                    <span class="p">):</span>
+                        <span class="n">encoder</span><span class="p">,</span> <span class="n">reason</span> <span class="o">=</span> <span class="n">cached_default</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cached_default</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                        <span class="n">signature_resolution</span> <span class="o">=</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+                            <span class="n">resolution</span><span class="p">,</span>
+                            <span class="n">feature_encoder</span><span class="o">=</span><span class="n">encoder</span><span class="p">,</span>
+                            <span class="n">feature_encoder_origin</span><span class="o">=</span><span class="n">_ComponentOrigin</span><span class="p">(</span>
+                                <span class="n">encoder</span><span class="p">,</span>
+                                <span class="s2">&quot;framework default&quot;</span><span class="p">,</span>
+                                <span class="n">reason</span><span class="p">,</span>
+                                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">)</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">_feature_encoder_signature</span><span class="p">(</span><span class="n">encoder</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="p">),</span>
+                            <span class="n">feature_encoder_space</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="n">signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagnostic_plan_signature</span><span class="p">(</span>
+                        <span class="n">signature_resolution</span><span class="p">,</span>
+                        <span class="n">require_initializer</span><span class="o">=</span><span class="n">require_initializer</span><span class="p">,</span>
                     <span class="p">)</span>
-                <span class="p">)</span>
-                <span class="n">diagnostics</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">findings</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">)</span>
-        <span class="n">algorithm</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cached</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">signature</span><span class="p">:</span>
+                        <span class="n">plan_diagnostics</span> <span class="o">=</span> <span class="n">cached</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_diagnostic_cache</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">validation_strategy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+                        <span class="n">validation_provider</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+                        <span class="n">validation_provider</span><span class="o">.</span><span class="n">_component_origins</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                        <span class="p">)</span>
+                        <span class="n">validation_provider</span><span class="o">.</span><span class="n">_materialized_components</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                        <span class="p">)</span>
+                        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+                            <span class="n">validation_provider</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="n">validation_strategy</span>
+                        <span class="p">)</span>
+                        <span class="n">plan</span> <span class="o">=</span> <span class="n">_prepare_plan</span><span class="p">(</span>
+                            <span class="n">validation_strategy</span><span class="p">,</span>
+                            <span class="n">validation_provider</span><span class="p">,</span>
+                            <span class="n">problem</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                            <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                            <span class="n">_context_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">(</span>
+                                <span class="nb">getattr</span><span class="p">(</span><span class="n">validation_provider</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                                <span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span>
+                                    <span class="n">validation_provider</span>
+                                <span class="p">),</span>
+                            <span class="p">),</span>
+                            <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
+                            <span class="n">_verification_enabled</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_verification_enabled</span><span class="p">,</span>
+                            <span class="n">_component_resolution</span><span class="o">=</span><span class="n">resolution</span><span class="p">,</span>
+                            <span class="n">_require_initializer</span><span class="o">=</span><span class="n">require_initializer</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="n">plan_diagnostics</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">diagnostics</span>
+                    <span class="n">diagnostics</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">plan_diagnostics</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                    <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">_strategy_graph_diagnostic</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">provenance</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+                    <span class="p">)</span>
+        <span class="n">algorithm</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">)</span>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_evaluation_scheduler</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.algorithms.pymoo_algorithm</span><span class="w"> </span><span class="kn">import</span> <span class="n">PymooAlgorithm</span>
 
@@ -1378,8 +1537,38 @@ window.runMermaid = runMermaid;</script>
                         <span class="p">),</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
-        <span class="k">return</span> <span class="n">diagnostics</span></div>
+        <span class="k">return</span> <span class="n">DiagnosticBag</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">diagnostics</span><span class="p">))</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_diagnostic_plan_signature</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">require_initializer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_version</span><span class="p">,</span>
+            <span class="nb">tuple</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">_signature</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">),</span>
+            <span class="nb">tuple</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">origin</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">origin</span><span class="o">.</span><span class="n">reason</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">origin</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">origins</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">),</span>
+            <span class="p">(</span>
+                <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="p">(</span>
+                    <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+                    <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">reason</span><span class="p">,</span>
+                    <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">signature</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">_signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="p">),</span>
+            <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_verification_enabled</span><span class="p">,</span>
+            <span class="n">require_initializer</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">last_contract_diagnostics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
@@ -1400,30 +1589,57 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_compile_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExecutablePlan</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compile_plan</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">require_initializer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExecutablePlan</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build and compile the configured strategy graph once per run.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resolve_defaults</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_diagnostic_cache</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">plan</span> <span class="o">=</span> <span class="n">_prepare_plan</span><span class="p">(</span>
-                <span class="n">strategy</span><span class="p">,</span>
-                <span class="bp">self</span><span class="p">,</span>
-                <span class="n">problem</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">_context_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">(</span>
-                    <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                    <span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
-                <span class="p">),</span>
-                <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
-                <span class="n">_verification_enabled</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
-            <span class="p">)</span>
-        <span class="k">except</span> <span class="n">_InvalidStrategyGraphError</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="n">plan</span>
-        <span class="k">return</span> <span class="n">plan</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">):</span>
+            <span class="n">configuration_version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_version</span>
+            <span class="n">resolution</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_ComponentResolution</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_component_resolution</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">plan</span> <span class="o">=</span> <span class="n">_prepare_plan</span><span class="p">(</span>
+                    <span class="n">strategy</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="p">,</span>
+                    <span class="n">problem</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">_context_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">(</span>
+                        <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                        <span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+                    <span class="p">),</span>
+                    <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
+                    <span class="n">_verification_enabled</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+                    <span class="n">_component_resolution</span><span class="o">=</span><span class="n">resolution</span><span class="p">,</span>
+                    <span class="n">_require_initializer</span><span class="o">=</span><span class="n">require_initializer</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="n">_InvalidStrategyGraphError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">configuration_version</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_version</span><span class="p">:</span>
+                <span class="n">resolution</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_ComponentResolution</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_component_resolution</span><span class="p">)</span>
+                <span class="n">consumes_feature_encoder</span> <span class="o">=</span> <span class="n">_graph_requires_service</span><span class="p">(</span>
+                    <span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_publish_component_resolution</span><span class="p">(</span>
+                    <span class="n">resolution</span><span class="p">,</span>
+                    <span class="n">feature_encoder_consumed</span><span class="o">=</span><span class="n">consumes_feature_encoder</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="n">plan</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_diagnostic_cache</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_diagnostic_plan_signature</span><span class="p">(</span>
+                        <span class="n">resolution</span><span class="p">,</span> <span class="n">require_initializer</span><span class="o">=</span><span class="n">require_initializer</span>
+                    <span class="p">),</span>
+                    <span class="n">plan</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">plan</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">resolve_defaults</span><span class="p">()</span>
+            <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span><span class="s2">&quot;component bindings changed during plan preparation&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Optimizer.set_seed">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_seed">[docs]</a>
@@ -1455,7 +1671,9 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_initializer">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_initializer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initializer</span><span class="p">:</span> <span class="n">Initializer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the initializer. Returns self.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">initializer</span> <span class="o">=</span> <span class="n">initializer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;initializer&quot;</span><span class="p">,</span> <span class="n">initializer</span><span class="p">,</span> <span class="s2">&quot;Configured with set_initializer().&quot;</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1463,7 +1681,7 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_algorithm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_algorithm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the evolutionary algorithm. Returns self.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="n">algorithm</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">,</span> <span class="s2">&quot;Configured with set_algorithm().&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1471,9 +1689,15 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_surrogate_manager">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_surrogate_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager</span><span class="p">:</span> <span class="n">SurrogateManager</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the surrogate manager. Returns self.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">surrogate_manager</span> <span class="o">=</span> <span class="n">manager</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span> <span class="n">manager</span><span class="p">,</span> <span class="s2">&quot;Configured with set_surrogate_manager().&quot;</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">manager</span><span class="p">,</span> <span class="n">PairwiseSurrogateManager</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="o">=</span> <span class="n">WinRateAcquisition</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_set_framework_component</span><span class="p">(</span>
+                <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span>
+                <span class="n">WinRateAcquisition</span><span class="p">(),</span>
+                <span class="s2">&quot;Uses the pairwise manager&#39;s win-rate acquisition.&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1481,7 +1705,9 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_acquisition">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_acquisition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the independent acquisition component.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="o">=</span> <span class="n">acquisition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="s2">&quot;Configured with set_acquisition().&quot;</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1498,7 +1724,11 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_evaluation_planner">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_evaluation_planner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">planner</span><span class="p">:</span> <span class="n">EvaluationPlanner</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the evaluation planner.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span> <span class="o">=</span> <span class="n">planner</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">,</span>
+            <span class="n">planner</span><span class="p">,</span>
+            <span class="s2">&quot;Configured with set_evaluation_planner().&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1506,7 +1736,9 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_feedback_builder">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_feedback_builder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">builder</span><span class="p">:</span> <span class="n">FeedbackBuilder</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the feedback builder.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">builder</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="s2">&quot;Configured with set_feedback_builder().&quot;</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder_explicit</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
@@ -1521,11 +1753,19 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.surrogate.training_set</span><span class="w"> </span><span class="kn">import</span> <span class="n">KNNObjectiveSet</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">surrogate_manager</span> <span class="o">=</span> <span class="n">LocalSurrogateManager</span><span class="p">(</span>
-            <span class="n">surrogate</span><span class="p">,</span>
-            <span class="n">training_set</span><span class="o">=</span><span class="n">KNNObjectiveSet</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="n">n_neighbors</span><span class="p">),</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span>
+            <span class="n">LocalSurrogateManager</span><span class="p">(</span>
+                <span class="n">surrogate</span><span class="p">,</span>
+                <span class="n">training_set</span><span class="o">=</span><span class="n">KNNObjectiveSet</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="n">n_neighbors</span><span class="p">),</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;Configured with set_surrogate().&quot;</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="o">=</span> <span class="n">MeanPrediction</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_framework_component</span><span class="p">(</span>
+            <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span>
+            <span class="n">MeanPrediction</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">),</span>
+            <span class="s2">&quot;Uses the prediction acquisition paired with set_surrogate().&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1533,7 +1773,7 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_strategy">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="n">OptimizationStrategy</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the optimization strategy. Returns self.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="n">strategy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span><span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;Configured with set_strategy().&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1545,7 +1785,7 @@ window.runMermaid = runMermaid;</script>
             <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
                 <span class="s2">&quot;submit(), collect(), and acknowledge() must be overridden together&quot;</span>
             <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span> <span class="o">=</span> <span class="n">evaluator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">,</span> <span class="s2">&quot;Configured with set_evaluator().&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1567,7 +1807,9 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_termination">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_termination</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">termination</span><span class="p">:</span> <span class="n">Termination</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the termination condition. Returns self.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">termination</span> <span class="o">=</span> <span class="n">termination</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;termination&quot;</span><span class="p">,</span> <span class="n">termination</span><span class="p">,</span> <span class="s2">&quot;Configured with set_termination().&quot;</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1591,6 +1833,7 @@ window.runMermaid = runMermaid;</script>
         <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_preset</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_preset</span> <span class="o">=</span> <span class="n">load_preset</span><span class="p">(</span><span class="n">preset</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_version</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1686,8 +1929,7 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Check configuration consistency. Returns list of issues.</span>
 
-<span class="sd">        Call :meth:`resolve_defaults` first when validation results should</span>
-<span class="sd">        reflect the components that will be used for execution.</span>
+<span class="sd">        Component defaults are resolved before checking the composition.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1695,466 +1937,90 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            When False, skip the initializer presence check.  Use this when</span>
 <span class="sd">            resuming from a checkpoint where initialization is not needed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">issues</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_evaluator_lifecycle</span><span class="p">(</span><span class="n">issues</span><span class="p">)</span>
-
-        <span class="n">algorithm</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">termination</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;termination&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">surrogate_manager</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_required_components</span><span class="p">(</span>
-            <span class="n">issues</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">termination</span><span class="p">,</span> <span class="n">require_initializer</span>
+        <span class="n">diagnostics</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">contract_diagnostics</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">require_initializer</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_contract_diagnostics</span><span class="p">(</span><span class="n">require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_component_protocols</span><span class="p">(</span><span class="n">issues</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_strategy_requirements</span><span class="p">(</span><span class="n">issues</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">surrogate_manager</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_comparator_direction</span><span class="p">(</span><span class="n">issues</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">surrogate_manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_acquisition_directions</span><span class="p">(</span><span class="n">issues</span><span class="p">)</span>
-
-        <span class="n">diagnostics</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">contract_diagnostics</span><span class="p">())</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">diagnostics</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-                <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span>
-                    <span class="p">(</span>
-                        <span class="o">*</span><span class="n">diagnostics</span><span class="p">,</span>
-                        <span class="o">*</span><span class="p">(</span>
-                            <span class="n">diagnostic</span>
-                            <span class="k">for</span> <span class="n">diagnostic</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span><span class="o">.</span><span class="n">diagnostics</span>
-                            <span class="k">if</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">code</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_PLAN_UNCERTAINTY_DIAGNOSTIC_CODES</span>
-                        <span class="p">),</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_contract_diagnostics</span> <span class="o">=</span> <span class="n">diagnostics</span>
-        <span class="n">issues</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+        <span class="k">return</span> <span class="p">[</span>
             <span class="nb">str</span><span class="p">(</span><span class="n">diagnostic</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">diagnostic</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_contract_diagnostics</span>
             <span class="k">if</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">severity</span> <span class="ow">is</span> <span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span>
-        <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">issues</span></div>
+        <span class="p">]</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_evaluator_lifecycle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">issues</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">has_partial_lifecycle_override</span><span class="p">():</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="s2">&quot;submit(), collect(), and acknowledge() must be overridden together&quot;</span>
-            <span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_required_components</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_publish_component_resolution</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">issues</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-        <span class="n">algorithm</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
-        <span class="n">strategy</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
-        <span class="n">termination</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
-        <span class="n">require_initializer</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">feature_encoder_consumed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">algorithm</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;algorithm is not set; call set_algorithm()&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;strategy is not set; call set_strategy()&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">require_initializer</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">initializer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;initializer is not set; call set_initializer()&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">termination</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;termination is not set; call set_termination()&quot;</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_component_protocols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">issues</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span><span class="p">,</span> <span class="n">EvaluationPlanner</span>
-        <span class="p">):</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;evaluation_planner must be an EvaluationPlanner&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span><span class="p">,</span> <span class="n">FeedbackBuilder</span>
-        <span class="p">):</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;feedback_builder must be a FeedbackBuilder&quot;</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_strategy_requirements</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">issues</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-        <span class="n">strategy</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
-        <span class="n">surrogate_manager</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Publish resolved bindings for this optimizer execution session.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">origins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">origin</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">origin</span>
+            <span class="k">if</span> <span class="n">origin</span><span class="o">.</span><span class="n">source</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;setter&quot;</span><span class="p">,</span> <span class="s2">&quot;direct assignment&quot;</span><span class="p">}:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_component_resolution</span> <span class="o">=</span> <span class="n">resolution</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_resolution</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">defaults</span>
         <span class="k">if</span> <span class="p">(</span>
-            <span class="n">strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;requires_surrogate&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">surrogate_manager</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;framework default&quot;</span>
         <span class="p">):</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> requires a surrogate_manager; &quot;</span>
-                <span class="s2">&quot;call set_surrogate_manager() or set_surrogate()&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_default</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_space</span><span class="p">,</span>
+                <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder</span><span class="p">,</span>
+                <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">reason</span><span class="p">,</span>
             <span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span>
+            <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">or</span> <span class="n">feature_encoder_consumed</span> <span class="ow">is</span> <span class="kc">False</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_default</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">feature_encoder_origin</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span>
         <span class="k">if</span> <span class="p">(</span>
-            <span class="n">strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;requires_surrogate&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;persisted&quot;</span>
         <span class="p">):</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="s2">&quot;a provider-owned acquisition is required; call set_acquisition()&quot;</span>
-            <span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_comparator_direction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">issues</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">_dim</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="p">,</span> <span class="s2">&quot;direction&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="n">_dim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">_dim</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">_dim</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
-            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">_dim</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span>
-        <span class="p">):</span>
-            <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;comparator direction length (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">_dim</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;problem.n_obj (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span><span class="si">}</span><span class="s2">)&quot;</span>
-            <span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_acquisition_directions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">issues</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">acq</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter_acquisitions</span><span class="p">():</span>
-            <span class="n">_adir</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">acq</span><span class="p">,</span> <span class="s2">&quot;direction&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="n">_adir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">_adir</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span>
-                <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">_adir</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
-                <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">_adir</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span>
-            <span class="p">):</span>
-                <span class="n">issues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">acq</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> direction length (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">_adir</span><span class="p">)</span><span class="si">}</span><span class="s2">) does &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;not match problem.n_obj (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span><span class="si">}</span><span class="s2">)&quot;</span>
-                <span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_discover_default_hint_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discover default providers from the configured component graph.</span>
-
-<span class="sd">        The component contracts describe constructor-held parts, so following</span>
-<span class="sd">        ``ComponentContract.parts`` keeps discovery independent of concrete</span>
-<span class="sd">        component classes and supports arbitrarily nested custom components.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">BUILTIN_DEFAULT_PROVIDER</span>
-
-        <span class="n">roots</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="p">(</span><span class="s2">&quot;initializer&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;initializer&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-            <span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-            <span class="p">(</span><span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-            <span class="p">(</span><span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-            <span class="p">(</span><span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-            <span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="p">),</span>
-            <span class="p">(</span><span class="s2">&quot;termination&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;termination&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-            <span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-            <span class="p">(</span><span class="s2">&quot;evaluation_planner&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-            <span class="p">(</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-            <span class="p">(</span>
-                <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span>
-                <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-            <span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">feature_encoder_origin</span>
+        <span class="k">elif</span> <span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">feature_encoder_consumed</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">feedback_origin</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">origins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder_explicit</span> <span class="o">=</span> <span class="n">feedback_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">feedback_origin</span><span class="o">.</span><span class="n">source</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;setter&quot;</span><span class="p">,</span> <span class="s2">&quot;direct assignment&quot;</span><span class="p">,</span> <span class="s2">&quot;user preset&quot;</span><span class="p">}</span>
         <span class="p">)</span>
-        <span class="n">providers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">BUILTIN_DEFAULT_PROVIDER</span><span class="p">]</span>
-        <span class="n">components</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">visited</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="n">provider_ids</span> <span class="o">=</span> <span class="p">{</span><span class="nb">id</span><span class="p">(</span><span class="n">BUILTIN_DEFAULT_PROVIDER</span><span class="p">)}</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">visit</span><span class="p">(</span>
-            <span class="n">component</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
-            <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">declared_contract</span><span class="p">:</span> <span class="n">ComponentContract</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">return</span>
-            <span class="c1"># Keep every reachable path in the context even when a component</span>
-            <span class="c1"># instance is shared by multiple roots or parts.  Providers and</span>
-            <span class="c1"># child contracts are still visited only once per instance.</span>
-            <span class="n">components</span><span class="p">[</span><span class="n">path</span><span class="p">]</span> <span class="o">=</span> <span class="n">component</span>
-            <span class="k">if</span> <span class="nb">id</span><span class="p">(</span><span class="n">component</span><span class="p">)</span> <span class="ow">in</span> <span class="n">visited</span><span class="p">:</span>
-                <span class="k">return</span>
-            <span class="n">visited</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">component</span><span class="p">))</span>
-
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">default_hints</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;default_hints&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Cannot inspect </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.default_hints: &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">default_hints</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">id</span><span class="p">(</span><span class="n">component</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">provider_ids</span><span class="p">:</span>
-                <span class="n">providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">component</span><span class="p">)</span>
-                <span class="n">provider_ids</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">component</span><span class="p">))</span>
-
-            <span class="n">contract</span> <span class="o">=</span> <span class="n">declared_contract</span>
-            <span class="k">if</span> <span class="n">contract</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">contract_method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;contract&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Cannot inspect </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.contract: &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">contract_method</span><span class="p">):</span>
-                    <span class="k">return</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">contract</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ComponentContract</span><span class="p">,</span> <span class="n">contract_method</span><span class="p">())</span>
-                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Cannot inspect </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.contract(): &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">contract</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.contract() returned &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">contract</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">, expected ComponentContract&quot;</span>
-                    <span class="p">)</span>
-
-            <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">contract</span><span class="o">.</span><span class="n">parts</span><span class="p">:</span>
-                <span class="n">part_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">part</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">child</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">part</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">optional</span><span class="p">:</span>
-                        <span class="k">continue</span>
-                    <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Cannot discover component part </span><span class="si">{</span><span class="n">part_path</span><span class="si">!r}</span><span class="s2">: &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;attribute is missing&quot;</span>
-                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Cannot inspect component part </span><span class="si">{</span><span class="n">part_path</span><span class="si">!r}</span><span class="s2">: &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-                <span class="k">if</span> <span class="n">child</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">optional</span><span class="p">:</span>
-                        <span class="k">continue</span>
-                    <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Cannot discover component part </span><span class="si">{</span><span class="n">part_path</span><span class="si">!r}</span><span class="s2">: &quot;</span>
-                        <span class="s2">&quot;required part is None&quot;</span>
-                    <span class="p">)</span>
-                <span class="n">visit</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">part_path</span><span class="p">,</span> <span class="n">part</span><span class="o">.</span><span class="n">contract</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">roots</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">visit</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">providers</span><span class="p">,</span> <span class="n">components</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_evaluation_scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">async_evaluation_scheduler</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">algorithm</span>
 
 <div class="viewcode-block" id="Optimizer.resolve_defaults">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.resolve_defaults">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">resolve_defaults</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fill unset components with library defaults (Registry + presets file).</span>
-
-<span class="sd">        Components already set via ``set_*()`` are never overwritten. Gaps</span>
-<span class="sd">        are filled first from a user preset (``set_preset()``), if any, then</span>
-<span class="sd">        from a bundled preset selected by (1) the algorithm&#39;s registered</span>
-<span class="sd">        name if ``algorithm`` is set, else (2) a Problem-shape rule, else</span>
-<span class="sd">        (3) the universal fallback preset. ``initializer`` is computed</span>
-<span class="sd">        from semantic defaults and is not part of any preset;</span>
-<span class="sd">        ``termination`` falls back to the resolved maximum-evaluations default</span>
-<span class="sd">        (``200 * problem.dim`` unless a provider recommends another value)</span>
-<span class="sd">        only if neither ``set_*()`` nor a preset supplies one.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_defaults</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">_inject_params</span><span class="p">,</span> <span class="n">build</span>
-
-        <span class="n">algorithm</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">surrogate_manager</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">bundled_preset_name</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="n">user_preset</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">user_preset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-            <span class="n">direction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span>
-            <span class="k">if</span> <span class="n">algorithm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;algorithm&quot;</span> <span class="ow">in</span> <span class="n">user_preset</span><span class="p">:</span>
-                <span class="n">algorithm</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span>
-                    <span class="n">_inject_params</span><span class="p">(</span>
-                        <span class="n">user_preset</span><span class="p">[</span><span class="s2">&quot;algorithm&quot;</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="n">direction</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="n">algorithm</span>
-            <span class="k">if</span> <span class="n">surrogate_manager</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;surrogate_manager&quot;</span> <span class="ow">in</span> <span class="n">user_preset</span><span class="p">:</span>
-                <span class="n">surrogate_manager</span><span class="p">,</span> <span class="n">acquisition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_components_from_spec</span><span class="p">(</span>
-                    <span class="n">user_preset</span><span class="p">[</span><span class="s2">&quot;surrogate_manager&quot;</span><span class="p">]</span>
-                <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">surrogate_manager</span> <span class="o">=</span> <span class="n">surrogate_manager</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="o">=</span> <span class="n">acquisition</span>
-            <span class="k">if</span> <span class="n">strategy</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;strategy&quot;</span> <span class="ow">in</span> <span class="n">user_preset</span><span class="p">:</span>
-                <span class="n">strategy</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span>
-                    <span class="n">_inject_params</span><span class="p">(</span>
-                        <span class="n">user_preset</span><span class="p">[</span><span class="s2">&quot;strategy&quot;</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="n">direction</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="n">strategy</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">spec</span> <span class="o">=</span> <span class="n">user_preset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;evaluation_planner&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;feedback_builder&quot;</span> <span class="ow">in</span> <span class="n">user_preset</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span><span class="n">user_preset</span><span class="p">[</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">])</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder_explicit</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;termination&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span>
-                <span class="ow">and</span> <span class="s2">&quot;termination&quot;</span> <span class="ow">in</span> <span class="n">user_preset</span>
-            <span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">termination</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span>
-                    <span class="n">_inject_params</span><span class="p">(</span>
-                        <span class="n">user_preset</span><span class="p">[</span><span class="s2">&quot;termination&quot;</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="n">direction</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
-
-        <span class="n">use_bundled_policies</span> <span class="o">=</span> <span class="n">strategy</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="n">algorithm</span> <span class="ow">is</span> <span class="kc">None</span>
-            <span class="ow">or</span> <span class="n">strategy</span> <span class="ow">is</span> <span class="kc">None</span>
-            <span class="ow">or</span> <span class="n">surrogate_manager</span> <span class="ow">is</span> <span class="kc">None</span>
-            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span> <span class="ow">is</span> <span class="kc">None</span>
-            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="p">):</span>
-            <span class="n">defaults</span> <span class="o">=</span> <span class="n">load_defaults</span><span class="p">()</span>
-            <span class="n">bundled_preset_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_preset_name</span><span class="p">(</span><span class="n">defaults</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">)</span>
-            <span class="n">preset</span> <span class="o">=</span> <span class="n">defaults</span><span class="p">[</span><span class="s2">&quot;presets&quot;</span><span class="p">][</span><span class="n">bundled_preset_name</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">algorithm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;algorithm&quot;</span> <span class="ow">in</span> <span class="n">preset</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span>
-                    <span class="n">_inject_params</span><span class="p">(</span>
-                        <span class="n">preset</span><span class="p">[</span><span class="s2">&quot;algorithm&quot;</span><span class="p">],</span>
-                        <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
-                        <span class="n">direction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">,</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
-            <span class="k">if</span> <span class="n">surrogate_manager</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;surrogate_manager&quot;</span> <span class="ow">in</span> <span class="n">preset</span><span class="p">:</span>
-                <span class="n">manager</span><span class="p">,</span> <span class="n">acquisition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_components_from_spec</span><span class="p">(</span>
-                    <span class="n">preset</span><span class="p">[</span><span class="s2">&quot;surrogate_manager&quot;</span><span class="p">]</span>
-                <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">surrogate_manager</span> <span class="o">=</span> <span class="n">manager</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="o">=</span> <span class="n">acquisition</span>
-            <span class="k">if</span> <span class="n">strategy</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;strategy&quot;</span> <span class="ow">in</span> <span class="n">preset</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span>
-                    <span class="n">_inject_params</span><span class="p">(</span>
-                        <span class="n">preset</span><span class="p">[</span><span class="s2">&quot;strategy&quot;</span><span class="p">],</span>
-                        <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
-                        <span class="n">direction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">,</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="n">use_bundled_policies</span>
-                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span> <span class="ow">is</span> <span class="kc">None</span>
-                <span class="ow">and</span> <span class="s2">&quot;evaluation_planner&quot;</span> <span class="ow">in</span> <span class="n">preset</span>
-            <span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_planner</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span><span class="n">preset</span><span class="p">[</span><span class="s2">&quot;evaluation_planner&quot;</span><span class="p">])</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="n">use_bundled_policies</span>
-                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="ow">is</span> <span class="kc">None</span>
-                <span class="ow">and</span> <span class="s2">&quot;feedback_builder&quot;</span> <span class="ow">in</span> <span class="n">preset</span>
-            <span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span><span class="n">preset</span><span class="p">[</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">])</span>
-
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultContext</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults.keys</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-            <span class="n">INITIAL_ARCHIVE_SIZE</span><span class="p">,</span>
-            <span class="n">MAX_EVALUATIONS</span><span class="p">,</span>
-            <span class="n">POPULATION_SIZE</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults.model</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-            <span class="n">DefaultHint</span><span class="p">,</span>
-            <span class="n">DefaultResolution</span><span class="p">,</span>
-            <span class="n">DefaultStrength</span><span class="p">,</span>
-            <span class="n">ResolvedDefault</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults.resolver</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_RESOLVER</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.initializer</span><span class="w"> </span><span class="kn">import</span> <span class="n">LHSInitializer</span>
-
-        <span class="c1"># Resolve semantic defaults for the complete configured composition,</span>
-        <span class="c1"># even when materialization of one of the defaults is unnecessary</span>
-        <span class="c1"># because the user supplied that component explicitly.</span>
-        <span class="n">providers</span><span class="p">,</span> <span class="n">components</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discover_default_hint_providers</span><span class="p">()</span>
-        <span class="n">ctx</span> <span class="o">=</span> <span class="n">DefaultContext</span><span class="p">(</span>
-            <span class="n">problem</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="p">,</span>
-            <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
-            <span class="n">components</span><span class="o">=</span><span class="n">components</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">resolution</span> <span class="o">=</span> <span class="n">DEFAULT_RESOLVER</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">providers</span><span class="p">)</span>
-
-        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-        <span class="n">n_population</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">POPULATION_SIZE</span><span class="p">,</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">dim</span><span class="p">)</span>
-        <span class="n">n_archive</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">INITIAL_ARCHIVE_SIZE</span><span class="p">,</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">dim</span><span class="p">)</span>
-
-        <span class="c1"># Ensure archive is at least as large as population, and retain that</span>
-        <span class="c1"># invariant in the provenance trace as well.  This semantic step must</span>
-        <span class="c1"># run even when the initializer was supplied explicitly: otherwise a</span>
-        <span class="c1"># second resolve_defaults() call would replace the normalized trace</span>
-        <span class="c1"># with the raw resolver result.</span>
-        <span class="k">if</span> <span class="n">n_archive</span> <span class="o">&lt;</span> <span class="n">n_population</span><span class="p">:</span>
-            <span class="n">archive_resolution</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">resolved</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">INITIAL_ARCHIVE_SIZE</span><span class="p">)</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="n">archive_resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="ow">and</span> <span class="n">archive_resolution</span><span class="o">.</span><span class="n">selected_hint</span><span class="o">.</span><span class="n">strength</span>
-                <span class="o">==</span> <span class="n">DefaultStrength</span><span class="o">.</span><span class="n">REQUIRED</span>
-            <span class="p">):</span>
-                <span class="n">selected</span> <span class="o">=</span> <span class="n">archive_resolution</span><span class="o">.</span><span class="n">selected_hint</span>
-                <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                    <span class="s2">&quot;REQUIRED default for &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">INITIAL_ARCHIVE_SIZE</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> (</span><span class="si">{</span><span class="n">n_archive</span><span class="si">}</span><span class="s2">) from &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">selected</span><span class="o">.</span><span class="n">source</span><span class="si">!r}</span><span class="s2"> is smaller than the resolved &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;population size (</span><span class="si">{</span><span class="n">n_population</span><span class="si">}</span><span class="s2">)&quot;</span>
-                <span class="p">)</span>
-
-            <span class="n">adjusted_hint</span> <span class="o">=</span> <span class="n">DefaultHint</span><span class="p">(</span>
-                <span class="n">key</span><span class="o">=</span><span class="n">INITIAL_ARCHIVE_SIZE</span><span class="p">,</span>
-                <span class="n">value</span><span class="o">=</span><span class="n">n_population</span><span class="p">,</span>
-                <span class="n">strength</span><span class="o">=</span><span class="n">DefaultStrength</span><span class="o">.</span><span class="n">REQUIRED</span><span class="p">,</span>
-                <span class="n">source</span><span class="o">=</span><span class="s2">&quot;optimizer&quot;</span><span class="p">,</span>
-                <span class="n">reason</span><span class="o">=</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Raised to match the resolved population size: </span><span class="si">{</span><span class="n">n_population</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="p">),</span>
-            <span class="p">)</span>
-            <span class="n">resolution</span> <span class="o">=</span> <span class="n">DefaultResolution</span><span class="p">(</span>
-                <span class="n">values</span><span class="o">=</span><span class="p">{</span>
-                    <span class="o">**</span><span class="n">resolution</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-                    <span class="n">INITIAL_ARCHIVE_SIZE</span><span class="p">:</span> <span class="n">n_population</span><span class="p">,</span>
-                <span class="p">},</span>
-                <span class="n">resolved</span><span class="o">=</span><span class="p">{</span>
-                    <span class="o">**</span><span class="n">resolution</span><span class="o">.</span><span class="n">resolved</span><span class="p">,</span>
-                    <span class="n">INITIAL_ARCHIVE_SIZE</span><span class="p">:</span> <span class="n">ResolvedDefault</span><span class="p">(</span>
-                        <span class="n">key</span><span class="o">=</span><span class="n">INITIAL_ARCHIVE_SIZE</span><span class="p">,</span>
-                        <span class="n">value</span><span class="o">=</span><span class="n">n_population</span><span class="p">,</span>
-                        <span class="n">selected_hint</span><span class="o">=</span><span class="n">adjusted_hint</span><span class="p">,</span>
-                        <span class="n">alternatives</span><span class="o">=</span><span class="p">(</span>
-                            <span class="n">archive_resolution</span><span class="o">.</span><span class="n">alternatives</span>
-                            <span class="k">if</span> <span class="n">archive_resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                            <span class="k">else</span> <span class="p">()</span>
-                        <span class="p">),</span>
-                    <span class="p">),</span>
-                <span class="p">},</span>
-            <span class="p">)</span>
-            <span class="n">n_archive</span> <span class="o">=</span> <span class="n">n_population</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initializer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">initializer</span> <span class="o">=</span> <span class="n">LHSInitializer</span><span class="p">(</span>
-                <span class="n">n_init_archive</span><span class="o">=</span><span class="n">n_archive</span><span class="p">,</span> <span class="n">n_init_population</span><span class="o">=</span><span class="n">n_population</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span>
-            <span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_default_resolution</span> <span class="o">=</span> <span class="n">resolution</span>
-
-        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;termination&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">max_evaluations</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">MAX_EVALUATIONS</span><span class="p">,</span> <span class="mi">200</span> <span class="o">*</span> <span class="n">dim</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">termination</span> <span class="o">=</span> <span class="n">Termination</span><span class="p">(</span><span class="n">max_fe_cond</span><span class="p">(</span><span class="n">max_evaluations</span><span class="p">))</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_evaluation_scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">async_evaluation_scheduler</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">algorithm</span>
-
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve component and semantic defaults for the current composition.&quot;&quot;&quot;</span>
+        <span class="n">resolution</span> <span class="o">=</span> <span class="n">resolve_components</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_publish_component_resolution</span><span class="p">(</span><span class="n">resolution</span><span class="p">)</span>
         <span class="n">component_types</span> <span class="o">=</span> <span class="p">{</span>
             <span class="n">name</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">component</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
-            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span>
-                <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;strategy&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;termination&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;initializer&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">component</span> <span class="o">:=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">}</span>
+        <span class="n">selected_sources</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">origin</span><span class="o">.</span><span class="n">source</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">origin</span><span class="o">.</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">origin</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">origins</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
         <span class="p">}</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="s2">&quot;Resolved defaults: bundled_preset=</span><span class="si">%s</span><span class="s2"> components=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="n">bundled_preset_name</span><span class="p">,</span>
+            <span class="s2">&quot;Resolved defaults: bundled_preset=</span><span class="si">%s</span><span class="s2"> components=</span><span class="si">%s</span><span class="s2"> values=</span><span class="si">%s</span><span class="s2"> sources=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">resolution</span><span class="o">.</span><span class="n">bundled_preset</span><span class="p">,</span>
             <span class="n">component_types</span><span class="p">,</span>
+            <span class="p">{</span><span class="n">key</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">value</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">defaults</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="n">selected_sources</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -2411,7 +2277,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        -------</span>
 <span class="sd">        Generator[OptimizationState, None, None]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_compile_plan</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_compile_plan</span><span class="p">(</span><span class="n">require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">issues</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">issues</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
@@ -2462,7 +2328,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        OptimizationState</span>
 <span class="sd">            The final optimization context.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_compile_plan</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_compile_plan</span><span class="p">(</span><span class="n">require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">issues</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">issues</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
@@ -2495,14 +2361,54 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Exclude the compiled graph plan from legacy pickle checkpoints.&quot;&quot;&quot;</span>
         <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_executable_plan&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_prepared_diagnostic_cache&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_feature_encoder_default&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">state</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore an optimizer without a stale compiled execution plan.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_prepared_diagnostic_cache&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_feature_encoder_default&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_track_component_assignments&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;_component_origins&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
+            <span class="n">source</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;persisted&quot;</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="s2">&quot;direct assignment&quot;</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_COMPONENT_ASSIGNMENTS</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span>
+                        <span class="n">value</span><span class="p">,</span>
+                        <span class="n">source</span><span class="p">,</span>
+                        <span class="s2">&quot;Retained the component stored in optimizer state.&quot;</span><span class="p">,</span>
+                        <span class="n">_signature</span><span class="p">(</span><span class="n">value</span><span class="p">),</span>
+                    <span class="p">)</span>
+        <span class="n">space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="s2">&quot;space&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">services</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="s2">&quot;services&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">getter</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">services</span><span class="p">,</span> <span class="s2">&quot;get&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">feature_encoder</span> <span class="o">=</span> <span class="n">getter</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">getter</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">feature_encoder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">services</span><span class="p">,</span> <span class="s2">&quot;_feature_encoder_registration_count&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span>
+                <span class="n">feature_encoder</span><span class="p">,</span>
+                <span class="s2">&quot;persisted&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Retained the FeatureEncoder stored with the SearchSpace; its &quot;</span>
+                <span class="s2">&quot;original selection source is unavailable.&quot;</span><span class="p">,</span>
+                <span class="n">_feature_encoder_signature</span><span class="p">(</span><span class="n">feature_encoder</span><span class="p">),</span>
+            <span class="p">)</span>
 
 <div class="viewcode-block" id="Optimizer.save_pickle">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.save_pickle">[docs]</a>

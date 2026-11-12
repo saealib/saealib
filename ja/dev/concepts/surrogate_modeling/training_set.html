@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>学習データ集合 &#8212; saealib 0.1.1.dev37+g1d4f74dcd ドキュメント</title>
+    <title>学習データ集合 &#8212; saealib 0.1.1.dev40+gd14c83649 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=4347a3b2"></script>
+    <script src="../../_static/documentation_options.js?v=985a6ed4"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -596,6 +596,7 @@
 <section id="trainingset">
 <h2>TrainingSetの役割<a class="headerlink" href="#trainingset" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code>が実装する必要があるメソッドは<code class="docutils literal notranslate"><span class="pre">build(archive,</span> <span class="pre">population,</span> <span class="pre">ctx,</span> <span class="pre">candidate_x=None)</span> <span class="pre">-&gt;</span> <span class="pre">TrainingData</span></code>の1つだけです。<code class="docutils literal notranslate"><span class="pre">candidate_x</span></code>は、<code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager</span></code>が候補ごとのk-NN検索中心として渡す引数です。<code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager</span></code>は<code class="docutils literal notranslate"><span class="pre">None</span></code>を渡して呼び出します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">ctx</span></code>に準備済みの<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>がなく、空間にも明示登録がない場合、<code class="docutils literal notranslate"><span class="pre">ArchiveObjectiveSet</span></code>は最適化の実行準備と同じ対応済みの既定エンコーダを使い、Pythonの<code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>を出します。準備済みまたは明示登録されたエンコーダは優先され、既定を使ったという警告は出ません。</p>
 <p><code class="docutils literal notranslate"><span class="pre">TrainingData</span></code>は、<code class="docutils literal notranslate"><span class="pre">train_x</span></code>（通常は形状<code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">dim)</span></code>で、<code class="docutils literal notranslate"><span class="pre">PairwiseComparisonSet</span></code>だけが<code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">2*dim)</span></code>を使います）と、回帰では<code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">n_obj)</span></code>、分類またはランキングでは<code class="docutils literal notranslate"><span class="pre">(n_train,)</span></code>となる<code class="docutils literal notranslate"><span class="pre">train_y</span></code>を保持するデータクラスです。</p>
 <p>組み込みの8クラスは、直交する2つの軸に沿って整理されています。</p>
 <ul class="simple">

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.surrogate.training_set &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>saealib.surrogate.training_set &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1010,7 +1010,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.archive</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.genome</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenseVectorBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.space.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">encode_features</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.space.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">_encode_features</span><span class="p">,</span> <span class="n">_encode_features_with_default</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
@@ -1185,7 +1185,14 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all archive points with raw objective values.&quot;&quot;&quot;</span>
         <span class="n">genomes</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="s2">&quot;genomes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">genomes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">train_x</span> <span class="o">=</span> <span class="n">encode_features</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">genomes</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">feature_encoder</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">compiled_service</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">ValidationError</span><span class="p">:</span>
+                <span class="n">feature_encoder</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">feature_encoder</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">train_x</span> <span class="o">=</span> <span class="n">_encode_features_with_default</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">genomes</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">train_x</span> <span class="o">=</span> <span class="n">_encode_features</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">genomes</span><span class="p">,</span> <span class="n">feature_encoder</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">train_x</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">x</span>
         <span class="k">return</span> <span class="n">TrainingData</span><span class="p">(</span><span class="n">train_x</span><span class="o">=</span><span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="o">=</span><span class="n">archive</span><span class="o">.</span><span class="n">f</span><span class="p">)</span></div>

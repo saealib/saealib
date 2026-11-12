@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Specs &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>Specs &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -577,7 +577,9 @@ DataSpec kind compatibility, schema unification, and service resolution are sepa
 SearchSpace services such as <code class="docutils literal notranslate"><span class="pre">SamplingService</span></code> and <code class="docutils literal notranslate"><span class="pre">ValidationService</span></code> are matched as space capabilities.
 <code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code> is an adapter at the evaluation boundary, while <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code> is an adapter subtype exposed as <code class="docutils literal notranslate"><span class="pre">saealib.space.FeatureEncoder</span></code>.
 <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code> converts a <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code> to a <code class="docutils literal notranslate"><span class="pre">FeatureBatch</span></code> and provides the semantic transformation that determines features a surrogate model can learn. It differs in nature from space capabilities such as <code class="docutils literal notranslate"><span class="pre">SamplingService</span></code>.
-In the current implementation, the SurrogateManager contract declares <code class="docutils literal notranslate"><span class="pre">ServiceRequirement(&quot;FeatureEncoder&quot;)</span></code>, and <code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code> registers a default FeatureEncoder as a service, so numeric vector spaces resolve it without extra configuration. <code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code>, <code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code>, and <code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code> raise an error unless the user supplies a FeatureEncoder. The user determines the input passed to the surrogate model.</p>
+During execution preparation, a strategy that consumes <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code> receives a visible default when its space has no explicit encoder. <code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code> uses identity encoding and reports the choice, source, and reason at INFO; <code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code> and <code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code> retain their built-in encodings and report a non-blocking WARNING recommending an explicit choice because encoding affects what the surrogate learns.
+An encoder explicitly provided through <code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code> takes priority over these defaults and is used without a default-selection diagnostic. <code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code> and custom spaces receive no inferred encoder; a strategy that consumes one must have the space provide it.
+Inspect the structured stream with <code class="docutils literal notranslate"><span class="pre">optimizer.contract_diagnostics()</span></code>, or read <code class="docutils literal notranslate"><span class="pre">optimizer.last_contract_diagnostics</span></code> after <code class="docutils literal notranslate"><span class="pre">optimizer.validate()</span></code>. <code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> returns ERROR findings only, so the structured stream is where INFO and WARNING selections are visible.</p>
 </section>
 <section id="representationspec-boundary">
 <h2>RepresentationSpec boundary<a class="headerlink" href="#representationspec-boundary" title="Link to this heading">#</a></h2>

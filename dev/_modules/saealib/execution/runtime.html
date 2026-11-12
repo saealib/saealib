@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1026,6 +1026,13 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state.patch</span><span class="w"> </span><span class="kn">import</span> <span class="n">StatePatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state.readonly</span><span class="w"> </span><span class="kn">import</span> <span class="n">_unwrap_readonly</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigurationError</span><span class="p">,</span> <span class="n">EvaluationFatalError</span><span class="p">,</span> <span class="n">ValidationError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.bindings</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_ComponentOrigin</span><span class="p">,</span>
+    <span class="n">_ComponentResolution</span><span class="p">,</span>
+    <span class="n">_feature_encoder_signature</span><span class="p">,</span>
+    <span class="n">_resolve_explicit_feature_encoder</span><span class="p">,</span>
+    <span class="n">resolve_components</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.history</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">record_decision</span><span class="p">,</span>
     <span class="n">record_evaluations</span><span class="p">,</span>
@@ -2146,9 +2153,21 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    through to the optimizer (problem, space, runtime flags).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">bindings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span> <span class="o">=</span> <span class="n">bindings</span>
+    <span class="n">_optimizer</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">_bindings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">_component_resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">_stage_selections</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">optimizer</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_optimizer&quot;</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_bindings&quot;</span><span class="p">,</span> <span class="n">bindings</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="n">resolution</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_stage_selections&quot;</span><span class="p">,</span> <span class="p">[])</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">binding_values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Candidate snapshot values for declaration resolution.&quot;&quot;&quot;</span>
@@ -2165,6 +2184,10 @@ window.runMermaid = runMermaid;</script>
         <span class="n">optimizer</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_optimizer&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_optimizer&quot;</span><span class="p">)</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">_BindingSnapshot</span><span class="p">:</span>
@@ -2176,19 +2199,42 @@ window.runMermaid = runMermaid;</script>
 
     <span class="n">version</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">values</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">provenance</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_ComponentOrigin</span><span class="p">]</span>
+    <span class="n">feature_encoder_selection</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">strategy_values</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">configuration_version</span><span class="p">:</span> <span class="nb">int</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">unchanged_by</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">values</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
         <span class="n">strategy_values</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">configuration_version</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">feature_encoder_selection</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True when the candidate bindings resolve to this snapshot.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">bound</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">bound</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">return</span> <span class="n">strategy_values</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy_values</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">feature_encoder_selection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_encoder_selection</span>
+            <span class="ow">and</span> <span class="n">strategy_values</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy_values</span>
+            <span class="ow">and</span> <span class="n">configuration_version</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">configuration_version</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_executable_uses_service</span><span class="p">(</span><span class="n">executable</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">service_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="n">service_name</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">resolved_services</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">&quot;nodes&quot;</span><span class="p">,</span> <span class="p">())</span>
+    <span class="p">)</span>
+
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_PublishedPlan</span><span class="p">:</span>
+    <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span>
+    <span class="n">executable</span><span class="p">:</span> <span class="n">ExecutablePlan</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">snapshot</span><span class="p">:</span> <span class="n">_BindingSnapshot</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_iter_plan_components</span><span class="p">(</span>
@@ -2278,8 +2324,6 @@ window.runMermaid = runMermaid;</script>
 <span class="k">class</span><span class="w"> </span><span class="nc">_OptimizerEnvironment</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">plan</span> <span class="o">=</span> <span class="n">plan</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_version</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -2287,13 +2331,57 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_reject_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RegionFrame</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span> <span class="o">=</span> <span class="n">_BindingSnapshot</span><span class="p">(</span>
-            <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_version</span><span class="p">,</span>
-            <span class="n">values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span>
-            <span class="n">strategy_values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">(),</span>
+        <span class="n">resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">dict</span><span class="p">(</span><span class="n">resolution</span><span class="o">.</span><span class="n">bindings</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resolution</span><span class="p">,</span> <span class="n">_ComponentResolution</span><span class="p">)</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
         <span class="p">)</span>
+        <span class="n">provenance</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">dict</span><span class="p">(</span><span class="n">resolution</span><span class="o">.</span><span class="n">origins</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resolution</span><span class="p">,</span> <span class="n">_ComponentResolution</span><span class="p">)</span>
+            <span class="k">else</span> <span class="p">{}</span>
+        <span class="p">)</span>
+        <span class="n">executable</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">feature_encoder_selection</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">resolution</span><span class="p">,</span> <span class="n">_ComponentResolution</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">_executable_uses_service</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="n">values</span><span class="p">[</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder</span>
+            <span class="k">if</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">origin</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span>
+                <span class="n">provenance</span><span class="p">[</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">origin</span>
+                <span class="n">feature_encoder_selection</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">origin</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+                    <span class="n">origin</span><span class="o">.</span><span class="n">reason</span><span class="p">,</span>
+                    <span class="n">origin</span><span class="o">.</span><span class="n">signature</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_published</span> <span class="o">=</span> <span class="n">_PublishedPlan</span><span class="p">(</span>
+            <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="p">,</span>
+            <span class="n">executable</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="n">snapshot</span><span class="o">=</span><span class="n">_BindingSnapshot</span><span class="p">(</span>
+                <span class="n">version</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">provenance</span><span class="o">=</span><span class="n">provenance</span><span class="p">,</span>
+                <span class="n">feature_encoder_selection</span><span class="o">=</span><span class="n">feature_encoder_selection</span><span class="p">,</span>
+                <span class="n">strategy_values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">(),</span>
+                <span class="n">configuration_version</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">capabilities</span> <span class="o">=</span> <span class="n">_algorithm_runtime_capabilities</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publish_scheduler</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">plan</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plan</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The plan published with the active component bindings.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_published</span><span class="o">.</span><span class="n">plan</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_active_snapshot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_BindingSnapshot</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_published</span><span class="o">.</span><span class="n">snapshot</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">active_version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -2325,6 +2413,7 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">frames</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span>
         <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_checkpoint_guard&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_binding_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_version</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span>
@@ -2356,7 +2445,55 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="n">outcome</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_BINDING_SLOTS</span><span class="p">}</span>
+        <span class="n">bindings</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_BINDING_SLOTS</span>
+        <span class="p">}</span>
+        <span class="n">executable</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_published&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="s2">&quot;executable&quot;</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_executable_uses_service</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">):</span>
+            <span class="n">problem</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">&quot;space&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">services</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="s2">&quot;services&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">getter</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">services</span><span class="p">,</span> <span class="s2">&quot;get&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">explicit</span> <span class="o">=</span> <span class="n">getter</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">getter</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">cached</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_feature_encoder_default&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">explicit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">bindings</span><span class="p">[</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">explicit</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cached</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">cached</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">cached</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="n">space</span><span class="p">:</span>
+                <span class="n">bindings</span><span class="p">[</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cached</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">bindings</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_feature_encoder_selection</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">executable</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_published&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="s2">&quot;executable&quot;</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_executable_uses_service</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">problem</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">&quot;space&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">explicit</span><span class="p">,</span> <span class="n">origin</span> <span class="o">=</span> <span class="n">_resolve_explicit_feature_encoder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">space</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">explicit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">origin</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+                <span class="n">origin</span><span class="o">.</span><span class="n">reason</span><span class="p">,</span>
+                <span class="n">origin</span><span class="o">.</span><span class="n">signature</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_feature_encoder_default&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">cached</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">cached</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
+            <span class="ow">and</span> <span class="n">cached</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="n">space</span>
+            <span class="ow">and</span> <span class="n">cached</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="n">encoder</span><span class="p">,</span> <span class="n">reason</span> <span class="o">=</span> <span class="n">cached</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cached</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="s2">&quot;framework default&quot;</span><span class="p">,</span>
+                <span class="n">reason</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">id</span><span class="p">(</span><span class="n">space</span><span class="p">)</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">_feature_encoder_signature</span><span class="p">(</span><span class="n">encoder</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_strategy_values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">]:</span>
         <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -2376,7 +2513,12 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
         <span class="n">strategy_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">()</span>
-        <span class="n">unchanged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span><span class="p">)</span>
+        <span class="n">unchanged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span>
+            <span class="n">bindings</span><span class="p">,</span>
+            <span class="n">strategy_values</span><span class="p">,</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_selection</span><span class="p">(),</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">unchanged</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span><span class="p">:</span>
             <span class="c1"># A swap that was deferred while its evaluations ran may resolve</span>
             <span class="c1"># back to the active bindings; a matching commit point then ends</span>
@@ -2400,17 +2542,79 @@ window.runMermaid = runMermaid;</script>
         <span class="n">bindings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
         <span class="n">strategy_values</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">executable</span><span class="p">,</span> <span class="n">rebuilt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile_current_plan</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_gate</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">plan</span> <span class="o">=</span> <span class="n">rebuilt</span>
+        <span class="n">resolution</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gate</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="n">resolution</span><span class="p">)</span>
+        <span class="n">consumes_feature_encoder</span> <span class="o">=</span> <span class="n">_executable_uses_service</span><span class="p">(</span>
+            <span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">publish_resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_publish_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">publish_resolution</span><span class="p">):</span>
+                <span class="n">publish_resolution</span><span class="p">(</span>
+                    <span class="n">resolution</span><span class="p">,</span>
+                    <span class="n">feature_encoder_consumed</span><span class="o">=</span><span class="n">consumes_feature_encoder</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">resolution</span><span class="o">.</span><span class="n">bindings</span><span class="p">)</span>
+            <span class="n">provenance</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">resolution</span><span class="o">.</span><span class="n">origins</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
+            <span class="n">provenance</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">provenance</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">consumes_feature_encoder</span>
+            <span class="ow">and</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="n">values</span><span class="p">[</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder</span>
+            <span class="k">if</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">provenance</span><span class="p">[</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">consumes_feature_encoder</span><span class="p">:</span>
+            <span class="n">values</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">provenance</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;feature_encoder&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="n">executable</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_version</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span> <span class="o">=</span> <span class="n">_BindingSnapshot</span><span class="p">(</span>
-            <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_version</span><span class="p">,</span>
-            <span class="n">values</span><span class="o">=</span><span class="n">bindings</span><span class="p">,</span>
-            <span class="n">strategy_values</span><span class="o">=</span><span class="n">strategy_values</span><span class="p">,</span>
+        <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_version</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_published</span> <span class="o">=</span> <span class="n">_PublishedPlan</span><span class="p">(</span>
+            <span class="n">plan</span><span class="o">=</span><span class="n">rebuilt</span><span class="p">,</span>
+            <span class="n">executable</span><span class="o">=</span><span class="n">executable</span><span class="p">,</span>
+            <span class="n">snapshot</span><span class="o">=</span><span class="n">_BindingSnapshot</span><span class="p">(</span>
+                <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
+                <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">provenance</span><span class="o">=</span><span class="n">provenance</span><span class="p">,</span>
+                <span class="n">feature_encoder_selection</span><span class="o">=</span><span class="p">(</span>
+                    <span class="kc">None</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">consumes_feature_encoder</span>
+                    <span class="ow">or</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="kc">None</span>
+                    <span class="ow">or</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="p">(</span>
+                        <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+                        <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">reason</span><span class="p">,</span>
+                        <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">signature</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">strategy_values</span><span class="o">=</span><span class="n">strategy_values</span><span class="p">,</span>
+                <span class="n">configuration_version</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">current_services</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_compiled_services&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">consumes_feature_encoder</span> <span class="ow">and</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current_services</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                        <span class="n">current_services</span> <span class="o">=</span> <span class="p">{}</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_compiled_services&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="n">current_services</span>
+                        <span class="p">)</span>
+                    <span class="n">current_services</span><span class="p">[</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current_services</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">current_services</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_binding_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">version</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publish_scheduler</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_publish_scheduler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executable</span><span class="p">:</span> <span class="n">ExecutablePlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -2441,7 +2645,11 @@ window.runMermaid = runMermaid;</script>
             <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">AttributeError</span><span class="p">):</span>
                 <span class="nb">setattr</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_gate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executable</span><span class="p">:</span> <span class="n">ExecutablePlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">executable</span><span class="p">:</span> <span class="n">ExecutablePlan</span><span class="p">,</span>
+        <span class="n">resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the initial-run validation gate on a candidate plan.</span>
 
 <span class="sd">        Raises before publication so the previous plan and active version</span>
@@ -2453,13 +2661,51 @@ window.runMermaid = runMermaid;</script>
             <span class="k">return</span>
         <span class="n">has_plan</span> <span class="o">=</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">)</span>
         <span class="n">previous</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">saved_components</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">saved_resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">saved_defaults</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">saved_origins</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">saved_materialized</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">saved_feedback_explicit</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;feedback_builder_explicit&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">has_diagnostic_cache</span> <span class="o">=</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_prepared_diagnostic_cache&quot;</span><span class="p">)</span>
+        <span class="n">saved_diagnostic_cache</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_prepared_diagnostic_cache&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span>
+            <span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_publish_component_resolution&quot;</span>
+        <span class="p">):</span>
+            <span class="n">saved_components</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">components</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="n">resolution</span><span class="p">)</span>
+            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="n">resolution</span><span class="o">.</span><span class="n">defaults</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">has_plan</span><span class="p">:</span>
             <span class="n">optimizer</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="n">executable</span>
         <span class="k">try</span><span class="p">:</span>
+            <span class="n">signature_builder</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_diagnostic_plan_signature&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">callable</span><span class="p">(</span><span class="n">signature_builder</span><span class="p">):</span>
+                <span class="n">optimizer</span><span class="o">.</span><span class="n">_prepared_diagnostic_cache</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">signature_builder</span><span class="p">(</span><span class="n">resolution</span><span class="p">,</span> <span class="n">require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="n">executable</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="n">issues</span> <span class="o">=</span> <span class="n">validate</span><span class="p">(</span><span class="n">require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">has_plan</span><span class="p">:</span>
                 <span class="n">optimizer</span><span class="o">.</span><span class="n">_executable_plan</span> <span class="o">=</span> <span class="n">previous</span>
+            <span class="k">if</span> <span class="n">has_diagnostic_cache</span><span class="p">:</span>
+                <span class="n">optimizer</span><span class="o">.</span><span class="n">_prepared_diagnostic_cache</span> <span class="o">=</span> <span class="n">saved_diagnostic_cache</span>
+            <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">saved_components</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">saved_components</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="n">saved_resolution</span><span class="p">)</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="n">saved_defaults</span><span class="p">)</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="n">saved_origins</span><span class="p">)</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+                    <span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="n">saved_materialized</span>
+                <span class="p">)</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+                    <span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;feedback_builder_explicit&quot;</span><span class="p">,</span> <span class="n">saved_feedback_explicit</span>
+                <span class="p">)</span>
         <span class="k">if</span> <span class="n">issues</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
                 <span class="s2">&quot;Component replacement rejected at the commit point:</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -2480,24 +2726,41 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">_compile_current_plan</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">bindings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ExecutablePlan</span><span class="p">,</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span><span class="p">]:</span>
-        <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">has_resolver</span> <span class="o">=</span> <span class="nb">callable</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;resolve_defaults&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="n">resolution</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">resolve_components</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">configured</span><span class="o">=</span><span class="n">bindings</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">has_resolver</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;strategy&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="n">build_graph</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">problem</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">build_graph</span><span class="p">)</span> <span class="ow">or</span> <span class="n">problem</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;runtime plan refresh requires strategy.build_graph and problem&quot;</span>
             <span class="p">)</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="n">_SnapshotProviderView</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span>
+            <span class="nb">dict</span><span class="p">(</span><span class="n">resolution</span><span class="o">.</span><span class="n">bindings</span><span class="p">)</span> <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">bindings</span><span class="p">,</span>
+            <span class="n">resolution</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">executable</span> <span class="o">=</span> <span class="n">_prepare_plan</span><span class="p">(</span>
             <span class="n">strategy</span><span class="p">,</span>
-            <span class="n">_SnapshotProviderView</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">bindings</span><span class="p">),</span>
+            <span class="n">provider</span><span class="p">,</span>
             <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
             <span class="n">offered_runtime_capabilities</span><span class="o">=</span><span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span>
+                <span class="n">provider</span>
             <span class="p">),</span>
             <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
             <span class="n">_verification_enabled</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span>
             <span class="p">),</span>
+            <span class="n">_component_resolution</span><span class="o">=</span><span class="n">resolution</span><span class="p">,</span>
+            <span class="n">_require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">validate_plan_contracts</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
         <span class="n">rebuilt</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span>
@@ -2505,6 +2768,9 @@ window.runMermaid = runMermaid;</script>
             <span class="n">rebuilt</span> <span class="o">=</span> <span class="n">StructuredPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">rebuilt</span> <span class="o">=</span> <span class="n">SequentialPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+            <span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="n">resolution</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">executable</span><span class="p">,</span> <span class="n">rebuilt</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">execute_async</span><span class="p">(</span>
@@ -2725,7 +2991,10 @@ window.runMermaid = runMermaid;</script>
             <span class="p">)</span>
         <span class="n">bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span>
-            <span class="n">bindings</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">()</span>
+            <span class="n">bindings</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">(),</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_selection</span><span class="p">(),</span>
         <span class="p">):</span>
             <span class="k">raise</span> <span class="n">CheckpointError</span><span class="p">(</span>
                 <span class="s2">&quot;checkpoint cannot be saved because the optimizer configuration &quot;</span>
@@ -2794,6 +3063,10 @@ window.runMermaid = runMermaid;</script>
     <span class="n">build_graph</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">build_graph</span><span class="p">):</span>
         <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;strategy requires a callable build_graph&quot;</span><span class="p">)</span>
+    <span class="n">resolver</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;resolve_defaults&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">resolver</span><span class="p">):</span>
+        <span class="n">resolver</span><span class="p">()</span>
+    <span class="n">component_resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">live_context</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
         <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="p">,</span> <span class="n">default_runtime_registry</span><span class="o">.</span><span class="n">offered_capabilities</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
@@ -2806,7 +3079,20 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_context_factory</span><span class="o">=</span><span class="n">live_context</span><span class="p">,</span>
         <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
         <span class="n">_verification_enabled</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+        <span class="n">_component_resolution</span><span class="o">=</span><span class="p">(</span>
+            <span class="n">component_resolution</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">component_resolution</span><span class="p">,</span> <span class="n">_ComponentResolution</span><span class="p">)</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">),</span>
+        <span class="n">_require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="n">resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="n">component_resolution</span><span class="p">)</span>
+    <span class="n">publish_resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;_publish_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resolution</span><span class="p">,</span> <span class="n">_ComponentResolution</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">callable</span><span class="p">(</span><span class="n">publish_resolution</span><span class="p">):</span>
+        <span class="n">publish_resolution</span><span class="p">(</span>
+            <span class="n">resolution</span><span class="p">,</span>
+            <span class="n">feature_encoder_consumed</span><span class="o">=</span><span class="n">_executable_uses_service</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
     <span class="k">if</span> <span class="n">plan</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">:</span>
         <span class="n">errors</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">diagnostics</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">severity</span> <span class="ow">is</span> <span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
@@ -2886,6 +3172,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">validate_plan_contracts</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
         <span class="n">structured_graph</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">StructuredGraph</span><span class="p">)</span>
         <span class="n">services</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">feature_encoders</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
             <span class="n">required</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="n">requirement</span><span class="o">.</span><span class="n">name</span>
@@ -2899,8 +3186,16 @@ window.runMermaid = runMermaid;</script>
                     <span class="sa">f</span><span class="s2">&quot;compiled plan node </span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">component_id</span><span class="si">!r}</span><span class="s2"> is missing resolved &quot;</span>
                     <span class="sa">f</span><span class="s2">&quot;services: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">structured_graph</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">service</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">resolved_services</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">service</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">resolved_services</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">:</span>
+                    <span class="n">existing_encoder</span> <span class="o">=</span> <span class="n">feature_encoders</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">existing_encoder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">existing_encoder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">service</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                            <span class="s2">&quot;compiled plan resolves FeatureEncoder to conflicting &quot;</span>
+                            <span class="s2">&quot;objects&quot;</span>
+                        <span class="p">)</span>
+                    <span class="n">feature_encoders</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">service</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">structured_graph</span><span class="p">:</span>
                     <span class="n">previous</span> <span class="o">=</span> <span class="n">services</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">previous</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">previous</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">service</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
@@ -2911,7 +3206,13 @@ window.runMermaid = runMermaid;</script>
         <span class="n">structured</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">StructuredPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span> <span class="k">if</span> <span class="n">structured_graph</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">structured</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">services</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">feature_encoders</span><span class="p">)</span>
+        <span class="n">current_services</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_compiled_services&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">if</span> <span class="s2">&quot;FeatureEncoder&quot;</span> <span class="ow">in</span> <span class="n">services</span> <span class="ow">and</span> <span class="s2">&quot;FeatureEncoder&quot;</span> <span class="ow">in</span> <span class="n">current_services</span><span class="p">:</span>
+            <span class="n">current_services</span><span class="p">[</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">services</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">current_services</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">services</span><span class="p">:</span>
             <span class="n">state</span><span class="o">.</span><span class="n">bind_compiled_services</span><span class="p">(</span><span class="n">services</span><span class="p">)</span>
         <span class="n">selected_plan</span> <span class="o">=</span> <span class="n">structured</span> <span class="ow">or</span> <span class="n">SequentialPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
         <span class="n">capabilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">capabilities</span> <span class="o">|</span> <span class="nb">frozenset</span><span class="p">(</span>
@@ -4021,11 +4322,15 @@ window.runMermaid = runMermaid;</script>
     <span class="n">plan</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">ExecutablePlan</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">plan</span>
+    <span class="n">resolver</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;resolve_defaults&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">resolver</span><span class="p">):</span>
+        <span class="n">resolver</span><span class="p">()</span>
     <span class="n">strategy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="n">build_graph</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">build_graph</span><span class="p">):</span>
         <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;default runtime requires an executable plan&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_prepare_plan</span><span class="p">(</span>
+    <span class="n">component_resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">plan</span> <span class="o">=</span> <span class="n">_prepare_plan</span><span class="p">(</span>
         <span class="n">strategy</span><span class="p">,</span>
         <span class="n">optimizer</span><span class="p">,</span>
         <span class="n">problem</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -4036,7 +4341,20 @@ window.runMermaid = runMermaid;</script>
         <span class="p">),</span>
         <span class="n">initial_state_keys</span><span class="o">=</span><span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
         <span class="n">_verification_enabled</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+        <span class="n">_component_resolution</span><span class="o">=</span><span class="p">(</span>
+            <span class="n">component_resolution</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">component_resolution</span><span class="p">,</span> <span class="n">_ComponentResolution</span><span class="p">)</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">),</span>
     <span class="p">)</span>
+    <span class="n">resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="n">component_resolution</span><span class="p">)</span>
+    <span class="n">publish_resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_publish_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resolution</span><span class="p">,</span> <span class="n">_ComponentResolution</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">callable</span><span class="p">(</span><span class="n">publish_resolution</span><span class="p">):</span>
+        <span class="n">publish_resolution</span><span class="p">(</span>
+            <span class="n">resolution</span><span class="p">,</span>
+            <span class="n">feature_encoder_consumed</span><span class="o">=</span><span class="n">_executable_uses_service</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">plan</span>
 </pre></div>
 
                 </article>

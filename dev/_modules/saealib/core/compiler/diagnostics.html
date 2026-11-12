@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.core.compiler.diagnostics &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>saealib.core.compiler.diagnostics &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../../../../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1044,6 +1044,14 @@ window.runMermaid = runMermaid;</script>
     <span class="p">),</span>
 <span class="p">)</span>
 <span class="k">for</span> <span class="n">_name</span><span class="p">,</span> <span class="n">_description</span> <span class="ow">in</span> <span class="p">(</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;component_binding_selected&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;A component or semantic value was selected during execution preparation.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;feature_encoder_default_selected&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;A default FeatureEncoder was selected during execution preparation.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
     <span class="p">(</span><span class="s2">&quot;uninitialized_state_write&quot;</span><span class="p">,</span> <span class="s2">&quot;A state write has no initialized predecessor.&quot;</span><span class="p">),</span>
     <span class="p">(</span><span class="s2">&quot;concurrent_state_write&quot;</span><span class="p">,</span> <span class="s2">&quot;Two state writes are not ordered.&quot;</span><span class="p">),</span>
     <span class="p">(</span><span class="s2">&quot;unreachable_state_read&quot;</span><span class="p">,</span> <span class="s2">&quot;A state read has no reachable initialized writer.&quot;</span><span class="p">),</span>
@@ -1119,6 +1127,44 @@ window.runMermaid = runMermaid;</script>
         <span class="s2">&quot;selecting one.&quot;</span><span class="p">,</span>
     <span class="p">),</span>
     <span class="p">(</span><span class="s2">&quot;unresolved_input&quot;</span><span class="p">,</span> <span class="s2">&quot;A required input has no compatible upstream producer.&quot;</span><span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;missing_required_component&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;A required optimizer component is not available after resolution.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;component_protocol_mismatch&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;A configured component does not provide a required callable operation.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;cannot_verify_component_requirement&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;A component requirement cannot be determined from the available declarations.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;missing_surrogate_manager&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;The selected strategy requires a surrogate manager that is not available.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;missing_acquisition&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;The selected strategy requires an acquisition component that is not &quot;</span>
+        <span class="s2">&quot;available.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;direction_length_mismatch&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;An objective direction vector does not match the problem objective count.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;cannot_verify_direction_length&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;An objective direction length cannot be determined.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;inconsistent_evaluator_lifecycle&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Evaluator submit, collect, and acknowledge methods are not consistently &quot;</span>
+        <span class="s2">&quot;implemented.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;strategy_graph_unavailable&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;The selected strategy could not provide a graph for preparation.&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
     <span class="p">(</span><span class="s2">&quot;ambiguous_input&quot;</span><span class="p">,</span> <span class="s2">&quot;An input has multiple compatible upstream producers.&quot;</span><span class="p">),</span>
     <span class="p">(</span>
         <span class="s2">&quot;invalid_flow_transform&quot;</span><span class="p">,</span>

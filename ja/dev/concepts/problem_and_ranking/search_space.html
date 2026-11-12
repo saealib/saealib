@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>SearchSpace &#8212; saealib 0.1.1.dev37+g1d4f74dcd ドキュメント</title>
+    <title>SearchSpace &#8212; saealib 0.1.1.dev40+gd14c83649 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=4347a3b2"></script>
+    <script src="../../_static/documentation_options.js?v=985a6ed4"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -612,7 +612,10 @@
 <section id="id3">
 <h2>不変条件<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">RepresentationSpec</span></code> はパラメータの種類、形状、表現種別を記述します。 表現の記述は、候補をどのように保存するかを示すものであり、サンプリングや特徴量化の実装そのものではありません。</p>
-<p>サービスはこの差を埋める実行可能な境界です。 現在の実装ではSurrogateManagerの契約が<code class="docutils literal notranslate"><span class="pre">ServiceRequirement(&quot;FeatureEncoder&quot;)</span></code>を宣言し、<code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code>は既定のエンコーダをサービスとして登録するため、数値ベクトル空間では追加設定なしに解決されます。<code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code>、<code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code>、<code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code>などでは、利用者が<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>を用意しない限り解決されずエラーになります。代理モデルへ何を入力するかは利用者が決めます。</p>
+<p><code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>を使う戦略では、実行準備時に明示設定の有無を確認してエンコーダを選びます。<code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code>は恒等エンコーディングを既定にし、選択元と理由をINFOで報告します。<code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code>と<code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code>は組み込みの既定エンコーダを使い、エンコーディングがサロゲートの学習対象を決めることを示して、明示選択を勧めるWARNINGを報告します。このWARNINGは実行を妨げません。
+<code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code>に明示されたエンコーダは既定より優先され、既定選択の診断は出ません。<code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code>と独自の空間にはエンコーダを推測して割り当てないため、選択した戦略が必要とする場合は空間が提供します。
+<code class="docutils literal notranslate"><span class="pre">encode_features()</span></code>を直接呼ぶ場合も、組み込み空間では同じ既定値を使い、その選択をPythonの<code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>で知らせます。対応する既定値がない独自空間では、引き続き明示エンコーダが必要です。
+構造化診断は<code class="docutils literal notranslate"><span class="pre">optimizer.contract_diagnostics()</span></code>で確認できます。<code class="docutils literal notranslate"><span class="pre">optimizer.validate()</span></code>を呼んだ後は<code class="docutils literal notranslate"><span class="pre">optimizer.last_contract_diagnostics</span></code>からも確認できます。<code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code>はERRORだけを返すため、INFOとWARNINGは診断ストリームで確認します。</p>
 </section>
 <section id="id4">
 <h2>SearchSpaceの拡張<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>

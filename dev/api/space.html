@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>SearchSpace API &#8212; saealib 0.1.1.dev37+g1d4f74dcd documentation</title>
+    <title>SearchSpace API &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=da5d181c"></script>
+    <script src="../_static/documentation_options.js?v=0140d57a"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -958,7 +958,10 @@ Use names from <code class="docutils literal notranslate"><span class="pre">saea
 <h3>Adapters<a class="headerlink" href="#adapters" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code> is an adapter at the evaluation boundary that converts a <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code> into an <code class="docutils literal notranslate"><span class="pre">EvaluationPayload</span></code>.
 <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code> is an adapter subtype exposed as <code class="docutils literal notranslate"><span class="pre">saealib.space.FeatureEncoder</span></code>. It converts a <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code> into a <code class="docutils literal notranslate"><span class="pre">FeatureBatch</span></code> and determines which features a surrogate can learn. It differs in kind from space capabilities such as <code class="docutils literal notranslate"><span class="pre">SamplingService</span></code>.
-In the current implementation, the <code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code> contract declares <code class="docutils literal notranslate"><span class="pre">ServiceRequirement(&quot;FeatureEncoder&quot;)</span></code>, and <code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code> registers a default encoder as a service, so numeric vector spaces resolve it without extra configuration. <code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code>, <code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code>, and <code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code> fail to resolve it unless the user provides a <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>. The user decides which input is passed to the surrogate.</p>
+When a prepared strategy consumes <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>, execution preparation selects a default if <code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code> has no explicit encoder. <code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code> uses identity encoding and reports INFO with its source and reason; <code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code> and <code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code> keep their built-in encodings and report a non-blocking WARNING that encoding affects surrogate learning and an explicit choice is recommended.
+An explicitly provided encoder always takes priority and does not produce a default-selection diagnostic. <code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code> and custom spaces receive no inferred encoder; provide one when the selected strategy consumes it.
+Direct calls to <code class="docutils literal notranslate"><span class="pre">encode_features(space,</span> <span class="pre">genomes)</span></code> use the same built-in defaults when no encoder is registered and emit a Python <code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>. An explicit encoder is used without a warning, and a custom space without a supported default still raises <code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>; the helper does not register its fallback in the space.
+Inspect choices with <code class="docutils literal notranslate"><span class="pre">optimizer.contract_diagnostics()</span></code>, or use <code class="docutils literal notranslate"><span class="pre">optimizer.last_contract_diagnostics</span></code> after <code class="docutils literal notranslate"><span class="pre">optimizer.validate()</span></code>. <code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> returns ERROR findings only, while the structured stream also includes INFO and WARNING.</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/saealib.space.FeatureEncoder.html#saealib.space.FeatureEncoder" title="saealib.space.FeatureEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.space.FeatureEncoder</span></code></a></p></td>

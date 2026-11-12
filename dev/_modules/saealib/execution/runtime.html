@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev40+gd14c83649 documentation</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=0140d57a"></script>
+    <script src="../../../_static/documentation_options.js?v=a8338413"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1019,6 +1019,8 @@ window.runMermaid = runMermaid;</script>
     <span class="n">EVALUATION_UPDATES</span><span class="p">,</span>
     <span class="n">EVALUATIONS_PLAN_UPDATES</span><span class="p">,</span>
     <span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
+    <span class="n">RUNTIME_REGION_COUNTS</span><span class="p">,</span>
+    <span class="n">RUNTIME_STEP</span><span class="p">,</span>
     <span class="n">RuntimeContext</span><span class="p">,</span>
     <span class="n">StateKey</span><span class="p">,</span>
     <span class="n">StateView</span><span class="p">,</span>
@@ -1034,6 +1036,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">resolve_components</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.history</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_ensure_region_history</span><span class="p">,</span>
     <span class="n">record_decision</span><span class="p">,</span>
     <span class="n">record_evaluations</span><span class="p">,</span>
     <span class="n">record_generation</span><span class="p">,</span>
@@ -1054,6 +1057,64 @@ window.runMermaid = runMermaid;</script>
     <span class="s2">&quot;execute_strategy_step&quot;</span><span class="p">,</span>
     <span class="s2">&quot;resolve_plan&quot;</span><span class="p">,</span>
 <span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_iteration_region_ids</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">StructuredGraph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+    <span class="n">region_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">visit</span><span class="p">(</span><span class="n">current</span><span class="p">:</span> <span class="n">StructuredGraph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">operation</span> <span class="ow">in</span> <span class="n">current</span><span class="o">.</span><span class="n">operations</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">operation</span><span class="p">,</span> <span class="n">RegionNode</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">region</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">region</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="p">(</span><span class="n">RepeatRegion</span><span class="p">,</span> <span class="n">LoopRegion</span><span class="p">))</span>
+                <span class="ow">and</span> <span class="n">region</span><span class="o">.</span><span class="n">qualified_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span>
+            <span class="p">):</span>
+                <span class="n">region_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">region</span><span class="o">.</span><span class="n">qualified_id</span><span class="p">)</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">region</span><span class="o">.</span><span class="n">qualified_id</span><span class="p">)</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">region</span><span class="o">.</span><span class="n">body</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="n">StructuredGraph</span><span class="p">):</span>
+                <span class="n">visit</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+            <span class="n">otherwise</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="s2">&quot;otherwise&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">otherwise</span><span class="p">,</span> <span class="n">StructuredGraph</span><span class="p">):</span>
+                <span class="n">visit</span><span class="p">(</span><span class="n">otherwise</span><span class="p">)</span>
+
+    <span class="n">visit</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">region_ids</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_increment_step</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">store</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;_store&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">if</span> <span class="n">store</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">RUNTIME_STEP</span><span class="p">):</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">step</span> <span class="o">+=</span> <span class="mi">1</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_has_pending_evaluations</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_has_state_key</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">StateKey</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">store</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;_store&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="n">store</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_increment_region_count</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">region_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_has_state_key</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">RUNTIME_REGION_COUNTS</span><span class="p">):</span>
+        <span class="k">return</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">region_counts</span><span class="p">)</span>
+    <span class="n">counts</span><span class="p">[</span><span class="n">region_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">region_id</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">state</span><span class="o">.</span><span class="n">region_counts</span> <span class="o">=</span> <span class="n">counts</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">LifecycleEnvironment</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
@@ -1779,6 +1840,8 @@ window.runMermaid = runMermaid;</script>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;StructuredPlan frame does not point to a region&quot;</span><span class="p">)</span>
         <span class="n">region</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">region</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">RepeatRegion</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">region_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">_increment_region_count</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">child</span><span class="o">.</span><span class="n">region_id</span><span class="p">)</span>
             <span class="n">count</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">count</span> <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">count</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
             <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">iteration</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="n">count</span><span class="p">:</span>
                 <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span>
@@ -1786,6 +1849,8 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="kc">False</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">LoopRegion</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">region_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">_increment_region_count</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">child</span><span class="o">.</span><span class="n">region_id</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">_evaluate_condition</span><span class="p">(</span><span class="n">region</span><span class="o">.</span><span class="n">condition</span><span class="p">,</span> <span class="n">current</span><span class="p">,</span> <span class="n">dispatch</span><span class="o">=</span><span class="n">dispatch</span><span class="p">):</span>
                 <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span>
                     <span class="n">child</span><span class="p">,</span> <span class="n">operation_index</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">iteration</span><span class="o">=</span><span class="n">child</span><span class="o">.</span><span class="n">iteration</span> <span class="o">+</span> <span class="mi">1</span>
@@ -2546,6 +2611,15 @@ window.runMermaid = runMermaid;</script>
         <span class="n">executable</span><span class="p">,</span> <span class="n">rebuilt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile_current_plan</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
         <span class="n">resolution</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_gate</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="n">resolution</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_has_state_key</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span> <span class="n">RUNTIME_REGION_COUNTS</span>
+        <span class="p">):</span>
+            <span class="n">region_ids</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">_iteration_region_ids</span><span class="p">(</span><span class="n">rebuilt</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rebuilt</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">)</span>
+                <span class="k">else</span> <span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">_ensure_region_history</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span> <span class="n">region_ids</span><span class="p">)</span>
         <span class="n">consumes_feature_encoder</span> <span class="o">=</span> <span class="n">_executable_uses_service</span><span class="p">(</span>
             <span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span>
         <span class="p">)</span>
@@ -3005,6 +3079,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">_validate_pending_reattachable</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">evaluator</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">finish_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_increment_step</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">handler</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span>
         <span class="n">handler</span><span class="o">.</span><span class="n">on_generation_end</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">gen</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">population</span><span class="p">)</span>
         <span class="n">threshold</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">feasibility_threshold</span>
@@ -3215,6 +3290,13 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">services</span><span class="p">:</span>
             <span class="n">state</span><span class="o">.</span><span class="n">bind_compiled_services</span><span class="p">(</span><span class="n">services</span><span class="p">)</span>
         <span class="n">selected_plan</span> <span class="o">=</span> <span class="n">structured</span> <span class="ow">or</span> <span class="n">SequentialPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
+        <span class="n">region_ids</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">_iteration_region_ids</span><span class="p">(</span><span class="n">selected_plan</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">selected_plan</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">)</span>
+            <span class="k">else</span> <span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">_has_state_key</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">RUNTIME_REGION_COUNTS</span><span class="p">):</span>
+            <span class="n">_ensure_region_history</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">region_ids</span><span class="p">)</span>
         <span class="n">capabilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">capabilities</span> <span class="o">|</span> <span class="nb">frozenset</span><span class="p">(</span>
             <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;capabilities&quot;</span><span class="p">,</span> <span class="p">())</span>
         <span class="p">)</span>
@@ -3271,6 +3353,10 @@ window.runMermaid = runMermaid;</script>
                     <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                         <span class="s2">&quot;structured runtime node reported FAILED status&quot;</span>
                     <span class="p">)</span>
+                <span class="k">if</span> <span class="n">metadata</span><span class="o">.</span><span class="n">plan_completed</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_has_pending_evaluations</span><span class="p">(</span>
+                    <span class="n">metadata</span><span class="o">.</span><span class="n">state</span>
+                <span class="p">):</span>
+                    <span class="n">_increment_step</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
                 <span class="n">run_finished</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">plan_completed</span> <span class="ow">or</span> <span class="n">metadata</span><span class="o">.</span><span class="n">terminated</span>
                 <span class="n">next_session</span> <span class="o">=</span> <span class="n">RuntimeSession</span><span class="p">(</span>
                     <span class="n">plan</span><span class="o">=</span><span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span>
@@ -3423,6 +3509,8 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">)</span>
             <span class="n">state</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">state</span>
             <span class="n">node_results</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">node_results</span>
+            <span class="k">if</span> <span class="n">metadata</span><span class="o">.</span><span class="n">plan_completed</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_has_pending_evaluations</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+                <span class="n">_increment_step</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
             <span class="n">finished</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">terminated</span>
             <span class="n">next_session</span> <span class="o">=</span> <span class="n">RuntimeSession</span><span class="p">(</span>
                 <span class="n">plan</span><span class="o">=</span><span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span>
@@ -3668,6 +3756,8 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">result</span><span class="o">.</span><span class="n">status</span> <span class="ow">is</span> <span class="n">NodeStatus</span><span class="o">.</span><span class="n">FAILED</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">metadata</span><span class="o">.</span><span class="n">node_results</span>
             <span class="p">):</span>
                 <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;structured runtime node reported FAILED status&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">metadata</span><span class="o">.</span><span class="n">plan_completed</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_has_pending_evaluations</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">state</span><span class="p">):</span>
+                <span class="n">_increment_step</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
             <span class="n">run_finished</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">plan_completed</span> <span class="ow">or</span> <span class="n">metadata</span><span class="o">.</span><span class="n">terminated</span>
             <span class="n">next_session</span> <span class="o">=</span> <span class="n">RuntimeSession</span><span class="p">(</span>
                 <span class="n">plan</span><span class="o">=</span><span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.termination &#8212; saealib 0.1.1.dev40+gd14c83649 ドキュメント</title>
+    <title>saealib.termination &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=985a6ed4"></script>
+    <script src="../../_static/documentation_options.js?v=31293fbd"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -972,7 +972,12 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span><span class="p">,</span> <span class="n">StateContract</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCHIVES_MAIN</span><span class="p">,</span> <span class="n">EVALUATIONS_COUNT</span><span class="p">,</span> <span class="n">RUNTIME_GENERATION</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ARCHIVES_MAIN</span><span class="p">,</span>
+    <span class="n">EVALUATIONS_COUNT</span><span class="p">,</span>
+    <span class="n">RUNTIME_GENERATION</span><span class="p">,</span>
+    <span class="n">RUNTIME_STEP</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
 
@@ -1182,10 +1187,16 @@ window.runMermaid = runMermaid;</script>
         <span class="n">state_keys</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;max_fe&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">EVALUATIONS_COUNT</span><span class="p">,),</span>
             <span class="s2">&quot;max_gen&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">RUNTIME_GENERATION</span><span class="p">,),</span>
+            <span class="s2">&quot;max_steps&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">RUNTIME_STEP</span><span class="p">,),</span>
             <span class="s2">&quot;f_target&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">ARCHIVES_MAIN</span><span class="p">,),</span>
             <span class="s2">&quot;stalled&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">ARCHIVES_MAIN</span><span class="p">,</span> <span class="n">RUNTIME_GENERATION</span><span class="p">),</span>
         <span class="p">}</span>
-        <span class="n">conservative</span> <span class="o">=</span> <span class="p">(</span><span class="n">EVALUATIONS_COUNT</span><span class="p">,</span> <span class="n">RUNTIME_GENERATION</span><span class="p">,</span> <span class="n">ARCHIVES_MAIN</span><span class="p">)</span>
+        <span class="n">conservative</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">EVALUATIONS_COUNT</span><span class="p">,</span>
+            <span class="n">RUNTIME_GENERATION</span><span class="p">,</span>
+            <span class="n">RUNTIME_STEP</span><span class="p">,</span>
+            <span class="n">ARCHIVES_MAIN</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">reads</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">reads_enumerable</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">for</span> <span class="n">condition</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">conditions</span><span class="p">:</span>
@@ -1311,6 +1322,10 @@ window.runMermaid = runMermaid;</script>
     <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">gen</span> <span class="o">&gt;=</span> <span class="n">value</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_steps_reached</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;=</span> <span class="n">value</span>
+
+
 <div class="viewcode-block" id="max_fe">
 <a class="viewcode-back" href="../../api/termination.html#saealib.max_fe">[ドキュメント]</a>
 <span class="nd">@register</span><span class="p">()</span>
@@ -1371,6 +1386,28 @@ window.runMermaid = runMermaid;</script>
         <span class="n">spec</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;max_gen&quot;</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}},</span>
     <span class="p">)</span></div>
 
+
+
+<span class="nd">@register</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">max_steps</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TerminationCondition</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a termination condition based on completed flow executions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    value : int</span>
+<span class="sd">        Maximum number of completed flow executions.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    TerminationCondition</span>
+<span class="sd">        A composable condition that returns True when ``ctx.step &gt;= value``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TerminationCondition</span><span class="p">(</span>
+        <span class="n">partial</span><span class="p">(</span><span class="n">_steps_reached</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">),</span>
+        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;max_steps(</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+        <span class="n">doc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Terminate when step &gt;= </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+        <span class="n">spec</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;max_steps&quot;</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}},</span>
+    <span class="p">)</span>
 
 
 <div class="viewcode-block" id="f_target">

@@ -21,7 +21,7 @@ from saealib.core.contracts import (
 from saealib.core.state import POPULATIONS_MAIN, StatePatch, StateView
 from saealib.exceptions import ConfigurationError
 from saealib.operators._deap_rng import seeded_global_numpy_random
-from saealib.population import Archive, Population, PopulationAttribute
+from saealib.population import PopulationAttribute
 from saealib.problem import Problem
 
 
@@ -107,16 +107,6 @@ class DeapGenerateUpdateAlgorithm(Algorithm):
         """Return the ask-order tracking attribute required by the adapter."""
         self._ensure_setup(problem)
         return [PopulationAttribute("deap_idx", np.int64, (), default=-1)]
-
-    @property
-    def population_class(self) -> type[Population]:
-        """Return the population class."""
-        return Population
-
-    @property
-    def archive_class(self) -> type[Archive]:
-        """Return the archive class."""
-        return Archive
 
     @property
     def ask_notation(self) -> list[str]:

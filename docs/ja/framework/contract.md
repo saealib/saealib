@@ -42,7 +42,7 @@ Componentは`contract()`で契約を生成し、ComponentNodeはコンパイル�
 
 ## 不変条件と診断
 
-契約は凍結されたデータクラスとして扱われ、Compilerの検証中に変更されません。`ports`、`required_services`、`parts`は対応する宣言値だけを含み、role名とコンポーネント名は識別子として検証されます。状態の`reads`、`writes`、`exports`は型付きStateKeyを使い、Runtimeは宣言されていないキーをComponentに公開しません。必要な実行能力がCompileContextの提供する能力にない場合、CompilerはExecutablePlanを実行可能としてマークできません。呼び出せない契約や誤った戻り値の型は`contract_unavailable`となり、保持されたコンポーネントの契約が宣言と異なる場合は`part_contract_mismatch`となります。対象ポート、必須サービス、状態効果、ライフサイクル、Runtime能力の不整合もCompilerの診断として報告されます。無効な契約型を作成すると`ValidationError`が発生します。
+契約は凍結されたデータクラスとして扱われ、Compilerの検証中に変更されません。`ports`、`required_services`、`parts`は対応する宣言値だけを含み、role名とコンポーネント名は識別子として検証されます。状態の`reads`、`writes`、`exports`は型付きStateKeyを使い、Runtimeは宣言されていないキーをComponentに公開しません。必要な実行能力がCompileContextの提供する能力にない場合、CompilerはExecutablePlanを実行可能としてマークできません。呼び出せない契約や誤った戻り値の型は`contract_unavailable`となり、保持されたコンポーネントの契約が宣言と異なる場合は`part_contract_mismatch`となります。 子コンポーネントを保持するが`parts`に宣言されていないコンポーネント属性は、親と属性を示す非ブロッキングの`undeclared_part` WARNINGになります。 これは構造化診断ストリームに現れ、実行を妨げません。対象ポート、必須サービス、状態効果、ライフサイクル、Runtime能力の不整合もCompilerの診断として報告されます。無効な契約型を作成すると`ValidationError`が発生します。
 
 ## 最小例
 

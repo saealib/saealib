@@ -25,6 +25,7 @@ Genomeは、`DenseVectorBatch`、`ObjectBatch`、`PermutationBatch`などの`Gen
 
 属性スキーマは `PopulationAttribute(name, dtype, shape, default)` のリストで定義します。
 旧来のベクトル経路では `x`、`f`、`g`、`cv` と、`Algorithm.get_required_attrs(problem)` が返す補助属性をこのスキーマへ追加します。
+`get_required_attrs` の既定は空です。アルゴリズムが固有の状態を個体群に格納するときだけ属性を宣言します。
 Genome-native経路では、GenomeBatchとSearchSpaceの契約が表現の構造を担い、列スキーマだけで個体を表しません。
 
 ## Populationが保持するもの
@@ -112,7 +113,7 @@ idx, dist = arc.get_knn(np.array([0.1, 0.2]), k=1)
 
 `ArchiveMixin`/`ParetoMixin`は、`Population`のサブクラスに多重継承でミックスインするという前提で設計されています。
 独自の個体群管理ロジックが必要な場合、これらのMixinを組み合わせた新しいクラス（`class MyArchive(ArchiveMixin, Population): ...`）を定義できます。
-また[Algorithm](../search_algorithms/algorithm.md)の`population_class`/`archive_class`をオーバーライドすれば、`Initializer`が生成するPopulation/Archiveを独自サブクラスに差し替えられます。
+また[Algorithm](../search_algorithms/algorithm.md)の`population_class`/`archive_class`をオーバーライドすれば、`Initializer`が生成するPopulation/Archiveを独自サブクラスに差し替えられます。 どちらも標準の`Population`/`Archive`が既定のため、オーバーライドは任意です。
 
 ## 関連コンポーネント
 

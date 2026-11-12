@@ -52,6 +52,7 @@ Contracts are treated as frozen data classes and are not changed during Compiler
 State `reads`, `writes`, and `exports` use typed StateKeys, and the Runtime does not expose undeclared keys to a Component.
 If a required execution capability is absent from the capabilities offered by CompileContext, the Compiler cannot mark the ExecutablePlan executable.
 An uncallable contract or incorrect return type becomes `contract_unavailable`; a held component whose contract differs from its declaration becomes `part_contract_mismatch`.
+A component attribute that holds an undeclared child component becomes a non-blocking `undeclared_part` WARNING naming the parent and the attribute; it stays in the structured diagnostic stream and does not block execution.
 Inconsistent target ports, required services, state effects, lifecycle, or Runtime capabilities are also reported as Compiler Diagnostics.
 An invalid contract type raises `ValidationError` when the contract is created.
 

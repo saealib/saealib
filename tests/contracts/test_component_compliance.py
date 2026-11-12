@@ -7,13 +7,18 @@ import pkgutil
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
 
 import saealib
-from saealib.core.compiler.diagnostics import DIAGNOSTIC_CODES
+from saealib.core.compiler.contract_diagnostics import check_component_contract
+from saealib.core.compiler.diagnostics import (
+    DIAGNOSTIC_CODES,
+    ContractPath,
+    Severity,
+)
 from saealib.core.component import Component
 from saealib.core.contracts import (
     ASSUMPTION_KEYS,
@@ -139,6 +144,28 @@ class _StageHeldComponent:
         return None
 
 
+class _ProviderWithoutContract:
+    """Provider/problem stand-in without contract(), like the production types."""
+
+    seed = 1
+
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(name)
+
+
+def _problem_for_initialization_stage() -> Any:
+    from saealib.problem import Problem
+
+    return Problem(
+        lambda x: float(np.sum(x**2)),
+        1,
+        1,
+        direction=np.array([-1.0]),
+        lb=[0.0],
+        ub=[1.0],
+    )
+
+
 def _operational_stage_instances() -> tuple[Stage, ...]:
     def held() -> Any:
         return _StageHeldComponent()
@@ -163,7 +190,11 @@ def _operational_stage_instances() -> tuple[Stage, ...]:
         FeedbackStage(held()),
         TellStage(held()),
         SurrogateOnlyLoopStage(held(), held(), 0, acquisition=held()),
-        InitializationStage(held(), held(), held()),
+        InitializationStage(
+            held(),
+            cast(Any, _ProviderWithoutContract()),
+            _problem_for_initialization_stage(),
+        ),
     )
 
 
@@ -1179,6 +1210,45 @@ def test_discovered_contract_vocabulary_references_are_registered(
 def test_discovered_parts_match_held_components(name: str, instance: Any) -> None:
     del name
     _check_parts(instance)
+
+
+_ADAPTER_COMPOSED_CONTRACT_CLASSES = frozenset(
+    {
+        "saealib.core.graph_builder.StageNodeAdapter",
+        "saealib.core.graph_builder.StageContractNodeAdapter",
+        "saealib.core.graph_builder.StagePartNodeAdapter",
+        "saealib.stages.StageStateViewAdapter",
+    }
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "instance"),
+    _CONTRACT_INVARIANT_INSTANCES,
+    ids=[name for name, _ in _CONTRACT_INVARIANT_INSTANCES],
+)
+def test_discovered_components_hold_no_undeclared_children(
+    name: str, instance: Any
+) -> None:
+    """Built-in components declare every held child component in parts.
+
+    The graph-builder adapters are excluded: their contract is composed from
+    or delegated to the held stage, so the held stage is the declaration
+    source rather than an undeclared extension point.
+    """
+    if name in _ADAPTER_COMPOSED_CONTRACT_CLASSES:
+        pytest.skip("adapter contract is composed from the held stage")
+    findings = check_component_contract(
+        instance.contract(),
+        component=instance,
+        path=ContractPath(components=(name,)),
+    )
+    undeclared = [
+        finding
+        for finding in findings
+        if finding.code == "undeclared_part" and finding.severity is Severity.WARNING
+    ]
+    assert undeclared == []
 
 
 def test_purity_check_accepts_dummy() -> None:

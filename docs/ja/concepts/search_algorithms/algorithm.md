@@ -86,14 +86,22 @@ Variable types は defined via [Problem](../problem_and_ranking/problem.md)'s `v
 
 ## 独自Algorithmの実装方法
 
-独自の探索アルゴリズムを実装するときは、`Algorithm` を継承して `ask()` と `tell()` を実装します。 `get_required_attrs()`、`population_class`、`archive_class` も、既存のPopulation互換経路を使う場合には実装が必要です。
+独自の探索アルゴリズムを実装するときは、`Algorithm` を継承して `ask()` と `tell()` を実装します。 それだけが必須です。 基底は `get_required_attrs() -> []`、`population_class` -> `Population`、`archive_class` -> `Archive` の既定を提供するため、ask/tellだけを実装する最小のAlgorithmが、初期化子が構築する標準の `x`/`f`/`g`/`cv`/`id` スキーマと標準の `Population`/`Archive` でそのまま動作します。
+
+メタデータは、アルゴリズムがより多くを必要とするときだけオーバーライドします:
+
+- `get_required_attrs()` は、PSOの `velocity`/`pbest_*` 列のようなアルゴリズム固有の状態を個体群に格納するときに追加属性を宣言します。
+- `population_class`/`archive_class` は入れ物を `Population` サブクラスへ差し替えます。
+- `create_pareto_archive()`（すでに非抽象）は、独自のParetoコレクションのために引き続きオーバーライドできます。
+
+algorithmスロットはダックタイピングです。 `set_algorithm()`、検証、実行準備、初期化子のどれも `Algorithm` の継承や `ask`/`tell` を要求しません。 初期化子のメタデータフック（`get_required_attrs`、`population_class`、`archive_class`、`create_pareto_archive`）だけを持つオブジェクトは、独自StrategyとStageによる非ask/tellの制御フローで実行できます。
 
 新しい実装では、`ask()` は `ProposalBatch` を返し、`tell()` は `StatePatch` を返します。 `state` は宣言された状態キーだけを参照できる `StateView` です。 候補数、候補ID、評価結果の対応付けは `ProposalBatch` と `FeedbackBatch` の契約に従います。
 
 次の骨格は、独自Algorithmが実装する境界だけを示しています。
 
 ```python
-from saealib import Algorithm, Archive, Population
+from saealib import Algorithm
 from saealib.algorithms import ProposalRequest
 from saealib.core.contracts import FeedbackBatch, ProposalBatch
 from saealib.core import StatePatch, StateView
@@ -101,17 +109,6 @@ from saealib.core import StatePatch, StateView
 
 class CustomAlgorithm(Algorithm):
     """Skeleton for an Algorithm that generates candidates and consumes Feedback."""
-
-    def get_required_attrs(self, problem):
-        return []
-
-    @property
-    def population_class(self):
-        return Population
-
-    @property
-    def archive_class(self):
-        return Archive
 
     def ask(self, request: ProposalRequest, state: StateView) -> ProposalBatch:
         # Read the current Population from state.context and declared StateKeys.
@@ -121,6 +118,57 @@ class CustomAlgorithm(Algorithm):
     def tell(self, feedback: FeedbackBatch, state: StateView) -> StatePatch:
         # Read the FeedbackBatch and collect changes to Population and other state in a StatePatch.
         ...
+```
+
+次の最小Algorithmは `ask`/`tell` だけを実装し、標準のPopulationとArchiveでそのまま使えます:
+
+```python
+import numpy as np
+from saealib import Algorithm, Optimizer, Problem, DirectStrategy, LHSInitializer, Termination, max_gen
+from saealib.algorithms import ProposalRequest
+from saealib.algorithms.base import algorithm_context
+from saealib.core.contracts import (
+    FeedbackBatch,
+    FeedbackRequirement,
+    ProposalBatch,
+    ProposalRelations,
+)
+from saealib.core import StatePatch, StateView
+
+
+class KeepPopulation(Algorithm):
+    """A minimal ask/tell-only algorithm that keeps the population as-is."""
+
+    def ask(self, request: ProposalRequest, state: StateView) -> ProposalBatch:
+        ctx = algorithm_context(state)
+        candidates = ctx.population.empty_like(capacity=0)
+        return ProposalBatch.from_allocator(
+            ctx.proposal_id_allocator,
+            candidates=candidates,
+            relations=ProposalRelations(row_count=0),
+            requirements=FeedbackRequirement(quantities=()),
+        )
+
+    def tell(self, feedback: FeedbackBatch, state: StateView) -> StatePatch:
+        return StatePatch(writes={})
+
+
+problem = Problem(
+    lambda x: np.sum(x**2),
+    dim=2,
+    n_obj=1,
+    direction=np.array([-1.0]),
+    lb=[-2.0] * 2,
+    ub=[2.0] * 2,
+)
+optimizer = (
+    Optimizer(problem, seed=0)
+    .set_initializer(LHSInitializer(4, 4, seed=0))
+    .set_algorithm(KeepPopulation())
+    .set_strategy(DirectStrategy())
+    .set_termination(Termination(max_gen(2)))
+)
+result = optimizer.run()
 ```
 
 `tell()` が受け取るFeedbackは、どの評価経路から届いたかと、候補IDとの対応を保持します。 真の評価だけを必要とするか、予測値を受け入れるかは、Algorithmの契約と`FeedbackPolicy`で宣言します。 PSOのpbestのような永続的な補助情報は、Population属性または宣言済みの`StateKey`として扱います。

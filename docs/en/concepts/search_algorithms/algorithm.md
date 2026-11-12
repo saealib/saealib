@@ -111,7 +111,16 @@ See [Installation](../../getting_started/installation.md) for the `pymoo` extra.
 ## Implementing a custom Algorithm
 
 To implement a custom search algorithm, subclass `Algorithm` and implement `ask()` and `tell()`.
-Implement `get_required_attrs()`, `population_class`, and `archive_class` as well when using the existing Population compatibility path.
+That is the only requirement: the base provides `get_required_attrs() -> []`, `population_class` -> `Population`, and `archive_class` -> `Archive` defaults, so a minimal ask/tell-only Algorithm runs with the standard `Population`/`Archive` and the standard `x`/`f`/`g`/`cv`/`id` schema built by the initializer.
+
+Override the metadata only when the algorithm needs more:
+
+- `get_required_attrs()` declares extra population attributes for algorithm-specific state (e.g. PSO's `velocity`/`pbest_*` columns).
+- `population_class`/`archive_class` swap the containers for `Population` subclasses.
+- `create_pareto_archive()` (already non-abstract) stays overridable for custom Pareto collections.
+
+The algorithm slot is duck-typed: nothing in `set_algorithm()`, validation, preparation, or the initializer requires `Algorithm` inheritance or `ask`/`tell`.
+An object exposing only the initializer metadata hooks (`get_required_attrs`, `population_class`, `archive_class`, `create_pareto_archive`) runs from a custom strategy and Stage with non-ask/tell control flow.
 
 In a new implementation, `ask()` returns a `ProposalBatch`, and `tell()` returns a `StatePatch`.
 `state` is a `StateView` that can access only declared state keys.
@@ -120,7 +129,7 @@ Candidate counts, candidate IDs, and the mapping to evaluation results follow th
 The following skeleton shows only the boundaries a custom Algorithm implements.
 
 ```python
-from saealib import Algorithm, Archive, Population
+from saealib import Algorithm
 from saealib.algorithms import ProposalRequest
 from saealib.core.contracts import FeedbackBatch, ProposalBatch
 from saealib.core import StatePatch, StateView
@@ -128,17 +137,6 @@ from saealib.core import StatePatch, StateView
 
 class CustomAlgorithm(Algorithm):
     """Skeleton for an Algorithm that generates candidates and consumes Feedback."""
-
-    def get_required_attrs(self, problem):
-        return []
-
-    @property
-    def population_class(self):
-        return Population
-
-    @property
-    def archive_class(self):
-        return Archive
 
     def ask(self, request: ProposalRequest, state: StateView) -> ProposalBatch:
         # Read the current Population from state.context and declared StateKeys.
@@ -148,6 +146,57 @@ class CustomAlgorithm(Algorithm):
     def tell(self, feedback: FeedbackBatch, state: StateView) -> StatePatch:
         # Read the FeedbackBatch and collect changes to Population and other state in a StatePatch.
         ...
+```
+
+The following minimal algorithm implements only `ask`/`tell` and is usable with the standard Population and Archive:
+
+```python
+import numpy as np
+from saealib import Algorithm, Optimizer, Problem, DirectStrategy, LHSInitializer, Termination, max_gen
+from saealib.algorithms import ProposalRequest
+from saealib.algorithms.base import algorithm_context
+from saealib.core.contracts import (
+    FeedbackBatch,
+    FeedbackRequirement,
+    ProposalBatch,
+    ProposalRelations,
+)
+from saealib.core import StatePatch, StateView
+
+
+class KeepPopulation(Algorithm):
+    """A minimal ask/tell-only algorithm that keeps the population as-is."""
+
+    def ask(self, request: ProposalRequest, state: StateView) -> ProposalBatch:
+        ctx = algorithm_context(state)
+        candidates = ctx.population.empty_like(capacity=0)
+        return ProposalBatch.from_allocator(
+            ctx.proposal_id_allocator,
+            candidates=candidates,
+            relations=ProposalRelations(row_count=0),
+            requirements=FeedbackRequirement(quantities=()),
+        )
+
+    def tell(self, feedback: FeedbackBatch, state: StateView) -> StatePatch:
+        return StatePatch(writes={})
+
+
+problem = Problem(
+    lambda x: np.sum(x**2),
+    dim=2,
+    n_obj=1,
+    direction=np.array([-1.0]),
+    lb=[-2.0] * 2,
+    ub=[2.0] * 2,
+)
+optimizer = (
+    Optimizer(problem, seed=0)
+    .set_initializer(LHSInitializer(4, 4, seed=0))
+    .set_algorithm(KeepPopulation())
+    .set_strategy(DirectStrategy())
+    .set_termination(Termination(max_gen(2)))
+)
+result = optimizer.run()
 ```
 
 The Feedback received by `tell()` preserves its evaluation path and its mapping to candidate IDs.

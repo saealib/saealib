@@ -46,6 +46,11 @@ The parent Component includes the child contract in `parts` rather than inheriti
 This inclusion lets the Compiler verify the parent ports and state effects together with the held component's contract in the same plan.
 The Component owns component instances at runtime, while `ComponentContract` preserves contract immutability.
 
+Declare every held child component.
+When a component attribute holds a child component that is not declared in `parts`, contract checking reports a non-blocking `undeclared_part` WARNING naming the parent type and the attribute.
+The warning never registers the child, changes `parts`, or stops execution; it only points at the missing declaration.
+Attributes that hold ordinary data — including collaborators that are not components — produce no warning.
+
 ## Construction time and use time
 
 Component instances are placed in `ComponentNode` when the Graph is built.

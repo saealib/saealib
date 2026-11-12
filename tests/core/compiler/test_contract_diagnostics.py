@@ -73,6 +73,66 @@ class _ExplodingChildAttribute:
         )
 
 
+class _UndeclaredChild:
+    def __init__(self) -> None:
+        self.child = _Child()
+
+    def contract(self) -> ComponentContract:
+        return ComponentContract()
+
+
+class _DeclaredAndUndeclaredChildren:
+    def __init__(self) -> None:
+        self.child = _Child()
+        self.extra = _Child()
+
+    def contract(self) -> ComponentContract:
+        return ComponentContract(
+            parts=(PartSpec(name="child", contract=ComponentContract()),)
+        )
+
+
+class _ExplodingChildContract:
+    def __init__(self) -> None:
+        self.child = _ContractRaises()
+
+    def contract(self) -> ComponentContract:
+        return ComponentContract()
+
+
+class _RaisingContractProperty:
+    @property
+    def contract(self) -> object:
+        raise RuntimeError("contract property failed")
+
+
+class _HolderWithRaisingContractProperty:
+    def __init__(self) -> None:
+        self.child = _RaisingContractProperty()
+
+    def contract(self) -> ComponentContract:
+        return ComponentContract()
+
+
+class _SlotsOnlyComponent:
+    __slots__ = ()
+
+    def contract(self) -> ComponentContract:
+        return ComponentContract()
+
+
+class _DataAttributeHolder:
+    def __init__(self) -> None:
+        self.count = 3
+        self.label = "label"
+        self.values = np.zeros((2, 2))
+        self.callback = lambda: None
+        self.empty = None
+
+    def contract(self) -> ComponentContract:
+        return ComponentContract()
+
+
 class _ContractRaises:
     def contract(self) -> ComponentContract:
         raise RuntimeError("broken contract")
@@ -157,6 +217,113 @@ def test_part_contract_mismatch_stays_error() -> None:
 
     assert [finding.code for finding in findings] == ["part_contract_mismatch"]
     assert next(iter(findings)).severity is Severity.ERROR
+
+
+def test_undeclared_child_component_attribute_warns_once_with_identifying_path() -> (
+    None
+):
+    findings = check_component_contract(
+        _UndeclaredChild().contract(),
+        component=_UndeclaredChild(),
+        path=ContractPath(components=("root",)),
+    )
+
+    assert [finding.code for finding in findings] == ["undeclared_part"]
+    finding = next(iter(findings))
+    assert finding.severity is Severity.WARNING
+    assert finding.path == ContractPath(components=("root", "child"))
+    assert "root._UndeclaredChild" in finding.message or (
+        "_UndeclaredChild" in finding.message and "child" in finding.message
+    )
+    assert "child" in finding.message
+
+
+def test_declared_children_produce_no_undeclared_part_warning() -> None:
+    findings = check_component_contract(
+        _Parent().contract(),
+        component=_Parent(),
+        path=ContractPath(components=("root",)),
+    )
+
+    assert [finding.code for finding in findings] == ["part_contract_mismatch"]
+
+
+def test_only_the_undeclared_child_warns_when_one_child_is_declared() -> None:
+    findings = check_component_contract(
+        _DeclaredAndUndeclaredChildren().contract(),
+        component=_DeclaredAndUndeclaredChildren(),
+        path=ContractPath(components=("root",)),
+    )
+
+    undeclared = [finding for finding in findings if finding.code == "undeclared_part"]
+    mismatch = [
+        finding for finding in findings if finding.code == "part_contract_mismatch"
+    ]
+    assert len(undeclared) == 1
+    assert undeclared[0].path == ContractPath(components=("root", "extra"))
+    assert [finding.path for finding in mismatch] == [
+        ContractPath(components=("root", "child"))
+    ]
+
+
+def test_data_attributes_and_none_produce_no_warning() -> None:
+    findings = check_component_contract(
+        _DataAttributeHolder().contract(),
+        component=_DataAttributeHolder(),
+        path=ContractPath(components=("root",)),
+    )
+
+    assert list(findings) == []
+
+
+def test_raising_contract_property_on_a_held_attribute_degrades_to_no_finding() -> None:
+    component = _HolderWithRaisingContractProperty()
+
+    findings = check_component_contract(
+        component.contract(),
+        component=component,
+        path=ContractPath(components=("root",)),
+    )
+
+    assert list(findings) == []
+
+
+def test_slots_only_component_skips_the_undeclared_parts_inspection() -> None:
+    component = _SlotsOnlyComponent()
+
+    findings = check_component_contract(
+        component.contract(),
+        component=component,
+        path=ContractPath(components=("root",)),
+    )
+
+    assert list(findings) == []
+
+
+def test_child_contract_failure_degrades_to_no_undeclared_warning() -> None:
+    findings = check_component_contract(
+        _ExplodingChildContract().contract(),
+        component=_ExplodingChildContract(),
+        path=ContractPath(components=("root",)),
+    )
+
+    assert list(findings) == []
+
+
+def test_undeclared_part_check_does_not_mutate_parts_or_children() -> None:
+    component = _UndeclaredChild()
+    before = component.contract()
+
+    findings = check_component_contract(
+        component.contract(),
+        component=component,
+        path=ContractPath(components=("root",)),
+    )
+    child = component.child
+
+    assert [finding.code for finding in findings] == ["undeclared_part"]
+    assert component.contract() == before
+    assert child.contract() == _Child().contract()
 
 
 def test_unregistered_diagnostic_code_falls_back_to_registered_finding() -> None:

@@ -1075,7 +1075,7 @@ class PendingEvaluationContextStage(Stage):
     notation = r"$C \leftarrow \text{pending}(C)$"
 
     def contract(self) -> ComponentContract:
-        return _stage_contract()
+        return _stage_contract(components=(("_scheduler", self._scheduler),))
 
     def flow_summary(self) -> StageFlowSummary:
         """Declare this stage's state-only flow."""
@@ -3167,8 +3167,6 @@ class SurrogateOnlyLoopStage(Stage):
     )
 
     def contract(self) -> ComponentContract:
-        if self._gen_ctrl == 0:
-            return _stage_contract(reads=(ARCHIVES_MAIN,))
         components = [
             ("_sm", self._sm),
             ("_algorithm", self._algorithm),
@@ -3176,6 +3174,8 @@ class SurrogateOnlyLoopStage(Stage):
         ]
         if self._builder is not None:
             components.append(("_builder", self._builder))
+        if self._gen_ctrl == 0:
+            return _stage_contract(reads=(ARCHIVES_MAIN,), components=tuple(components))
         return _stage_contract(
             reads=(ARCHIVES_MAIN,),
             components=tuple(components),

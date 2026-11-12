@@ -44,6 +44,7 @@ from saealib.core.contracts import (
     PortContract,
     PortDirection,
     PortSpec,
+    ServiceRequirement,
     StateContract,
     Var,
 )
@@ -414,6 +415,13 @@ class TopKBipartitionSet(TrainingSet):
         self.source = source
         self.top_ratio = top_ratio
 
+    def contract(self) -> ComponentContract:
+        """Return the bipartition contract requiring population comparison."""
+        return replace(
+            super().contract(),
+            required_services=(ServiceRequirement(name="ComparisonService"),),
+        )
+
     def build(
         self,
         archive: Archive,
@@ -465,6 +473,13 @@ class LevelBasedSet(TrainingSet):
     def __init__(self, source: str = "population", n_levels: int = 5) -> None:
         self.source = source
         self.n_levels = n_levels
+
+    def contract(self) -> ComponentContract:
+        """Return the level contract requiring population comparison."""
+        return replace(
+            super().contract(),
+            required_services=(ServiceRequirement(name="ComparisonService"),),
+        )
 
     def build(
         self,
@@ -540,13 +555,17 @@ class PairwiseComparisonSet(TrainingSet):
         self.rng = rng
 
     def contract(self) -> ComponentContract:
-        """Return the pairwise-training contract."""
+        """Return the pairwise-training contract requiring comparison and RNG."""
         state = (
             StateContract(reads=(RUNTIME_RNG,), writes=(RUNTIME_RNG,))
             if self.n_pairs is not None and self.rng is None
             else StateContract()
         )
-        return replace(super().contract(), state=state)
+        return replace(
+            super().contract(),
+            required_services=(ServiceRequirement(name="ComparisonService"),),
+            state=state,
+        )
 
     def build(
         self,
@@ -618,6 +637,13 @@ class ReferencePointComparisonSet(TrainingSet):
 
     def __init__(self, ref_source: str = "population_best") -> None:
         self.ref_source = ref_source
+
+    def contract(self) -> ComponentContract:
+        """Return the reference-point contract requiring population comparison."""
+        return replace(
+            super().contract(),
+            required_services=(ServiceRequirement(name="ComparisonService"),),
+        )
 
     def build(
         self,

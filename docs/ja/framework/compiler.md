@@ -53,7 +53,7 @@ Runtimeは生成されたExecutablePlanを使い、実行中にCompilerの解決
 
 `Diagnostic`はseverity、code、message、contract path、resolution hintを持つ検証結果です。
 Compilerは失敗を任意の例外だけで表さず、計画の判断のために複数の問題をDiagnosticBagへ収集します。
-典型的な失敗には、未知のノード端点、未接続の必須ポート、不一致のDataSpec、未提供の必須サービス、未申告の状態アクセス、Runtime能力の不足があります。
+典型的な失敗には、未知のノード端点、未接続の必須ポート、不一致のDataSpec、未提供の必須サービス、未申告の状態アクセス、Runtime能力の不足、子コンポーネントを保持するが未宣言のコンポーネント（`undeclared_part` WARNING）があります。
 実装は`invalid_graph_edge`、`incompatible_port`、`unresolved_service`、`unknown_runtime_capability`などのコードで報告します。
 Compilerルールは未申告のGraph位置を変更せず、解決中にStructuredRegionの実行ツリーを任意に変更しません。
 違反は`unclaimed_rewrite`、`conflicting_rewrite`、`structured_execution_mutation`などのDiagnosticsになります。

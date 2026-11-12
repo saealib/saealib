@@ -63,7 +63,7 @@ For a new Genome representation, implement an Initializer that uses `Problem.spa
 
 Genome-native initialization keeps the following order.
 
-1. Create containers with the Algorithm's `population_class`, `archive_class`, and `create_pareto_archive()`.
+1. Create containers with the Algorithm's `population_class`, `archive_class`, and `create_pareto_archive()`; the first two default to the standard `Population`/`Archive`.
 2. Build the `OptimizationState`.
 3. Generate Genomes with `problem.space.sample(n, rng)` and validate them with `problem.space.validate()`.
 4. Evaluate them with `provider.evaluator.evaluate_batch(genomes, problem)`.

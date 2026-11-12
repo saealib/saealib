@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.strategies.TemplateStrategy &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
+    <title>saealib.strategies.TemplateStrategy &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
+    <script src="../../_static/documentation_options.js?v=6250e482"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -917,8 +917,12 @@ a new binding version without the earlier plan’s components changing.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>pipeline</strong> (<a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.Pipeline"><em>Pipeline</em></a>) – Declaration to resolve and run.</p></li>
-<li><p><strong>requires_surrogate</strong> (<em>bool</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Whether the declaration needs a surrogate manager.  <code class="docutils literal notranslate"><span class="pre">None</span></code> keeps
-the class-level value.</p></li>
+<li><p><strong>requires_surrogate</strong> (<em>bool</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Surrogate requirement declared on the instance.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (the
+default) leaves the class-level value in place.  For a subclass that
+keeps the standard <code class="docutils literal notranslate"><span class="pre">build_graph</span></code>, the configuration diagnostics
+derive the requirement from the declared flow instead, and a declared
+value that contradicts the flow is reported and does not change the
+outcome.</p></li>
 </ul>
 </dd>
 </dl>
@@ -941,6 +945,20 @@ plan is prepared.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="saealib.Pipeline.html#saealib.Pipeline" title="saealib.Pipeline">Pipeline</a> or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="saealib.strategies.TemplateStrategy.requires_surrogate">
+<span class="sig-name descname"><span class="pre">requires_surrogate</span></span><a class="headerlink" href="#saealib.strategies.TemplateStrategy.requires_surrogate" title="Link to this definition">#</a></dt>
+<dd><p>Plain attribute holding the declared requirement; <code class="docutils literal notranslate"><span class="pre">None</span></code> when the
+strategy declares none.  The configuration diagnostics derive the
+effective requirement of a standard-lowering subclass from its
+declaration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool or None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1133,6 +1151,7 @@ parameter changes take effect at the next commit point.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.strategies.TemplateStrategy"><code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.strategies.TemplateStrategy.declaration"><code class="docutils literal notranslate"><span class="pre">TemplateStrategy.declaration</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.strategies.TemplateStrategy.pipeline"><code class="docutils literal notranslate"><span class="pre">TemplateStrategy.pipeline</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.strategies.TemplateStrategy.requires_surrogate"><code class="docutils literal notranslate"><span class="pre">TemplateStrategy.requires_surrogate</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.strategies.TemplateStrategy.__init__"><code class="docutils literal notranslate"><span class="pre">TemplateStrategy.__init__()</span></code></a></li>

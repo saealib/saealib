@@ -11,17 +11,29 @@ The Strategy describes candidate generation, prediction, evaluation planning, Fe
 
 ## OptimizationStrategy's role
 
-The graph-native extension point is `build_graph(provider) -> ComponentGraph`.
-Before execution, Optimizer passes this graph to the Compiler to create an `ExecutablePlan`.
+A strategy describes candidate generation, prediction, evaluation planning, Feedback, and Population updates as one declared flow.
+The canonical way to write one is `TemplateStrategy` with a `Pipeline` declaration whose Stages reference components by `(slot, role)`; before execution, Optimizer lowers this declaration to a `ComponentGraph` and passes it to the Compiler to create an `ExecutablePlan`.
 
-`build_pipeline(provider) -> Pipeline` is the Stage compatibility path and an optional compatibility representation for Strategies that use the existing Pipeline DSL.
-Even in this form, a Stage inserted into a structured Pipeline must be wrapped explicitly with `stage_component(stage)`.
+`build_graph(provider) -> ComponentGraph` remains as the lowering boundary of the declaration, and overriding it in a custom strategy is deprecated: it emits a `DeprecationWarning`, and the replacement is a `TemplateStrategy` with a declared Pipeline.
+A strategy whose flow cannot be inspected this way keeps declaring `requires_surrogate: bool` by hand.
 
-`step(ctx, provider)` is the remaining boundary on the Stage compatibility path.
-A new graph-native component reads a `StateView` and returns a `StatePatch` or `NodeResult`.
+`requires_surrogate` is the plain attribute holding the requirement a strategy declares for a `SurrogateManager`.
+`OptimizationStrategy` defines its `False` default, `TemplateStrategy` leaves it `None` so that the declaration decides, `DirectStrategy` and `SteadyStateStrategy` declare `False`, `IndividualBasedStrategy` and `PreSelectionStrategy` declare `True`, and `GenerationBasedStrategy` declares nothing, so its attribute is `None` whether or not its flow has surrogate-only generations.
+Because the attribute is plain, a class attribute, an attribute inherited from a mixin, an instance assignment, and a value restored from a pickle or a spec all count as the strategy's declaration.
+The attribute is not the effective requirement: for a `TemplateStrategy` that keeps the standard lowering, the configuration diagnostics derive the requirement from the declared flow, and it is `True` when any Stage, also inside nested Repeat, Loop, or Branch regions, refers to the surrogate manager slot through a `ComponentRef` or holds a surrogate manager directly.
+That derived value decides the `missing_surrogate_manager` and `missing_acquisition` errors, so code that reads `strategy.requires_surrogate` as a boolean cannot rely on it; use `Optimizer.validate()` or `Optimizer.contract_diagnostics()` and its `missing_surrogate_manager` finding to check a configuration.
+A declared value that contradicts the derived requirement is reported as a `contradicting_surrogate_requirement` WARNING diagnostic and does not stop the run, and a strategy with a custom `build_graph` keeps using its declared attribute.
 
-The class attribute `requires_surrogate: bool` indicates whether this strategy needs a `SurrogateManager`.
-`Optimizer.validate()` checks this attribute to confirm you aren't trying to use a strategy with `requires_surrogate=True` while `surrogate_manager` is unset.
+## Built-in shorthand and explicit policy components
+
+The built-in constructors are shorthand for a declaration combined with default policy components: `IndividualBasedStrategy(evaluation_ratio)` bundles `RatioEvaluation(evaluation_ratio, sanitize_nonfinite=True)`, `PreSelectionStrategy(n_candidates, n_select)` bundles `TopKEvaluation(min(n_select, n_candidates), sanitize_nonfinite=True)`, and each supplies a default feedback builder.
+Both forms produce the same plan and the same results for a fixed seed.
+
+A component set explicitly with `set_evaluation_planner`, `set_feedback_builder`, and similar setters takes precedence over the shorthand's default, and provenance records it as explicitly set.
+The number of candidates (`n_candidates`, `n_offspring`) and the number of inner generations (`gen_ctrl`) shape the declaration itself, so they stay constructor arguments and do not move into policy components; constructor arguments are also what the spec round trip and pickle restoration use.
+
+An in-place change of a shorthand parameter, such as `strategy.evaluation_ratio = 0.5`, takes effect at the next commit point: the next time the strategy resolves its declaration for a plan.
+It never affects a component set explicitly; that component keeps its own configuration.
 
 ## Built-in Strategies
 
@@ -35,7 +47,7 @@ The class attribute `requires_surrogate: bool` indicates whether this strategy n
 
 `IndividualBasedStrategy` selects by fraction of individuals, while `PreSelectionStrategy` selects by count of individuals.
 `GenerationBasedStrategy` switches between surrogate and true evaluation by generation, not by individual.
-`DirectStrategy` is the comparison baseline that uses no surrogate at all, with `requires_surrogate=False`.
+`DirectStrategy` is the comparison baseline that uses no surrogate at all.
 
 For steady-state execution, combine `DirectStrategy` with an
 `AsyncEvaluationScheduler`. The scheduler fills available worker slots, polls without
@@ -69,34 +81,32 @@ The request is accepted when the Runtime environment provides `recompile()`, and
 
 ## Implementing a custom Strategy
 
-When implementing a custom candidate-selection method, choose separately between the graph-native path and the Stage compatibility path.
-
-**Graph-native path**: Implement `build_graph()` and return a `ComponentGraph`.
-For a gradual migration using the Pipeline DSL, wrap each Stage with `stage_component()` before passing it to `lower_pipeline()`.
+Declare the flow with `TemplateStrategy` and a `Pipeline` whose Stages reference components by `(slot, role)`.
+Components come from the Optimizer slots at preparation time, and the strategy can bundle defaults for the slots it owns.
 
 ```python
-from saealib import OptimizationStrategy, Pipeline
-from saealib.core import lower_pipeline
-from saealib.stages import stage_component
+from saealib.pipeline import ComponentRef, Pipeline
+from saealib.strategies import TemplateStrategy
+from saealib.stages import AskStage, CountGenerationStage, EvaluationPlanStage
 
 
-class CustomStrategy(OptimizationStrategy):
-    """Skeleton for building a Strategy ComponentGraph from the Pipeline DSL."""
+class CustomStrategy(TemplateStrategy):
+    """Skeleton for a declared candidate-selection flow."""
 
-    requires_surrogate = False
-
-    def build_graph(self, provider):
-        pipeline = Pipeline(
-            steps=[
-                stage_component(first_stage),
-                stage_component(second_stage),
-            ]
+    def __init__(self, n_offspring):
+        self.n_offspring = n_offspring
+        super().__init__(
+            Pipeline(
+                steps=[
+                    CountGenerationStage(),
+                    AskStage(ComponentRef("proposer"), n_offspring=n_offspring),
+                    EvaluationPlanStage(ComponentRef("evaluation_planner")),
+                ]
+            )
         )
-        return lower_pipeline(pipeline)
 ```
 
-`first_stage` and `second_stage` stand for the Stage instances to combine.
-This example shows only the boundary for building a ComponentGraph from a Pipeline; add evaluation-plan and Feedback contracts according to the Stage composition.
+Add evaluation submission, Feedback, and Tell Stages according to the composition, and declare a surrogate reference (`ComponentRef("predictor")`) only when the flow needs one; the surrogate requirement is derived from the declaration.
 
 When adjusting only part of an existing Strategy, changing the compatibility Pipeline with [Pipeline.replace/find](../extension_guidelines.md) is preferable to creating a new Strategy.
 

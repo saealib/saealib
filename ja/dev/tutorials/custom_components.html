@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>既存の契約に独自Componentを追加する &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
+    <title>既存の契約に独自Componentを追加する &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=2f1c8a1f"></script>
+    <script src="../_static/documentation_options.js?v=fb4a5f2c"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -601,7 +601,7 @@
 </tr>
 <tr class="row-odd"><td><p>世代実行ポリシー</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Strategy</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">build_graph()</span></code>または既存のStrategy経路</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> 宣言を渡した <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>互換実行単位</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Stage</span></code></p></td>
@@ -787,7 +787,7 @@
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code></p></td>
 <td><p>評価計画、候補選択、フィードバックの流れ</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">build_graph()</span></code>またはStage互換経路</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> 宣言を渡した <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Stage</span></code></p></td>
 <td><p>既存の逐次経路で1つの操作</p></td>
@@ -796,7 +796,7 @@
 </tbody>
 </table>
 </div>
-<p>各コンポーネントを実装する前に、対応するConceptページで契約と組み込み実装を確認します。<code class="docutils literal notranslate"><span class="pre">Algorithm.ask()</span></code>と<code class="docutils literal notranslate"><span class="pre">Algorithm.tell()</span></code>、<code class="docutils literal notranslate"><span class="pre">Strategy.build_graph()</span></code>、<code class="docutils literal notranslate"><span class="pre">Stage.execute()</span></code>は異なる境界です。</p>
+<p>各コンポーネントを実装する前に、対応するConceptページで契約と組み込み実装を確認します。<code class="docutils literal notranslate"><span class="pre">Algorithm.ask()</span></code>と<code class="docutils literal notranslate"><span class="pre">Algorithm.tell()</span></code>、戦略が宣言する<code class="docutils literal notranslate"><span class="pre">Pipeline</span></code>、<code class="docutils literal notranslate"><span class="pre">Stage.execute()</span></code>は異なる境界です。</p>
 </section>
 <section id="stage">
 <h2>実装順とStageの移行<a class="headerlink" href="#stage" title="Link to this heading">#</a></h2>

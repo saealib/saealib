@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.OptimizationStrategy &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
+    <title>saealib.OptimizationStrategy &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
+    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -945,8 +945,9 @@ implementation recovers a facade for stage-based graphs.</p>
 <span class="sig-prename descclassname"><span class="pre">OptimizationStrategy.</span></span><span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/strategies/base.html#OptimizationStrategy.build_graph"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.OptimizationStrategy.build_graph" title="Link to this definition">#</a></dt>
 <dd><p>Build the strategy's canonical graph.</p>
 <p>Built-in strategies provide node/adapter specs to the canonical graph
-builder; graph-only extensions override this method and need not
-implement a Pipeline builder.</p>
+builder.  Writing a new strategy is done with
+<code class="xref py py-class docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> and a declared Pipeline; overriding this
+method is deprecated and emits a <code class="xref py py-class docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>provider</strong> (<em>ComponentProvider</em>)</p>

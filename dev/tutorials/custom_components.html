@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Add a custom component to an existing contract &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
+    <title>Add a custom component to an existing contract &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=b60631b1"></script>
+    <script src="../_static/documentation_options.js?v=6250e482"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -601,7 +601,7 @@ When you need new search, prediction, evaluation, or generation logic, choose th
 </tr>
 <tr class="row-odd"><td><p>Generation execution policy</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Strategy</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">build_graph()</span></code> or the existing Strategy path</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> with a declared <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Compatibility execution unit</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Stage</span></code></p></td>
@@ -805,7 +805,7 @@ It also replaces <code class="docutils literal notranslate"><span class="pre">ra
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code></p></td>
 <td><p>Evaluation plan, candidate selection, and feedback flow</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">build_graph()</span></code> or the Stage compatibility path</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> with a declared <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Stage</span></code></p></td>
 <td><p>One operation on the existing sequential path</p></td>
@@ -815,7 +815,7 @@ It also replaces <code class="docutils literal notranslate"><span class="pre">ra
 </table>
 </div>
 <p>Check the contract and built-in implementation on the relevant concept page before implementing each component.
-<code class="docutils literal notranslate"><span class="pre">Algorithm.ask()</span></code> and <code class="docutils literal notranslate"><span class="pre">Algorithm.tell()</span></code>, <code class="docutils literal notranslate"><span class="pre">Strategy.build_graph()</span></code>, and <code class="docutils literal notranslate"><span class="pre">Stage.execute()</span></code> are different boundaries.</p>
+<code class="docutils literal notranslate"><span class="pre">Algorithm.ask()</span></code> and <code class="docutils literal notranslate"><span class="pre">Algorithm.tell()</span></code>, the strategy’s declared <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code>, and <code class="docutils literal notranslate"><span class="pre">Stage.execute()</span></code> are different boundaries.</p>
 </section>
 <section id="plan-implementation-and-stage-migration">
 <h2>Plan implementation and Stage migration<a class="headerlink" href="#plan-implementation-and-stage-migration" title="Link to this heading">#</a></h2>

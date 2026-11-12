@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Optimization Strategies &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
+    <title>Optimization Strategies &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=b60631b1"></script>
+    <script src="../_static/documentation_options.js?v=6250e482"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -900,8 +900,7 @@
   <section class="tex2jax_ignore mathjax_ignore" id="optimization-strategies">
 <h1>Optimization Strategies<a class="headerlink" href="#optimization-strategies" title="Link to this heading">#</a></h1>
 <div class="layer-badges"><span class="layer-badge">Layer 2: Compose</span></div><p>Built-in Strategies compose candidate generation, evaluation planning, Feedback, and Population updates.
-The canonical extension point for a new Strategy is <code class="docutils literal notranslate"><span class="pre">build_graph(provider)</span> <span class="pre">-&gt;</span> <span class="pre">ComponentGraph</span></code>.
-<code class="docutils literal notranslate"><span class="pre">build_pipeline()</span></code> is the compatibility representation for the existing Pipeline DSL.</p>
+The canonical extension point for a new Strategy is <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> with a declared <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code>; overriding <code class="docutils literal notranslate"><span class="pre">build_graph(provider)</span></code> is deprecated and emits a <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>.</p>
 <section id="base">
 <h2>Base<a class="headerlink" href="#base" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>OptimizationStrategy &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
+    <title>OptimizationStrategy &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
+    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -595,10 +595,16 @@
 <div class="layer-badges"><span class="layer-badge">Layer 3: Extend Components</span></div><p><code class="docutils literal notranslate"><span class="pre">saealib</span></code> は、高コストな真の評価へ送る候補の選択を <code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code> に委譲します。 Strategyは、候補生成、予測、評価計画、Feedback、Population更新を一つのグラフとして記述します。</p>
 <section id="id1">
 <h2>OptimizationStrategyの役割<a class="headerlink" href="#id1" title="Link to this heading">#</a></h2>
-<p>graph-native経路の拡張点は <code class="docutils literal notranslate"><span class="pre">build_graph(provider)</span> <span class="pre">-&gt;</span> <span class="pre">ComponentGraph</span></code> です。 Optimizerはこのグラフを実行前にCompilerへ渡し、<code class="docutils literal notranslate"><span class="pre">ExecutablePlan</span></code>を作成します。</p>
-<p><code class="docutils literal notranslate"><span class="pre">build_pipeline(provider)</span> <span class="pre">-&gt;</span> <span class="pre">Pipeline</span></code> はStage互換経路で、既存のPipeline DSLを利用するStrategyが提供できる互換性用の記述形式です。 この形式を使う場合も、構造化Pipelineへ入れるStageは <code class="docutils literal notranslate"><span class="pre">stage_component(stage)</span></code> で明示的に包みます。</p>
-<p><code class="docutils literal notranslate"><span class="pre">step(ctx,</span> <span class="pre">provider)</span></code> はStage互換経路に残る境界です。 新しいグラフネイティブコンポーネントは <code class="docutils literal notranslate"><span class="pre">StateView</span></code> を読み、<code class="docutils literal notranslate"><span class="pre">StatePatch</span></code> または <code class="docutils literal notranslate"><span class="pre">NodeResult</span></code> を返します。</p>
-<p>クラス属性<code class="docutils literal notranslate"><span class="pre">requires_surrogate:</span> <span class="pre">bool</span></code>は、この戦略が<code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>を必要とするかを示します。 <code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code>がこの属性を見て、<code class="docutils literal notranslate"><span class="pre">surrogate_manager</span></code>が未設定のまま<code class="docutils literal notranslate"><span class="pre">requires_surrogate=True</span></code>の戦略を使おうとしていないかを確認します。</p>
+<p>Strategyは、候補生成、予測、評価計画、Feedback、Population更新を一つの宣言フローとして記述します。 正規の書き方は、Stageが <code class="docutils literal notranslate"><span class="pre">(slot,</span> <span class="pre">role)</span></code> でコンポーネントを参照する <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> 宣言を <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> に渡す形です。 実行前にOptimizerはこの宣言を <code class="docutils literal notranslate"><span class="pre">ComponentGraph</span></code> へ下ろしてCompilerに渡し、<code class="docutils literal notranslate"><span class="pre">ExecutablePlan</span></code> を作成します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">build_graph(provider)</span> <span class="pre">-&gt;</span> <span class="pre">ComponentGraph</span></code> は宣言を下ろす境界として残りますが、独自Strategyでの上書きは非推奨です。 上書きすると <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code> が出力され、代替は <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> 宣言を渡した <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> です。 フローをこの方法で検査できないStrategyは、引き続き <code class="docutils literal notranslate"><span class="pre">requires_surrogate:</span> <span class="pre">bool</span></code> を手で宣言します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">requires_surrogate</span></code> は、この戦略が<code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>に対して宣言する要件を持つ通常の属性です。 <code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code> が <code class="docutils literal notranslate"><span class="pre">False</span></code> を既定値として定義し、<code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> は宣言に判断を委ねるため <code class="docutils literal notranslate"><span class="pre">None</span></code> のままにします。 <code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code> と <code class="docutils literal notranslate"><span class="pre">SteadyStateStrategy</span></code> は <code class="docutils literal notranslate"><span class="pre">False</span></code> を、<code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy</span></code> と <code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy</span></code> は <code class="docutils literal notranslate"><span class="pre">True</span></code> を宣言し、<code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code> は何も宣言しないため、surrogateのみの世代を持つかどうかによらず属性は <code class="docutils literal notranslate"><span class="pre">None</span></code> です。 通常の属性なので、クラス属性、Mixinから継承した属性、インスタンスへの代入、pickleやspecから復元した値のいずれもStrategyの宣言として扱われます。</p>
+<p>この属性は実効要件ではありません。 標準のloweringを使う <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> では、構成診断が宣言フローから要件を導出します。 宣言内のどのStage（ネストしたRepeat、Loop、Branch領域の内部も含む）が <code class="docutils literal notranslate"><span class="pre">ComponentRef</span></code> でsurrogate managerスロットを参照するか、surrogate managerを直接保持している場合に <code class="docutils literal notranslate"><span class="pre">True</span></code> になり、その値が <code class="docutils literal notranslate"><span class="pre">missing_surrogate_manager</span></code> と <code class="docutils literal notranslate"><span class="pre">missing_acquisition</span></code> エラーを決めます。 したがって <code class="docutils literal notranslate"><span class="pre">strategy.requires_surrogate</span></code> を真偽値として読むコードはそれを実効要件として扱えません。 構成を確認するには <code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> か <code class="docutils literal notranslate"><span class="pre">Optimizer.contract_diagnostics()</span></code> の <code class="docutils literal notranslate"><span class="pre">missing_surrogate_manager</span></code> を使います。 導出された要件と食い違う宣言値は <code class="docutils literal notranslate"><span class="pre">contradicting_surrogate_requirement</span></code> WARNING診断として報告され、実行は継続します。 <code class="docutils literal notranslate"><span class="pre">build_graph</span></code> を上書きした戦略は宣言した属性をそのまま使います。</p>
+</section>
+<section id="id2">
+<h2>組み込み省略形と明示的な方針コンポーネント<a class="headerlink" href="#id2" title="Link to this heading">#</a></h2>
+<p>組み込みコンストラクタは、宣言と既定の方針コンポーネントを組み合わせた省略形です。 <code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy(evaluation_ratio)</span></code> は <code class="docutils literal notranslate"><span class="pre">RatioEvaluation(evaluation_ratio,</span> <span class="pre">sanitize_nonfinite=True)</span></code> を、<code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy(n_candidates,</span> <span class="pre">n_select)</span></code> は <code class="docutils literal notranslate"><span class="pre">TopKEvaluation(min(n_select,</span> <span class="pre">n_candidates),</span> <span class="pre">sanitize_nonfinite=True)</span></code> を既定plannerとして束ね、それぞれ既定のfeedback builderも供給します。 両形式は固定シードで同じ計画と同じ結果になります。</p>
+<p><code class="docutils literal notranslate"><span class="pre">set_evaluation_planner</span></code> や <code class="docutils literal notranslate"><span class="pre">set_feedback_builder</span></code> などのsetterで明示設定したコンポーネントは省略形の既定より優先され、provenanceに明示設定として記録されます。 候補数（<code class="docutils literal notranslate"><span class="pre">n_candidates</span></code>、<code class="docutils literal notranslate"><span class="pre">n_offspring</span></code>）と内側世代数（<code class="docutils literal notranslate"><span class="pre">gen_ctrl</span></code>）は宣言の形そのものを決めるため、方針コンポーネントへは移らずコンストラクタ引数に留まります。 コンストラクタ引数はspecの往復とpickle復元でも使われます。</p>
+<p>省略形パラメータのin-place変更（例：<code class="docutils literal notranslate"><span class="pre">strategy.evaluation_ratio</span> <span class="pre">=</span> <span class="pre">0.5</span></code>）は、次の確定点、つまり戦略が次に計画用に宣言を解決する時点で効きます。 明示設定されたコンポーネントには決して影響せず、そのコンポーネントは自身の設定を保ちます。</p>
 </section>
 <section id="strategy">
 <h2>組み込みStrategy<a class="headerlink" href="#strategy" title="Link to this heading">#</a></h2>
@@ -633,10 +639,10 @@
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy</span></code>は個体の割合、<code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy</span></code>は個体の件数で選抜する点が異なります。 <code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code>は個体単位ではなく世代単位でサロゲートと真の評価を切り替えます。 <code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code>はサロゲートを一切使わない比較対象で、<code class="docutils literal notranslate"><span class="pre">requires_surrogate=False</span></code>です。</p>
+<p><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy</span></code>は個体の割合、<code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy</span></code>は個体の件数で選抜する点が異なります。 <code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code>は個体単位ではなく世代単位でサロゲートと真の評価を切り替えます。 <code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code>はサロゲートを一切使わない比較対象です。</p>
 <p>定常状態実行では、<code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code>と<code class="docutils literal notranslate"><span class="pre">AsyncEvaluationScheduler</span></code>を組み合わせます。スケジューラは利用可能なワーカースロットを埋め、ブロックせずにポーリングし、完了した更新をライフサイクル順にコミットします。</p>
-<section id="id2">
-<h3>各Strategyのパイプライン構成<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<section id="id3">
+<h3>各Strategyのパイプライン構成<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>クラス</p></th>
@@ -662,43 +668,43 @@
 <p>各Strategyの構成要素には、<code class="docutils literal notranslate"><span class="pre">EvaluationPlan</span></code>、非同期評価の送信と収集、Feedback、Tellが含まれます。Stageはその一部を担う互換性用の実行単位であり、構造化されたパイプライン全体と同じ実行契約ではありません。詳細は<a class="reference internal" href="../observation_and_state/stage.html"><span class="std std-doc">Stage</span></a>と<a class="reference internal" href="../../framework/index.html"><span class="std std-doc">Framework</span></a>を参照してください。</p>
 </section>
 </section>
-<section id="id3">
-<h2>どのStrategyを選ぶか<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>
+<section id="id4">
+<h2>どのStrategyを選ぶか<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>
 <p>評価コストが極めて高い問題では、サロゲートで大半の候補を足切りする<code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy</span></code>や<code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy</span></code>が有効です。 サロゲートの信頼度がまだ低い探索初期や、サロゲートの学習コスト自体を頻繁に払いたくない場合は、複数世代をまとめてサロゲートのみで進める<code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code>が適しています。 サロゲートの近似誤差そのものが許容できない、あるいは評価コストが十分低い問題では、<code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code>で真の評価だけに頼るのが妥当です。</p>
 </section>
-<section id="id4">
-<h2>実行時差し替えの挙動<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>
+<section id="id5">
+<h2>実行時差し替えの挙動<a class="headerlink" href="#id5" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">iterate()</span></code> / <code class="docutils literal notranslate"><span class="pre">run()</span></code> のステップ境界で <code class="docutils literal notranslate"><span class="pre">provider.algorithm</span></code> や <code class="docutils literal notranslate"><span class="pre">provider.surrogate_manager</span></code> などの構成を変更すると、実行環境が変化を検出してplanを再コンパイルし、次世代から反映します。 この手順はStage互換経路とgraph-native経路のどちらでも利用できます。 Component側から再コンパイルを要求するときは、plan nodeが <code class="docutils literal notranslate"><span class="pre">NodeResult.commands</span></code> で <code class="docutils literal notranslate"><span class="pre">RuntimeCommand</span></code> / <code class="docutils literal notranslate"><span class="pre">RequestRecompile</span></code> を返します。 要求はRuntime環境が <code class="docutils literal notranslate"><span class="pre">recompile()</span></code> を提供する場合に受理され、再コンパイルはステップ間で行われます。受理されないことも正常な結果です。</p>
 </section>
-<section id="id5">
-<h2>独自Strategyの実装方法<a class="headerlink" href="#id5" title="Link to this heading">#</a></h2>
-<p>独自の候補選択方式を実装するときは、graph-nativeの経路とStage互換の経路を分けて選びます。</p>
-<p><strong>グラフネイティブ経路</strong>：<code class="docutils literal notranslate"><span class="pre">build_graph()</span></code>を実装して<code class="docutils literal notranslate"><span class="pre">ComponentGraph</span></code>を返します。パイプラインDSLを使って段階的に移行する場合は、各Stageを<code class="docutils literal notranslate"><span class="pre">stage_component()</span></code>でラップしてから<code class="docutils literal notranslate"><span class="pre">lower_pipeline()</span></code>に渡します。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationStrategy</span><span class="p">,</span> <span class="n">Pipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">lower_pipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">stage_component</span>
+<section id="id6">
+<h2>独自Strategyの実装方法<a class="headerlink" href="#id6" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">(slot,</span> <span class="pre">role)</span></code> でコンポーネントを参照するStageを持つ <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> 宣言を <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> に渡して、フローを宣言します。 コンポーネントは計画準備時にOptimizerのスロットから供給され、戦略は自身が所有するスロットの既定値を束ねられます。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentRef</span><span class="p">,</span> <span class="n">Pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemplateStrategy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">AskStage</span><span class="p">,</span> <span class="n">CountGenerationStage</span><span class="p">,</span> <span class="n">EvaluationPlanStage</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">CustomStrategy</span><span class="p">(</span><span class="n">OptimizationStrategy</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Skeleton for building a Strategy ComponentGraph from the Pipeline DSL.&quot;&quot;&quot;</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CustomStrategy</span><span class="p">(</span><span class="n">TemplateStrategy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Skeleton for a declared candidate-selection flow.&quot;&quot;&quot;</span>
 
-    <span class="n">requires_surrogate</span> <span class="o">=</span> <span class="kc">False</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">):</span>
-        <span class="n">pipeline</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">(</span>
-            <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-                <span class="n">stage_component</span><span class="p">(</span><span class="n">first_stage</span><span class="p">),</span>
-                <span class="n">stage_component</span><span class="p">(</span><span class="n">second_stage</span><span class="p">),</span>
-            <span class="p">]</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_offspring</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_offspring</span> <span class="o">=</span> <span class="n">n_offspring</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">Pipeline</span><span class="p">(</span>
+                <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">CountGenerationStage</span><span class="p">(),</span>
+                    <span class="n">AskStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;proposer&quot;</span><span class="p">),</span> <span class="n">n_offspring</span><span class="o">=</span><span class="n">n_offspring</span><span class="p">),</span>
+                    <span class="n">EvaluationPlanStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;evaluation_planner&quot;</span><span class="p">)),</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">lower_pipeline</span><span class="p">(</span><span class="n">pipeline</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">first_stage</span></code> と <code class="docutils literal notranslate"><span class="pre">second_stage</span></code> は、実際に組み合わせるStageインスタンスを表します。 この例はPipelineからComponentGraphを作る境界だけを示しており、評価計画やFeedbackの契約は各Stageの構成に応じて追加します。</p>
+<p>評価の送信、Feedback、TellのStageを構成に応じて追加します。 surrogate参照（<code class="docutils literal notranslate"><span class="pre">ComponentRef(&quot;predictor&quot;)</span></code>) はフローが必要な場合だけ宣言します。 surrogate要否は宣言から導出されます。</p>
 <p>既存のStrategyの一部だけを調整する場合は、新しいStrategyを作るよりも <a class="reference internal" href="../extension_guidelines.html"><span class="std std-doc">Pipeline.replace/find</span></a> で互換性用パイプラインを変更する方が適しています。</p>
 </section>
-<section id="id6">
-<h2>関連コンポーネント<a class="headerlink" href="#id6" title="Link to this heading">#</a></h2>
+<section id="id7">
+<h2>関連コンポーネント<a class="headerlink" href="#id7" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../observation_and_state/stage.html"><span class="std std-doc">Stage</span></a>：各Strategyが組み合わせるパイプラインステージ単体の契約</p></li>
 <li><p><a class="reference internal" href="../surrogate_modeling/surrogate_manager.html"><span class="std std-doc">SurrogateManager</span></a>：<code class="docutils literal notranslate"><span class="pre">requires_surrogate=True</span></code>の戦略が使う予測機構</p></li>
@@ -706,8 +712,8 @@
 <li><p><a class="reference internal" href="../index.html"><span class="std std-doc">コンポーネント概要</span></a>：パイプライン全体の構成図</p></li>
 </ul>
 </section>
-<section id="id7">
-<h2>参照<a class="headerlink" href="#id7" title="Link to this heading">#</a></h2>
+<section id="id8">
+<h2>参照<a class="headerlink" href="#id8" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.OptimizationStrategy.html#saealib.OptimizationStrategy" title="saealib.OptimizationStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.OptimizationStrategy</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.IndividualBasedStrategy.html#saealib.IndividualBasedStrategy" title="saealib.IndividualBasedStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.IndividualBasedStrategy</span></code></a></p></li>
@@ -767,15 +773,16 @@
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">OptimizationStrategyの役割</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">組み込み省略形と明示的な方針コンポーネント</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#strategy">組み込みStrategy</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">各Strategyのパイプライン構成</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">各Strategyのパイプライン構成</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">どのStrategyを選ぶか</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">実行時差し替えの挙動</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">独自Strategyの実装方法</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">関連コンポーネント</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">参照</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">どのStrategyを選ぶか</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">実行時差し替えの挙動</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">独自Strategyの実装方法</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">関連コンポーネント</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">参照</a></li>
 </ul>
   </nav></div>
 

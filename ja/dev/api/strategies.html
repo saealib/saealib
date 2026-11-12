@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>最適化戦略 &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
+    <title>最適化戦略 &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=2f1c8a1f"></script>
+    <script src="../_static/documentation_options.js?v=fb4a5f2c"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -901,8 +901,7 @@
   <section class="tex2jax_ignore mathjax_ignore" id="id1">
 <h1>最適化戦略<a class="headerlink" href="#id1" title="Link to this heading">#</a></h1>
 <div class="layer-badges"><span class="layer-badge">Layer 2: Compose</span></div><p>組み込みStrategyは、候補生成、評価計画、Feedback、Population更新を構成します。
-新しいStrategyの正規の拡張点は<code class="docutils literal notranslate"><span class="pre">build_graph(provider)</span> <span class="pre">-&gt;</span> <span class="pre">ComponentGraph</span></code>です。
-<code class="docutils literal notranslate"><span class="pre">build_pipeline()</span></code>は既存のPipeline DSLに対する互換性用の記述形式です。</p>
+新しいStrategyの正規の拡張点は、<code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> 宣言を渡した <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> です。 <code class="docutils literal notranslate"><span class="pre">build_graph(provider)</span></code> の上書きは非推奨で、<code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code> が出力されます。</p>
 <section id="id2">
 <h2>基底<a class="headerlink" href="#id2" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">

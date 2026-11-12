@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>OptimizationStrategy &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
+    <title>OptimizationStrategy &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
+    <script src="../../_static/documentation_options.js?v=6250e482"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -595,14 +595,25 @@
 The Strategy describes candidate generation, prediction, evaluation planning, Feedback, and Population updates as one graph.</p>
 <section id="optimizationstrategy-s-role">
 <h2>OptimizationStrategy’s role<a class="headerlink" href="#optimizationstrategy-s-role" title="Link to this heading">#</a></h2>
-<p>The graph-native extension point is <code class="docutils literal notranslate"><span class="pre">build_graph(provider)</span> <span class="pre">-&gt;</span> <span class="pre">ComponentGraph</span></code>.
-Before execution, Optimizer passes this graph to the Compiler to create an <code class="docutils literal notranslate"><span class="pre">ExecutablePlan</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">build_pipeline(provider)</span> <span class="pre">-&gt;</span> <span class="pre">Pipeline</span></code> is the Stage compatibility path and an optional compatibility representation for Strategies that use the existing Pipeline DSL.
-Even in this form, a Stage inserted into a structured Pipeline must be wrapped explicitly with <code class="docutils literal notranslate"><span class="pre">stage_component(stage)</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">step(ctx,</span> <span class="pre">provider)</span></code> is the remaining boundary on the Stage compatibility path.
-A new graph-native component reads a <code class="docutils literal notranslate"><span class="pre">StateView</span></code> and returns a <code class="docutils literal notranslate"><span class="pre">StatePatch</span></code> or <code class="docutils literal notranslate"><span class="pre">NodeResult</span></code>.</p>
-<p>The class attribute <code class="docutils literal notranslate"><span class="pre">requires_surrogate:</span> <span class="pre">bool</span></code> indicates whether this strategy needs a <code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>.
-<code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> checks this attribute to confirm you aren’t trying to use a strategy with <code class="docutils literal notranslate"><span class="pre">requires_surrogate=True</span></code> while <code class="docutils literal notranslate"><span class="pre">surrogate_manager</span></code> is unset.</p>
+<p>A strategy describes candidate generation, prediction, evaluation planning, Feedback, and Population updates as one declared flow.
+The canonical way to write one is <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> with a <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> declaration whose Stages reference components by <code class="docutils literal notranslate"><span class="pre">(slot,</span> <span class="pre">role)</span></code>; before execution, Optimizer lowers this declaration to a <code class="docutils literal notranslate"><span class="pre">ComponentGraph</span></code> and passes it to the Compiler to create an <code class="docutils literal notranslate"><span class="pre">ExecutablePlan</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">build_graph(provider)</span> <span class="pre">-&gt;</span> <span class="pre">ComponentGraph</span></code> remains as the lowering boundary of the declaration, and overriding it in a custom strategy is deprecated: it emits a <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>, and the replacement is a <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> with a declared Pipeline.
+A strategy whose flow cannot be inspected this way keeps declaring <code class="docutils literal notranslate"><span class="pre">requires_surrogate:</span> <span class="pre">bool</span></code> by hand.</p>
+<p><code class="docutils literal notranslate"><span class="pre">requires_surrogate</span></code> is the plain attribute holding the requirement a strategy declares for a <code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>.
+<code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code> defines its <code class="docutils literal notranslate"><span class="pre">False</span></code> default, <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> leaves it <code class="docutils literal notranslate"><span class="pre">None</span></code> so that the declaration decides, <code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code> and <code class="docutils literal notranslate"><span class="pre">SteadyStateStrategy</span></code> declare <code class="docutils literal notranslate"><span class="pre">False</span></code>, <code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy</span></code> and <code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy</span></code> declare <code class="docutils literal notranslate"><span class="pre">True</span></code>, and <code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code> declares nothing, so its attribute is <code class="docutils literal notranslate"><span class="pre">None</span></code> whether or not its flow has surrogate-only generations.
+Because the attribute is plain, a class attribute, an attribute inherited from a mixin, an instance assignment, and a value restored from a pickle or a spec all count as the strategy’s declaration.
+The attribute is not the effective requirement: for a <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> that keeps the standard lowering, the configuration diagnostics derive the requirement from the declared flow, and it is <code class="docutils literal notranslate"><span class="pre">True</span></code> when any Stage, also inside nested Repeat, Loop, or Branch regions, refers to the surrogate manager slot through a <code class="docutils literal notranslate"><span class="pre">ComponentRef</span></code> or holds a surrogate manager directly.
+That derived value decides the <code class="docutils literal notranslate"><span class="pre">missing_surrogate_manager</span></code> and <code class="docutils literal notranslate"><span class="pre">missing_acquisition</span></code> errors, so code that reads <code class="docutils literal notranslate"><span class="pre">strategy.requires_surrogate</span></code> as a boolean cannot rely on it; use <code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> or <code class="docutils literal notranslate"><span class="pre">Optimizer.contract_diagnostics()</span></code> and its <code class="docutils literal notranslate"><span class="pre">missing_surrogate_manager</span></code> finding to check a configuration.
+A declared value that contradicts the derived requirement is reported as a <code class="docutils literal notranslate"><span class="pre">contradicting_surrogate_requirement</span></code> WARNING diagnostic and does not stop the run, and a strategy with a custom <code class="docutils literal notranslate"><span class="pre">build_graph</span></code> keeps using its declared attribute.</p>
+</section>
+<section id="built-in-shorthand-and-explicit-policy-components">
+<h2>Built-in shorthand and explicit policy components<a class="headerlink" href="#built-in-shorthand-and-explicit-policy-components" title="Link to this heading">#</a></h2>
+<p>The built-in constructors are shorthand for a declaration combined with default policy components: <code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy(evaluation_ratio)</span></code> bundles <code class="docutils literal notranslate"><span class="pre">RatioEvaluation(evaluation_ratio,</span> <span class="pre">sanitize_nonfinite=True)</span></code>, <code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy(n_candidates,</span> <span class="pre">n_select)</span></code> bundles <code class="docutils literal notranslate"><span class="pre">TopKEvaluation(min(n_select,</span> <span class="pre">n_candidates),</span> <span class="pre">sanitize_nonfinite=True)</span></code>, and each supplies a default feedback builder.
+Both forms produce the same plan and the same results for a fixed seed.</p>
+<p>A component set explicitly with <code class="docutils literal notranslate"><span class="pre">set_evaluation_planner</span></code>, <code class="docutils literal notranslate"><span class="pre">set_feedback_builder</span></code>, and similar setters takes precedence over the shorthand’s default, and provenance records it as explicitly set.
+The number of candidates (<code class="docutils literal notranslate"><span class="pre">n_candidates</span></code>, <code class="docutils literal notranslate"><span class="pre">n_offspring</span></code>) and the number of inner generations (<code class="docutils literal notranslate"><span class="pre">gen_ctrl</span></code>) shape the declaration itself, so they stay constructor arguments and do not move into policy components; constructor arguments are also what the spec round trip and pickle restoration use.</p>
+<p>An in-place change of a shorthand parameter, such as <code class="docutils literal notranslate"><span class="pre">strategy.evaluation_ratio</span> <span class="pre">=</span> <span class="pre">0.5</span></code>, takes effect at the next commit point: the next time the strategy resolves its declaration for a plan.
+It never affects a component set explicitly; that component keeps its own configuration.</p>
 </section>
 <section id="built-in-strategies">
 <h2>Built-in Strategies<a class="headerlink" href="#built-in-strategies" title="Link to this heading">#</a></h2>
@@ -639,7 +650,7 @@ A new graph-native component reads a <code class="docutils literal notranslate">
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy</span></code> selects by fraction of individuals, while <code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy</span></code> selects by count of individuals.
 <code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code> switches between surrogate and true evaluation by generation, not by individual.
-<code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code> is the comparison baseline that uses no surrogate at all, with <code class="docutils literal notranslate"><span class="pre">requires_surrogate=False</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code> is the comparison baseline that uses no surrogate at all.</p>
 <p>For steady-state execution, combine <code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code> with an
 <code class="docutils literal notranslate"><span class="pre">AsyncEvaluationScheduler</span></code>. The scheduler fills available worker slots, polls without
 blocking, and commits each completed update in the lifecycle order.</p>
@@ -687,31 +698,30 @@ The request is accepted when the Runtime environment provides <code class="docut
 </section>
 <section id="implementing-a-custom-strategy">
 <h2>Implementing a custom Strategy<a class="headerlink" href="#implementing-a-custom-strategy" title="Link to this heading">#</a></h2>
-<p>When implementing a custom candidate-selection method, choose separately between the graph-native path and the Stage compatibility path.</p>
-<p><strong>Graph-native path</strong>: Implement <code class="docutils literal notranslate"><span class="pre">build_graph()</span></code> and return a <code class="docutils literal notranslate"><span class="pre">ComponentGraph</span></code>.
-For a gradual migration using the Pipeline DSL, wrap each Stage with <code class="docutils literal notranslate"><span class="pre">stage_component()</span></code> before passing it to <code class="docutils literal notranslate"><span class="pre">lower_pipeline()</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationStrategy</span><span class="p">,</span> <span class="n">Pipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">lower_pipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">stage_component</span>
+<p>Declare the flow with <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> and a <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> whose Stages reference components by <code class="docutils literal notranslate"><span class="pre">(slot,</span> <span class="pre">role)</span></code>.
+Components come from the Optimizer slots at preparation time, and the strategy can bundle defaults for the slots it owns.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentRef</span><span class="p">,</span> <span class="n">Pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemplateStrategy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">AskStage</span><span class="p">,</span> <span class="n">CountGenerationStage</span><span class="p">,</span> <span class="n">EvaluationPlanStage</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">CustomStrategy</span><span class="p">(</span><span class="n">OptimizationStrategy</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Skeleton for building a Strategy ComponentGraph from the Pipeline DSL.&quot;&quot;&quot;</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CustomStrategy</span><span class="p">(</span><span class="n">TemplateStrategy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Skeleton for a declared candidate-selection flow.&quot;&quot;&quot;</span>
 
-    <span class="n">requires_surrogate</span> <span class="o">=</span> <span class="kc">False</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">):</span>
-        <span class="n">pipeline</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">(</span>
-            <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-                <span class="n">stage_component</span><span class="p">(</span><span class="n">first_stage</span><span class="p">),</span>
-                <span class="n">stage_component</span><span class="p">(</span><span class="n">second_stage</span><span class="p">),</span>
-            <span class="p">]</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_offspring</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_offspring</span> <span class="o">=</span> <span class="n">n_offspring</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">Pipeline</span><span class="p">(</span>
+                <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">CountGenerationStage</span><span class="p">(),</span>
+                    <span class="n">AskStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;proposer&quot;</span><span class="p">),</span> <span class="n">n_offspring</span><span class="o">=</span><span class="n">n_offspring</span><span class="p">),</span>
+                    <span class="n">EvaluationPlanStage</span><span class="p">(</span><span class="n">ComponentRef</span><span class="p">(</span><span class="s2">&quot;evaluation_planner&quot;</span><span class="p">)),</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">lower_pipeline</span><span class="p">(</span><span class="n">pipeline</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">first_stage</span></code> and <code class="docutils literal notranslate"><span class="pre">second_stage</span></code> stand for the Stage instances to combine.
-This example shows only the boundary for building a ComponentGraph from a Pipeline; add evaluation-plan and Feedback contracts according to the Stage composition.</p>
+<p>Add evaluation submission, Feedback, and Tell Stages according to the composition, and declare a surrogate reference (<code class="docutils literal notranslate"><span class="pre">ComponentRef(&quot;predictor&quot;)</span></code>) only when the flow needs one; the surrogate requirement is derived from the declaration.</p>
 <p>When adjusting only part of an existing Strategy, changing the compatibility Pipeline with <a class="reference internal" href="../extension_guidelines.html"><span class="std std-doc">Pipeline.replace/find</span></a> is preferable to creating a new Strategy.</p>
 </section>
 <section id="related-components">
@@ -784,6 +794,7 @@ This example shows only the boundary for building a ComponentGraph from a Pipeli
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimizationstrategy-s-role">OptimizationStrategy’s role</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#built-in-shorthand-and-explicit-policy-components">Built-in shorthand and explicit policy components</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#built-in-strategies">Built-in Strategies</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#each-strategy-s-pipeline-structure">Each Strategy’s pipeline structure</a></li>
 </ul>

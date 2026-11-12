@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.strategies.base &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
+    <title>saealib.strategies.base &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=2f1c8a1f"></script>
+    <script src="../../../_static/documentation_options.js?v=fb4a5f2c"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -961,6 +961,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">weakref</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">cast</span>
 
@@ -1005,6 +1006,36 @@ window.runMermaid = runMermaid;</script>
     <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;strategy must implement build_graph&quot;</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_entry_uses_surrogate_slot</span><span class="p">(</span><span class="n">entry</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return whether a declaration entry reaches the surrogate manager slot.&quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Stage</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.surrogate.manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">SurrogateManager</span>
+
+    <span class="n">children</span> <span class="o">=</span> <span class="n">_structural_stages</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">children</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">_entry_uses_surrogate_slot</span><span class="p">(</span><span class="n">child</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">children</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">SurrogateManager</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">Stage</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">reference</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="s2">&quot;_refs&quot;</span><span class="p">,</span> <span class="p">()):</span>
+        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">reference</span><span class="o">.</span><span class="n">slot</span> <span class="o">==</span> <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">vars</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">SurrogateManager</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">entry</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Stage</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_structural_stages</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">_entry_uses_surrogate_slot</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+    <span class="n">nested</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="s2">&quot;stages&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nested</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">_entry_uses_surrogate_slot</span><span class="p">(</span><span class="n">child</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">nested</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">build_pipeline_from_graph</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">ComponentGraph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Recover a Pipeline facade from a stage-based strategy graph.&quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.graph_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">StageNodeAdapter</span>
@@ -1027,7 +1058,10 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    implementation recovers a facade for stage-based graphs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># Optimizer.validate() checks this to ensure surrogate_manager is configured.</span>
+    <span class="c1"># Optimizer.validate() checks this to ensure surrogate_manager is</span>
+    <span class="c1"># configured.  It is a plain attribute: a strategy may declare it as a</span>
+    <span class="c1"># class attribute, inherit it from a mixin, set it on an instance, or</span>
+    <span class="c1"># restore it from a pickle or a spec.</span>
     <span class="n">requires_surrogate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="c1"># Async runtimes may refill a strategy while an earlier proposal is still</span>
@@ -1064,8 +1098,9 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the strategy&#39;s canonical graph.</span>
 
 <span class="sd">        Built-in strategies provide node/adapter specs to the canonical graph</span>
-<span class="sd">        builder; graph-only extensions override this method and need not</span>
-<span class="sd">        implement a Pipeline builder.</span>
+<span class="sd">        builder.  Writing a new strategy is done with</span>
+<span class="sd">        :class:`TemplateStrategy` and a declared Pipeline; overriding this</span>
+<span class="sd">        method is deprecated and emits a :class:`DeprecationWarning`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">build_runtime_neutral_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span></div>
 
@@ -1126,8 +1161,12 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    pipeline : Pipeline</span>
 <span class="sd">        Declaration to resolve and run.</span>
 <span class="sd">    requires_surrogate : bool or None, optional</span>
-<span class="sd">        Whether the declaration needs a surrogate manager.  ``None`` keeps</span>
-<span class="sd">        the class-level value.</span>
+<span class="sd">        Surrogate requirement declared on the instance.  ``None`` (the</span>
+<span class="sd">        default) leaves the class-level value in place.  For a subclass that</span>
+<span class="sd">        keeps the standard ``build_graph``, the configuration diagnostics</span>
+<span class="sd">        derive the requirement from the declared flow instead, and a declared</span>
+<span class="sd">        value that contradicts the flow is reported and does not change the</span>
+<span class="sd">        outcome.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -1136,7 +1175,14 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    pipeline : Pipeline or None</span>
 <span class="sd">        The declaration resolved for the most recent plan; ``None`` until a</span>
 <span class="sd">        plan is prepared.</span>
+<span class="sd">    requires_surrogate : bool or None</span>
+<span class="sd">        Plain attribute holding the declared requirement; ``None`` when the</span>
+<span class="sd">        strategy declares none.  The configuration diagnostics derive the</span>
+<span class="sd">        effective requirement of a standard-lowering subclass from its</span>
+<span class="sd">        declaration.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">requires_surrogate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="TemplateStrategy.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.__init__">[ドキュメント]</a>
@@ -1185,6 +1231,21 @@ window.runMermaid = runMermaid;</script>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_restore_generated_node_references</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">declaration</span><span class="p">:</span> <span class="n">Pipeline</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore caches pointing into *declaration* when they are absent.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_derive_surrogate_requirement</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the requirement derived from the declared flow.</span>
+
+<span class="sd">        The walk covers every Stage of the declaration, including nested</span>
+<span class="sd">        Repeat, Loop, and Branch regions, and is ``True`` when a Stage refers</span>
+<span class="sd">        to the surrogate manager slot through a ``ComponentRef`` or holds a</span>
+<span class="sd">        surrogate manager directly.  The result is ``None`` when the subclass</span>
+<span class="sd">        replaces ``build_graph``; such a strategy keeps using its declared</span>
+<span class="sd">        ``requires_surrogate`` attribute.  The comparison is method identity,</span>
+<span class="sd">        the same check the ``build_graph`` deprecation uses.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">TemplateStrategy</span><span class="o">.</span><span class="n">build_graph</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">_entry_uses_surrogate_slot</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;declaration&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
 
 <div class="viewcode-block" id="TemplateStrategy.build_template">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.strategies.TemplateStrategy.html#saealib.TemplateStrategy.build_template">[ドキュメント]</a>
@@ -1294,6 +1355,35 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="n">values</span></div>
 </div>
 
+
+
+<span class="n">_BUILD_GRAPH_BASE_IMPLEMENTATIONS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">OptimizationStrategy</span><span class="o">.</span><span class="n">build_graph</span><span class="p">,</span>
+    <span class="n">TemplateStrategy</span><span class="o">.</span><span class="n">build_graph</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">_WARNED_BUILD_GRAPH_OVERRIDES</span><span class="p">:</span> <span class="n">weakref</span><span class="o">.</span><span class="n">WeakSet</span><span class="p">[</span><span class="nb">type</span><span class="p">]</span> <span class="o">=</span> <span class="n">weakref</span><span class="o">.</span><span class="n">WeakSet</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">warn_deprecated_build_graph_override</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Warn once per strategy class that lowers its own component graph.</span>
+
+<span class="sd">    The class&#39;s ``build_graph`` is compared by identity against the base</span>
+<span class="sd">    implementations, so a plain subclass of a built-in strategy does not</span>
+<span class="sd">    warn while a custom override does.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+    <span class="n">build_graph</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="s2">&quot;build_graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">build_graph</span> <span class="ow">in</span> <span class="n">_BUILD_GRAPH_BASE_IMPLEMENTATIONS</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">if</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">_WARNED_BUILD_GRAPH_OVERRIDES</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">_WARNED_BUILD_GRAPH_OVERRIDES</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+    <span class="n">warn_deprecated</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Overriding build_graph(provider) in </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__qualname__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">since</span><span class="o">=</span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
+        <span class="n">replacement</span><span class="o">=</span><span class="s2">&quot;TemplateStrategy with a declared Pipeline&quot;</span><span class="p">,</span>
+        <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span>
 </pre></div>
 
                 </article>

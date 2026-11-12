@@ -7,8 +7,7 @@ page_type: reference
 # Optimization Strategies
 
 Built-in Strategies compose candidate generation, evaluation planning, Feedback, and Population updates.
-The canonical extension point for a new Strategy is `build_graph(provider) -> ComponentGraph`.
-`build_pipeline()` is the compatibility representation for the existing Pipeline DSL.
+The canonical extension point for a new Strategy is `TemplateStrategy` with a declared `Pipeline`; overriding `build_graph(provider)` is deprecated and emits a `DeprecationWarning`.
 
 ## Base
 

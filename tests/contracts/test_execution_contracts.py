@@ -24,7 +24,9 @@ from saealib.core.state import (
     RUNTIME_CANDIDATE_ID_ALLOCATOR,
     RUNTIME_DECISION_COUNT,
     RUNTIME_GENERATION,
+    RUNTIME_REGION_COUNTS,
     RUNTIME_RNG,
+    RUNTIME_STEP,
 )
 from saealib.decomposition import (
     Decomposition,
@@ -40,7 +42,14 @@ from saealib.execution.initializer import (
     SobolInitializer,
 )
 from saealib.execution.scheduler import AsyncEvaluationScheduler
-from saealib.termination import Termination, f_target, max_fe, max_gen, stalled
+from saealib.termination import (
+    Termination,
+    f_target,
+    max_fe,
+    max_gen,
+    max_steps,
+    stalled,
+)
 
 
 def test_pymoo_partial_tell_capability_is_configuration_dependent() -> None:
@@ -91,6 +100,8 @@ def test_initializer_contract_declares_population_and_rng_effects() -> None:
             EVALUATIONS_COUNT,
             ARCHIVES_PARETO,
             RUNTIME_GENERATION,
+            RUNTIME_STEP,
+            RUNTIME_REGION_COUNTS,
             RUNTIME_RNG,
             RUNTIME_CANDIDATE_ID_ALLOCATOR,
         ),
@@ -131,6 +142,9 @@ def test_termination_contract_tracks_registered_condition_state() -> None:
     assert Termination(max_gen(10)).contract().state == StateContract(
         reads=(RUNTIME_GENERATION,)
     )
+    assert Termination(max_steps(10)).contract().state == StateContract(
+        reads=(RUNTIME_STEP,)
+    )
     assert Termination(f_target(0.0)).contract().state == StateContract(
         reads=(ARCHIVES_MAIN,)
     )
@@ -149,7 +163,7 @@ def test_termination_contract_is_conservative_for_unknown_callables() -> None:
         return False
 
     assert Termination(condition).contract().state == StateContract(
-        reads=(EVALUATIONS_COUNT, RUNTIME_GENERATION, ARCHIVES_MAIN),
+        reads=(EVALUATIONS_COUNT, RUNTIME_GENERATION, RUNTIME_STEP, ARCHIVES_MAIN),
         reads_enumerable=False,
     )
     assert not called

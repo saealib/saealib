@@ -38,8 +38,10 @@ __all__ = [
     "RUNTIME_CANDIDATE_ID_ALLOCATOR",
     "RUNTIME_DECISION_COUNT",
     "RUNTIME_GENERATION",
+    "RUNTIME_REGION_COUNTS",
     "RUNTIME_REQUEST_ID_ALLOCATOR",
     "RUNTIME_RNG",
+    "RUNTIME_STEP",
     "SCORES",
     "STATE_NAMESPACES",
     "SURROGATES_DEFAULT",
@@ -141,6 +143,10 @@ RUNTIME_RNG = StateKey[object](namespace="runtime", name="rng", schema_version=1
 RUNTIME_GENERATION = StateKey[object](
     namespace="runtime", name="generation", schema_version=1
 )
+RUNTIME_STEP = StateKey[object](namespace="runtime", name="step", schema_version=1)
+RUNTIME_REGION_COUNTS = StateKey[object](
+    namespace="runtime", name="region_counts", schema_version=1
+)
 RUNTIME_DECISION_COUNT = StateKey[object](
     namespace="runtime", name="decision_count", schema_version=1
 )
@@ -191,6 +197,8 @@ OPTIMIZATION_STATE_INITIAL_KEYS = frozenset(
         ARCHIVES_PARETO,
         RUNTIME_RNG,
         RUNTIME_GENERATION,
+        RUNTIME_STEP,
+        RUNTIME_REGION_COUNTS,
         RUNTIME_DECISION_COUNT,
         RUNTIME_CANDIDATE_ID_ALLOCATOR,
         RUNTIME_REQUEST_ID_ALLOCATOR,

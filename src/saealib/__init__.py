@@ -156,6 +156,7 @@ from saealib.termination import (
     f_target,
     max_fe,
     max_gen,
+    max_steps,
     stalled,
 )
 from saealib.utils.indicators import hypervolume, hypervolume_contributions
@@ -296,6 +297,7 @@ __all__ = [
     "hypervolume_contributions",
     "max_fe",
     "max_gen",
+    "max_steps",
     "maximize",
     "minimize",
     "register",

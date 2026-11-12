@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Flow step and named region iteration counters** are available on `OptimizationState`; `max_steps()` can stop after a chosen number of completed flows, and summary history records cumulative Repeat and Loop counts ([#332](https://github.com/saealib/saealib/issues/332))
 - **Stage flow declarations** expose component connections and preserve named data transformations on compiler graph edges ([#319](https://github.com/saealib/saealib/issues/319))
 - **History evaluation channel records `g` and `noise`**; checkpoints written without these columns load with them filled with NaN ([#303](https://github.com/saealib/saealib/issues/303))
 - **`ComponentRef` and `TemplateStrategy`**: declared Stages reference components by `(slot, role)`, and each plan resolves its own copy of the declaration without modifying it ([#308](https://github.com/saealib/saealib/issues/308))

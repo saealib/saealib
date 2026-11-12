@@ -43,6 +43,8 @@ _LAZY_EXPORTS: Final[dict[str, str]] = {
     "StatePatch": "saealib.core.state.patch",
     "RUNTIME_DECISION_COUNT": "saealib.core.state.keys",
     "RUNTIME_GENERATION": "saealib.core.state.keys",
+    "RUNTIME_STEP": "saealib.core.state.keys",
+    "RUNTIME_REGION_COUNTS": "saealib.core.state.keys",
     "ExecutionRuntime": "saealib.core.runtime",
     "RegionFrame": "saealib.core.runtime",
     "StructuredPlan": "saealib.core.runtime",

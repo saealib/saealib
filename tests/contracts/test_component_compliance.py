@@ -66,7 +66,9 @@ from saealib.stages import (
 from saealib.surrogate.rbf_kernels import GaussianKernel
 
 _REGISTRY = saealib.registry._REGISTRY
-_NON_CLASS_REGISTRY_NAMES = frozenset({"max_fe", "max_gen", "f_target", "stalled"})
+_NON_CLASS_REGISTRY_NAMES = frozenset(
+    {"max_fe", "max_gen", "max_steps", "f_target", "stalled"}
+)
 _OPTIONAL_IMPORT_MODULES = frozenset(
     {
         "saealib.algorithms.pymoo_algorithm",

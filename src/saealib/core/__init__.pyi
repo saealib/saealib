@@ -33,6 +33,8 @@ from saealib.core.state.context import ExecutionContext as ExecutionContext
 from saealib.core.state.context import RuntimeContext as RuntimeContext
 from saealib.core.state.keys import RUNTIME_DECISION_COUNT as RUNTIME_DECISION_COUNT
 from saealib.core.state.keys import RUNTIME_GENERATION as RUNTIME_GENERATION
+from saealib.core.state.keys import RUNTIME_REGION_COUNTS as RUNTIME_REGION_COUNTS
+from saealib.core.state.keys import RUNTIME_STEP as RUNTIME_STEP
 from saealib.core.state.patch import StatePatch as StatePatch
 from saealib.core.state.store import StateStore as StateStore
 from saealib.core.state.store import StateView as StateView

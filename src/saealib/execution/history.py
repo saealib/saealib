@@ -72,6 +72,7 @@ class History:
         if unknown:
             raise ValidationError(f"Unknown history channel(s): {', '.join(unknown)}")
         self._enabled = frozenset(names)
+        self._region_ids: tuple[str, ...] = ()
         self._rows: dict[str, int] = {name: 0 for name in self._enabled}
         self._capacity: dict[str, int] = {name: 0 for name in self._enabled}
         self._columns: dict[str, dict[str, np.ndarray]] = {
@@ -456,6 +457,24 @@ class History:
         self._capacity[name] = rows
         self._record_modes[name] = "scalar" if restored else None
 
+    def _ensure_scalar_columns(self, name: str, columns: Mapping[str, int]) -> None:
+        """Add integer columns and fill earlier rows with their defaults."""
+        if not self.is_enabled(name):
+            return
+        if self._record_modes[name] == "block":
+            raise ValidationError(f"History channel {name!r} requires append_block()")
+        stored = self._columns[name]
+        capacity = self._capacity[name]
+        for column, default in columns.items():
+            if column in stored:
+                continue
+            values = np.full(
+                capacity,
+                default,
+                dtype=self._dtype_for(column),
+            )
+            stored[column] = values
+
     def _restore_blocks(
         self,
         name: str,
@@ -559,7 +578,10 @@ class History:
 
     @staticmethod
     def _dtype_for(name: str) -> np.dtype:
-        return np.dtype(np.int64 if name in _INTEGER_COLUMNS else np.float64)
+        is_region_count = name.startswith("region_") and name.endswith("_iterations")
+        return np.dtype(
+            np.int64 if name in _INTEGER_COLUMNS or is_region_count else np.float64
+        )
 
     @staticmethod
     def _block_dtype(array: np.ndarray) -> np.dtype | None:
@@ -1495,6 +1517,17 @@ def record_generation(state: OptimizationState) -> None:
             "decision_count": state.decision_count,
             "front_size": front_size,
         }
+        region_ids = getattr(history, "_region_ids", ())
+        region_columns = (
+            {
+                f"region_{region_id}_iterations": state.region_counts.get(region_id, 0)
+                for region_id in region_ids
+            }
+            if region_ids
+            else {}
+        )
+        history._ensure_scalar_columns("summary", {name: 0 for name in region_columns})
+        columns.update(region_columns)
         if n_obj == 1 and len(state.archive):
             archive_f = state.archive.get_array("f")
             cv = state.archive.get_array("cv")
@@ -1564,4 +1597,45 @@ def record_generation(state: OptimizationState) -> None:
             fe=state.fe,
             decision_count=state.decision_count,
             size=size,
+        )
+
+
+def _ensure_region_history(state: OptimizationState, region_ids: Sequence[str]) -> None:
+    """Preserve region counters and summary columns across flow changes."""
+    history = state.history
+    state_counts = dict(state.region_counts)
+    retained_ids: list[str] = (
+        list(getattr(history, "_region_ids", ())) if history is not None else []
+    )
+    history_counts: dict[str, int] = {}
+    if history is not None and history.is_enabled("summary"):
+        for column, values in history.channel("summary").items():
+            if not column.startswith("region_") or not column.endswith("_iterations"):
+                continue
+            region_id = column[len("region_") : -len("_iterations")]
+            if not region_id:
+                continue
+            retained_ids.append(region_id)
+            if len(values):
+                history_counts[region_id] = max(
+                    history_counts.get(region_id, 0), int(values[-1])
+                )
+
+    all_region_ids = tuple(dict.fromkeys((*retained_ids, *state_counts, *region_ids)))
+    counts = {
+        region_id: max(
+            int(state_counts.get(region_id, 0)), history_counts.get(region_id, 0)
+        )
+        for region_id in all_region_ids
+    }
+    if counts != state_counts:
+        state.region_counts = counts
+
+    if history is None:
+        return
+    history._region_ids = all_region_ids
+    if history.is_enabled("summary"):
+        history._ensure_scalar_columns(
+            "summary",
+            {f"region_{region_id}_iterations": 0 for region_id in all_region_ids},
         )

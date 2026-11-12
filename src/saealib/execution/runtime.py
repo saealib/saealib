@@ -61,6 +61,8 @@ from saealib.core.state import (
     EVALUATION_UPDATES,
     EVALUATIONS_PLAN_UPDATES,
     OPTIMIZATION_STATE_INITIAL_KEYS,
+    RUNTIME_REGION_COUNTS,
+    RUNTIME_STEP,
     RuntimeContext,
     StateKey,
     StateView,
@@ -76,6 +78,7 @@ from saealib.execution.bindings import (
     resolve_components,
 )
 from saealib.execution.history import (
+    _ensure_region_history,
     record_decision,
     record_evaluations,
     record_generation,
@@ -96,6 +99,64 @@ __all__ = [
     "execute_strategy_step",
     "resolve_plan",
 ]
+
+
+def _iteration_region_ids(graph: StructuredGraph) -> tuple[str, ...]:
+    region_ids: list[str] = []
+    seen: set[str] = set()
+
+    def visit(current: StructuredGraph) -> None:
+        for operation in current.operations:
+            if not isinstance(operation, RegionNode):
+                continue
+            region = operation.region
+            if (
+                isinstance(region, (RepeatRegion, LoopRegion))
+                and region.qualified_id not in seen
+            ):
+                region_ids.append(region.qualified_id)
+                seen.add(region.qualified_id)
+            body = region.body
+            if isinstance(body, StructuredGraph):
+                visit(body)
+            otherwise = getattr(region, "otherwise", None)
+            if isinstance(otherwise, StructuredGraph):
+                visit(otherwise)
+
+    visit(graph)
+    return tuple(region_ids)
+
+
+def _increment_step(state: OptimizationState) -> None:
+    try:
+        store = object.__getattribute__(state, "_store")
+    except AttributeError:
+        return
+    if store.contains(RUNTIME_STEP):
+        state.step += 1
+
+
+def _has_pending_evaluations(state: OptimizationState) -> bool:
+    try:
+        return bool(state.pending_evaluations)
+    except (AttributeError, KeyError):
+        return False
+
+
+def _has_state_key(state: OptimizationState, key: StateKey) -> bool:
+    try:
+        store = object.__getattribute__(state, "_store")
+    except AttributeError:
+        return False
+    return store.contains(key)
+
+
+def _increment_region_count(state: OptimizationState, region_id: str) -> None:
+    if not _has_state_key(state, RUNTIME_REGION_COUNTS):
+        return
+    counts = dict(state.region_counts)
+    counts[region_id] = counts.get(region_id, 0) + 1
+    state.region_counts = counts
 
 
 class LifecycleEnvironment(Protocol):
@@ -821,6 +882,8 @@ def _execute_structured(
             raise ValidationError("StructuredPlan frame does not point to a region")
         region = operation.region
         if isinstance(region, RepeatRegion):
+            if child.region_id is not None:
+                _increment_region_count(current, child.region_id)
             count = child.count if child.count is not None else 0
             if child.iteration + 1 < count:
                 stack[-1] = replace(
@@ -828,6 +891,8 @@ def _execute_structured(
                 )
                 return False
         elif isinstance(region, LoopRegion):
+            if child.region_id is not None:
+                _increment_region_count(current, child.region_id)
             if not _evaluate_condition(region.condition, current, dispatch=dispatch):
                 stack[-1] = replace(
                     child, operation_index=0, iteration=child.iteration + 1
@@ -1588,6 +1653,15 @@ class _OptimizerEnvironment:
         executable, rebuilt = self._compile_current_plan(bindings)
         resolution = self._candidate_resolution
         self._gate(executable, resolution)
+        if self._last_state is not None and _has_state_key(
+            self._last_state, RUNTIME_REGION_COUNTS
+        ):
+            region_ids = (
+                _iteration_region_ids(rebuilt.graph)
+                if isinstance(rebuilt, StructuredPlan)
+                else ()
+            )
+            _ensure_region_history(self._last_state, region_ids)
         consumes_feature_encoder = _executable_uses_service(
             executable, "FeatureEncoder"
         )
@@ -2047,6 +2121,7 @@ class _OptimizerEnvironment:
             _validate_pending_reattachable(state, scheduler.evaluator)
 
     def finish_generation(self, state: OptimizationState) -> None:
+        _increment_step(state)
         handler = state.problem.handler
         handler.on_generation_end(state.gen, state.population)
         threshold = state.problem.handler.feasibility_threshold
@@ -2257,6 +2332,13 @@ class PipelineRuntime:
         if services:
             state.bind_compiled_services(services)
         selected_plan = structured or SequentialPlan.from_executable_plan(plan)
+        region_ids = (
+            _iteration_region_ids(selected_plan.graph)
+            if isinstance(selected_plan, StructuredPlan)
+            else ()
+        )
+        if _has_state_key(state, RUNTIME_REGION_COUNTS):
+            _ensure_region_history(state, region_ids)
         capabilities = self.capabilities | frozenset(
             getattr(self.environment, "capabilities", ())
         )
@@ -2313,6 +2395,10 @@ class PipelineRuntime:
                     raise ValidationError(
                         "structured runtime node reported FAILED status"
                     )
+                if metadata.plan_completed and not _has_pending_evaluations(
+                    metadata.state
+                ):
+                    _increment_step(metadata.state)
                 run_finished = metadata.plan_completed or metadata.terminated
                 next_session = RuntimeSession(
                     plan=session.plan,
@@ -2465,6 +2551,8 @@ class PipelineRuntime:
                 )
             state = metadata.state
             node_results = metadata.node_results
+            if metadata.plan_completed and not _has_pending_evaluations(state):
+                _increment_step(state)
             finished = metadata.terminated
             next_session = RuntimeSession(
                 plan=session.plan,
@@ -2710,6 +2798,8 @@ class AsyncPipelineRuntime(PipelineRuntime):
                 result.status is NodeStatus.FAILED for result in metadata.node_results
             ):
                 raise ValidationError("structured runtime node reported FAILED status")
+            if metadata.plan_completed and not _has_pending_evaluations(metadata.state):
+                _increment_step(metadata.state)
             run_finished = metadata.plan_completed or metadata.terminated
             next_session = RuntimeSession(
                 plan=session.plan,

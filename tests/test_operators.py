@@ -723,14 +723,14 @@ class TestLinearRankSelection:
         op = LinearRankSelection()
         ctx = _make_ctx(n_pop=10)
         rng = np.random.default_rng(0)
-        idx = op.select(ctx, ctx.population, n_pair=4, n_parents=2, rng=rng)
+        idx = op.select(ctx.population, n_pair=4, n_parents=2, rng=rng, ctx=ctx)
         assert idx.shape == (4, 2)
 
     def test_indices_in_range(self):
         op = LinearRankSelection()
         ctx = _make_ctx(n_pop=10)
         rng = np.random.default_rng(0)
-        idx = op.select(ctx, ctx.population, n_pair=5, n_parents=2, rng=rng)
+        idx = op.select(ctx.population, n_pair=5, n_parents=2, rng=rng, ctx=ctx)
         assert np.all(idx >= 0) and np.all(idx < len(ctx.population))
 
     def test_best_selected_more_often(self):
@@ -746,7 +746,7 @@ class TestLinearRankSelection:
         rng = np.random.default_rng(1)
         counts = np.zeros(n_pop, dtype=int)
         for _ in range(500):
-            idx = op.select(ctx, ctx.population, n_pair=10, n_parents=1, rng=rng)
+            idx = op.select(ctx.population, n_pair=10, n_parents=1, rng=rng, ctx=ctx)
             for i in idx.flatten():
                 counts[i] += 1
 
@@ -825,21 +825,21 @@ class TestTruncationSelection:
         assert op.randomize_ties is False
         ctx = _make_moo_ctx(self._F_WITH_TIE)
         expected = ctx.comparator.sort_population(ctx.population)[:3]
-        result = op.select(ctx, ctx.population, 3)
+        result = op.select(ctx.population, 3, ctx=ctx)
         np.testing.assert_array_equal(result, expected)
 
     def test_randomize_ties_no_ties_matches_plain_sort(self):
         op = TruncationSelection(randomize_ties=True)
         ctx = _make_moo_ctx(self._F_NO_TIE)
         expected = ctx.comparator.sort_population(ctx.population)[:3]
-        result = op.select(ctx, ctx.population, 3)
+        result = op.select(ctx.population, 3, ctx=ctx)
         np.testing.assert_array_equal(result, expected)
 
     def test_randomize_ties_preserves_non_tied_boundary(self):
         op = TruncationSelection(randomize_ties=True)
         for seed in range(10):
             ctx = _make_moo_ctx(self._F_WITH_TIE, rng_seed=seed)
-            result = op.select(ctx, ctx.population, 3)
+            result = op.select(ctx.population, 3, ctx=ctx)
             assert result.shape == (3,)
             assert 0 in result and 1 in result  # cd=inf, always kept
             assert 5 not in result  # dominated, never kept
@@ -850,14 +850,14 @@ class TestTruncationSelection:
         outcomes = set()
         for seed in range(20):
             ctx = _make_moo_ctx(self._F_WITH_TIE, rng_seed=seed)
-            result = op.select(ctx, ctx.population, 3)
+            result = op.select(ctx.population, 3, ctx=ctx)
             outcomes.add(frozenset(result.tolist()))
         assert outcomes == {frozenset({0, 1, 2}), frozenset({0, 1, 4})}
 
     def test_n_survivors_exceeds_pool(self):
         op = TruncationSelection(randomize_ties=True)
         ctx = _make_moo_ctx(self._F_WITH_TIE)
-        result = op.select(ctx, ctx.population, 10)
+        result = op.select(ctx.population, 10, ctx=ctx)
         assert set(result.tolist()) == set(range(6))
 
 

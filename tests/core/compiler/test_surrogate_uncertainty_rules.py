@@ -201,9 +201,9 @@ class _UndeclaredManager(SurrogateManager):
         self,
         candidates_x: np.ndarray,
         archive,
-        ctx=None,
         *,
         refit: bool = True,
+        ctx,
     ) -> SurrogatePrediction:
         return SurrogatePrediction.objective(np.zeros((len(candidates_x), 1)))
 

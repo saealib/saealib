@@ -12,6 +12,7 @@ from saealib.algorithms.base import (
     AskTellAlgorithm,
     ProposalRequest,
     algorithm_context,
+    algorithm_state,
 )
 from saealib.callback import PostAskEvent, PostCrossoverEvent, PostMutationEvent
 from saealib.core.contracts import (
@@ -417,6 +418,7 @@ class GA(AskTellAlgorithm):
         ProposalBatch
         """
         ctx = algorithm_context(state)
+        selection_ctx = algorithm_state(ctx)
         n_offspring = request.n_offspring
         # Re-validate per-type crossover consistency here because operators may be
         # replaced or mutated after __init__, bypassing constructor checks.
@@ -451,11 +453,11 @@ class GA(AskTellAlgorithm):
         n_pair = math.ceil(target / n_children)
         parent_idx_m = (
             self.parent_selection.select(
-                ctx,
                 ctx.population,
                 n_pair=n_pair,
                 n_parents=self.crossover.n_parents,
                 rng=ctx.rng,
+                ctx=selection_ctx,
             )
             % popsize
         )
@@ -723,11 +725,11 @@ class GA(AskTellAlgorithm):
         n_pair = math.ceil(n_target / n_children)
         parent_idx = (
             self.parent_selection.select(
-                ctx,
                 ctx.population,
                 n_pair=n_pair,
                 n_parents=self.crossover.n_parents,
                 rng=ctx.rng,
+                ctx=algorithm_state(ctx),
             )
             % popsize
         )
@@ -767,7 +769,9 @@ class GA(AskTellAlgorithm):
         pool._extend_internal(population, preserve_ids=True)
         pool._extend_internal(offspring, preserve_ids=True)
 
-        survivor_idx = self.survivor_selection.select(ctx, pool, popsize)
+        survivor_idx = self.survivor_selection.select(
+            pool, popsize, ctx=algorithm_state(ctx)
+        )
 
         if not population._replace_from_population(
             pool, survivor_idx, preserve_ids=True

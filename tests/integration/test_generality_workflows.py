@@ -3,6 +3,7 @@ import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import numpy as np
 
@@ -25,6 +26,7 @@ from saealib import (
     aggregate_replicates,
     max_fe,
 )
+from saealib.context import OptimizationState
 from saealib.core.contracts import FeedbackBatch
 from saealib.core.state import StatePatch, StateView
 from saealib.surrogate import ArchiveObjectiveSet
@@ -70,7 +72,9 @@ def test_qei_is_joint_and_uses_candidate_covariance():
         }
     )
     archive = SimpleNamespace(f=np.array([[0.0]], dtype=np.float64))
-    result = BatchExpectedImprovement(n_draws=2048).evaluate(x, prediction, archive)
+    result = BatchExpectedImprovement(n_draws=2048).evaluate(
+        x, prediction, archive, ctx=None
+    )
     assert result.artifacts["joint"] is True
     assert result.artifacts["order"].shape == (2,)
     assert np.array_equal(result.artifacts["order"], np.array([1, 0]))
@@ -88,10 +92,10 @@ def test_qei_direction_none_and_minimize_direction_are_equivalent():
     )
     archive = SimpleNamespace(f=np.array([[0.0]], dtype=np.float64))
     none = BatchExpectedImprovement(n_draws=32).evaluate(
-        np.zeros((2, 1)), prediction, archive
+        np.zeros((2, 1)), prediction, archive, ctx=None
     )
     minimum = BatchExpectedImprovement(n_draws=32, direction=np.array([-1.0])).evaluate(
-        np.zeros((2, 1)), prediction, archive
+        np.zeros((2, 1)), prediction, archive, ctx=None
     )
     assert np.array_equal(none.scores, minimum.scores)
 
@@ -119,7 +123,7 @@ def test_qei_correlation_changes_known_selection_order():
             np.zeros((2, 1)),
             prediction,
             archive,
-            ctx=SimpleNamespace(rng=np.random.default_rng(7)),
+            ctx=cast(OptimizationState, SimpleNamespace(rng=np.random.default_rng(7))),
         )
 
     diagonal = evaluate(np.eye(2))
@@ -134,14 +138,12 @@ def test_qei_optimizer_path_preserves_joint_covariance():
             super().__init__(n_draws=64)
             self.covariances = []
 
-        def evaluate(
-            self, candidates_x, prediction, archive, ctx=None, *, prepared=None
-        ):
+        def evaluate(self, candidates_x, prediction, archive, *, prepared=None, ctx):
             self.covariances.append(
                 np.array(prediction.channels["objective"].covariance, copy=True)
             )
             return super().evaluate(
-                candidates_x, prediction, archive, ctx, prepared=prepared
+                candidates_x, prediction, archive, prepared=prepared, ctx=ctx
             )
 
     acquisition = RecordingQEI()
@@ -393,15 +395,13 @@ def test_ehvi_example_invokes_ehvi_acquisition(monkeypatch):
     base_ehvi = example.EHVIAcquisition
 
     class RecordingEHVI(base_ehvi):
-        def evaluate(
-            self, candidates_x, prediction, archive, ctx=None, *, prepared=None
-        ):
+        def evaluate(self, candidates_x, prediction, archive, *, prepared=None, ctx):
             result = super().evaluate(
                 candidates_x,
                 prediction,
                 archive,
-                ctx,
                 prepared=prepared,
+                ctx=ctx,
             )
             calls.append((prediction.value.shape, result.scores.copy()))
             return result

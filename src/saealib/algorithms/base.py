@@ -8,6 +8,7 @@ from typing import Any, Protocol, cast, runtime_checkable
 
 import numpy as np
 
+from saealib.context import OptimizationState
 from saealib.core.contracts import (
     MANY,
     TRUE,
@@ -231,3 +232,11 @@ class AskTellAlgorithm(Algorithm):
 def algorithm_context(state: StateView) -> ExecutionContext:
     """Return the execution context bound to a built-in algorithm call."""
     return state.context
+
+
+def algorithm_state(ctx: ExecutionContext) -> OptimizationState:
+    """Return the optimization state behind a built-in algorithm context."""
+    state = getattr(ctx, "_state", None)
+    if isinstance(state, OptimizationState):
+        return state
+    return cast(OptimizationState, ctx)

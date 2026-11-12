@@ -119,7 +119,7 @@ def _make_ga() -> GA:
 class _LinspaceAcquisition(AcquisitionFunction):
     """Descending linspace scores for the strategy selection test."""
 
-    def evaluate(self, candidates_x, prediction, archive, ctx=None, *, prepared=_UNSET):
+    def evaluate(self, candidates_x, prediction, archive, *, prepared=_UNSET, ctx):
         n = len(candidates_x)
         return AcquisitionResult(scores=np.linspace(1.0, 0.0, n))
 
@@ -127,10 +127,10 @@ class _LinspaceAcquisition(AcquisitionFunction):
 class _MockSurrogateManager:
     """Returns constant predictions."""
 
-    def fit(self, archive, ctx=None):
+    def fit(self, archive, *, ctx):
         pass
 
-    def predict(self, candidates_x, archive, ctx=None, *, refit=True):
+    def predict(self, candidates_x, archive, *, refit=True, ctx):
         n = len(candidates_x)
         return SurrogatePrediction.objective(value=np.ones((n, 1)))
 
@@ -538,7 +538,7 @@ class _SpyManager(SurrogateManager):
     def __init__(self):
         self.call_count = 0
 
-    def predict(self, candidates_x, archive, ctx=None, *, refit=True):
+    def predict(self, candidates_x, archive, *, refit=True, ctx):
         self.call_count += 1
         n = len(candidates_x)
         return SurrogatePrediction.objective(value=np.ones((n, 1)))

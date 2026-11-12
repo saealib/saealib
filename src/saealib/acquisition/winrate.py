@@ -64,9 +64,9 @@ class WinRateAcquisition(AcquisitionFunction):
         candidates_x: np.ndarray,
         prediction: SurrogatePrediction | None,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         prepared: Any = _UNSET,
+        ctx: OptimizationState | None,
     ) -> AcquisitionResult:
         """
         Read the ``"win_rate"`` channel's value as the score.

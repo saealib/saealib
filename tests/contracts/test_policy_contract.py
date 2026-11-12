@@ -95,7 +95,7 @@ def test_selection_boundaries_and_empty():
     plan = TopKEvaluation(1, sanitize_nonfinite=True).plan(
         _state().offspring,
         AcquisitionResult(np.array([1.0, np.nan], dtype=np.float64)),
-        _state(),
+        ctx=_state(),
     )
     np.testing.assert_array_equal(plan.requests[0].candidate_ids, [10])
 
@@ -119,7 +119,7 @@ def test_rbf_singular_solve_nan_flows_through_sanitized_evaluation_planning():
     assert np.all(np.isnan(scores))
 
     plan = RatioEvaluation(0.5, sanitize_nonfinite=True).plan(
-        state.offspring, AcquisitionResult(scores), state
+        state.offspring, AcquisitionResult(scores), ctx=state
     )
 
     assert len(plan.requests[0].candidate_ids) >= 1
@@ -127,18 +127,18 @@ def test_rbf_singular_solve_nan_flows_through_sanitized_evaluation_planning():
 
 def test_plan_and_score_validation_covers_invalid_policy_inputs():
     state = _state()
-    request = EvaluateAll().plan(state.offspring, None, state).requests[0]
+    request = EvaluateAll().plan(state.offspring, None, ctx=state).requests[0]
     with pytest.raises(ValidationError, match="contain a request"):
         EvaluationPlan(())
     with pytest.raises(ValidationError, match="duplicate request IDs"):
         EvaluationPlan((request, request))
     with pytest.raises(ValidationError, match="acquisition score array"):
-        TopKEvaluation(1).plan(state.offspring, None, state)
+        TopKEvaluation(1).plan(state.offspring, None, ctx=state)
     with pytest.raises(ValidationError, match="float64"):
         TopKEvaluation(1).plan(
             state.offspring,
             AcquisitionResult(np.ones(2, dtype=np.float32)),
-            state,
+            ctx=state,
         )
     with pytest.raises(ValidationError, match="integer"):
         select_top_k(np.ones(2, dtype=np.float64), True)
@@ -149,7 +149,7 @@ def test_plan_and_score_validation_covers_invalid_policy_inputs():
     ratio = RatioEvaluation(0.5).plan(
         state.offspring,
         AcquisitionResult(np.array([1.0, 0.0], dtype=np.float64)),
-        state,
+        ctx=state,
     )
     assert len(ratio.requests[0].candidate_ids) == 1
 
@@ -160,14 +160,14 @@ def test_repeated_and_fidelity_planners_validate_and_annotate_requests():
         RepeatedEvaluation(0)
     with pytest.raises(ValidationError, match="positive integer"):
         RepeatedEvaluation(True)
-    repeated = RepeatedEvaluation(2).plan(state.offspring, None, state)
+    repeated = RepeatedEvaluation(2).plan(state.offspring, None, ctx=state)
     assert len(repeated.requests) == 2
     assert [request.metadata["replicate"] for request in repeated.requests] == [0, 1]
     assert all(request.metadata["plan_id"] == 0 for request in repeated.requests)
 
     with pytest.raises(ValidationError, match="non-negative integer"):
         FidelityEvaluation(-1)
-    fidelity = FidelityEvaluation(3).plan(state.offspring, None, state)
+    fidelity = FidelityEvaluation(3).plan(state.offspring, None, ctx=state)
     assert fidelity.requests[0].metadata["fidelity"] == 3
     with pytest.raises(ValidationError, match="next_fidelity"):
         FidelityPromotion(1, 1)
@@ -176,7 +176,7 @@ def test_repeated_and_fidelity_planners_validate_and_annotate_requests():
     with pytest.raises(ValidationError, match="promotion_fraction"):
         FidelityPromotion(0, 1, promotion_fraction=0.0)
     promotion = FidelityPromotion(0, 2, promotion_count=1).plan(
-        state.offspring, None, state
+        state.offspring, None, ctx=state
     )
     assert promotion.continuation["kind"] == "fidelity_promotion"
 
@@ -201,11 +201,13 @@ def test_replicate_aggregation_validates_shape_and_owns_summary():
 def test_evaluation_policies_allocate_requests():
     state = _state()
     acquisition = AcquisitionResult(np.array([1.0, 0.0], dtype=np.float64))
-    request = TopKEvaluation(1).plan(state.offspring, acquisition, state).requests[0]
+    request = (
+        TopKEvaluation(1).plan(state.offspring, acquisition, ctx=state).requests[0]
+    )
     assert request.request_id == 0
     np.testing.assert_array_equal(request.candidate_ids, [10])
     assert not request.x.flags.writeable
-    request_all = EvaluateAll().plan(state.offspring, None, state).requests[0]
+    request_all = EvaluateAll().plan(state.offspring, None, ctx=state).requests[0]
     assert request_all.request_id == 1
     np.testing.assert_array_equal(request_all.candidate_ids, [10, 11])
 
@@ -222,17 +224,19 @@ def test_feedback_sources_and_objective_channel_requirement():
         {"objective": PredictionChannel(np.array([[5.0], [6.0]]))}
     )
     mixed = MixedFeedback().build(
-        state.offspring, prediction, evaluation, np.array([10]), state
+        state.offspring, prediction, evaluation, np.array([10]), ctx=state
     )
     np.testing.assert_array_equal(mixed.candidate_ids, [10, 11])
     np.testing.assert_array_equal(mixed.f, [[4.0], [6.0]])
     np.testing.assert_array_equal(mixed.source, [0, 1])
     true_only = TrueOnlyFeedback().build(
-        state.offspring, prediction, evaluation, np.array([10]), state
+        state.offspring, prediction, evaluation, np.array([10]), ctx=state
     )
     np.testing.assert_array_equal(true_only.candidate_ids, [10])
     assert (
-        len(NoFeedback().build(state.offspring, prediction, evaluation, [], state).f)
+        len(
+            NoFeedback().build(state.offspring, prediction, evaluation, [], ctx=state).f
+        )
         == 0
     )
     with pytest.raises(ValidationError):
@@ -241,16 +245,18 @@ def test_feedback_sources_and_objective_channel_requirement():
             SurrogatePrediction({"win_rate": PredictionChannel(np.ones((2, 1)))}),
             None,
             [],
-            state,
+            ctx=state,
         )
-    assert len(TrueOnlyFeedback().build(state.offspring, None, None, [], state).f) == 0
+    assert (
+        len(TrueOnlyFeedback().build(state.offspring, None, None, [], ctx=state).f) == 0
+    )
     with pytest.raises(ValidationError, match="prediction rows"):
         PredictedFeedback().build(
             state.offspring,
             SurrogatePrediction({"objective": PredictionChannel(np.ones((1, 1)))}),
             None,
             [],
-            state,
+            ctx=state,
         )
     with pytest.raises(ValidationError, match="objective shape"):
         MixedFeedback().build(
@@ -258,7 +264,7 @@ def test_feedback_sources_and_objective_channel_requirement():
             SurrogatePrediction({"objective": PredictionChannel(np.ones((1, 2)))}),
             None,
             [],
-            state,
+            ctx=state,
         )
 
 
@@ -278,7 +284,7 @@ def test_mixed_missing_rows_are_available_to_explicit_fallback():
         SurrogatePrediction({"win_rate": PredictionChannel(np.ones((2, 1)))}),
         evaluation,
         np.array([10]),
-        state,
+        ctx=state,
     )
     np.testing.assert_array_equal(result.f, [[4.0], [3.0]])
     np.testing.assert_array_equal(result.source, [0, 2])

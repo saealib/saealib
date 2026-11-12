@@ -140,9 +140,9 @@ class _NoScoresAcquisition(AcquisitionFunction):
         candidates_x: np.ndarray,
         prediction: SurrogatePrediction | None,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         prepared: Any = None,
+        ctx: OptimizationState | None,
     ) -> AcquisitionResult:
         return AcquisitionResult(scores=None)
 
@@ -390,7 +390,7 @@ def test_resumed_in_flight_evaluation_has_unknown_origin(tmp_path: Path) -> None
         },
         preserve_ids=True,
     )
-    plan = EvaluateAll().plan(state.population, None, state)
+    plan = EvaluateAll().plan(state.population, None, ctx=state)
     request = plan.requests[0]
     checkpoint_state = state.replace(
         evaluation_plan=plan,
@@ -1442,7 +1442,7 @@ def test_surrogate_accuracy_pairs_by_id_and_skips_unknown_ids() -> None:
     )
     offspring = state.population.extract([0, 1, 2])
     prediction_values = np.array([[1.0], [2.0], [3.0]])
-    plan = EvaluateAll().plan(offspring.extract([0, 1]), None, state)
+    plan = EvaluateAll().plan(offspring.extract([0, 1]), None, ctx=state)
     state = state.replace(
         history=History(["surrogate_accuracy"]),
         offspring=offspring,
@@ -1628,7 +1628,7 @@ def test_surrogate_accuracy_records_distinct_status_for_same_request_sequence() 
     )
     offspring = state.population.extract([0, 1, 2])
     prediction_values = np.array([[1.0], [2.0], [3.0]])
-    plan = EvaluateAll().plan(offspring.extract([0, 1]), None, state)
+    plan = EvaluateAll().plan(offspring.extract([0, 1]), None, ctx=state)
     request_id = int(plan.requests[0].request_id)
     state = state.replace(
         history=History(["surrogate_accuracy"]),
@@ -2223,7 +2223,7 @@ def test_decision_candidate_block_dtypes_and_missing_values() -> None:
         },
         preserve_ids=True,
     )
-    plan = EvaluateAll().plan(state.population, None, state)
+    plan = EvaluateAll().plan(state.population, None, ctx=state)
     record_state = state.replace(
         offspring=state.population,
         evaluation_plan=plan,
@@ -2284,7 +2284,7 @@ def test_decision_candidates_without_dense_view_omit_only_candidates_block() -> 
         },
         preserve_ids=True,
     )
-    plan = EvaluateAll().plan(state.population, None, state)
+    plan = EvaluateAll().plan(state.population, None, ctx=state)
     record_decision(
         state.replace(
             decision_count=1,
@@ -2710,7 +2710,7 @@ def test_retry_keeps_surrogate_prediction_for_the_completed_retry() -> None:
         preserve_ids=True,
     )
     offspring = state.population.extract([0, 1])
-    plan = EvaluateAll().plan(offspring, None, state)
+    plan = EvaluateAll().plan(offspring, None, ctx=state)
     state = state.replace(
         history=History(["evaluation", "surrogate_accuracy"]),
         offspring=offspring,

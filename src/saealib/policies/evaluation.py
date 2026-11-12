@@ -4,11 +4,12 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
 from saealib.acquisition.base import AcquisitionResult
+from saealib.context import OptimizationState
 from saealib.core.contracts import (
     MANY,
     ComponentContract,
@@ -28,7 +29,6 @@ from saealib.population.genome import DenseVectorBatch
 from saealib.registry import register
 
 if TYPE_CHECKING:
-    from saealib.context import OptimizationState
     from saealib.population import Population
 
 
@@ -113,7 +113,8 @@ class EvaluationPlanner(ABC):
         self,
         candidates: Population,
         acquisition: AcquisitionResult | None,
-        ctx: OptimizationState,
+        *,
+        ctx: OptimizationState | None,
     ) -> EvaluationPlan:
         """Return composable evaluation work."""
         ...
@@ -161,8 +162,11 @@ def select_ratio(scores: np.ndarray, ratio: float) -> np.ndarray:
 class _RequestPlanner(EvaluationPlanner):
     @staticmethod
     def _request(
-        candidates: Population, indices: np.ndarray, ctx: OptimizationState
+        candidates: Population,
+        indices: np.ndarray,
+        ctx: OptimizationState | None,
     ) -> EvaluationRequest:
+        ctx = cast(OptimizationState, ctx)
         if "id" not in candidates.schema:
             ids = np.arange(len(candidates), dtype=np.int64)
         else:
@@ -205,7 +209,7 @@ class _RequestPlanner(EvaluationPlanner):
 class EvaluateAll(_RequestPlanner):
     """Evaluate every candidate."""
 
-    def plan(self, candidates, acquisition, ctx):
+    def plan(self, candidates, acquisition, *, ctx: OptimizationState | None):
         """Build a request containing every candidate."""
         indices = np.arange(len(candidates), dtype=np.intp)
         return EvaluationPlan((self._request(candidates, indices, ctx),))
@@ -221,7 +225,7 @@ class TopKEvaluation(_RequestPlanner):
         self.k = k
         self.sanitize_nonfinite = sanitize_nonfinite
 
-    def plan(self, candidates, acquisition, ctx):
+    def plan(self, candidates, acquisition, *, ctx: OptimizationState | None):
         """Build a request for the selected prefix."""
         indices = select_top_k(
             _scores(
@@ -244,7 +248,7 @@ class RatioEvaluation(_RequestPlanner):
         self.ratio = ratio
         self.sanitize_nonfinite = sanitize_nonfinite
 
-    def plan(self, candidates, acquisition, ctx):
+    def plan(self, candidates, acquisition, *, ctx: OptimizationState | None):
         """Build a request for the ratio-selected prefix."""
         scores = _scores(
             acquisition,
@@ -268,7 +272,7 @@ class RepeatedEvaluation(_RequestPlanner):
             raise ValidationError("replicates must be a positive integer")
         self.replicates = replicates
 
-    def plan(self, candidates, acquisition, ctx):
+    def plan(self, candidates, acquisition, *, ctx: OptimizationState | None):
         """Build one request per replicate."""
         requests = self.plan_replicates(candidates, ctx)
         plan_id = int(requests[0].request_id)
@@ -290,7 +294,7 @@ class RepeatedEvaluation(_RequestPlanner):
 
     def plan_replicates(self, candidates, ctx):
         """Build one request per replicate for the same candidate IDs."""
-        first = EvaluateAll().plan(candidates, None, ctx).requests[0]
+        first = EvaluateAll().plan(candidates, None, ctx=ctx).requests[0]
         requests = []
         for replicate in range(self.replicates):
             request_id = first.request_id
@@ -523,9 +527,9 @@ class FidelityEvaluation(_RequestPlanner):
             raise ValidationError("fidelity must be a non-negative integer")
         self.fidelity = fidelity
 
-    def plan(self, candidates, acquisition, ctx):
+    def plan(self, candidates, acquisition, *, ctx: OptimizationState | None):
         """Build one request and attach its fidelity level."""
-        request = EvaluateAll().plan(candidates, acquisition, ctx).requests[0]
+        request = EvaluateAll().plan(candidates, acquisition, ctx=ctx).requests[0]
         metadata = dict(request.metadata)
         metadata["fidelity"] = self.fidelity
         return EvaluationPlan(
@@ -572,9 +576,9 @@ class FidelityPromotion(FidelityEvaluation):
         self.promotion_count = promotion_count
         self.promotion_fraction = promotion_fraction
 
-    def plan(self, candidates, acquisition, ctx):
+    def plan(self, candidates, acquisition, *, ctx: OptimizationState | None):
         """Build a low-fidelity request with a standard continuation marker."""
-        plan = super().plan(candidates, acquisition, ctx)
+        plan = super().plan(candidates, acquisition, ctx=ctx)
         if self.next_fidelity is None:
             return plan
         return EvaluationPlan(

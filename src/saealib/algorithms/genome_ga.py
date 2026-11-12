@@ -12,6 +12,7 @@ from saealib.algorithms.base import (
     AskTellAlgorithm,
     ProposalRequest,
     algorithm_context,
+    algorithm_state,
 )
 from saealib.core.contracts import (
     FeedbackBatch,
@@ -136,6 +137,7 @@ class GenomeGA(AskTellAlgorithm):
     ) -> ProposalBatch:
         """Generate offspring from the current optimization state."""
         ctx = algorithm_context(state)
+        selection_ctx = algorithm_state(ctx)
         n_offspring = request.n_offspring
         popsize = len(ctx.population)
         target = popsize if n_offspring is None else n_offspring
@@ -151,11 +153,11 @@ class GenomeGA(AskTellAlgorithm):
             )
         n_pair = math.ceil(target / self.n_children)
         parent_indices = self.parent_selection.select(
-            ctx,
             ctx.population,
             n_pair=n_pair,
             n_parents=self.n_parents,
             rng=ctx.rng,
+            ctx=selection_ctx,
         )
         parents = ctx.population.genomes.take(np.asarray(parent_indices).reshape(-1))
         offspring = _crossover_genomes(
@@ -201,7 +203,9 @@ class GenomeGA(AskTellAlgorithm):
         pool = population.empty_like(capacity=len(population) + len(offspring))
         pool._extend_internal(population, preserve_ids=True)
         pool._extend_internal(offspring, preserve_ids=True)
-        survivor_idx = self.survivor_selection.select(ctx, pool, len(population))
+        survivor_idx = self.survivor_selection.select(
+            pool, len(population), ctx=algorithm_state(ctx)
+        )
         if not population._replace_from_population(
             pool, survivor_idx, preserve_ids=True
         ):

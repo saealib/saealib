@@ -340,25 +340,27 @@ class TestLowerConfidenceBound:
     def test_prepare_resolves_kappa_from_decision_count(self) -> None:
         af = LowerConfidenceBound(beta_schedule=lambda t: 4.0)
         archive = _archive_x([0.0])
-        assert af.prepare(archive, _decision_ctx(0)) == pytest.approx(2.0)  # sqrt(4.0)
+        assert af.prepare(archive, ctx=_decision_ctx(0)) == pytest.approx(
+            2.0
+        )  # sqrt(4.0)
 
     def test_prepare_raises_when_beta_schedule_returns_negative(self) -> None:
         af = LowerConfidenceBound(beta_schedule=lambda t: -1.0)
         archive = _archive_x([0.0])
         with pytest.raises(ValidationError, match="beta_schedule"):
-            af.prepare(archive, _decision_ctx(0))
+            af.prepare(archive, ctx=_decision_ctx(0))
 
     def test_prepare_raises_when_beta_schedule_returns_nan(self) -> None:
         af = LowerConfidenceBound(beta_schedule=lambda t: float("nan"))
         archive = _archive_x([0.0])
         with pytest.raises(ValidationError, match="beta_schedule"):
-            af.prepare(archive, _decision_ctx(0))
+            af.prepare(archive, ctx=_decision_ctx(0))
 
     def test_prepare_raises_when_beta_schedule_returns_inf(self) -> None:
         af = LowerConfidenceBound(beta_schedule=lambda t: float("inf"))
         archive = _archive_x([0.0])
         with pytest.raises(ValidationError, match="beta_schedule"):
-            af.prepare(archive, _decision_ctx(0))
+            af.prepare(archive, ctx=_decision_ctx(0))
 
     def test_prepare_passes_decision_count_plus_one_as_t(self) -> None:
         seen: list[int] = []
@@ -369,24 +371,24 @@ class TestLowerConfidenceBound:
 
         af = LowerConfidenceBound(beta_schedule=schedule)
         archive = _archive_x([0.0])
-        af.prepare(archive, _decision_ctx(0))
-        af.prepare(archive, _decision_ctx(5))
-        af.prepare(archive, _decision_ctx(5))
+        af.prepare(archive, ctx=_decision_ctx(0))
+        af.prepare(archive, ctx=_decision_ctx(5))
+        af.prepare(archive, ctx=_decision_ctx(5))
         assert seen == [1, 6, 6]
 
     def test_prepare_raises_without_ctx_when_beta_schedule_set(self) -> None:
         af = LowerConfidenceBound(beta_schedule=lambda t: 4.0)
         archive = _archive_x([0.0])
         with pytest.raises(ValidationError, match="beta_schedule"):
-            af.prepare(archive, None)
+            af.prepare(archive, ctx=None)
 
     def test_prepare_delegates_to_compute_reference_without_beta_schedule(
         self,
     ) -> None:
         af = LowerConfidenceBound()
         archive = _archive_x([0.0])
-        assert af.prepare(archive, None) is None
-        assert af.prepare(archive, _decision_ctx(3)) is None
+        assert af.prepare(archive, ctx=None) is None
+        assert af.prepare(archive, ctx=_decision_ctx(3)) is None
 
     def test_score_raises_when_beta_schedule_set_and_reference_is_none(self) -> None:
         af = LowerConfidenceBound(beta_schedule=lambda t: 4.0)
@@ -415,8 +417,8 @@ class TestLowerConfidenceBound:
         archive = _archive_x([0.0])
         ctx = _decision_ctx(2)
 
-        first = af.evaluate(candidates_x, pred, archive, ctx)
-        second = af.evaluate(candidates_x, pred, archive, ctx)
+        first = af.evaluate(candidates_x, pred, archive, ctx=ctx)
+        second = af.evaluate(candidates_x, pred, archive, ctx=ctx)
 
         assert seen == [3, 3]
         assert first.scores is not None
@@ -514,7 +516,7 @@ class TestCORSDistance:
         arc = _archive_x([0.0, 1.0, 2.0])
         pred = _pred_x(value=[[5.0]], x=[[100.0]])
         af = CORSDistance(delta=1.0)
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
         scores = af.score(pred, reference=prepared)
         assert scores[0] == pytest.approx(5.0)
 
@@ -524,7 +526,7 @@ class TestCORSDistance:
         # The first prepare uses beta_1 = 0.95 (default SP1); threshold = 9.5.
         pred = _pred_x(value=[[5.0]], x=[[0.05]])
         af = CORSDistance(delta=10.0)
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
         scores = af.score(pred, reference=prepared)
         assert scores[0] == -np.inf
 
@@ -535,13 +537,13 @@ class TestCORSDistance:
         af = CORSDistance(delta=10.0, search_pattern=(1.0, 0.0))
 
         # First prepare: beta_1 = 1.0 -> threshold = 10.0 -> violates.
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
         assert af.score(pred, reference=prepared)[0] == -np.inf
         # Second prepare: beta_2 = 0.0 -> Eq. (1) is trivially satisfied.
-        prepared = af.prepare(arc, _decision_ctx(1))
+        prepared = af.prepare(arc, ctx=_decision_ctx(1))
         assert af.score(pred, reference=prepared)[0] == pytest.approx(5.0)
         # Third prepare wraps back to beta_1 = 1.0 -> violates again.
-        prepared = af.prepare(arc, _decision_ctx(2))
+        prepared = af.prepare(arc, ctx=_decision_ctx(2))
         assert af.score(pred, reference=prepared)[0] == -np.inf
 
     def test_prepare_resolves_beta_from_decision_count(self) -> None:
@@ -551,7 +553,7 @@ class TestCORSDistance:
         af = CORSDistance(delta=10.0, search_pattern=pattern)
 
         betas = [
-            af.prepare(arc, _decision_ctx(decision_count)).beta
+            af.prepare(arc, ctx=_decision_ctx(decision_count)).beta
             for decision_count in range(7)
         ]
 
@@ -565,14 +567,14 @@ class TestCORSDistance:
         arc = _archive_x(np.arange(archive_size, dtype=float))
         af = CORSDistance()
 
-        assert af.prepare(arc, _decision_ctx(0)).beta == pytest.approx(0.95)
+        assert af.prepare(arc, ctx=_decision_ctx(0)).beta == pytest.approx(0.95)
 
     def test_score_is_read_only_for_prepared_beta(self) -> None:
         """Repeated score() calls do not advance the prepared beta."""
         arc = _archive_x([0.0])
         pred = _pred_x(value=[[5.0]], x=[[0.05]])
         af = CORSDistance(delta=10.0, search_pattern=(1.0, 0.0))
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
 
         first = af.score(pred, reference=prepared)
         second = af.score(pred, reference=prepared)
@@ -587,7 +589,7 @@ class TestCORSDistance:
         af = CORSDistance(delta=10.0)
 
         with pytest.raises(ValidationError, match="decision_count"):
-            af.prepare(arc, None)
+            af.prepare(arc, ctx=None)
 
     def test_context_decision_count_determines_beta_phase(self) -> None:
         """The runtime decision count determines the CORS phase."""
@@ -596,7 +598,7 @@ class TestCORSDistance:
         af = CORSDistance(delta=10.0, search_pattern=pattern)
 
         betas = [
-            af.prepare(arc, _decision_ctx(decision_count)).beta
+            af.prepare(arc, ctx=_decision_ctx(decision_count)).beta
             for decision_count in (4, 0, 4, 1, 4)
         ]
 
@@ -617,7 +619,7 @@ class TestCORSDistance:
         arc = _archive_x([0.0])
         pred = _pred_x(value=[[5.0]], x=[[0.0]])
         af = CORSDistance(delta=10.0, search_pattern=(0.0,))
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
         for _ in range(3):
             assert af.score(pred, reference=prepared)[0] == pytest.approx(5.0)
 
@@ -625,7 +627,7 @@ class TestCORSDistance:
         arc = _archive_x([])
         pred = _pred_x(value=[[5.0]], x=[[0.0]])
         af = CORSDistance(delta=10.0)
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
         scores = af.score(pred, reference=prepared)
         assert scores[0] == pytest.approx(5.0)
 
@@ -633,7 +635,7 @@ class TestCORSDistance:
         arc = _archive_x([0.0])
         pred = _pred(value=[[5.0]])
         af = CORSDistance(delta=10.0)
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
         with pytest.raises(ValueError, match="requires prediction"):
             af.score(pred, reference=prepared)
 
@@ -646,7 +648,7 @@ class TestCORSDistance:
         arc = _archive_x([0.0, 1.0])
         pred = _pred_x(value=[[3.0]], x=[[100.0]])
         af = CORSDistance(delta=1.0, direction=np.array([-1.0]))
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
         scores = af.score(pred, reference=prepared)
         assert scores[0] == pytest.approx(-3.0)
 
@@ -655,7 +657,7 @@ class TestCORSDistance:
         arc = _archive_x([0.0, 10.0])
         pred = _pred_x(value=[[1.0], [2.0], [3.0]], x=[[1.0], [5.0], [20.0]])
         af = CORSDistance(search_pattern=(1.0,))
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
 
         scores = af.score(pred, reference=prepared)
 
@@ -670,7 +672,7 @@ class TestCORSDistance:
         arc = _archive_x([0.0, 10.0])
         pred = _pred_x(value=[[1.0], [2.0], [3.0]], x=[[1.0], [5.0], [20.0]])
         af = CORSDistance(search_pattern=(0.95, 0.0))
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
 
         scores = af.score(pred, reference=prepared)
 
@@ -682,7 +684,7 @@ class TestCORSDistance:
         arc = _archive_x([0.0, 10.0])
         pred = _pred_x(value=[[1.0], [2.0], [3.0]], x=[[1.0], [5.0], [20.0]])
         af = CORSDistance(search_pattern=(0.5, 0.0))
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
 
         scores = af.score(pred, reference=prepared)
 
@@ -695,7 +697,7 @@ class TestCORSDistance:
         arc = _archive_x([0.0, 10.0])
         pred = _pred_x(value=[[1.0], [2.0]], x=[[5.0], [20.0]])
         af = CORSDistance(delta=5.0, search_pattern=(0.95, 0.0))
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
 
         scores = af.score(pred, reference=prepared)
 
@@ -710,7 +712,7 @@ class TestCORSDistance:
             x=[[0.1], [0.2], [9.8], [9.9]],
         )
         af = CORSDistance(search_pattern=(0.95, 0.0))
-        prepared = af.prepare(arc, _decision_ctx(0))
+        prepared = af.prepare(arc, ctx=_decision_ctx(0))
 
         scores = af.score(pred, reference=prepared)
 

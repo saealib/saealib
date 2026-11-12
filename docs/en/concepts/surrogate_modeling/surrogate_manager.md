@@ -13,10 +13,10 @@ Where [Surrogate](surrogate.md) handles only fit/predict, `SurrogateManager` coo
 
 `SurrogateManager`'s abstract method is `predict()`; fitting and generation hooks have default implementations.
 
-**`predict(candidates_x, archive, ctx=None, *, refit=True) -> SurrogatePrediction`** (abstract): Predicts the candidates.
+**`predict(candidates_x, archive, *, refit=True, ctx) -> SurrogatePrediction`** (abstract): Predicts the candidates.
 With `refit=True` (the default), the surrogate is retrained before prediction.
 
-**`fit(archive, ctx=None) -> None`**: A no-op by default.
+**`fit(archive, *, ctx) -> None`**: A no-op by default.
 A pre-fit hook meant to be called once before a series of `predict(..., refit=False)` calls, used when the archive does not change.
 
 **`last_accuracy: SurrogateAccuracy | None`** (class attribute): The accuracy metric computed by the most recent `fit`.
@@ -32,7 +32,7 @@ The values received and returned at the two boundaries are:
 | Stage compatibility boundary | `archive`, `candidates_x: np.ndarray`, `ctx`, `refit` | `SurrogatePrediction`, fit completion state | compatibility Stages, sequential compatibility runtime |
 | graph-native boundary | `GenomeBatch`, `FeatureEncoder`, `FeatureBatch`, declared services | Features the Surrogate can fit and predict, plus predictions | Components, Compiler, structured runtime |
 
-The current vector-form Manager API on the Stage compatibility path uses `fit(archive, ctx=None)` and `predict(candidates_x: np.ndarray, archive, ctx=None, *, refit=True) -> SurrogatePrediction`.
+The current vector-form Manager API on the Stage compatibility path uses `fit(archive, *, ctx)` and `predict(candidates_x: np.ndarray, archive, *, refit=True, ctx) -> SurrogatePrediction`.
 The current API also includes constructors such as `GlobalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`, `LocalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`, and `PairwiseSurrogateManager(surrogate, training_set=None, n_ref=10)`.
 In the structured runtime, the Surrogate input boundary is `GenomeBatch → FeatureEncoder → FeatureBatch → Surrogate`.
 `FeatureEncoder` performs semantic conversion and determines the features the surrogate can learn. It differs from a space capability such as `SamplingService`.
@@ -79,13 +79,21 @@ For a custom archive-based criterion, subclass `AcquisitionFunction` and impleme
 
 ```python
 import numpy as np
-from saealib import AcquisitionFunction, AcquisitionResult
+from saealib import AcquisitionFunction, AcquisitionResult, OptimizationState
 
 
 class ConstantAcquisition(AcquisitionFunction):
     """A minimal acquisition that assigns every candidate the same score."""
 
-    def evaluate(self, candidates_x, prediction, archive, ctx=None, *, prepared=None):
+    def evaluate(
+        self,
+        candidates_x,
+        prediction,
+        archive,
+        *,
+        prepared=None,
+        ctx: OptimizationState | None,
+    ):
         return AcquisitionResult(scores=np.ones(len(candidates_x)))
 ```
 

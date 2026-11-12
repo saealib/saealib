@@ -303,9 +303,9 @@ def test_incompatible_user_feedback_keeps_selection_and_reports_source(
 
 
 class _OptionalFeedback(FeedbackBuilder):
-    def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+    def build(self, candidates, prediction, evaluation, evaluated_indices, *, ctx):
         return NoFeedback().build(
-            candidates, prediction, evaluation, evaluated_indices, ctx
+            candidates, prediction, evaluation, evaluated_indices, ctx=ctx
         )
 
 

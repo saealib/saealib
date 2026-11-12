@@ -15,6 +15,7 @@ from saealib import (
     TruncationSelection,
 )
 from saealib.acquisition import MeanPrediction
+from saealib.context import OptimizationState
 from saealib.core.compiler import (
     CompileContext,
     Compiler,
@@ -2275,7 +2276,7 @@ def test_registered_transforms_validate_output_and_row_alignment() -> None:
         .plan(
             population,
             AcquisitionResult(scores=__import__("numpy").array([0.0, 2.0, 1.0])),
-            _Context(),
+            ctx=cast(OptimizationState, _Context()),
         )
         .requests[0]
     )

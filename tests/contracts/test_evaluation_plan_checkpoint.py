@@ -61,7 +61,7 @@ def test_multi_request_plan_round_trip(tmp_path):
 
 
 class _ArtifactAcquisition(AcquisitionFunction):
-    def evaluate(self, candidates_x, prediction, archive, ctx=None, *, prepared=None):
+    def evaluate(self, candidates_x, prediction, archive, *, prepared=None, ctx):
         return AcquisitionResult(
             scores=np.array([0.25, 0.75], dtype=np.float64),
             artifacts={"candidate_order": candidates_x[:, 0].copy()},
@@ -72,7 +72,7 @@ class _RecordingPlanner:
     def __init__(self):
         self.received = None
 
-    def plan(self, candidates, acquisition, ctx):
+    def plan(self, candidates, acquisition, *, ctx):
         self.received = acquisition
         assert acquisition is not None
         return EvaluationPlan(

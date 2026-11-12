@@ -78,10 +78,10 @@ class _MockSurrogateManager:
     def __init__(self):
         self.acquisition = MeanPrediction()
 
-    def fit(self, archive, ctx=None):
+    def fit(self, archive, *, ctx):
         pass
 
-    def predict(self, candidates_x, archive, ctx=None, *, refit=True):
+    def predict(self, candidates_x, archive, *, refit=True, ctx):
         n = len(candidates_x)
         return SurrogatePrediction.objective(value=np.ones((n, 1)))
 

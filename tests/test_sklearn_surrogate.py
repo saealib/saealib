@@ -267,8 +267,10 @@ class TestSklearnSurrogateIntegration:
     def test_global_manager_svm(self, archive_1obj, candidates) -> None:
         acquisition = MeanPrediction()
         manager = GlobalSurrogateManager(SklearnSVMSurrogate())
-        prediction = manager.predict(candidates, archive_1obj)
-        scores = acquisition.evaluate(candidates, prediction, archive_1obj).scores
+        prediction = manager.predict(candidates, archive_1obj, ctx=None)
+        scores = acquisition.evaluate(
+            candidates, prediction, archive_1obj, ctx=None
+        ).scores
         assert scores is not None
         assert scores.shape == (len(candidates),)
         assert prediction.value.shape == (len(candidates), 1)
@@ -278,8 +280,10 @@ class TestSklearnSurrogateIntegration:
         manager = GlobalSurrogateManager(
             SklearnRFRSurrogate(n_estimators=10, random_state=0)
         )
-        prediction = manager.predict(candidates, archive_1obj)
-        scores = acquisition.evaluate(candidates, prediction, archive_1obj).scores
+        prediction = manager.predict(candidates, archive_1obj, ctx=None)
+        scores = acquisition.evaluate(
+            candidates, prediction, archive_1obj, ctx=None
+        ).scores
         assert scores is not None
         assert scores.shape == (len(candidates),)
 
@@ -288,8 +292,10 @@ class TestSklearnSurrogateIntegration:
         manager = GlobalSurrogateManager(
             SklearnXGBSurrogate(n_estimators=10, verbosity=0)
         )
-        prediction = manager.predict(candidates, archive_1obj)
-        scores = acquisition.evaluate(candidates, prediction, archive_1obj).scores
+        prediction = manager.predict(candidates, archive_1obj, ctx=None)
+        scores = acquisition.evaluate(
+            candidates, prediction, archive_1obj, ctx=None
+        ).scores
         assert scores is not None
         assert scores.shape == (len(candidates),)
 
@@ -298,8 +304,10 @@ class TestSklearnSurrogateIntegration:
         manager = GlobalSurrogateManager(
             SklearnLGBMSurrogate(n_estimators=10, verbose=-1)
         )
-        prediction = manager.predict(candidates, archive_1obj)
-        scores = acquisition.evaluate(candidates, prediction, archive_1obj).scores
+        prediction = manager.predict(candidates, archive_1obj, ctx=None)
+        scores = acquisition.evaluate(
+            candidates, prediction, archive_1obj, ctx=None
+        ).scores
         assert scores is not None
         assert scores.shape == (len(candidates),)
 

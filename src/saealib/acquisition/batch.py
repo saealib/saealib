@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -15,6 +16,9 @@ from saealib.core.contracts import ComponentContract, StateContract
 from saealib.core.state import RUNTIME_RNG
 from saealib.exceptions import ValidationError
 from saealib.registry import register
+
+if TYPE_CHECKING:
+    from saealib.context import OptimizationState
 
 
 def _normal_draws(prediction, ctx, n_draws: int) -> np.ndarray:
@@ -92,7 +96,15 @@ class BatchExpectedImprovement(AcquisitionFunction):
             state=StateContract(reads=(RUNTIME_RNG,), writes=(RUNTIME_RNG,)),
         )
 
-    def evaluate(self, candidates_x, prediction, archive, ctx=None, *, prepared=None):
+    def evaluate(
+        self,
+        candidates_x,
+        prediction,
+        archive,
+        *,
+        prepared=None,
+        ctx: OptimizationState | None,
+    ):
         """Return greedy qEI marginal scores from joint normal draws."""
         if prediction is None:
             raise ValidationError("qEI requires a prediction")

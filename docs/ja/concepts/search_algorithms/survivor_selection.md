@@ -9,7 +9,7 @@ page_type: concept
 
 ## SurvivorSelectionの役割
 
-`SurvivorSelection`が実装を要求するメソッドは`select(ctx, pool, n_survivors) -> np.ndarray`の1つだけです。 `pool`は、親個体群と子個体群など`Algorithm`側が構築した統合済みの`Population`で、その中から生き残る`n_survivors`件のインデックスを返します。
+`SurvivorSelection`が実装を要求するメソッドは`select(pool, n_survivors, *, ctx) -> np.ndarray`の1つだけです。 [ParentSelection](parent_selection.md)と同様に、`ctx`は末尾のキーワード専用・必須引数（型は`OptimizationState | None`）で、Selectionは`ctx=None`を`ValidationError`で拒否します。 `pool`は、親個体群と子個体群など`Algorithm`側が構築した統合済みの`Population`で、その中から生き残る`n_survivors`件のインデックスを返します。
 
 $(\mu+\lambda)$方式（親と子を合わせたプールから選ぶ）か$(\mu,\lambda)$方式（子だけのプールから選ぶ）かは、`pool`に何を含めるかという`Algorithm`側の構築方法で決まります。 `SurvivorSelection`のインターフェース自体はどちらの方式かを区別しません。
 
@@ -29,13 +29,13 @@ $(\mu+\lambda)$方式（親と子を合わせたプールから選ぶ）か$(\mu
 
 ```python
 import numpy as np
-from saealib import SurvivorSelection
+from saealib import OptimizationState, SurvivorSelection
 
 
 class ElitistSurvivorSelection(SurvivorSelection):
     """Always keeps the single best individual, choosing the rest at random."""
 
-    def select(self, ctx, pool, n_survivors):
+    def select(self, pool, n_survivors, *, ctx: OptimizationState | None):
         sorted_idx = ctx.comparator.rank_population(pool)
         best = sorted_idx[:1]
         rest_pool = sorted_idx[1:]

@@ -1048,8 +1048,8 @@ class SurrogatePredictStage(Stage):
                 _prepared_feature_encoder(state),
             ),
             state.archive,
-            state,
             refit=self._refit,
+            ctx=state,
         )
         if self._refit and self._cbmanager is not None:
             _dispatch_callback(
@@ -1212,7 +1212,9 @@ class AcquisitionStage(Stage):
                 archive.structure_version,
             )
             if key != self._prepared_cache_key:
-                self._prepared_cache_value = self._acquisition.prepare(archive, state)
+                self._prepared_cache_value = self._acquisition.prepare(
+                    archive, ctx=state
+                )
                 self._prepared_cache_key = key
             prepared = self._prepared_cache_value
 
@@ -1224,8 +1226,8 @@ class AcquisitionStage(Stage):
                 ),
                 state.predictions,
                 archive,
-                state,
                 prepared=prepared,
+                ctx=state,
             )
             scores = (
                 None
@@ -1323,7 +1325,7 @@ class SurrogateFitStage(Stage):
         )
 
     def execute(self, state: OptimizationState) -> OptimizationState:
-        self._sm.fit(state.archive, state)
+        self._sm.fit(state.archive, ctx=state)
         if self._cbmanager is not None:
             self._cbmanager.dispatch(
                 PostSurrogateFitEvent(
@@ -1529,12 +1531,12 @@ class EvaluationPlanStage(Stage):
             acquisition = state.acquisition_result or AcquisitionResult(
                 scores=state.scores
             )
-            plan = TopKEvaluation(n).plan(candidates, acquisition, state)
+            plan = TopKEvaluation(n).plan(candidates, acquisition, ctx=state)
         else:
             acquisition = state.acquisition_result
             if acquisition is None and state.scores is not None:
                 acquisition = AcquisitionResult(scores=state.scores)
-            plan = self._planner.plan(candidates, acquisition, state)
+            plan = self._planner.plan(candidates, acquisition, ctx=state)
         if not isinstance(plan, EvaluationPlan):
             raise EvaluationProtocolError(
                 "evaluation planner must return EvaluationPlan"
@@ -1729,7 +1731,7 @@ class AsyncEvaluationSubmitStage(Stage):
                 )
                 plan = None
         if plan is None:
-            plan = self._planner.plan(candidates, acquisition, state)
+            plan = self._planner.plan(candidates, acquisition, ctx=state)
             state = state.replace(decision_count=state.decision_count + 1)
         if not isinstance(plan, EvaluationPlan):
             raise EvaluationProtocolError(
@@ -2979,7 +2981,11 @@ class FeedbackStage(Stage):
                 candidate_ids=ids,
             )
         result = self._builder.build(
-            offspring, state.predictions, evaluation, state.evaluation_new_ids, state
+            offspring,
+            state.predictions,
+            evaluation,
+            state.evaluation_new_ids,
+            ctx=state,
         )
         if len(result.candidate_ids) == 0:
             return state.replace(feedback_result=result)
@@ -3310,7 +3316,7 @@ class SurrogateOnlyLoopStage(Stage):
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         if self._gen_ctrl > 0:
-            self._sm.fit(state.archive, state)
+            self._sm.fit(state.archive, ctx=state)
             if self._cbmanager is not None:
                 _dispatch_callback(
                     self._cbmanager,

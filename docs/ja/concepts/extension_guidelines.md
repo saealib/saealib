@@ -33,6 +33,42 @@ import経路の規則は [Canonical Imports](../api/imports.md) にまとめて�
 
 `Algorithm`、`OptimizationStrategy`、`Surrogate`、`AcquisitionFunction`、`SurrogateManager`には、それぞれ差し替え可能な契約があります。 独自の探索や予測を実装するときは、対象のドメインコンポーネントを実装して `Optimizer.set_*()` から登録します。 既存コンポーネントの一部だけを変更する場合は、次の軽量な拡張手段を使えます。
 
+## 文脈依存フック
+
+文脈依存の公開フックは、末尾のキーワード専用・必須引数 `ctx`（型は `OptimizationState | None`）という共通の引数規則に従います。 `ParentSelection.select`、`SurvivorSelection.select`、`EvaluationPlanner.plan`、`FeedbackBuilder.build`、`TrainingSet.build`、`AcquisitionFunction.prepare`/`evaluate`、`SurrogateManager.fit`/`predict`が対象です。 `ctx`を位置引数で渡したり省略したりする呼び出しは `TypeError` になるため、キーワード引数で渡してください。 独自オーバーライドも同じ形で `ctx` を宣言します。
+
+```python
+from saealib import OptimizationState, ParentSelection
+
+
+selection.select(
+    population,
+    n_pair=4,
+    n_parents=2,
+    rng=rng,
+    ctx=state,
+)
+
+
+class MySelection(ParentSelection):
+    def select(
+        self,
+        population,
+        n_pair,
+        n_parents,
+        rng=np.random.default_rng(),
+        *,
+        ctx: OptimizationState | None,
+    ):
+        ...
+```
+
+Selectionは比較と乱数を必要とするため、組み込み実装は `ctx=None` に対して `ValidationError` を送出します。 実行の外から単独で呼ぶときは `ctx=None` を明示的に渡し、他のファミリーはそれぞれが必要とする文脈の拒否動作を保ちます。 純粋な計算にとどまるフック（`Surrogate.fit`/`predict`、交叉・突然変異の本体、`Comparator`、`Decomposition`、`Variable`）は `ctx` を受け取りません。
+
+```{note}
+コンポーネントに `OptimizationState` 全体を渡すのはフルコンテキストの退避路です。 独自コンポーネントは `ctx` を無視しても最小限の宣言で動作します。
+```
+
 ## with_post / with_post_fitによる後処理
 
 [Crossover](search_algorithms/crossover.md)/[Mutation](search_algorithms/mutation.md) の `with_post(fn)` と [Surrogate](surrogate_modeling/surrogate.md) の `with_post_fit(fn)` は、サブクラス化せずに既存インスタンスへ後処理を追加します。元のインスタンスは変更せず、フックを追加したコピーを返します。

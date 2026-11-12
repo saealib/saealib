@@ -145,14 +145,14 @@ class TestArchiveObjectiveSet:
     def test_returns_all_archive_points(self) -> None:
         arc = _make_archive(10)
         ts = ArchiveObjectiveSet()
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         assert data.train_x.shape == (10, DIM)
         assert data.train_y.shape == (10, N_OBJ)
 
     def test_values_match_archive(self) -> None:
         arc = _make_archive(8)
         ts = ArchiveObjectiveSet()
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         np.testing.assert_array_equal(data.train_x, arc.x)
         np.testing.assert_array_equal(data.train_y, arc.f)
 
@@ -160,7 +160,7 @@ class TestArchiveObjectiveSet:
         arc = _make_archive(5)
         ts = ArchiveObjectiveSet()
         cand = np.zeros(DIM)
-        data = ts.build(arc, None, None, candidate_x=cand)
+        data = ts.build(arc, None, candidate_x=cand, ctx=None)
         assert data.train_x.shape == (5, DIM)
 
 
@@ -238,7 +238,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
         with pytest.warns(
             UserWarning, match="encode_features used the default FeatureEncoder"
         ) as emitted:
-            data = ArchiveObjectiveSet().build(arc, None, ctx)
+            data = ArchiveObjectiveSet().build(arc, None, ctx=ctx)
 
         assert len(emitted) == 1
         assert emitted[0].filename == __file__
@@ -256,7 +256,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
         with pytest.warns(
             UserWarning, match="encode_features used the default FeatureEncoder"
         ) as emitted:
-            data = ArchiveObjectiveSet().build(arc, None, ctx)
+            data = ArchiveObjectiveSet().build(arc, None, ctx=ctx)
 
         assert len(emitted) == 1
         assert emitted[0].filename == __file__
@@ -274,7 +274,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
         with pytest.warns(
             UserWarning, match="encode_features used the default FeatureEncoder"
         ) as emitted:
-            data = ArchiveObjectiveSet().build(arc, None, ctx)
+            data = ArchiveObjectiveSet().build(arc, None, ctx=ctx)
 
         assert len(emitted) == 1
         assert emitted[0].filename == __file__
@@ -290,7 +290,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
 
         with warnings.catch_warnings(record=True) as emitted:
             warnings.simplefilter("always")
-            data = ArchiveObjectiveSet().build(arc, None, ctx)
+            data = ArchiveObjectiveSet().build(arc, None, ctx=ctx)
 
         assert emitted == []
         np.testing.assert_array_equal(data.train_x, 2.0 * arc.x)
@@ -306,7 +306,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
 
         with warnings.catch_warnings(record=True) as emitted:
             warnings.simplefilter("always")
-            data = ArchiveObjectiveSet().build(arc, None, ctx)
+            data = ArchiveObjectiveSet().build(arc, None, ctx=ctx)
 
         assert emitted == []
         np.testing.assert_array_equal(data.train_x, 2.0 * arc.x)
@@ -318,7 +318,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
 
         with warnings.catch_warnings(record=True) as emitted:
             warnings.simplefilter("always")
-            data = ArchiveObjectiveSet().build(arc, None, None)
+            data = ArchiveObjectiveSet().build(arc, None, ctx=None)
 
         assert emitted == []
         np.testing.assert_array_equal(data.train_x, arc.x)
@@ -333,7 +333,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
             with pytest.raises(
                 ValidationError, match="require the FeatureEncoder service"
             ):
-                ArchiveObjectiveSet().build(arc, None, ctx)
+                ArchiveObjectiveSet().build(arc, None, ctx=ctx)
 
         assert emitted == []
         assert space.services.get("FeatureEncoder") is None
@@ -349,7 +349,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
             with pytest.raises(
                 ValidationError, match="require the FeatureEncoder service"
             ):
-                ArchiveObjectiveSet().build(arc, None, ctx)
+                ArchiveObjectiveSet().build(arc, None, ctx=ctx)
 
         assert emitted == []
         assert ctx.problem.space.services.get("FeatureEncoder") is encoder
@@ -360,7 +360,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
         ctx.problem.space.services.register("FeatureEncoder", _FailingEncoder())
 
         with pytest.raises(ValueError, match="encoder exploded"):
-            ArchiveObjectiveSet().build(arc, None, ctx)
+            ArchiveObjectiveSet().build(arc, None, ctx=ctx)
 
     def test_prepared_encoder_failure_propagates(self) -> None:
         arc = _make_archive(3)
@@ -368,7 +368,7 @@ class TestArchiveObjectiveSetFeatureEncoding:
         ctx.bind_compiled_services({"FeatureEncoder": _FailingEncoder()})
 
         with pytest.raises(ValueError, match="encoder exploded"):
-            ArchiveObjectiveSet().build(arc, None, ctx)
+            ArchiveObjectiveSet().build(arc, None, ctx=ctx)
 
 
 # ===========================================================================
@@ -379,7 +379,7 @@ class TestKNNObjectiveSet:
         arc = _make_archive(20)
         ts = KNNObjectiveSet(n_neighbors=5)
         cand = np.zeros(DIM)
-        data = ts.build(arc, None, None, candidate_x=cand)
+        data = ts.build(arc, None, candidate_x=cand, ctx=None)
         assert data.train_x.shape == (5, DIM)
         assert data.train_y.shape == (5, N_OBJ)
 
@@ -387,7 +387,7 @@ class TestKNNObjectiveSet:
         arc = _make_archive(10)
         ts = KNNObjectiveSet(n_neighbors=5)
         with pytest.raises(ValueError, match="requires candidate_x"):
-            ts.build(arc, None, None, candidate_x=None)
+            ts.build(arc, None, candidate_x=None, ctx=None)
 
     def test_default_n_neighbors(self) -> None:
         ts = KNNObjectiveSet()
@@ -397,13 +397,13 @@ class TestKNNObjectiveSet:
         arc = _make_archive(8)
         ts = KNNObjectiveSet(n_neighbors=50)
         cand = np.zeros(DIM)
-        data = ts.build(arc, None, None, candidate_x=cand)
+        data = ts.build(arc, None, candidate_x=cand, ctx=None)
         assert data.train_x.shape[0] <= 8
 
     def test_dense_rows_are_read_only_and_match_archive(self) -> None:
         arc = _make_archive(8)
         data = KNNObjectiveSet(n_neighbors=4).build(
-            arc, None, None, candidate_x=np.zeros(DIM)
+            arc, None, candidate_x=np.zeros(DIM), ctx=None
         )
         assert not data.train_x.flags.writeable
         assert not data.train_y.flags.writeable
@@ -430,7 +430,7 @@ class TestKNNObjectiveSet:
                 x=np.full(DIM, i, dtype=float), f=np.array([i], dtype=float), cv=0.0
             )
         data = KNNObjectiveSet(n_neighbors=2).build(
-            arc, None, None, candidate_x=np.zeros(DIM)
+            arc, None, candidate_x=np.zeros(DIM), ctx=None
         )
         assert data.train_x.flags.writeable
         np.testing.assert_array_equal(
@@ -445,7 +445,7 @@ class TestConstraintObjectiveSet:
     def test_returns_all_archive_points(self) -> None:
         arc = _make_archive_with_g(8)
         ts = ConstraintObjectiveSet()
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         assert data.train_x.shape == (8, DIM)
         assert data.train_y.shape == (8, N_CONSTRAINTS)
         np.testing.assert_array_equal(data.train_y, arc.g)
@@ -453,7 +453,7 @@ class TestConstraintObjectiveSet:
     def test_train_y_is_g_not_f(self) -> None:
         arc = _make_archive_with_g(5)
         ts = ConstraintObjectiveSet()
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         # train_y must differ from f (different columns)
         assert data.train_y.shape[1] == N_CONSTRAINTS
         assert data.train_y.shape[1] != arc.f.shape[1] or not np.allclose(
@@ -464,13 +464,13 @@ class TestConstraintObjectiveSet:
         arc = _make_archive(5)  # uses _ATTRS with shape=(0,) for g
         ts = ConstraintObjectiveSet()
         with pytest.raises(ValueError, match="0 columns"):
-            ts.build(arc, None, None)
+            ts.build(arc, None, ctx=None)
 
     def test_candidate_x_is_ignored(self) -> None:
         arc = _make_archive_with_g(6)
         ts = ConstraintObjectiveSet()
         candidate = np.zeros(DIM)
-        data = ts.build(arc, None, None, candidate_x=candidate)
+        data = ts.build(arc, None, candidate_x=candidate, ctx=None)
         assert data.train_x.shape[0] == 6
 
 
@@ -482,7 +482,7 @@ class TestKNNConstraintObjectiveSet:
         arc = _make_archive_with_g(10)
         ts = KNNConstraintObjectiveSet(n_neighbors=5)
         candidate = np.zeros(DIM)
-        data = ts.build(arc, None, None, candidate_x=candidate)
+        data = ts.build(arc, None, candidate_x=candidate, ctx=None)
         assert data.train_x.shape == (5, DIM)
         assert data.train_y.shape == (5, N_CONSTRAINTS)
 
@@ -490,18 +490,18 @@ class TestKNNConstraintObjectiveSet:
         arc = _make_archive_with_g(5)
         ts = KNNConstraintObjectiveSet(n_neighbors=3)
         with pytest.raises(ValueError, match="candidate_x"):
-            ts.build(arc, None, None, candidate_x=None)
+            ts.build(arc, None, candidate_x=None, ctx=None)
 
     def test_raises_on_zero_constraints(self) -> None:
         arc = _make_archive(5)
         ts = KNNConstraintObjectiveSet(n_neighbors=3)
         with pytest.raises(ValueError, match="0 columns"):
-            ts.build(arc, None, None, candidate_x=np.zeros(DIM))
+            ts.build(arc, None, candidate_x=np.zeros(DIM), ctx=None)
 
     def test_clamped_to_archive_size(self) -> None:
         arc = _make_archive_with_g(4)
         ts = KNNConstraintObjectiveSet(n_neighbors=50)
-        data = ts.build(arc, None, None, candidate_x=np.zeros(DIM))
+        data = ts.build(arc, None, candidate_x=np.zeros(DIM), ctx=None)
         assert data.train_x.shape[0] == 4
 
 
@@ -512,33 +512,33 @@ class TestFeasibilityClassificationSet:
     def test_all_feasible(self) -> None:
         arc = _make_archive_with_cv([0.0, 0.0, 0.0, 0.0])
         ts = FeasibilityClassificationSet(source="archive")
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         np.testing.assert_array_equal(data.train_y, np.ones(4))
 
     def test_all_infeasible(self) -> None:
         arc = _make_archive_with_cv([1.0, 2.0, 0.5])
         ts = FeasibilityClassificationSet(source="archive")
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         np.testing.assert_array_equal(data.train_y, np.zeros(3))
 
     def test_mixed_labels(self) -> None:
         arc = _make_archive_with_cv([0.0, 1.0, 0.0, 2.0])
         ts = FeasibilityClassificationSet(source="archive")
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         np.testing.assert_array_equal(data.train_y, [1.0, 0.0, 1.0, 0.0])
 
     def test_eps_from_ctx(self) -> None:
         arc = _make_archive_with_cv([0.1, 0.2, 0.3])
         ctx = _make_ctx(archive=arc, eps_cv=0.15)
         ts = FeasibilityClassificationSet(source="archive")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         # cv=0.1 <= 0.15 → 1, cv=0.2 > 0.15 → 0, cv=0.3 > 0.15 → 0
         np.testing.assert_array_equal(data.train_y, [1.0, 0.0, 0.0])
 
     def test_eps_default_when_ctx_none(self) -> None:
         arc = _make_archive_with_cv([0.0, 1e-7, 1e-5])
         ts = FeasibilityClassificationSet(source="archive")
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         # 0.0 <= 1e-6 → 1, 1e-7 <= 1e-6 → 1, 1e-5 > 1e-6 → 0
         np.testing.assert_array_equal(data.train_y, [1.0, 1.0, 0.0])
 
@@ -546,26 +546,26 @@ class TestFeasibilityClassificationSet:
         pop = _make_population_with_cv([0.0, 0.5, 0.0])
         arc = _make_archive()
         ts = FeasibilityClassificationSet(source="population")
-        data = ts.build(arc, pop, None)
+        data = ts.build(arc, pop, ctx=None)
         np.testing.assert_array_equal(data.train_y, [1.0, 0.0, 1.0])
 
     def test_source_population_none_raises(self) -> None:
         arc = _make_archive()
         ts = FeasibilityClassificationSet(source="population")
         with pytest.raises(ValueError, match="population"):
-            ts.build(arc, None, None)
+            ts.build(arc, None, ctx=None)
 
     def test_train_x_shape(self) -> None:
         arc = _make_archive_with_cv([0.0, 1.0, 0.0])
         ts = FeasibilityClassificationSet(source="archive")
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         assert data.train_x.shape == (3, DIM)
         assert data.train_y.shape == (3,)
 
     def test_labels_are_float(self) -> None:
         arc = _make_archive_with_cv([0.0, 1.0])
         ts = FeasibilityClassificationSet(source="archive")
-        data = ts.build(arc, None, None)
+        data = ts.build(arc, None, ctx=None)
         assert data.train_y.dtype == float
 
 
@@ -593,7 +593,7 @@ class TestTopKBipartitionSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0])
         ctx = _make_ctx(archive=arc)
         ts = TopKBipartitionSet(source="archive", top_ratio=0.5)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_y.shape == (4,)
         assert int(data.train_y.sum()) == 2  # top 2 = label 1
 
@@ -602,7 +602,7 @@ class TestTopKBipartitionSet:
         arc = _make_archive_with_f([4.0, 1.0, 3.0, 2.0])
         ctx = _make_ctx(archive=arc)
         ts = TopKBipartitionSet(source="archive", top_ratio=0.5)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         # sorted order: f=1.0, f=2.0 → label 1; f=3.0, f=4.0 → label 0
         np.testing.assert_array_equal(data.train_y[:2], [1.0, 1.0])
         np.testing.assert_array_equal(data.train_y[2:], [0.0, 0.0])
@@ -611,28 +611,28 @@ class TestTopKBipartitionSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0])
         ctx = _make_ctx(archive=arc)
         ts = TopKBipartitionSet(source="archive", top_ratio=0.0)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_y.sum() >= 1.0
 
     def test_ctx_none_raises(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0])
         ts = TopKBipartitionSet(source="archive")
         with pytest.raises(ValueError, match="ctx"):
-            ts.build(arc, None, None)
+            ts.build(arc, None, ctx=None)
 
     def test_source_population_none_raises(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0])
         ctx = _make_ctx(archive=arc)
         ts = TopKBipartitionSet(source="population")
         with pytest.raises(ValueError, match="population"):
-            ts.build(arc, None, ctx)
+            ts.build(arc, None, ctx=ctx)
 
     def test_source_population(self) -> None:
         pop = _make_population_with_cv([0.0, 0.0, 0.0, 0.0])
         arc = _make_archive()
         ctx = _make_ctx(archive=arc, population=pop)
         ts = TopKBipartitionSet(source="population", top_ratio=0.5)
-        data = ts.build(arc, pop, ctx)
+        data = ts.build(arc, pop, ctx=ctx)
         assert data.train_x.shape == (4, DIM)
         assert data.train_y.shape == (4,)
 
@@ -640,14 +640,14 @@ class TestTopKBipartitionSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0])
         ctx = _make_ctx(archive=arc)
         ts = TopKBipartitionSet(source="archive")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_x.shape == (3, DIM)
 
     def test_labels_are_float(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0])
         ctx = _make_ctx(archive=arc)
         ts = TopKBipartitionSet(source="archive")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_y.dtype == float
 
 
@@ -661,21 +661,21 @@ class TestLevelBasedSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
         ctx = _make_ctx(archive=arc)
         ts = LevelBasedSet(source="archive", n_levels=3)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         np.testing.assert_array_equal(data.train_y, [2.0, 2.0, 1.0, 1.0, 0.0, 0.0])
 
     def test_remainder_goes_to_last_level(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
         ctx = _make_ctx(archive=arc)
         ts = LevelBasedSet(source="archive", n_levels=3)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         np.testing.assert_array_equal(data.train_y, [2.0, 2.0, 1.0, 1.0, 0.0, 0.0, 0.0])
 
     def test_best_individuals_get_highest_label(self) -> None:
         arc = _make_archive_with_f([5.0, 1.0, 3.0, 2.0])
         ctx = _make_ctx(archive=arc)
         ts = LevelBasedSet(source="archive", n_levels=2)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         # sorted order: f=1.0, f=2.0 → label 1; f=3.0, f=5.0 → label 0
         np.testing.assert_array_equal(data.train_y[:2], [1.0, 1.0])
         np.testing.assert_array_equal(data.train_y[2:], [0.0, 0.0])
@@ -688,20 +688,20 @@ class TestLevelBasedSet:
         arc = _make_archive_with_f([1.0, 2.0])
         ts = LevelBasedSet(source="archive")
         with pytest.raises(ValueError, match="ctx"):
-            ts.build(arc, None, None)
+            ts.build(arc, None, ctx=None)
 
     def test_source_population_none_raises(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0])
         ctx = _make_ctx(archive=arc)
         ts = LevelBasedSet(source="population")
         with pytest.raises(ValueError, match="population"):
-            ts.build(arc, None, ctx)
+            ts.build(arc, None, ctx=ctx)
 
     def test_train_x_shape(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0, 5.0])
         ctx = _make_ctx(archive=arc)
         ts = LevelBasedSet(source="archive", n_levels=5)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_x.shape == (5, DIM)
         assert data.train_y.shape == (5,)
 
@@ -709,7 +709,7 @@ class TestLevelBasedSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0])
         ctx = _make_ctx(archive=arc)
         ts = LevelBasedSet(source="archive", n_levels=3)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_y.dtype == float
 
     def test_score_increases_with_quality(self) -> None:
@@ -719,7 +719,7 @@ class TestLevelBasedSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0])
         ctx = _make_ctx(archive=arc)
         ts = LevelBasedSet(source="archive", n_levels=2)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         pred = SurrogatePrediction.objective(value=data.train_y.reshape(-1, 1))
         acq = MeanPrediction(direction=np.array([1.0]))
         scores = acq.score(pred)
@@ -736,7 +736,7 @@ class TestPairwiseComparisonSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0])
         ctx = _make_ctx(archive=arc)
         ts = PairwiseComparisonSet(source="archive")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         n = 4
         assert data.train_x.shape == (n * (n - 1) // 2, DIM * 2)
         assert data.train_y.shape == (n * (n - 1) // 2,)
@@ -745,7 +745,7 @@ class TestPairwiseComparisonSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0, 5.0])
         ctx = _make_ctx(archive=arc)
         ts = PairwiseComparisonSet(source="archive", n_pairs=3)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_x.shape == (3, DIM * 2)
         assert data.train_y.shape == (3,)
 
@@ -753,21 +753,21 @@ class TestPairwiseComparisonSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0])
         ctx = _make_ctx(archive=arc)
         ts = PairwiseComparisonSet(source="archive", n_pairs=999)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_x.shape == (3, DIM * 2)  # 3*(3-1)/2 = 3
 
     def test_train_x_shape_is_2_dim(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0, 3.0])
         ctx = _make_ctx(archive=arc)
         ts = PairwiseComparisonSet(source="archive")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_x.shape[1] == DIM * 2
 
     def test_label_ordering_best_vs_worst(self) -> None:
         arc = _make_archive_with_f([1.0, 10.0])  # idx 0 = best, idx 1 = worst
         ctx = _make_ctx(archive=arc)
         ts = PairwiseComparisonSet(source="archive")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         # Only one pair (0, 1): f=1.0 beats f=10.0 → label 1
         assert data.train_y[0] == pytest.approx(1.0)
 
@@ -775,21 +775,21 @@ class TestPairwiseComparisonSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0])
         ctx = _make_ctx(archive=arc)
         ts = PairwiseComparisonSet(source="archive")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert set(data.train_y.tolist()).issubset({0.0, 1.0})
 
     def test_ctx_none_raises(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0])
         ts = PairwiseComparisonSet(source="archive")
         with pytest.raises(ValueError, match="ctx"):
-            ts.build(arc, None, None)
+            ts.build(arc, None, ctx=None)
 
     def test_source_population_none_raises(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0])
         ctx = _make_ctx(archive=arc)
         ts = PairwiseComparisonSet(source="population")
         with pytest.raises(ValueError, match="population"):
-            ts.build(arc, None, ctx)
+            ts.build(arc, None, ctx=ctx)
 
     def test_custom_rng(self) -> None:
         """Custom rng produces reproducible sampling."""
@@ -799,8 +799,8 @@ class TestPairwiseComparisonSet:
         rng2 = np.random.default_rng(99)
         ts1 = PairwiseComparisonSet(source="archive", n_pairs=4, rng=rng1)
         ts2 = PairwiseComparisonSet(source="archive", n_pairs=4, rng=rng2)
-        d1 = ts1.build(arc, None, ctx)
-        d2 = ts2.build(arc, None, ctx)
+        d1 = ts1.build(arc, None, ctx=ctx)
+        d2 = ts2.build(arc, None, ctx=ctx)
         np.testing.assert_array_equal(d1.train_x, d2.train_x)
         np.testing.assert_array_equal(d1.train_y, d2.train_y)
 
@@ -809,7 +809,7 @@ class TestPairwiseComparisonSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0, 5.0])
         ctx = _make_ctx(archive=arc)
         ts = PairwiseComparisonSet(source="archive", n_pairs=8)
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         # Each row in train_x is unique (half-vector x_a or full [x_a, x_b])
         assert len(data.train_x) == len(np.unique(data.train_x, axis=0))
 
@@ -824,7 +824,7 @@ class TestReferencePointComparisonSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0])
         ctx = _make_ctx(archive=arc)
         ts = ReferencePointComparisonSet(ref_source="archive_best")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert data.train_x.shape == (4, DIM)
         assert data.train_y.shape == (4,)
 
@@ -833,7 +833,7 @@ class TestReferencePointComparisonSet:
         pop = _make_population_with_cv([0.0, 0.0, 0.0])
         ctx = _make_ctx(archive=arc, population=pop)
         ts = ReferencePointComparisonSet(ref_source="population_best")
-        data = ts.build(arc, pop, ctx)
+        data = ts.build(arc, pop, ctx=ctx)
         assert data.train_x.shape == (3, DIM)
         assert data.train_y.shape == (3,)
 
@@ -841,28 +841,28 @@ class TestReferencePointComparisonSet:
         arc = _make_archive_with_f([1.0, 2.0, 3.0, 4.0])
         ctx = _make_ctx(archive=arc)
         ts = ReferencePointComparisonSet(ref_source="archive_best")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         assert set(data.train_y.tolist()).issubset({0.0, 1.0})
 
     def test_ctx_none_raises(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0])
         ts = ReferencePointComparisonSet(ref_source="archive_best")
         with pytest.raises(ValueError, match="ctx"):
-            ts.build(arc, None, None)
+            ts.build(arc, None, ctx=None)
 
     def test_population_none_raises_for_population_best(self) -> None:
         arc = _make_archive_with_f([1.0, 2.0])
         ctx = _make_ctx(archive=arc)
         ts = ReferencePointComparisonSet(ref_source="population_best")
         with pytest.raises(ValueError, match="population"):
-            ts.build(arc, None, ctx)
+            ts.build(arc, None, ctx=ctx)
 
     def test_archive_best_reference_gets_label_one(self) -> None:
         """The best archive point dominates itself, so its label must be 1."""
         arc = _make_archive_with_f([1.0, 5.0, 10.0])
         ctx = _make_ctx(archive=arc)
         ts = ReferencePointComparisonSet(ref_source="archive_best")
-        data = ts.build(arc, None, ctx)
+        data = ts.build(arc, None, ctx=ctx)
         # The point with f=1.0 is best (minimization); it equals the reference
         # so compare(...) == 0 → label 1
         assert 1.0 in data.train_y
@@ -888,8 +888,8 @@ class TestReferencePointComparisonSet:
         )
         acquisition = MeanPrediction(direction=np.array([1.0]))
         candidates_x = np.random.default_rng(0).uniform(-2.0, 2.0, size=(5, DIM))
-        prediction = mgr.predict(candidates_x, arc, ctx)
-        scores = acquisition.evaluate(candidates_x, prediction, arc, ctx).scores
+        prediction = mgr.predict(candidates_x, arc, ctx=ctx)
+        scores = acquisition.evaluate(candidates_x, prediction, arc, ctx=ctx).scores
         assert scores is not None
         assert scores.shape == (5,)
         assert prediction.value.shape == (5, 1)

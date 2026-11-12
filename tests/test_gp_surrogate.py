@@ -200,8 +200,10 @@ class TestSklearnGPRSurrogateManager:
     def test_global_manager_ei(self, archive_1obj, candidates) -> None:
         acquisition = ExpectedImprovement()
         manager = GlobalSurrogateManager(SklearnGPRSurrogate())
-        prediction = manager.predict(candidates, archive_1obj)
-        scores = acquisition.evaluate(candidates, prediction, archive_1obj).scores
+        prediction = manager.predict(candidates, archive_1obj, ctx=None)
+        scores = acquisition.evaluate(
+            candidates, prediction, archive_1obj, ctx=None
+        ).scores
         assert scores is not None
         assert scores.shape == (len(candidates),)
         assert np.all(scores >= 0.0)
@@ -211,16 +213,20 @@ class TestSklearnGPRSurrogateManager:
     def test_global_manager_lcb(self, archive_1obj, candidates) -> None:
         acquisition = LowerConfidenceBound()
         manager = GlobalSurrogateManager(SklearnGPRSurrogate())
-        prediction = manager.predict(candidates, archive_1obj)
-        scores = acquisition.evaluate(candidates, prediction, archive_1obj).scores
+        prediction = manager.predict(candidates, archive_1obj, ctx=None)
+        scores = acquisition.evaluate(
+            candidates, prediction, archive_1obj, ctx=None
+        ).scores
         assert scores is not None
         assert scores.shape == (len(candidates),)
 
     def test_global_manager_max_uncertainty(self, archive_1obj, candidates) -> None:
         acquisition = MaxUncertainty()
         manager = GlobalSurrogateManager(SklearnGPRSurrogate())
-        prediction = manager.predict(candidates, archive_1obj)
-        scores = acquisition.evaluate(candidates, prediction, archive_1obj).scores
+        prediction = manager.predict(candidates, archive_1obj, ctx=None)
+        scores = acquisition.evaluate(
+            candidates, prediction, archive_1obj, ctx=None
+        ).scores
         assert scores is not None
         assert scores.shape == (len(candidates),)
 

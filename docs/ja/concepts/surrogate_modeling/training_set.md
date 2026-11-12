@@ -9,7 +9,7 @@ page_type: concept
 
 ## TrainingSetの役割
 
-`TrainingSet`が実装する必要があるメソッドは`build(archive, population, ctx, candidate_x=None) -> TrainingData`の1つだけです。`candidate_x`は、`LocalSurrogateManager`が候補ごとのk-NN検索中心として渡す引数です。`GlobalSurrogateManager`は`None`を渡して呼び出します。
+`TrainingSet`が実装する必要があるメソッドは`build(archive, population, candidate_x=None, *, ctx) -> TrainingData`の1つだけです。`candidate_x`は、`LocalSurrogateManager`が候補ごとのk-NN検索中心として渡す引数です。`GlobalSurrogateManager`は`None`を渡して呼び出します。
 
 `ctx`に準備済みの`FeatureEncoder`がなく、空間にも明示登録がない場合、`ArchiveObjectiveSet`は最適化の実行準備と同じ対応済みの既定エンコーダを使い、Pythonの`UserWarning`を出します。準備済みまたは明示登録されたエンコーダは優先され、既定を使ったという警告は出ません。
 
@@ -64,7 +64,7 @@ page_type: concept
 独自の学習データ抽出方式が必要な場合は、`TrainingSet`をサブクラス化し、`build()`だけを実装します。次の例は、直近に追加された`k`件だけを学習データとして使う実装です。
 
 ```python
-from saealib import TrainingSet, TrainingData
+from saealib import OptimizationState, TrainingData, TrainingSet
 
 
 class RecentKSet(TrainingSet):
@@ -73,7 +73,14 @@ class RecentKSet(TrainingSet):
     def __init__(self, k: int = 20):
         self.k = k
 
-    def build(self, archive, population, ctx, candidate_x=None):
+    def build(
+        self,
+        archive,
+        population,
+        candidate_x=None,
+        *,
+        ctx: OptimizationState | None,
+    ):
         x = archive.get_array("x")[-self.k :]
         y = archive.get_array("f")[-self.k :]
         return TrainingData(train_x=x, train_y=y)

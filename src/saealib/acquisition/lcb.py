@@ -89,7 +89,7 @@ class LowerConfidenceBound(PointwiseAcquisition):
         """LowerConfidenceBound uses no reference value; always returns None."""
         return None
 
-    def prepare(self, archive: Archive, ctx: OptimizationState | None = None) -> Any:
+    def prepare(self, archive: Archive, *, ctx: OptimizationState | None) -> Any:
         """
         Resolve the ``beta_schedule``-driven ``kappa`` for this decision, if set.
 

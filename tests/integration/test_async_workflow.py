@@ -437,7 +437,7 @@ def test_repeated_plan_waits_for_all_requests_before_tell():
         feedback_builder=TrueOnlyFeedback(),
         algorithm=algorithm,
     )
-    plan = RepeatedEvaluation(2).plan(state.offspring, None, state)
+    plan = RepeatedEvaluation(2).plan(state.offspring, None, ctx=state)
     state = state.replace(
         evaluation_plan=plan,
         evaluation_plan_state=EvaluationPlanState(

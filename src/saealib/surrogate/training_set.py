@@ -172,8 +172,9 @@ class TrainingSet(ABC):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Build and return the training data.
 
@@ -205,8 +206,9 @@ class ArchiveObjectiveSet(TrainingSet):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Return all archive points with raw objective values."""
         genomes = getattr(archive, "genomes", None)
@@ -243,8 +245,9 @@ class KNNObjectiveSet(TrainingSet):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Return k nearest-neighbour archive points around ``candidate_x``."""
         if candidate_x is None:
@@ -274,8 +277,9 @@ class ConstraintObjectiveSet(TrainingSet):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Return all archive points with raw constraint values."""
         g = archive.g
@@ -312,8 +316,9 @@ class KNNConstraintObjectiveSet(TrainingSet):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Return k nearest-neighbour archive points with raw constraint values."""
         if candidate_x is None:
@@ -363,8 +368,9 @@ class FeasibilityClassificationSet(TrainingSet):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Return feasibility binary labels (1 = feasible, 0 = infeasible)."""
         if self.source == "population":
@@ -412,8 +418,9 @@ class TopKBipartitionSet(TrainingSet):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Return bipartition labels based on sorted rank."""
         if ctx is None:
@@ -463,8 +470,9 @@ class LevelBasedSet(TrainingSet):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Return level labels from equal-size sorted groups."""
         if ctx is None:
@@ -544,8 +552,9 @@ class PairwiseComparisonSet(TrainingSet):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Return pairwise comparison training data."""
         if ctx is None:
@@ -614,8 +623,9 @@ class ReferencePointComparisonSet(TrainingSet):
         self,
         archive: Archive,
         population: Population | None,
-        ctx: OptimizationState | None,
         candidate_x: np.ndarray | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> TrainingData:
         """Return binary labels: 1 if archive point dominates reference, 0 otherwise."""
         if ctx is None:

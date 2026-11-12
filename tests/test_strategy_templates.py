@@ -334,9 +334,9 @@ class _RecordingPlanner(RatioEvaluation):
         super().__init__(0.5, sanitize_nonfinite=True)
         self.calls = 0
 
-    def plan(self, candidates, acquisition, ctx):
+    def plan(self, candidates, acquisition, *, ctx):
         self.calls += 1
-        return super().plan(candidates, acquisition, ctx)
+        return super().plan(candidates, acquisition, ctx=ctx)
 
 
 class _RecordingFeedback(MixedFeedback):
@@ -344,9 +344,11 @@ class _RecordingFeedback(MixedFeedback):
         super().__init__()
         self.calls = 0
 
-    def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+    def build(self, candidates, prediction, evaluation, evaluated_indices, *, ctx):
         self.calls += 1
-        return super().build(candidates, prediction, evaluation, evaluated_indices, ctx)
+        return super().build(
+            candidates, prediction, evaluation, evaluated_indices, ctx=ctx
+        )
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])

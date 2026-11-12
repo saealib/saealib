@@ -55,7 +55,7 @@ def _make_problem(comparator: Comparator | None = None) -> Problem:
 
 
 class _MockSurrogateManager:
-    def fit(self, archive, ctx=None):
+    def fit(self, archive, *, ctx):
         pass
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import replace
-from typing import Any, Protocol
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -20,18 +20,12 @@ from saealib.core.contracts import (
     Var,
 )
 from saealib.core.state import RUNTIME_RNG
+from saealib.exceptions import ValidationError
 from saealib.population import Population
 from saealib.registry import register
 
-
-class _SelectionContext(Protocol):
-    """Comparison and random capabilities used by selection operators."""
-
-    @property
-    def comparator(self) -> Any: ...
-
-    @property
-    def rng(self) -> np.random.Generator: ...
+if TYPE_CHECKING:
+    from saealib.context import OptimizationState
 
 
 class ParentSelection(ABC):
@@ -69,19 +63,18 @@ class ParentSelection(ABC):
     @abstractmethod
     def select(
         self,
-        ctx: _SelectionContext,
         population: Population,
         n_pair: int,
         n_parents: int,
         rng: np.random.Generator = np.random.default_rng(),
+        *,
+        ctx: OptimizationState | None,
     ) -> np.ndarray:
         """
         Select parents for reproduction.
 
         Parameters
         ----------
-        ctx : ExecutionContext
-            Optimization context.
         population : Population
             Population to select from.
         n_pair : int
@@ -90,11 +83,21 @@ class ParentSelection(ABC):
             Number of parents per pair.
         rng : np.random.Generator, optional
             Random number generator, by default np.random.default_rng()
+        ctx : OptimizationState or None
+            Optimization context, providing the comparator and runtime
+            random generator. Selection requires comparison and randomness,
+            so every concrete implementation raises ValidationError when
+            ``ctx`` is ``None``.
 
         Returns
         -------
         np.ndarray
             Selected parent indices. shape = (n_pair, n_parents)
+
+        Raises
+        ------
+        ValidationError
+            If ``ctx`` is ``None``.
         """
         pass
 
@@ -142,19 +145,18 @@ class TournamentSelection(ParentSelection):
 
     def select(
         self,
-        ctx: _SelectionContext,
         population: Population,
         n_pair: int,
         n_parents: int,
         rng: np.random.Generator = np.random.default_rng(),
+        *,
+        ctx: OptimizationState | None,
     ) -> np.ndarray:
         """
         Execute tournament selection.
 
         Parameters
         ----------
-        ctx : ExecutionContext
-            Optimization context.
         population : Population
             Population to select from.
         n_pair : int
@@ -163,12 +165,22 @@ class TournamentSelection(ParentSelection):
             Number of parents per pair.
         rng : np.random.Generator, optional
             Random number generator, by default np.random.default_rng()
+        ctx : OptimizationState or None
+            Optimization context, providing the comparator and runtime
+            random generator.
 
         Returns
         -------
         np.ndarray
             Selected parent indices. shape = (n_pair, n_parents)
+
+        Raises
+        ------
+        ValidationError
+            If ``ctx`` is ``None``.
         """
+        if ctx is None:
+            raise ValidationError("TournamentSelection requires ctx.")
         n_pop = len(population)
         cmp = ctx.comparator
         selected_idx = np.zeros((n_pair, n_parents), dtype=int)
@@ -201,11 +213,12 @@ class SequentialSelection(ParentSelection):
 
     def select(
         self,
-        ctx: _SelectionContext,
         population: Population,
         n_pair: int,
         n_parents: int,
         rng: np.random.Generator = np.random.default_rng(),
+        *,
+        ctx: OptimizationState | None,
     ) -> np.ndarray:
         """
         Execute sequential selection.
@@ -214,8 +227,6 @@ class SequentialSelection(ParentSelection):
 
         Parameters
         ----------
-        ctx : ExecutionContext
-            Optimization context.
         population : Population
             Population to select from.
         n_pair : int
@@ -224,12 +235,22 @@ class SequentialSelection(ParentSelection):
             Number of parents per pair.
         rng : np.random.Generator, optional
             Random number generator, by default np.random.default_rng()
+        ctx : OptimizationState or None
+            Optimization context. Required even though sequential selection
+            performs no comparison.
 
         Returns
         -------
         np.ndarray
             Selected parent indices. shape = (n_pair, n_parents)
+
+        Raises
+        ------
+        ValidationError
+            If ``ctx`` is ``None``.
         """
+        if ctx is None:
+            raise ValidationError("SequentialSelection requires ctx.")
         selected_idx = np.zeros((n_pair, n_parents), dtype=int)
         i_grid, j_grid = np.meshgrid(
             np.arange(n_pair), np.arange(n_parents), indexing="ij"
@@ -274,19 +295,18 @@ class LinearRankSelection(ParentSelection):
 
     def select(
         self,
-        ctx: _SelectionContext,
         population: Population,
         n_pair: int,
         n_parents: int,
         rng: np.random.Generator = np.random.default_rng(),
+        *,
+        ctx: OptimizationState | None,
     ) -> np.ndarray:
         """
         Execute linear rank selection.
 
         Parameters
         ----------
-        ctx : ExecutionContext
-            Optimization context.
         population : Population
             Population to select from.
         n_pair : int
@@ -295,12 +315,22 @@ class LinearRankSelection(ParentSelection):
             Number of parents per pair.
         rng : np.random.Generator, optional
             Random number generator, by default np.random.default_rng()
+        ctx : OptimizationState or None
+            Optimization context, providing the comparator and runtime
+            random generator.
 
         Returns
         -------
         np.ndarray
             Selected parent indices. shape = (n_pair, n_parents)
+
+        Raises
+        ------
+        ValidationError
+            If ``ctx`` is ``None``.
         """
+        if ctx is None:
+            raise ValidationError("LinearRankSelection requires ctx.")
         n_pop = len(population)
         sorted_idx = ctx.comparator.sort_population(population)
         weights = np.arange(n_pop, 0, -1, dtype=float)
@@ -342,9 +372,10 @@ class SurvivorSelection(ABC):
     @abstractmethod
     def select(
         self,
-        ctx: _SelectionContext,
         pool: Population,
         n_survivors: int,
+        *,
+        ctx: OptimizationState | None,
     ) -> np.ndarray:
         """
         Select survivors from the selection pool.
@@ -355,17 +386,25 @@ class SurvivorSelection(ABC):
 
         Parameters
         ----------
-        ctx : ExecutionContext
-            Optimization context.
         pool : Population
             Selection pool to choose survivors from.
         n_survivors : int
             Number of survivors to select.
+        ctx : OptimizationState or None
+            Optimization context, providing the comparator and runtime
+            random generator. Selection requires comparison and randomness,
+            so every concrete implementation raises ValidationError when
+            ``ctx`` is ``None``.
 
         Returns
         -------
         np.ndarray
             Indices of selected survivors in the pool.
+
+        Raises
+        ------
+        ValidationError
+            If ``ctx`` is ``None``.
         """
         pass
 
@@ -426,27 +465,36 @@ class TruncationSelection(SurvivorSelection):
 
     def select(
         self,
-        ctx: _SelectionContext,
         pool: Population,
         n_survivors: int,
+        *,
+        ctx: OptimizationState | None,
     ) -> np.ndarray:
         """
         Select survivors by truncating the sorted pool.
 
         Parameters
         ----------
-        ctx : ExecutionContext
-            Optimization context.
         pool : Population
             Selection pool to choose survivors from.
         n_survivors : int
             Number of survivors to select.
+        ctx : OptimizationState or None
+            Optimization context, providing the comparator and runtime
+            random generator.
 
         Returns
         -------
         np.ndarray
             Indices of selected survivors in the pool.
+
+        Raises
+        ------
+        ValidationError
+            If ``ctx`` is ``None``.
         """
+        if ctx is None:
+            raise ValidationError("TruncationSelection requires ctx.")
         cmp = ctx.comparator
         sorted_idx = cmp.rank_population(pool)
         if not self.randomize_ties or n_survivors >= len(sorted_idx):

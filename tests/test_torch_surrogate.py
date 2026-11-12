@@ -179,8 +179,10 @@ class TestTorchSurrogateIntegration:
         s = TorchSurrogate(_make_model_1obj(), epochs=10)
         acquisition = MeanPrediction()
         manager = GlobalSurrogateManager(s)
-        prediction = manager.predict(candidates, archive_1obj)
-        scores = acquisition.evaluate(candidates, prediction, archive_1obj).scores
+        prediction = manager.predict(candidates, archive_1obj, ctx=None)
+        scores = acquisition.evaluate(
+            candidates, prediction, archive_1obj, ctx=None
+        ).scores
         assert scores is not None
         assert scores.shape == (len(candidates),)
         assert prediction.value.shape == (len(candidates), 1)

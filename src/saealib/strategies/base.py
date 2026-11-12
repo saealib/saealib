@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import weakref
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, cast
 
@@ -46,6 +47,36 @@ def build_runtime_neutral_graph(
     raise TypeError("strategy must implement build_graph")
 
 
+def _entry_uses_surrogate_slot(entry: object) -> bool:
+    """Return whether a declaration entry reaches the surrogate manager slot."""
+    from saealib.pipeline import Stage
+    from saealib.surrogate.manager import SurrogateManager
+
+    children = _structural_stages(entry)
+    if children is not None:
+        return any(_entry_uses_surrogate_slot(child) for child in children)
+    if isinstance(entry, SurrogateManager):
+        return True
+    if not isinstance(entry, Stage):
+        return False
+    for _, reference in getattr(entry, "_refs", ()):
+        if reference is not None and reference.slot == "surrogate_manager":
+            return True
+    for value in vars(entry).values():
+        if isinstance(value, SurrogateManager):
+            return True
+        if (
+            value is not entry
+            and (isinstance(value, Stage) or _structural_stages(value) is not None)
+            and _entry_uses_surrogate_slot(value)
+        ):
+            return True
+    nested = getattr(entry, "stages", None)
+    if isinstance(nested, (list, tuple)):
+        return any(_entry_uses_surrogate_slot(child) for child in nested)
+    return False
+
+
 def build_pipeline_from_graph(graph: ComponentGraph) -> Pipeline:
     """Recover a Pipeline facade from a stage-based strategy graph."""
     from saealib.core.graph_builder import StageNodeAdapter
@@ -66,7 +97,10 @@ class OptimizationStrategy:
     implementation recovers a facade for stage-based graphs.
     """
 
-    # Optimizer.validate() checks this to ensure surrogate_manager is configured.
+    # Optimizer.validate() checks this to ensure surrogate_manager is
+    # configured.  It is a plain attribute: a strategy may declare it as a
+    # class attribute, inherit it from a mixin, set it on an instance, or
+    # restore it from a pickle or a spec.
     requires_surrogate: bool = False
 
     # Async runtimes may refill a strategy while an earlier proposal is still
@@ -95,8 +129,9 @@ class OptimizationStrategy:
         """Build the strategy's canonical graph.
 
         Built-in strategies provide node/adapter specs to the canonical graph
-        builder; graph-only extensions override this method and need not
-        implement a Pipeline builder.
+        builder.  Writing a new strategy is done with
+        :class:`TemplateStrategy` and a declared Pipeline; overriding this
+        method is deprecated and emits a :class:`DeprecationWarning`.
         """
         return build_runtime_neutral_graph(self, provider)
 
@@ -150,8 +185,12 @@ class TemplateStrategy(OptimizationStrategy):
     pipeline : Pipeline
         Declaration to resolve and run.
     requires_surrogate : bool or None, optional
-        Whether the declaration needs a surrogate manager.  ``None`` keeps
-        the class-level value.
+        Surrogate requirement declared on the instance.  ``None`` (the
+        default) leaves the class-level value in place.  For a subclass that
+        keeps the standard ``build_graph``, the configuration diagnostics
+        derive the requirement from the declared flow instead, and a declared
+        value that contradicts the flow is reported and does not change the
+        outcome.
 
     Attributes
     ----------
@@ -160,7 +199,14 @@ class TemplateStrategy(OptimizationStrategy):
     pipeline : Pipeline or None
         The declaration resolved for the most recent plan; ``None`` until a
         plan is prepared.
+    requires_surrogate : bool or None
+        Plain attribute holding the declared requirement; ``None`` when the
+        strategy declares none.  The configuration diagnostics derive the
+        effective requirement of a standard-lowering subclass from its
+        declaration.
     """
+
+    requires_surrogate: bool | None = None
 
     def __init__(
         self,
@@ -206,6 +252,21 @@ class TemplateStrategy(OptimizationStrategy):
 
     def _restore_generated_node_references(self, declaration: Pipeline) -> None:
         """Restore caches pointing into *declaration* when they are absent."""
+
+    def _derive_surrogate_requirement(self) -> bool | None:
+        """Return the requirement derived from the declared flow.
+
+        The walk covers every Stage of the declaration, including nested
+        Repeat, Loop, and Branch regions, and is ``True`` when a Stage refers
+        to the surrogate manager slot through a ``ComponentRef`` or holds a
+        surrogate manager directly.  The result is ``None`` when the subclass
+        replaces ``build_graph``; such a strategy keeps using its declared
+        ``requires_surrogate`` attribute.  The comparison is method identity,
+        the same check the ``build_graph`` deprecation uses.
+        """
+        if getattr(type(self), "build_graph", None) is not TemplateStrategy.build_graph:
+            return None
+        return _entry_uses_surrogate_slot(getattr(self, "declaration", None))
 
     def build_template(self) -> Pipeline:
         """Return the declaration pipeline prepared for this run.
@@ -302,3 +363,32 @@ class TemplateStrategy(OptimizationStrategy):
                     for slot, value in values.items()
                 }
         return values
+
+
+_BUILD_GRAPH_BASE_IMPLEMENTATIONS = (
+    OptimizationStrategy.build_graph,
+    TemplateStrategy.build_graph,
+)
+_WARNED_BUILD_GRAPH_OVERRIDES: weakref.WeakSet[type] = weakref.WeakSet()
+
+
+def warn_deprecated_build_graph_override(strategy: object) -> None:
+    """Warn once per strategy class that lowers its own component graph.
+
+    The class's ``build_graph`` is compared by identity against the base
+    implementations, so a plain subclass of a built-in strategy does not
+    warn while a custom override does.
+    """
+    cls = type(strategy)
+    build_graph = getattr(cls, "build_graph", None)
+    if build_graph in _BUILD_GRAPH_BASE_IMPLEMENTATIONS:
+        return
+    if cls in _WARNED_BUILD_GRAPH_OVERRIDES:
+        return
+    _WARNED_BUILD_GRAPH_OVERRIDES.add(cls)
+    warn_deprecated(
+        f"Overriding build_graph(provider) in {cls.__qualname__}",
+        since="0.2.0",
+        replacement="TemplateStrategy with a declared Pipeline",
+        stacklevel=2,
+    )

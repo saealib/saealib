@@ -109,7 +109,7 @@ class _MockProvider:
 
 class TestDirectStrategy:
     def test_requires_surrogate_is_false(self):
-        assert DirectStrategy.requires_surrogate is False
+        assert DirectStrategy().requires_surrogate is False
 
     def test_is_optimization_strategy_subclass(self):
         assert isinstance(DirectStrategy(), OptimizationStrategy)

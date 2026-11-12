@@ -77,6 +77,8 @@ from saealib.strategies import (
     SteadyStateStrategy,
     TemplateStrategy,
 )
+from saealib.strategies.ib import build_ib_template
+from saealib.strategies.ps import build_ps_template
 from saealib.surrogate.manager import LocalSurrogateManager
 from saealib.surrogate.rbf import RBFSurrogate
 from saealib.surrogate.rbf_kernels import GaussianKernel
@@ -1634,3 +1636,79 @@ def test_steady_state_partial_feedback_accumulator_pickle_resume(tmp_path):
         in_flight_request_ids=in_flight_request_ids,
         portable_checkpoint=False,
     )
+
+
+def _archive_x_f(state: Any) -> tuple[np.ndarray, np.ndarray]:
+    archive = state.archive
+    xs = np.asarray(archive.get_array("x"))
+    fs = np.asarray(archive.get_array("f"))
+    values = fs if fs.ndim == 1 else fs[:, 0]
+    order = np.lexsort((*xs[:, ::-1].T, values))
+    return values[order], xs[order]
+
+
+def _assert_same_run(actual: Any, expected: Any) -> None:
+    assert (actual.gen, actual.fe) == (expected.gen, expected.fe)
+    actual_x, actual_f = _archive_x_f(actual)
+    expected_x, expected_f = _archive_x_f(expected)
+    np.testing.assert_array_equal(actual_x, expected_x)
+    np.testing.assert_array_equal(actual_f, expected_f)
+
+
+@pytest.mark.parametrize(
+    ("shorthand", "declaration", "planner", "builder"),
+    [
+        (
+            IndividualBasedStrategy(0.3),
+            build_ib_template(),
+            RatioEvaluation(0.3, sanitize_nonfinite=True),
+            MixedFeedback(),
+        ),
+        (
+            PreSelectionStrategy(5, 2),
+            build_ps_template(5),
+            TopKEvaluation(min(2, 5), sanitize_nonfinite=True),
+            TrueOnlyFeedback(),
+        ),
+    ],
+)
+def test_shorthand_matches_template_with_explicit_policy_components(
+    shorthand, declaration, planner, builder
+):
+    shorthand_optimizer = _optimizer(shorthand)
+    shorthand_state = shorthand_optimizer.run()
+
+    template_optimizer = _optimizer(TemplateStrategy(declaration))
+    template_optimizer.set_evaluation_planner(planner)
+    template_optimizer.set_feedback_builder(builder)
+    template_state = template_optimizer.run()
+
+    _assert_same_run(template_state, shorthand_state)
+
+
+def test_explicit_policy_components_win_over_the_shorthand_default() -> None:
+    planner = TopKEvaluation(3, sanitize_nonfinite=True)
+    shorthand_optimizer = _optimizer(IndividualBasedStrategy(0.3))
+    shorthand_optimizer.set_evaluation_planner(planner)
+    shorthand_state = shorthand_optimizer.run()
+
+    template_optimizer = _optimizer(TemplateStrategy(build_ib_template()))
+    template_optimizer.set_evaluation_planner(
+        TopKEvaluation(3, sanitize_nonfinite=True)
+    )
+    template_state = template_optimizer.run()
+
+    _assert_same_run(template_state, shorthand_state)
+    origin = shorthand_optimizer._component_origins["evaluation_planner"]
+    assert origin.source == "setter"
+
+
+def test_in_place_shorthand_change_does_not_affect_explicit_components() -> None:
+    strategy = IndividualBasedStrategy(0.3)
+    optimizer = _optimizer(strategy)
+    optimizer.set_evaluation_planner(TopKEvaluation(3, sanitize_nonfinite=True))
+    optimizer.run()
+    resolved = cast(Any, strategy.pipeline)
+    explicit = resolved.find("evaluation_plan")._planner
+    assert explicit is optimizer.evaluation_planner
+    assert not isinstance(explicit, RatioEvaluation)

@@ -7,6 +7,7 @@ import pytest
 
 from saealib.callback import CallbackManager, GenerationEndEvent, PostEvaluationEvent
 from saealib.context import EvaluationPlanState, OptimizationState
+from saealib.core.compiler.strategy_requirements import resolve_requires_surrogate
 from saealib.core.contracts import (
     ComponentContract,
     FeedbackBatch,
@@ -2173,7 +2174,7 @@ def _ctx_progress_optimizer(strategy, seed=42, gen_limit=3):
         .set_strategy(strategy)
         .set_termination(Termination(lambda state: state.gen >= gen_limit))
     )
-    if strategy.requires_surrogate:
+    if resolve_requires_surrogate(strategy).effective:
         optimizer = optimizer.set_surrogate_manager(
             LocalSurrogateManager(RBFSurrogate(GaussianKernel()))
         ).set_acquisition(MeanPrediction())

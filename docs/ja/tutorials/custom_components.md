@@ -28,7 +28,7 @@ importの方針は [Canonical Imports](../api/imports.md) にまとめていま�
 | 予測を候補スコアに変換する | `AcquisitionFunction` | `evaluate()`、または対応するPointwiseの`compute_reference()`と`score()` |
 | graph-native経路で評価バックエンドを拡張する | `EvaluationAdapter` / `Evaluator` | `GenomeBatch → EvaluationAdapter → EvaluationPayload → Evaluator → ObservationBatch` |
 | Stage互換経路で同期Evaluatorを差し替える | `Evaluator` | `evaluate_batch()`と`EvaluationResult` |
-| 世代実行ポリシー | `Strategy` | `build_graph()`または既存のStrategy経路 |
+| 世代実行ポリシー | `Strategy` | `Pipeline` 宣言を渡した `TemplateStrategy` |
 | 互換実行単位 | `Stage` | `execute(state) -> state` |
 
 各契約で必要なメソッドは、[Algorithmリファレンス](../api/algorithms.md)、[Surrogateリファレンス](../api/surrogate.md)、[Acquisitionリファレンス](../api/acquisition.md)、[Stageリファレンス](../api/stages.md)で確認します。似た名前でも契約が同じとは限らないため、境界を確認せずに別コンポーネントのメソッドを再利用してはいけません。
@@ -205,10 +205,10 @@ class MyCrossover(Crossover):
 | `Algorithm` | 候補を提案しフィードバックを消費する | `ProposalBatch`、`FeedbackBatch`、`StatePatch` |
 | Operator | 交叉、突然変異、親選択、生存選択 | Algorithmから渡される候補とRNG |
 | `Surrogate` | 予測モデルでfit/predictする | Archiveからの学習データと予測 |
-| `OptimizationStrategy` | 評価計画、候補選択、フィードバックの流れ | `build_graph()`またはStage互換経路 |
+| `OptimizationStrategy` | 評価計画、候補選択、フィードバックの流れ | `Pipeline` 宣言を渡した `TemplateStrategy` |
 | `Stage` | 既存の逐次経路で1つの操作 | `OptimizationState`と`replace()` |
 
-各コンポーネントを実装する前に、対応するConceptページで契約と組み込み実装を確認します。`Algorithm.ask()`と`Algorithm.tell()`、`Strategy.build_graph()`、`Stage.execute()`は異なる境界です。
+各コンポーネントを実装する前に、対応するConceptページで契約と組み込み実装を確認します。`Algorithm.ask()`と`Algorithm.tell()`、戦略が宣言する`Pipeline`、`Stage.execute()`は異なる境界です。
 
 ## 実装順とStageの移行
 

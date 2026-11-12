@@ -20,6 +20,7 @@ from saealib import (
 )
 from saealib.acquisition import MeanPrediction
 from saealib.core.compiler.adapters import AdapterInsertion
+from saealib.core.compiler.strategy_requirements import resolve_requires_surrogate
 from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.execution import AsyncEvaluationScheduler, SerialEvaluator
 from saealib.pipeline import Pipeline
@@ -88,7 +89,7 @@ def _optimizer(strategy: Any, *, asynchronous: bool = False) -> Optimizer:
         .set_strategy(strategy)
         .set_termination(Termination(lambda state: state.gen >= 2))
     )
-    if strategy.requires_surrogate:
+    if resolve_requires_surrogate(strategy).effective:
         optimizer.set_surrogate_manager(
             LocalSurrogateManager(RBFSurrogate(GaussianKernel()))
         ).set_acquisition(MeanPrediction())

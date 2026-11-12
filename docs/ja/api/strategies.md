@@ -7,8 +7,7 @@ page_type: reference
 # 最適化戦略
 
 組み込みStrategyは、候補生成、評価計画、Feedback、Population更新を構成します。
-新しいStrategyの正規の拡張点は`build_graph(provider) -> ComponentGraph`です。
-`build_pipeline()`は既存のPipeline DSLに対する互換性用の記述形式です。
+新しいStrategyの正規の拡張点は、`Pipeline` 宣言を渡した `TemplateStrategy` です。 `build_graph(provider)` の上書きは非推奨で、`DeprecationWarning` が出力されます。
 
 ## 基底
 

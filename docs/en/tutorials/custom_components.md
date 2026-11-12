@@ -29,7 +29,7 @@ When you need new search, prediction, evaluation, or generation logic, choose th
 | Turn predictions into candidate scores | `AcquisitionFunction` | `evaluate()`, or the corresponding Pointwise `compute_reference()` and `score()` |
 | Extend the evaluation backend on the graph-native path | `EvaluationAdapter` / `Evaluator` | `GenomeBatch → EvaluationAdapter → EvaluationPayload → Evaluator → ObservationBatch` |
 | Swap a synchronous Evaluator on the Stage compatibility path | `Evaluator` | `evaluate_batch()` and `EvaluationResult` |
-| Generation execution policy | `Strategy` | `build_graph()` or the existing Strategy path |
+| Generation execution policy | `Strategy` | `TemplateStrategy` with a declared `Pipeline` |
 | Compatibility execution unit | `Stage` | `execute(state) -> state` |
 
 Check the exact required methods for each contract in the [Algorithm reference](../api/algorithms.md), [Surrogate reference](../api/surrogate.md), [Acquisition reference](../api/acquisition.md), and [Stage reference](../api/stages.md).
@@ -224,11 +224,11 @@ When extending an existing execution contract, define the component's responsibi
 | `Algorithm` | Propose candidates and consume feedback | `ProposalBatch`, `FeedbackBatch`, `StatePatch` |
 | Operator | Crossover, mutation, parent selection, and survivor selection | Candidates and RNG passed by the Algorithm |
 | `Surrogate` | Fit and predict with the prediction model | Training data from the Archive and predictions |
-| `OptimizationStrategy` | Evaluation plan, candidate selection, and feedback flow | `build_graph()` or the Stage compatibility path |
+| `OptimizationStrategy` | Evaluation plan, candidate selection, and feedback flow | `TemplateStrategy` with a declared `Pipeline` |
 | `Stage` | One operation on the existing sequential path | `OptimizationState` and `replace()` |
 
 Check the contract and built-in implementation on the relevant concept page before implementing each component.
-`Algorithm.ask()` and `Algorithm.tell()`, `Strategy.build_graph()`, and `Stage.execute()` are different boundaries.
+`Algorithm.ask()` and `Algorithm.tell()`, the strategy's declared `Pipeline`, and `Stage.execute()` are different boundaries.
 
 ## Plan implementation and Stage migration
 

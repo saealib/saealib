@@ -24,6 +24,7 @@ from saealib import (
 )
 from saealib.algorithms import GA
 from saealib.callback import CallbackManager, GenerationEndEvent, PostAskEvent
+from saealib.core.compiler.strategy_requirements import resolve_requires_surrogate
 from saealib.core.runtime import NodeResult
 from saealib.core.state import StatePatch
 from saealib.exceptions import ConfigurationError, ValidationError
@@ -1098,7 +1099,7 @@ def test_async_strategy_replacement_drains_in_flight_requests(
     assert len(algorithm.asks) > asks_at_switch
     assert replacement.pipeline is not None
     assert environment.binding_values()["strategy"] is replacement
-    if replacement.requires_surrogate:
+    if resolve_requires_surrogate(replacement).effective:
         encoder = final.compiled_service("FeatureEncoder")
         assert environment.binding_values()["feature_encoder"] is encoder
         assert (

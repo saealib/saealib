@@ -246,12 +246,14 @@ class TestInitializerAndTerminationDefaults:
 
 
 class TestTemplateStrategyDefaults:
-    def test_generation_based_instances_keep_the_class_surrogate_requirement(self):
+    def test_generation_based_instances_derive_the_surrogate_requirement(self):
+        from saealib.core.compiler.strategy_requirements import (
+            resolve_requires_surrogate,
+        )
         from saealib.strategies import GenerationBasedStrategy
 
-        strategy = GenerationBasedStrategy(1)
-        assert strategy.requires_surrogate is True
-        assert GenerationBasedStrategy.requires_surrogate is True
+        assert resolve_requires_surrogate(GenerationBasedStrategy(1)).effective is True
+        assert resolve_requires_surrogate(GenerationBasedStrategy(0)).effective is False
 
     def test_validation_uses_prepared_surrogate_components(self):
         from saealib.strategies import GenerationBasedStrategy

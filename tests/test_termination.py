@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 from saealib.context import OptimizationState
+from saealib.core.state import RUNTIME_STEP
 from saealib.exceptions import ValidationError
 from saealib.registry import build, get, to_spec
 from saealib.termination import (
@@ -23,6 +24,7 @@ from saealib.termination import (
     f_target,
     max_fe,
     max_gen,
+    max_steps,
     stalled,
 )
 
@@ -30,13 +32,14 @@ _DUMMY_ARCHIVE = SimpleNamespace(get=lambda key: np.zeros((0, 1)))
 _DUMMY_DIRECTION = np.array([-1.0], dtype=float)
 
 
-def _make_ctx(fe: int = 0, gen: int = 0) -> OptimizationState:
-    """Create a minimal context stub with fe and gen for termination tests."""
+def _make_ctx(fe: int = 0, gen: int = 0, step: int = 0) -> OptimizationState:
+    """Create a minimal context stub for termination tests."""
     return cast(
         OptimizationState,
         SimpleNamespace(
             fe=fe,
             gen=gen,
+            step=step,
             archive=_DUMMY_ARCHIVE,
             direction=_DUMMY_DIRECTION,
         ),
@@ -61,6 +64,7 @@ def _make_obj_ctx(
             direction=np.array([weight], dtype=float),
             gen=gen,
             fe=fe,
+            step=0,
         ),
     )
 
@@ -225,6 +229,25 @@ class TestMaxGen:
     def test_doc(self) -> None:
         cond = max_gen(200)
         assert cond.__doc__ is not None and "200" in cond.__doc__
+
+
+class TestMaxSteps:
+    def test_completed_flow_count_controls_termination(self) -> None:
+        condition = max_steps(3)
+
+        assert condition(_make_ctx(step=2)) is False
+        assert condition(_make_ctx(step=3)) is True
+        assert condition(_make_ctx(step=4)) is True
+
+    def test_condition_composes_with_other_termination(self) -> None:
+        condition = max_steps(3) | max_gen(2)
+
+        assert condition(_make_ctx(step=2, gen=1)) is False
+        assert condition(_make_ctx(step=2, gen=2)) is True
+        assert condition(_make_ctx(step=3, gen=0)) is True
+
+    def test_contract_declares_the_step_state(self) -> None:
+        assert Termination(max_steps(3)).contract().state.reads == (RUNTIME_STEP,)
 
 
 # ===========================================================================
@@ -435,7 +458,9 @@ class TestRegistryIntegration:
     """Factories record a _registry_spec; Termination keeps the original
     conditions tuple, so both are serializable via Registry.to_spec()/build()."""
 
-    @pytest.mark.parametrize("name", ["max_fe", "max_gen", "f_target", "stalled"])
+    @pytest.mark.parametrize(
+        "name", ["max_fe", "max_gen", "max_steps", "f_target", "stalled"]
+    )
     def test_factories_are_registered(self, name) -> None:
         assert get(name).__name__ == name
 
@@ -447,6 +472,7 @@ class TestRegistryIntegration:
         [
             (max_fe, {"value": 100}),
             (max_gen, {"value": 50}),
+            (max_steps, {"value": 50}),
             (f_target, {"value": 1e-6}),
             (stalled, {"window": 5, "tol": 1e-8}),
         ],
@@ -486,6 +512,13 @@ class TestRegistryIntegration:
         assert len(rebuilt.conditions) == 2
         assert rebuilt.is_terminated(_make_ctx(fe=10, gen=50)) is True
         assert rebuilt.is_terminated(_make_ctx(fe=10, gen=10)) is False
+
+    def test_termination_with_max_steps_round_trips(self) -> None:
+        rebuilt = build(to_spec(Termination(max_steps(3))))
+
+        assert isinstance(rebuilt, Termination)
+        assert rebuilt.is_terminated(_make_ctx(step=3)) is True
+        assert rebuilt.is_terminated(_make_ctx(step=2)) is False
 
     def test_termination_with_unspecced_condition_raises(self) -> None:
         t = Termination(max_fe(100), lambda ctx: ctx.fe >= 10)

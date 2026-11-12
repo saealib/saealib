@@ -51,6 +51,11 @@ PUBLIC_EXPORTS = {
     "StatePatch": ("saealib.core.state.patch", "StatePatch"),
     "RUNTIME_DECISION_COUNT": ("saealib.core.state.keys", "RUNTIME_DECISION_COUNT"),
     "RUNTIME_GENERATION": ("saealib.core.state.keys", "RUNTIME_GENERATION"),
+    "RUNTIME_STEP": ("saealib.core.state.keys", "RUNTIME_STEP"),
+    "RUNTIME_REGION_COUNTS": (
+        "saealib.core.state.keys",
+        "RUNTIME_REGION_COUNTS",
+    ),
     "ExecutionRuntime": ("saealib.core.runtime", "ExecutionRuntime"),
     "RegionFrame": ("saealib.core.runtime", "RegionFrame"),
     "StructuredPlan": ("saealib.core.runtime", "StructuredPlan"),

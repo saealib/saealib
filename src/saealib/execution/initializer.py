@@ -32,7 +32,9 @@ from saealib.core.state import (
     RUNTIME_CANDIDATE_ID_ALLOCATOR,
     RUNTIME_DECISION_COUNT,
     RUNTIME_GENERATION,
+    RUNTIME_REGION_COUNTS,
     RUNTIME_RNG,
+    RUNTIME_STEP,
 )
 from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.execution.history import (
@@ -191,6 +193,8 @@ class Initializer(ABC):
                     EVALUATIONS_COUNT,
                     ARCHIVES_PARETO,
                     RUNTIME_GENERATION,
+                    RUNTIME_STEP,
+                    RUNTIME_REGION_COUNTS,
                     RUNTIME_RNG,
                 ),
             ),

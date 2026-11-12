@@ -32,8 +32,10 @@ from saealib.core.state import (
     RUNTIME_CANDIDATE_ID_ALLOCATOR,
     RUNTIME_DECISION_COUNT,
     RUNTIME_GENERATION,
+    RUNTIME_REGION_COUNTS,
     RUNTIME_REQUEST_ID_ALLOCATOR,
     RUNTIME_RNG,
+    RUNTIME_STEP,
     SURROGATES_PREDICTIONS,
     USER_DATA,
     StateKey,
@@ -73,6 +75,8 @@ _STORE_FIELDS = {
     "request_id_allocator": RUNTIME_REQUEST_ID_ALLOCATOR,
     "fe": EVALUATIONS_COUNT,
     "gen": RUNTIME_GENERATION,
+    "step": RUNTIME_STEP,
+    "region_counts": RUNTIME_REGION_COUNTS,
     "decision_count": RUNTIME_DECISION_COUNT,
     "evaluation_plan": EVALUATIONS_PLAN,
     "evaluation_plan_state": EVALUATIONS_PLAN_STATE,
@@ -517,6 +521,8 @@ class OptimizationState:
         Number of function evaluations.
     gen : int
         Number of generations.
+    step : int
+        Number of completed flow executions. Starts at zero after initialization.
     decision_count : int
         Number of confirmed evaluation plans (one per infill decision,
         regardless of how many candidates that plan evaluates). Incremented
@@ -525,6 +531,8 @@ class OptimizationState:
         execution, :class:`~saealib.stages.AsyncEvaluationSubmitStage` for
         async/steady-state execution -- never on a plan continuation.
         Independent of ``gen``/``fe``.
+    region_counts : dict[str, int]
+        Cumulative completed iterations for named Repeat and Loop regions.
     offspring : Population or None
         Candidate population produced by the current generation's ask step.
         Set by :class:`~saealib.stages.AskStage`; consumed and updated by
@@ -567,7 +575,9 @@ class OptimizationState:
 
     fe: int = 0
     gen: int = 0
+    step: int = 0
     decision_count: int = 0
+    region_counts: dict[str, int] = field(default_factory=dict)
 
     # Pipeline stage data (typed)
     offspring: Population | None = None
@@ -784,7 +794,9 @@ class OptimizationState:
         history: History | None = None,
         fe: int = 0,
         gen: int = 0,
+        step: int = 0,
         decision_count: int = 0,
+        region_counts: dict[str, int] | None = None,
         offspring: Population | None = None,
         evaluated_offspring: Population | None = None,
         scores: np.ndarray | None = None,
@@ -852,7 +864,9 @@ class OptimizationState:
         self.history = history
         self.fe = fe
         self.gen = gen
+        self.step = step
         self.decision_count = decision_count
+        self.region_counts = {} if region_counts is None else region_counts
         self.offspring = offspring
         self.evaluated_offspring = evaluated_offspring
         self.scores = scores
@@ -2792,7 +2806,9 @@ def _load_checkpoint(
     kwargs.update(values)
     kwargs["fe"] = int(kwargs.get("fe", 0))
     kwargs["gen"] = int(kwargs.get("gen", 0))
+    kwargs["step"] = int(kwargs.get("step", 0))
     kwargs["decision_count"] = int(kwargs.get("decision_count", 0))
+    kwargs["region_counts"] = dict(kwargs.get("region_counts", {}))
     state = cls(**kwargs)
     state.data = {**state.data, "resumed": True}
     return state

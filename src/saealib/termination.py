@@ -13,7 +13,12 @@ from functools import partial, reduce
 from typing import TYPE_CHECKING
 
 from saealib.core.contracts import ComponentContract, StateContract
-from saealib.core.state import ARCHIVES_MAIN, EVALUATIONS_COUNT, RUNTIME_GENERATION
+from saealib.core.state import (
+    ARCHIVES_MAIN,
+    EVALUATIONS_COUNT,
+    RUNTIME_GENERATION,
+    RUNTIME_STEP,
+)
 from saealib.exceptions import ValidationError
 from saealib.registry import register
 
@@ -210,10 +215,16 @@ class Termination:
         state_keys = {
             "max_fe": (EVALUATIONS_COUNT,),
             "max_gen": (RUNTIME_GENERATION,),
+            "max_steps": (RUNTIME_STEP,),
             "f_target": (ARCHIVES_MAIN,),
             "stalled": (ARCHIVES_MAIN, RUNTIME_GENERATION),
         }
-        conservative = (EVALUATIONS_COUNT, RUNTIME_GENERATION, ARCHIVES_MAIN)
+        conservative = (
+            EVALUATIONS_COUNT,
+            RUNTIME_GENERATION,
+            RUNTIME_STEP,
+            ARCHIVES_MAIN,
+        )
         reads: list = []
         reads_enumerable = True
         for condition in self.conditions:
@@ -325,6 +336,10 @@ def _gen_reached(ctx: OptimizationState, value: int) -> bool:
     return ctx.gen >= value
 
 
+def _steps_reached(ctx: OptimizationState, value: int) -> bool:
+    return ctx.step >= value
+
+
 @register()
 def max_fe(value: int) -> TerminationCondition:
     """
@@ -378,6 +393,28 @@ def max_gen(value: int) -> TerminationCondition:
         name=f"max_gen({value})",
         doc=f"Terminate when gen >= {value}.",
         spec={"type": "max_gen", "params": {"value": value}},
+    )
+
+
+@register()
+def max_steps(value: int) -> TerminationCondition:
+    """Create a termination condition based on completed flow executions.
+
+    Parameters
+    ----------
+    value : int
+        Maximum number of completed flow executions.
+
+    Returns
+    -------
+    TerminationCondition
+        A composable condition that returns True when ``ctx.step >= value``.
+    """
+    return TerminationCondition(
+        partial(_steps_reached, value=value),
+        name=f"max_steps({value})",
+        doc=f"Terminate when step >= {value}.",
+        spec={"type": "max_steps", "params": {"value": value}},
     )
 
 

@@ -315,6 +315,7 @@ from saealib.termination import TerminationCondition as TerminationCondition
 from saealib.termination import f_target as f_target
 from saealib.termination import max_fe as max_fe
 from saealib.termination import max_gen as max_gen
+from saealib.termination import max_steps as max_steps
 from saealib.termination import stalled as stalled
 from saealib.utils.indicators import hypervolume as hypervolume
 from saealib.utils.indicators import (

@@ -9,7 +9,7 @@ page_type: concept
 
 ## ParentSelectionの役割
 
-`ParentSelection`が実装する必要があるメソッドは`select(ctx, population, n_pair, n_parents, rng)`の1つだけです。`n_parents`個体からなる親のグループを`n_pair`組選び、そのインデックスを形状`(n_pair, n_parents)`の配列として返します。
+`ParentSelection`が実装する必要があるメソッドは`select(population, n_pair, n_parents, rng, *, ctx)`の1つだけです。`n_parents`個体からなる親のグループを`n_pair`組選び、そのインデックスを形状`(n_pair, n_parents)`の配列として返します。
 
 ## 組み込みParentSelection
 
@@ -35,7 +35,7 @@ page_type: concept
 
 ```python
 import numpy as np
-from saealib import ParentSelection
+from saealib import OptimizationState, ParentSelection
 
 
 class RandomPairSelection(ParentSelection):
@@ -43,14 +43,19 @@ class RandomPairSelection(ParentSelection):
 
     def select(
         self,
-        ctx,
         population,
         n_pair,
         n_parents,
         rng: np.random.Generator,
+        *,
+        ctx: OptimizationState | None,
     ):
         n_pop = len(population)
         return rng.integers(0, n_pop, size=(n_pair, n_parents))
+```
+
+```{note}
+`ctx`は末尾のキーワード専用・必須引数で、型は`OptimizationState | None`です。 この規則は文脈依存のフック全体（`SurvivorSelection`、`EvaluationPlanner`、`FeedbackBuilder`、`TrainingSet`、`AcquisitionFunction`、`SurrogateManager`）に共通します。 Selectionは比較と乱数を必要とするため、組み込み実装は`ctx=None`で呼ばれると`ValidationError`を送出します。 実行の外から単独で呼ぶときは、必ず`ctx=None`（または実際のstate）をキーワード引数として渡してください。
 ```
 
 `ctx.comparator`を参照する実装にすれば、`TournamentSelection`のように選択圧を持つ独自方式にもできます。

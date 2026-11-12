@@ -62,15 +62,16 @@ def test_pointwise_empty_batch_is_owned_float64_and_does_not_prepare() -> None:
             super().__init__()
             self.prepares = 0
 
-        def prepare(self, archive, ctx=None):
+        def prepare(self, archive, *, ctx):
             self.prepares += 1
-            return super().prepare(archive, ctx)
+            return super().prepare(archive, ctx=ctx)
 
     acq = Counting()
     result = acq.evaluate(
         np.empty((0, 1)),
         SurrogatePrediction.objective(np.empty((0, 1))),
         _archive(),
+        ctx=None,
     )
     assert result.scores is not None
     assert result.scores.shape == (0,)
@@ -84,7 +85,7 @@ def test_composite_rejects_missing_channel_before_combining() -> None:
     )
     pred = SurrogatePrediction.objective(np.zeros((2, 1)))
     with pytest.raises(ValidationError, match="missing configured channel"):
-        acq.evaluate(np.zeros((2, 1)), pred, _archive())
+        acq.evaluate(np.zeros((2, 1)), pred, _archive(), ctx=None)
 
 
 def test_pointwise_and_composite_validate_prediction_and_score_shapes() -> None:
@@ -99,12 +100,13 @@ def test_pointwise_and_composite_validate_prediction_and_score_shapes() -> None:
     candidates = np.zeros((2, 1), dtype=np.float64)
     archive = _archive()
     with pytest.raises(TypeError, match="requires a prediction"):
-        pointwise.evaluate(candidates, None, archive)
+        pointwise.evaluate(candidates, None, archive, ctx=None)
     with pytest.raises(ValidationError, match="returned shape"):
         pointwise.evaluate(
             candidates,
             SurrogatePrediction.objective(np.zeros((2, 1))),
             archive,
+            ctx=None,
         )
 
     class NoScores(AcquisitionFunction):
@@ -113,9 +115,9 @@ def test_pointwise_and_composite_validate_prediction_and_score_shapes() -> None:
             candidates_x: np.ndarray,
             prediction: Any,
             archive: Any,
-            ctx: Any = None,
             *,
             prepared: Any = None,
+            ctx: Any,
         ) -> AcquisitionResult:
             return AcquisitionResult(scores=None)
 
@@ -125,9 +127,9 @@ def test_pointwise_and_composite_validate_prediction_and_score_shapes() -> None:
             candidates_x: np.ndarray,
             prediction: Any,
             archive: Any,
-            ctx: Any = None,
             *,
             prepared: Any = None,
+            ctx: Any,
         ) -> AcquisitionResult:
             return AcquisitionResult(scores=np.zeros(len(candidates_x) - 1))
 
@@ -135,15 +137,15 @@ def test_pointwise_and_composite_validate_prediction_and_score_shapes() -> None:
     with pytest.raises(ValidationError, match="returned no scores"):
         CompositeAcquisition(
             {"objective": NoScores()}, lambda values: values[0]
-        ).evaluate(candidates, prediction, archive)
+        ).evaluate(candidates, prediction, archive, ctx=None)
     with pytest.raises(ValidationError, match="returned scores of shape"):
         CompositeAcquisition(
             {"objective": BadCombiner()}, lambda values: values[0]
-        ).evaluate(candidates, prediction, archive)
+        ).evaluate(candidates, prediction, archive, ctx=None)
     with pytest.raises(TypeError, match="requires a prediction"):
         CompositeAcquisition(
             {"objective": MeanPrediction()}, lambda values: values[0]
-        ).evaluate(candidates, None, archive)
+        ).evaluate(candidates, None, archive, ctx=None)
 
 
 def test_composite_rejects_empty_and_invalid_combined_scores() -> None:
@@ -156,7 +158,7 @@ def test_composite_rejects_empty_and_invalid_combined_scores() -> None:
         {"objective": MeanPrediction()}, lambda values: np.zeros(1)
     )
     with pytest.raises(ValidationError, match="combine_fn returned shape"):
-        acq.evaluate(candidates, prediction, _archive())
+        acq.evaluate(candidates, prediction, _archive(), ctx=None)
 
 
 def test_batch_expected_improvement_validates_joint_prediction_contract() -> None:
@@ -169,12 +171,14 @@ def test_batch_expected_improvement_validates_joint_prediction_contract() -> Non
             candidates,
             SurrogatePrediction.objective(np.zeros((2, 2)), np.ones((2, 2))),
             archive,
+            ctx=None,
         )
     with pytest.raises(ValidationError, match="requires uncertainty"):
         BatchExpectedImprovement(n_draws=2).evaluate(
             candidates,
             SurrogatePrediction.objective(np.zeros((2, 1))),
             archive,
+            ctx=None,
         )
     with pytest.raises(ValidationError, match="covariance"):
         BatchExpectedImprovement(n_draws=2).evaluate(
@@ -187,6 +191,7 @@ def test_batch_expected_improvement_validates_joint_prediction_contract() -> Non
                 }
             ),
             archive,
+            ctx=None,
         )
 
 

@@ -272,7 +272,9 @@ def test_non_dense_payload_survives_chunk_replicate_fidelity_and_retry() -> None
                 for index in range(2)
             )
 
-    repeated_plan = ObjectRepeated(2).plan(None, None, SimpleNamespace())
+    repeated_plan = ObjectRepeated(2).plan(
+        None, None, ctx=cast(OptimizationState, SimpleNamespace())
+    )
     assert [item.payload.items for item in repeated_plan.requests] == [
         ("left", "right"),
         ("left", "right"),

@@ -270,7 +270,7 @@ def test_async_archive_apply_marks_rows_true_when_owner_has_no_source_column() -
 
 def test_async_feedback_writes_the_feedback_result_source() -> None:
     class NonzeroSourceFeedback(FeedbackBuilder):
-        def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+        def build(self, candidates, prediction, evaluation, evaluated_indices, *, ctx):
             del candidates, prediction, evaluated_indices, ctx
             assert evaluation is not None
             assert evaluation.candidate_ids is not None

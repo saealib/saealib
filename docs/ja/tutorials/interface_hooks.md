@@ -42,6 +42,8 @@ mutation = MutationUniform(0.3).with_post(snap_to_grid)
 
 Surrogateのfit後処理は、`fn(train_x, train_y, ctx) -> None` を `with_post_fit()` に渡します。 このHookを使う具体的な契約は [Surrogateの概念](../concepts/surrogate_modeling/surrogate.md) を参照してください。
 
+コンポーネント側の文脈依存フック（`ParentSelection.select`、`SurvivorSelection.select`、`EvaluationPlanner.plan`、`FeedbackBuilder.build`、`TrainingSet.build`、`AcquisitionFunction.prepare`/`evaluate`、`SurrogateManager.fit`/`predict`）は、末尾のキーワード専用・必須引数 `ctx`（型は `OptimizationState | None`）という共通の引数規則に従います。 規則の詳細と独自実装での宣言方法は [拡張ガイドライン](../concepts/extension_guidelines.md) を参照してください。
+
 ## Stageで実行単位を置き換える
 
 `Stage` は `execute(state) -> state` の互換性用境界です。 状態を更新するときは `state.replace()` で新しいStateを返します。 構造化FrameworkのComponentやCompilerを直接実装する境界ではないため、それが必要なら [フレームワーク拡張](../framework/extensions.md) を参照します。

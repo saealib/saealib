@@ -47,8 +47,8 @@ class _RecordingCORSDistance(CORSDistance):
         super().__init__(*args, **kwargs)
         self.records: list[float] = []
 
-    def prepare(self, archive, ctx=None):
-        reference = super().prepare(archive, ctx)
+    def prepare(self, archive, *, ctx):
+        reference = super().prepare(archive, ctx=ctx)
         self.records.append(reference.beta)
         return reference
 
@@ -164,6 +164,6 @@ def test_cors_beta_phase_survives_checkpoint_restore(tmp_path):
 
     assert restored.decision_count == saved.decision_count == 2
     assert (
-        resumed_acquisition.prepare(restored.archive, restored).beta
+        resumed_acquisition.prepare(restored.archive, ctx=restored).beta
         == SEARCH_PATTERN[2]
     )

@@ -37,6 +37,48 @@ Obtain framework contracts from `saealib.core`; do not treat implementation modu
 To implement custom search or prediction, implement the relevant domain component and register it through `Optimizer.set_*()`.
 To change only part of an existing component, use the following lightweight extension mechanisms.
 
+## Context-dependent hooks
+
+The context-dependent public hooks share one argument rule: a trailing, keyword-only, required `ctx` annotated `OptimizationState | None`.
+`ParentSelection.select`, `SurvivorSelection.select`, `EvaluationPlanner.plan`, `FeedbackBuilder.build`, `TrainingSet.build`, `AcquisitionFunction.prepare`/`evaluate`, and `SurrogateManager.fit`/`predict` all follow it.
+Calls that pass `ctx` positionally or omit it raise `TypeError`; pass it by keyword instead.
+Custom overrides declare `ctx` the same way.
+
+```python
+from saealib import OptimizationState, ParentSelection
+
+
+selection.select(
+    population,
+    n_pair=4,
+    n_parents=2,
+    rng=rng,
+    ctx=state,
+)
+
+
+class MySelection(ParentSelection):
+    def select(
+        self,
+        population,
+        n_pair,
+        n_parents,
+        rng=np.random.default_rng(),
+        *,
+        ctx: OptimizationState | None,
+    ):
+        ...
+```
+
+Selection needs comparison and randomness, so every concrete built-in selection raises `ValidationError` for `ctx=None`.
+Standalone calls made outside a run pass `ctx=None` explicitly; the other families keep their own required-context rejections.
+Hooks that stay pure computation — `Surrogate.fit`/`predict`, crossover/mutation bodies, `Comparator`, `Decomposition`, `Variable` — take no `ctx`.
+
+```{note}
+Passing a whole `OptimizationState` into a component is the full-context escape hatch.
+A custom component may also ignore `ctx` entirely and still work with a minimal declaration.
+```
+
 ## with_post / with_post_fit
 
 [Crossover](search_algorithms/crossover.md)/[Mutation](search_algorithms/mutation.md)'s `with_post(fn)` and [Surrogate](surrogate_modeling/surrogate.md)'s `with_post_fit(fn)` add post-processing to an existing instance without subclassing.

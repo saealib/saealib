@@ -1469,7 +1469,7 @@ class AsyncEvaluationScheduler:
             or state.predictions,
             evaluation,
             update.candidate_ids,
-            state,
+            ctx=state,
         )
         if len(result.candidate_ids):
             rows = self._rows(state, result.candidate_ids, int(update.request_id))
@@ -1704,7 +1704,7 @@ class AsyncEvaluationScheduler:
                 pending.prediction or state.predictions,
                 update.result,
                 update.candidate_ids,
-                state,
+                ctx=state,
             )
             proposal_id = self._proposal_id(state, int(update.request_id))
             feedback = _feedback_batch_from_result(

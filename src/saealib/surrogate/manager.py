@@ -134,7 +134,8 @@ class SurrogateManager(ABC):
     def fit(
         self,
         archive: Archive,
-        ctx: OptimizationState | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> None:
         """
         Pre-fit the surrogate on the archive.
@@ -149,7 +150,7 @@ class SurrogateManager(ABC):
         ----------
         archive : Archive
             Archive of evaluated solutions used for surrogate training.
-        ctx : OptimizationState or None, optional
+        ctx : OptimizationState or None
             Current optimization context.
         """
 
@@ -158,9 +159,9 @@ class SurrogateManager(ABC):
         self,
         candidates_x: np.ndarray,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         refit: bool = True,
+        ctx: OptimizationState | None,
     ) -> SurrogatePrediction:
         """
         Predict candidate solutions using the surrogate model.
@@ -171,7 +172,7 @@ class SurrogateManager(ABC):
             Candidate design variable matrix. shape: (n_candidates, dim)
         archive : Archive
             Archive of evaluated solutions used for surrogate training.
-        ctx : OptimizationState or None, optional
+        ctx : OptimizationState or None
             Current optimization context. Passed to ``TrainingSet.build``
             for strategies that require comparator or population access.
         refit : bool, optional
@@ -270,7 +271,8 @@ class GlobalSurrogateManager(SurrogateManager):
     def fit(
         self,
         archive: Archive,
-        ctx: OptimizationState | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> None:
         """Fit the surrogate on the full archive.
 
@@ -279,7 +281,7 @@ class GlobalSurrogateManager(SurrogateManager):
         :attr:`last_accuracy`.
         """
         population = ctx.population if ctx is not None else None
-        data = self.training_set.build(archive, population, ctx, candidate_x=None)
+        data = self.training_set.build(archive, population, candidate_x=None, ctx=ctx)
         self.surrogate.fit(data.train_x, data.train_y)
         self.surrogate.post_fit(data.train_x, data.train_y, ctx)
         if self.accuracy_evaluator is not None:
@@ -291,13 +293,13 @@ class GlobalSurrogateManager(SurrogateManager):
         self,
         candidates_x: np.ndarray,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         refit: bool = True,
+        ctx: OptimizationState | None,
     ) -> SurrogatePrediction:
         """Fit on full archive, then predict all candidates at once."""
         if refit:
-            self.fit(archive, ctx)
+            self.fit(archive, ctx=ctx)
         return self.surrogate.predict(candidates_x)  # mean: (n_candidates, n_obj)
 
 
@@ -354,7 +356,8 @@ class LocalSurrogateManager(SurrogateManager):
     def fit(
         self,
         archive: Archive,
-        ctx: OptimizationState | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> None:
         """Compute accuracy metrics from the archive (no global model is fitted).
 
@@ -373,9 +376,9 @@ class LocalSurrogateManager(SurrogateManager):
         self,
         candidates_x: np.ndarray,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         refit: bool = True,
+        ctx: OptimizationState | None,
     ) -> SurrogatePrediction:
         """Fit a local model per candidate and predict each individually.
 
@@ -402,7 +405,7 @@ class LocalSurrogateManager(SurrogateManager):
         y_pred_list: list[np.ndarray] = []
 
         for x in candidates_x:
-            data = self.training_set.build(archive, population, ctx, candidate_x=x)
+            data = self.training_set.build(archive, population, candidate_x=x, ctx=ctx)
 
             if compute_accuracy and len(data.train_x) >= 2:
                 # Hold out the nearest neighbor (index 0 when KNN-sorted) as
@@ -612,7 +615,8 @@ class CompositeSurrogateManager(SurrogateManager):
     def fit(
         self,
         archive: Archive,
-        ctx: OptimizationState | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> None:
         """Pre-fit all sub-managers.
 
@@ -621,16 +625,16 @@ class CompositeSurrogateManager(SurrogateManager):
         accuracy value from this composite manager.
         """
         for manager in self.managers.values():
-            manager.fit(archive, ctx)
+            manager.fit(archive, ctx=ctx)
         self.last_accuracy = next(iter(self.managers.values())).last_accuracy
 
     def predict(
         self,
         candidates_x: np.ndarray,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         refit: bool = True,
+        ctx: OptimizationState | None,
     ) -> SurrogatePrediction:
         """Predict via every sub-manager, one named channel each.
 
@@ -646,7 +650,7 @@ class CompositeSurrogateManager(SurrogateManager):
         """
         channels: dict[str, PredictionChannel] = {}
         for name, manager in self.managers.items():
-            child_pred = manager.predict(candidates_x, archive, ctx, refit=refit)
+            child_pred = manager.predict(candidates_x, archive, refit=refit, ctx=ctx)
             channels[name] = PredictionChannel(
                 value=child_pred.value, std=child_pred.std
             )
@@ -715,7 +719,8 @@ class PairwiseSurrogateManager(SurrogateManager):
     def fit(
         self,
         archive: Archive,
-        ctx: OptimizationState | None = None,
+        *,
+        ctx: OptimizationState | None,
     ) -> None:
         """Fit the surrogate on pairwise comparison training data.
 
@@ -728,7 +733,7 @@ class PairwiseSurrogateManager(SurrogateManager):
             (provides the comparator and rng).
         """
         population = ctx.population if ctx is not None else None
-        data = self.training_set.build(archive, population, ctx, candidate_x=None)
+        data = self.training_set.build(archive, population, candidate_x=None, ctx=ctx)
         self.surrogate.fit(data.train_x, data.train_y)
         self.surrogate.post_fit(data.train_x, data.train_y, ctx)
 
@@ -736,9 +741,9 @@ class PairwiseSurrogateManager(SurrogateManager):
         self,
         candidates_x: np.ndarray,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         refit: bool = True,
+        ctx: OptimizationState | None,
     ) -> SurrogatePrediction:
         """Predict per-candidate mean win rate against archive reference points.
 
@@ -757,7 +762,7 @@ class PairwiseSurrogateManager(SurrogateManager):
             training set is ``PairwiseComparisonSet``, and to supply
             ``ctx.rng`` for reference sampling (falls back to a fresh
             unseeded generator when ``ctx`` is ``None``).
-        refit : bool
+        refit : bool, optional
             If ``True`` (default), fit the surrogate before predicting.
 
         Returns
@@ -768,7 +773,7 @@ class PairwiseSurrogateManager(SurrogateManager):
             predicted objective. ``value`` shape: ``(n_candidates, 1)``.
         """
         if refit:
-            self.fit(archive, ctx)
+            self.fit(archive, ctx=ctx)
 
         rng = ctx.rng if ctx is not None else np.random.default_rng()
 

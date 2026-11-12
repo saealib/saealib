@@ -458,13 +458,13 @@ def test_external_representation_runs_archive_checkpoint_async_and_global_surrog
     ctx = optimizer.run()
     assert len(ctx.archive) > 0
     manager = GlobalSurrogateManager(_TinySurrogate())
-    manager.fit(ctx.archive, ctx)
+    manager.fit(ctx.archive, ctx=ctx)
     prediction = manager.predict(
         cast(Any, space.services.require("FeatureEncoder")).encode(
             ctx.population.genomes
         ),
         ctx.archive,
-        ctx,
+        ctx=ctx,
     )
     assert prediction.value.shape[0] == len(ctx.population)
     checkpoint = tmp_path / "external_representation.npz"

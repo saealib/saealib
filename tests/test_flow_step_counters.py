@@ -43,7 +43,7 @@ def _sphere(x: np.ndarray) -> np.ndarray:
 
 
 class _ConstantSurrogateManager(SurrogateManager):
-    def predict(self, candidates_x, archive, ctx=None, *, refit=True):
+    def predict(self, candidates_x, archive, *, refit=True, ctx):
         return SurrogatePrediction.objective(value=np.ones((len(candidates_x), 1)))
 
 

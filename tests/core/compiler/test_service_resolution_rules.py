@@ -63,7 +63,7 @@ def _ga() -> GA:
 class _SequentialSurvivors(SurvivorSelection):
     """A service-free survivor operator for graph contract tests."""
 
-    def select(self, ctx, pool, n_survivors) -> np.ndarray:
+    def select(self, pool, n_survivors, *, ctx) -> np.ndarray:
         return np.arange(n_survivors, dtype=int)
 
 

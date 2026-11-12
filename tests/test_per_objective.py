@@ -222,8 +222,10 @@ class TestPerObjectiveSurrogateIntegration:
         weights = np.array([-1.0, -1.0])
         acquisition = MeanPrediction(weights=weights)
         manager = GlobalSurrogateManager(s)
-        prediction = manager.predict(candidates, archive_2obj)
-        scores = acquisition.evaluate(candidates, prediction, archive_2obj).scores
+        prediction = manager.predict(candidates, archive_2obj, ctx=None)
+        scores = acquisition.evaluate(
+            candidates, prediction, archive_2obj, ctx=None
+        ).scores
         assert scores is not None
         assert scores.shape == (len(candidates),)
         assert prediction.value.shape == (len(candidates), 2)

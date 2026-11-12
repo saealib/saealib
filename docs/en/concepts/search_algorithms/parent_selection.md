@@ -10,7 +10,7 @@ To change the selection pressure (how much better individuals are favored), you 
 
 ## ParentSelection's role
 
-`ParentSelection` requires only one method, `select(ctx, population, n_pair, n_parents, rng)`, to be implemented.
+`ParentSelection` requires only one method, `select(population, n_pair, n_parents, rng, *, ctx)`, to be implemented.
 It returns the indices of `n_pair` groups of parents, each consisting of `n_parents` individuals, as an array of shape `(n_pair, n_parents)`.
 
 ## Built-in ParentSelections
@@ -42,7 +42,7 @@ The following example is a selection scheme that chooses parents completely at r
 
 ```python
 import numpy as np
-from saealib import ParentSelection
+from saealib import OptimizationState, ParentSelection
 
 
 class RandomPairSelection(ParentSelection):
@@ -50,14 +50,21 @@ class RandomPairSelection(ParentSelection):
 
     def select(
         self,
-        ctx,
         population,
         n_pair,
         n_parents,
         rng: np.random.Generator,
+        *,
+        ctx: OptimizationState | None,
     ):
         n_pop = len(population)
         return rng.integers(0, n_pop, size=(n_pair, n_parents))
+```
+
+```{note}
+`ctx` is a trailing, keyword-only, required argument annotated `OptimizationState | None`, and the same rule applies to every context-dependent hook (`SurvivorSelection`, `EvaluationPlanner`, `FeedbackBuilder`, `TrainingSet`, `AcquisitionFunction`, `SurrogateManager`).
+Selection needs comparison and randomness, so every concrete built-in selection raises `ValidationError` when called with `ctx=None`.
+Standalone calls made outside a run therefore always pass an explicit `ctx=None` (or a real state) by keyword.
 ```
 
 Implementing it to reference `ctx.comparator` lets you build a custom scheme with selection pressure, like `TournamentSelection`.

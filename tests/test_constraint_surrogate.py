@@ -141,7 +141,7 @@ class TestConstraintSurrogateG01:
         ctx = optimizer.run()
         archive = ctx.archive
         ts = ConstraintObjectiveSet()
-        data = ts.build(archive, None, None)
+        data = ts.build(archive, None, ctx=None)
         assert data.train_y.shape == (len(archive), _N_CONSTRAINTS)
 
     def test_feasible_solution_found(self) -> None:
@@ -277,8 +277,8 @@ class TestConstraintSurrogate2D:
         )
 
         candidates = np.vstack([inside, outside])
-        prediction = pof_mgr.predict(candidates, archive)
-        scores = pof_acq.evaluate(candidates, prediction, archive).scores
+        prediction = pof_mgr.predict(candidates, archive, ctx=None)
+        scores = pof_acq.evaluate(candidates, prediction, archive, ctx=None).scores
         assert scores is not None
 
         pof_inside = scores[: len(inside)]
@@ -339,4 +339,4 @@ class TestConstraintSurrogateBackwardCompat:
 
         ts = ConstraintObjectiveSet()
         with pytest.raises(ValueError, match="0 columns"):
-            ts.build(arc, None, None)
+            ts.build(arc, None, ctx=None)

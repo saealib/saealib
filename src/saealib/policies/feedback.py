@@ -4,10 +4,11 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from functools import cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+from saealib.context import OptimizationState
 from saealib.core.contracts import (
     MANY,
     ComponentContract,
@@ -816,7 +817,15 @@ class FeedbackBuilder(ABC):
         )
 
     @abstractmethod
-    def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+    def build(
+        self,
+        candidates,
+        prediction,
+        evaluation,
+        evaluated_indices,
+        *,
+        ctx: OptimizationState | None,
+    ):
         """Return feedback aligned to candidate IDs."""
 
 
@@ -827,8 +836,17 @@ class TrueOnlyFeedback(FeedbackBuilder):
     def __init__(self) -> None:
         pass
 
-    def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+    def build(
+        self,
+        candidates,
+        prediction,
+        evaluation,
+        evaluated_indices,
+        *,
+        ctx: OptimizationState | None,
+    ):
         """Build true-only feedback."""
+        ctx = cast(OptimizationState, ctx)
         if evaluation is None or evaluation.candidate_ids is None:
             return _empty(ctx.n_obj)
         if isinstance(evaluation, ObservationBatch):
@@ -882,7 +900,15 @@ class PredictedFeedback(FeedbackBuilder):
             },
         )
 
-    def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+    def build(
+        self,
+        candidates,
+        prediction,
+        evaluation,
+        evaluated_indices,
+        *,
+        ctx: OptimizationState | None,
+    ):
         """Build predicted feedback."""
         if prediction is None or "objective" not in prediction.channels:
             raise ValidationError("PredictedFeedback requires an objective channel")
@@ -909,8 +935,17 @@ class MixedFeedback(FeedbackBuilder):
     def __init__(self) -> None:
         pass
 
-    def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+    def build(
+        self,
+        candidates,
+        prediction,
+        evaluation,
+        evaluated_indices,
+        *,
+        ctx: OptimizationState | None,
+    ):
         """Build mixed feedback."""
+        ctx = cast(OptimizationState, ctx)
         if (
             isinstance(evaluation, EvaluationResult)
             and evaluation.candidate_ids is None
@@ -975,8 +1010,17 @@ class NoFeedback(FeedbackBuilder):
     def __init__(self) -> None:
         pass
 
-    def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+    def build(
+        self,
+        candidates,
+        prediction,
+        evaluation,
+        evaluated_indices,
+        *,
+        ctx: OptimizationState | None,
+    ):
         """Build empty feedback."""
+        ctx = cast(OptimizationState, ctx)
         return _empty(ctx.n_obj)
 
 
@@ -1026,10 +1070,19 @@ class ComparatorWorstFallback(FeedbackBuilder):
             },
         )
 
-    def build(self, candidates, prediction, evaluation, evaluated_indices, ctx):
+    def build(
+        self,
+        candidates,
+        prediction,
+        evaluation,
+        evaluated_indices,
+        *,
+        ctx: OptimizationState | None,
+    ):
         """Build feedback and replace missing rows."""
+        ctx = cast(OptimizationState, ctx)
         result = self.inner.build(
-            candidates, prediction, evaluation, evaluated_indices, ctx
+            candidates, prediction, evaluation, evaluated_indices, ctx=ctx
         )
         if len(result.candidate_ids) == 0:
             return result

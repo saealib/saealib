@@ -225,7 +225,7 @@ class CORSDistance(PointwiseAcquisition):
         )
 
     def prepare(
-        self, archive: Archive, ctx: OptimizationState | None = None
+        self, archive: Archive, *, ctx: OptimizationState | None
     ) -> CORSReference:
         """Resolve the CORS reference for the current runtime decision.
 

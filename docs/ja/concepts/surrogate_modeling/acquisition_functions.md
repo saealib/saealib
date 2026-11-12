@@ -10,7 +10,7 @@ page_type: concept
 
 ## AcquisitionFunctionの役割
 
-`AcquisitionFunction`が実装するメソッドは`evaluate(candidates_x, prediction, archive, ctx=None, *, prepared=...) -> AcquisitionResult`です。
+`AcquisitionFunction`が実装するメソッドは`evaluate(candidates_x, prediction, archive, *, prepared=..., ctx) -> AcquisitionResult`です。
 点ごとの基準には、便利な基底クラス`PointwiseAcquisition`がこの処理を2つのメソッドに分けます。
 
 **`compute_reference(archive, rng=None) -> Any`**：`PointwiseAcquisition`で、スコアリングに使う参照値（現在の最良値など）をアーカイブから計算します。
@@ -19,7 +19,7 @@ page_type: concept
 **`score(prediction, reference, rng=None) -> np.ndarray`**：`PointwiseAcquisition`で、`SurrogatePrediction`と参照値からスコアを計算します。
 saealib全体の規約どおり、スコアは高いほど良いです。
 
-`compute_reference()`は`ctx`を受け取らないため、実行時状態が必要なサブクラス（`ctx.decision_count`を読む`LowerConfidenceBound`の `beta_schedule`など）は代わりに`prepare(archive, ctx=None)`を直接オーバーライドします。その戻り値は`reference`として`score()`にそのまま渡されます。
+`compute_reference()`は`ctx`を受け取らないため、実行時状態が必要なサブクラス（`ctx.decision_count`を読む`LowerConfidenceBound`の `beta_schedule`など）は代わりに`prepare(archive, *, ctx)`を直接オーバーライドします。その戻り値は`reference`として`score()`にそのまま渡されます。
 
 クラス属性`requires_uncertainty: bool`は、この獲得関数が`SurrogatePrediction.std`（不確実性）を必要とするかを示します。
 `direction_sensitive: bool`（既定`True`）は、`Optimizer`が実行開始時に`problem.direction`をこの獲得関数へ自動注入する対象かどうかを示します。

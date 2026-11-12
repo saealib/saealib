@@ -48,14 +48,14 @@ def _ctx():
 def test_builtin_planners_return_plans_and_repeated_requests():
     candidates = _candidates()
     ctx = _ctx()
-    all_plan = EvaluateAll().plan(candidates, None, ctx)
+    all_plan = EvaluateAll().plan(candidates, None, ctx=ctx)
     assert isinstance(all_plan, EvaluationPlan)
     assert len(all_plan.requests) == 1
     top_plan = TopKEvaluation(2).plan(
-        candidates, SimpleNamespace(scores=np.array([1.0, 3.0, 2.0])), ctx
+        candidates, SimpleNamespace(scores=np.array([1.0, 3.0, 2.0])), ctx=ctx
     )
     assert len(top_plan.requests[0].candidate_ids) == 2
-    repeated = RepeatedEvaluation(3).plan(candidates, None, ctx)
+    repeated = RepeatedEvaluation(3).plan(candidates, None, ctx=ctx)
     assert isinstance(repeated, EvaluationPlan)
     assert len(repeated.requests) == 3
     assert len({int(r.request_id) for r in repeated.requests}) == 3
@@ -76,7 +76,7 @@ def test_evaluation_plan_rejects_duplicate_request_ids():
 def test_fidelity_promotion_plan_declares_standard_continuation():
     planner = FidelityPromotion(fidelity=0, next_fidelity=1)
     ctx = _ctx()
-    plan = planner.plan(_candidates(), None, ctx)
+    plan = planner.plan(_candidates(), None, ctx=ctx)
 
     assert len(plan.requests) == 1
     assert plan.completion_rule == "fidelity_promotion"

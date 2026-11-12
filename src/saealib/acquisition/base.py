@@ -125,7 +125,7 @@ class AcquisitionFunction(ABC):
             },
         )
 
-    def prepare(self, archive: Archive, ctx: OptimizationState | None = None) -> Any:
+    def prepare(self, archive: Archive, *, ctx: OptimizationState | None) -> Any:
         """
         Compute a generation-scoped reference value shared across ``evaluate()`` calls.
 
@@ -137,7 +137,7 @@ class AcquisitionFunction(ABC):
         ----------
         archive : Archive
             Archive of evaluated solutions.
-        ctx : OptimizationState or None, optional
+        ctx : OptimizationState or None
             Optimization state, used here only for ``ctx.rng``.
 
         Returns
@@ -153,9 +153,9 @@ class AcquisitionFunction(ABC):
         candidates_x: np.ndarray,
         prediction: SurrogatePrediction | None,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         prepared: Any = _UNSET,
+        ctx: OptimizationState | None,
     ) -> AcquisitionResult:
         """
         Compute acquisition scores for a set of candidates.
@@ -169,13 +169,14 @@ class AcquisitionFunction(ABC):
             archive-only acquisition that needs no prediction.
         archive : Archive
             Archive of evaluated solutions.
-        ctx : OptimizationState or None, optional
+        ctx : OptimizationState or None
             Optimization state, used here only for ``ctx.rng``.
         prepared : Any, optional
             A previously computed reference value, as returned by
             ``prepare()``. The default sentinel ``_UNSET`` means "compute
-            it now via ``prepare(archive, ctx)``"; an explicit ``None`` is a
-            valid prepared value in its own right and skips ``prepare()``.
+            it now via ``prepare(archive, ctx=ctx)``"; an explicit ``None``
+            is a valid prepared value in its own right and skips
+            ``prepare()``.
 
         Returns
         -------
@@ -268,7 +269,7 @@ class PointwiseAcquisition(AcquisitionFunction):
         """
         ...
 
-    def prepare(self, archive: Archive, ctx: OptimizationState | None = None) -> Any:
+    def prepare(self, archive: Archive, *, ctx: OptimizationState | None) -> Any:
         """Delegate to ``compute_reference(archive, rng=ctx.rng if ctx else None)``."""
         rng = ctx.rng if ctx is not None else None
         return self.compute_reference(archive, rng=rng)
@@ -278,9 +279,9 @@ class PointwiseAcquisition(AcquisitionFunction):
         candidates_x: np.ndarray,
         prediction: SurrogatePrediction | None,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         prepared: Any = _UNSET,
+        ctx: OptimizationState | None,
     ) -> AcquisitionResult:
         """
         Reject ``prediction is None``, resolve the reference, then ``score()``.
@@ -293,7 +294,7 @@ class PointwiseAcquisition(AcquisitionFunction):
             return AcquisitionResult(scores=np.empty(0, dtype=np.float64))
         if prediction is None:
             raise TypeError(f"{type(self).__name__} requires a prediction, got None")
-        reference = self.prepare(archive, ctx) if prepared is _UNSET else prepared
+        reference = self.prepare(archive, ctx=ctx) if prepared is _UNSET else prepared
         rng = ctx.rng if ctx is not None else None
         scores = self.score(prediction, reference, rng=rng)
         scores = np.array(scores, dtype=np.float64, order="C", copy=True)
@@ -345,10 +346,11 @@ class CompositeAcquisition(AcquisitionFunction):
         self.acquisitions = acquisitions
         self.combine_fn = combine_fn
 
-    def prepare(self, archive: Archive, ctx: OptimizationState | None = None) -> Any:
+    def prepare(self, archive: Archive, *, ctx: OptimizationState | None) -> Any:
         """Prepare every child acquisition; returns ``{name: child_prepared}``."""
         return {
-            name: acq.prepare(archive, ctx) for name, acq in self.acquisitions.items()
+            name: acq.prepare(archive, ctx=ctx)
+            for name, acq in self.acquisitions.items()
         }
 
     def evaluate(
@@ -356,9 +358,9 @@ class CompositeAcquisition(AcquisitionFunction):
         candidates_x: np.ndarray,
         prediction: SurrogatePrediction | None,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         prepared: Any = _UNSET,
+        ctx: OptimizationState | None,
     ) -> AcquisitionResult:
         """
         Evaluate every configured child acquisition, then ``combine_fn`` the scores.
@@ -380,7 +382,9 @@ class CompositeAcquisition(AcquisitionFunction):
         if prediction is None:
             raise TypeError(f"{type(self).__name__} requires a prediction, got None")
         n = len(candidates_x)
-        prepared_map = self.prepare(archive, ctx) if prepared is _UNSET else prepared
+        prepared_map = (
+            self.prepare(archive, ctx=ctx) if prepared is _UNSET else prepared
+        )
         score_list: list[np.ndarray] = []
         for name, acq in self.acquisitions.items():
             if name not in prediction.channels:
@@ -392,7 +396,11 @@ class CompositeAcquisition(AcquisitionFunction):
                 prepared_map[name] if isinstance(prepared_map, dict) else _UNSET
             )
             result = acq.evaluate(
-                candidates_x, projected, archive, ctx, prepared=child_prepared
+                candidates_x,
+                projected,
+                archive,
+                prepared=child_prepared,
+                ctx=ctx,
             )
             if result.scores is None:
                 raise ValidationError(

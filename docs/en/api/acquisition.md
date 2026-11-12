@@ -43,7 +43,7 @@ related_layers: [layer3]
 ## CORSDistance
 
 `CORSDistance` applies the CORS distance constraint to predicted-mean scores.
-`prepare(archive, ctx)` selects the beta value from `ctx.decision_count` and
+`prepare(archive, *, ctx)` selects the beta value from `ctx.decision_count` and
 returns a `CORSReference` carrying it alongside the evaluated points, so the
 first decision uses the first search-pattern entry and later decisions repeat
 the pattern cyclically. The canonical source-faithful configuration sends one

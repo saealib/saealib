@@ -118,10 +118,10 @@ class _StubEvaluator(Evaluator):
 
 
 class _MockSurrogateManager:
-    def fit(self, archive, ctx=None):
+    def fit(self, archive, *, ctx):
         pass
 
-    def predict(self, candidates_x, archive, ctx=None, *, refit=True):
+    def predict(self, candidates_x, archive, *, refit=True, ctx):
         n = len(candidates_x)
         return SurrogatePrediction.objective(value=np.ones((n, 1)))
 
@@ -130,7 +130,7 @@ class _Planner:
     def __init__(self, plan):
         self.plan_result = plan
 
-    def plan(self, candidates, acquisition, ctx):
+    def plan(self, candidates, acquisition, *, ctx):
         return self.plan_result
 
 
@@ -277,7 +277,7 @@ class TestSurrogateFitStage:
         fit_called = [False]
 
         class _TrackedSM(_MockSurrogateManager):
-            def fit(self, archive, ctx=None):
+            def fit(self, archive, *, ctx):
                 fit_called[0] = True
 
         state = _make_state()
@@ -341,13 +341,13 @@ class _SpyAcquisition:
         self.prepare_calls = 0
         self.evaluate_calls = 0
 
-    def prepare(self, archive, ctx=None):
+    def prepare(self, archive, *, ctx):
         self.prepare_calls += 1
         if ctx is not None:
             ctx.rng.random()  # consume rng so empty-input non-consumption is checkable
         return "prepared"
 
-    def evaluate(self, candidates_x, prediction, archive, ctx=None, *, prepared=None):
+    def evaluate(self, candidates_x, prediction, archive, *, prepared=None, ctx):
         self.evaluate_calls += 1
         assert prepared == "prepared"
         n = len(candidates_x)

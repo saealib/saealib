@@ -14,7 +14,6 @@ Tests cover:
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -58,7 +57,13 @@ from saealib.comparators import (
     SPEA2Comparator,
 )
 from saealib.comparators.comparators import _normalize_objectives
-from saealib.population import Population, PopulationAttribute
+from saealib.context import OptimizationState
+from saealib.population import (
+    Archive,
+    ParetoArchive,
+    Population,
+    PopulationAttribute,
+)
 from saealib.utils.indicators import _non_dominated, hypervolume_contributions
 
 logging.getLogger("saealib.surrogate.rbf").setLevel(logging.CRITICAL)
@@ -91,6 +96,33 @@ def _make_pop(f_values: np.ndarray, cv_values: np.ndarray | None = None) -> Popu
     for i in range(n):
         pop.append(f=f_values[i], cv=float(cv_values[i]))
     return pop
+
+
+def _selection_state(pool: Population, comp: SPEA2Comparator) -> OptimizationState:
+    """OptimizationState carrying *comp* for direct selection-operator calls."""
+    f = pool.get_array("f")
+    n_obj = f.shape[1]
+    problem = Problem(
+        func=lambda x: np.full(n_obj, np.sum(x)),
+        dim=2,
+        n_obj=n_obj,
+        direction=np.full(n_obj, -1.0),
+        lb=[0.0, 0.0],
+        ub=[1.0, 1.0],
+        comparator=comp,
+    )
+    # The archives stay empty; "x" keeps the schema-backed identity path
+    # usable without fingerprint services.
+    attrs = [*pool.attrs, PopulationAttribute("x", np.float64, (2,))]
+    return OptimizationState(
+        problem=problem,
+        populations={"main": pool},
+        archives={
+            "main": Archive(attrs),
+            "pareto": ParetoArchive(attrs, direction=problem.direction),
+        },
+        rng=np.random.default_rng(0),
+    )
 
 
 def _make_spea2_pop(
@@ -2079,8 +2111,8 @@ class TestSPEA2Comparator:
         expected_pool.update_array("spea2_fitness", expected_fitness)
         expected = comp.sort_population(expected_pool)[:3]
 
-        selection_ctx = SimpleNamespace(comparator=comp, rng=np.random.default_rng(0))
-        selected = TruncationSelection().select(selection_ctx, pool, 3)
+        selection_ctx = _selection_state(pool, comp)
+        selected = TruncationSelection().select(pool, 3, ctx=selection_ctx)
 
         np.testing.assert_array_equal(selected, expected)
         np.testing.assert_allclose(pool.get_array("spea2_fitness"), expected_fitness)
@@ -2094,8 +2126,8 @@ class TestSPEA2Comparator:
         expected_pool = pool.extract(np.arange(len(pool)))
         expected = comp.sort_population(expected_pool)[:3]
 
-        selection_ctx = SimpleNamespace(comparator=comp, rng=np.random.default_rng(0))
-        selected = TruncationSelection().select(selection_ctx, pool, 3)
+        selection_ctx = _selection_state(pool, comp)
+        selected = TruncationSelection().select(pool, 3, ctx=selection_ctx)
 
         np.testing.assert_array_equal(selected, expected)
         np.testing.assert_allclose(comp._compute_fitness(pool), expected_fitness)

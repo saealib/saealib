@@ -42,9 +42,9 @@ class NoveltyAcquisition(AcquisitionFunction):
         candidates_x: np.ndarray,
         prediction: SurrogatePrediction | None,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         prepared: Any = _UNSET,
+        ctx: OptimizationState | None,
     ) -> AcquisitionResult:
         """Compute mean k-NN distance from each candidate to the archive."""
         if len(archive) == 0:
@@ -78,9 +78,9 @@ class InverseDensityAcquisition(AcquisitionFunction):
         candidates_x: np.ndarray,
         prediction: SurrogatePrediction | None,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         prepared: Any = _UNSET,
+        ctx: OptimizationState | None,
     ) -> AcquisitionResult:
         """Compute inverse eps-NN density for each candidate."""
         if len(archive) == 0:
@@ -110,9 +110,9 @@ class MaximinDistanceAcquisition(AcquisitionFunction):
         candidates_x: np.ndarray,
         prediction: SurrogatePrediction | None,
         archive: Archive,
-        ctx: OptimizationState | None = None,
         *,
         prepared: Any = _UNSET,
+        ctx: OptimizationState | None,
     ) -> AcquisitionResult:
         """Compute min intra-candidate distance plus min archive distance."""
         n = len(candidates_x)

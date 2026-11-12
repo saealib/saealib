@@ -114,7 +114,7 @@ def test_j6_total_tie_break_uses_batch_index_ascending():
         None,
         _batch([_record(7.0), _record(8.0)]),
         [],
-        _state(),
+        ctx=_state(),
     )
     np.testing.assert_array_equal(result.f, [[7.0], [np.nan]])
 
@@ -129,7 +129,7 @@ def test_j6_true_source_precedes_surrogate():
         SurrogatePrediction({"objective": PredictionChannel(np.array([[5.0], [6.0]]))}),
         evaluation,
         [],
-        state,
+        ctx=state,
     )
     np.testing.assert_array_equal(result.f, [[4.0], [6.0]])
     np.testing.assert_array_equal(result.source, [0, 1])
@@ -146,7 +146,7 @@ def test_j6_materialize_preserves_unsorted_candidate_order():
         SurrogatePrediction({"objective": PredictionChannel(np.array([[6.0], [5.0]]))}),
         evaluation,
         [],
-        state,
+        ctx=state,
     )
     np.testing.assert_array_equal(result.candidate_ids, [11, 10])
     np.testing.assert_array_equal(result.f, [[6.0], [4.0]])
@@ -162,7 +162,7 @@ def test_j6_comparator_fallback_is_imputed():
         ),
         None,
         [],
-        state,
+        ctx=state,
     )
     np.testing.assert_array_equal(result.source, [1, 2])
     assert MISSING_VALUE_FALLBACK_POLICY.source == "imputed"
@@ -172,7 +172,7 @@ def test_j6_materializes_feedback_values():
     state = _state()
     values = np.array([[4.0], [6.0]])
     prediction = SurrogatePrediction({"objective": PredictionChannel(values)})
-    result = MixedFeedback().build(state.offspring, prediction, None, [], state)
+    result = MixedFeedback().build(state.offspring, prediction, None, [], ctx=state)
     values[0, 0] = 99.0
     np.testing.assert_array_equal(result.f, [[4.0], [6.0]])
 
@@ -197,7 +197,7 @@ def test_j6_materializes_f_g_cv_from_observation_batch():
         ),
         records=records,
     )
-    result = MixedFeedback().build(state.offspring, None, batch, [], state)
+    result = MixedFeedback().build(state.offspring, None, batch, [], ctx=state)
     np.testing.assert_array_equal(result.f, [[4.0], [6.0]])
     np.testing.assert_array_equal(result.g, [[0.5], [0.25]])
     np.testing.assert_array_equal(result.cv, [0.0, 0.0])
@@ -211,15 +211,19 @@ def test_j6_existing_builders_keep_visible_behavior():
     evaluation = EvaluationResult(
         np.array([[4.0]]), np.empty((1, 0)), np.zeros(1), candidate_ids=np.array([10])
     )
-    result = TrueOnlyFeedback().build(state.offspring, None, evaluation, [], state)
+    result = TrueOnlyFeedback().build(state.offspring, None, evaluation, [], ctx=state)
     np.testing.assert_array_equal(result.candidate_ids, [10])
     np.testing.assert_array_equal(result.source, [0])
     prediction = SurrogatePrediction(
         {"objective": PredictionChannel(np.array([[5.0], [6.0]]))}
     )
-    predicted = PredictedFeedback().build(state.offspring, prediction, None, [], state)
+    predicted = PredictedFeedback().build(
+        state.offspring, prediction, None, [], ctx=state
+    )
     np.testing.assert_array_equal(predicted.f, [[5.0], [6.0]])
     np.testing.assert_array_equal(predicted.source, [1, 1])
-    mixed = MixedFeedback().build(state.offspring, prediction, evaluation, [], state)
+    mixed = MixedFeedback().build(
+        state.offspring, prediction, evaluation, [], ctx=state
+    )
     np.testing.assert_array_equal(mixed.f, [[4.0], [6.0]])
     np.testing.assert_array_equal(mixed.source, [0, 1])

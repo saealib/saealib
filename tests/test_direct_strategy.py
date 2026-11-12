@@ -83,7 +83,7 @@ def _make_ga() -> GA:
 
 
 class _MockSurrogateManager:
-    def fit(self, archive, ctx=None):
+    def fit(self, archive, *, ctx):
         pass
 
 

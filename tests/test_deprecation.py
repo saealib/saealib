@@ -22,6 +22,11 @@ from saealib._deprecation import (
     warn_deprecated,
 )
 from saealib.acquisition import MeanPrediction
+from saealib.core.compiler.contract_diagnostics import (
+    _optimizer_configuration_diagnostics,
+)
+from saealib.core.compiler.lowerer import lower_pipeline
+from saealib.core.compiler.strategy_requirements import resolve_requires_surrogate
 from saealib.exceptions import ValidationError
 from saealib.execution import (
     AsyncEvaluationScheduler,
@@ -30,8 +35,22 @@ from saealib.execution import (
 )
 from saealib.execution.runtime import execute_strategy_step
 from saealib.identity import PopulationAttribute
+from saealib.pipeline import Pipeline
 from saealib.population import Archive, ParetoArchive, Population
 from saealib.problem import Problem
+from saealib.stages import (
+    ArchiveUpdateStage,
+    AskStage,
+    CountGenerationStage,
+    EvaluationAcknowledgeStage,
+    EvaluationApplyStage,
+    EvaluationCollectStage,
+    EvaluationPlanStage,
+    EvaluationSubmitStage,
+    FeedbackStage,
+    TellStage,
+    stage_component,
+)
 from saealib.strategies import (
     DirectStrategy,
     GenerationBasedStrategy,
@@ -39,6 +58,7 @@ from saealib.strategies import (
     PreSelectionStrategy,
     SteadyStateStrategy,
 )
+from saealib.strategies.base import OptimizationStrategy
 from saealib.surrogate import LocalSurrogateManager, RBFSurrogate
 from saealib.surrogate.rbf_kernels import GaussianKernel
 
@@ -71,7 +91,7 @@ def _optimizer(strategy, *, asynchronous: bool) -> Optimizer:
         .set_algorithm(_algorithm())
         .set_termination(Termination(lambda state: state.gen >= 1))
     )
-    if strategy.requires_surrogate:
+    if resolve_requires_surrogate(strategy).effective:
         optimizer.set_surrogate_manager(
             LocalSurrogateManager(RBFSurrogate(GaussianKernel()))
         ).set_acquisition(MeanPrediction())
@@ -263,3 +283,89 @@ def test_synchronous_strategy_step_does_not_emit_deprecation_warning() -> None:
         warnings.simplefilter("error", DeprecationWarning)
         result = strategy.step(state, optimizer)
     assert result.gen == 1
+
+
+class _GraphOnlyStrategy(OptimizationStrategy):
+    """Custom strategy that lowers its own component graph."""
+
+    requires_surrogate = False
+
+    def build_graph(self, provider):
+        return lower_pipeline(
+            Pipeline(
+                steps=[
+                    stage_component(CountGenerationStage()),
+                    stage_component(AskStage(provider.algorithm, n_offspring=2)),
+                    stage_component(EvaluationPlanStage(None)),
+                    stage_component(EvaluationSubmitStage(provider.evaluator)),
+                    stage_component(EvaluationCollectStage(provider.evaluator)),
+                    stage_component(EvaluationApplyStage()),
+                    stage_component(ArchiveUpdateStage()),
+                    stage_component(FeedbackStage(provider.feedback_builder)),
+                    stage_component(TellStage(provider.algorithm)),
+                    stage_component(EvaluationAcknowledgeStage(provider.evaluator)),
+                ]
+            )
+        )
+
+
+def _graph_only_optimizer(strategy) -> Optimizer:
+    return (
+        Optimizer(_problem(), seed=19)
+        .set_initializer(LHSInitializer(6, 4, 19))
+        .set_algorithm(_algorithm())
+        .set_strategy(strategy)
+        .set_termination(Termination(lambda state: state.gen >= 1))
+        .set_evaluator(SerialEvaluator())
+    )
+
+
+def test_build_graph_override_warns_once_per_strategy_class() -> None:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DeprecationWarning)
+        _graph_only_optimizer(_GraphOnlyStrategy()).run()
+        _graph_only_optimizer(_GraphOnlyStrategy()).run()
+
+    override_warnings = [
+        item for item in caught if "build_graph(provider)" in str(item.message)
+    ]
+    assert len(override_warnings) == 1
+    assert issubclass(override_warnings[0].category, DeprecationWarning)
+    assert "TemplateStrategy" in str(override_warnings[0].message)
+
+
+def test_plain_subclass_of_a_builtin_strategy_does_not_warn_build_graph() -> None:
+    class UserSteadyStateStrategy(SteadyStateStrategy):
+        pass
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        state = _graph_only_optimizer(UserSteadyStateStrategy()).run()
+
+    assert state.gen == 1
+
+
+def test_build_graph_override_strategy_keeps_its_surrogate_requirement() -> None:
+    class SurrogateGraphOnlyStrategy(_GraphOnlyStrategy):
+        requires_surrogate = True
+
+    strategy = SurrogateGraphOnlyStrategy()
+    findings = _optimizer_configuration_diagnostics(
+        {
+            "algorithm": object(),
+            "strategy": strategy,
+            "initializer": object(),
+            "termination": object(),
+            "surrogate_manager": None,
+            "acquisition": None,
+            "evaluation_planner": None,
+            "feedback_builder": None,
+            "evaluator": SerialEvaluator(),
+            "cbmanager": object(),
+        },
+        {},
+        _problem(),
+        SerialEvaluator(),
+    )
+
+    assert any(finding.code == "missing_surrogate_manager" for finding in findings)

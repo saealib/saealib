@@ -13,6 +13,7 @@ from saealib.core.compiler.diagnostics import (
     Severity,
     near_miss_suggestions,
 )
+from saealib.core.compiler.strategy_requirements import resolve_requires_surrogate
 from saealib.core.contracts import (
     ASSUMPTION_KEYS,
     CARDINALITIES,
@@ -75,12 +76,10 @@ def _optimizer_configuration_diagnostics(
 
     strategy = bindings.get("strategy")
     if strategy is not None:
-        requirement_read_failed = False
+        requirement = None
         try:
-            requires_surrogate = getattr(strategy, "requires_surrogate", _MISSING)
+            requirement = resolve_requires_surrogate(strategy)
         except Exception as error:
-            requirement_read_failed = True
-            requires_surrogate = _MISSING
             findings.append(
                 Diagnostic(
                     severity=Severity.WARNING,
@@ -96,7 +95,7 @@ def _optimizer_configuration_diagnostics(
                     ),
                 )
             )
-        if requires_surrogate is _MISSING and not requirement_read_failed:
+        if requirement is not None and not requirement.declares:
             findings.append(
                 Diagnostic(
                     severity=Severity.WARNING,
@@ -114,7 +113,37 @@ def _optimizer_configuration_diagnostics(
                     ),
                 )
             )
-        if requires_surrogate is True:
+        if (
+            requirement is not None
+            and requirement.declared is not None
+            and requirement.effective is not None
+            and requirement.declared != requirement.effective
+        ):
+            findings.append(
+                Diagnostic(
+                    severity=Severity.WARNING,
+                    code="contradicting_surrogate_requirement",
+                    message=(
+                        f"{type(strategy).__name__} declares "
+                        f"requires_surrogate={requirement.declared}, but its "
+                        "declared flow "
+                        + (
+                            "does not reach the surrogate manager slot"
+                            if requirement.effective is not True
+                            else "reaches the surrogate manager slot"
+                        )
+                        + "; the flow-derived requirement decides."
+                        f"{_selection_note('strategy', strategy, provenance)}"
+                    ),
+                    path=ContractPath(components=("optimizer", "strategy")),
+                    resolutions=(
+                        "Align the declaration with the requirement, or drop "
+                        "the explicit requires_surrogate value so the "
+                        "flow-derived value is used.",
+                    ),
+                )
+            )
+        if requirement is not None and requirement.effective is True:
             if bindings.get("surrogate_manager") is None:
                 findings.append(
                     Diagnostic(

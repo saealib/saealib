@@ -188,6 +188,11 @@ for _name, _description in (
         "The selected strategy requires a surrogate manager that is not available.",
     ),
     (
+        "contradicting_surrogate_requirement",
+        "A template strategy's explicit surrogate requirement contradicts its "
+        "declared flow, so the flow-derived value is used.",
+    ),
+    (
         "missing_acquisition",
         "The selected strategy requires an acquisition component that is not "
         "available.",

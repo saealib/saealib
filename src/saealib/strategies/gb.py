@@ -103,7 +103,6 @@ class GenerationBasedStrategy(TemplateStrategy):
         call before one generation of true objective evaluation.
     """
 
-    requires_surrogate: bool = True
     feedback_builder = MixedFeedback()
     true_feedback_builder = TrueOnlyFeedback()
 

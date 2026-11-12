@@ -467,9 +467,12 @@ def _prepare_graph_and_context(
 
 def _build_strategy_graph(strategy: Any, provider: Any) -> ComponentGraph:
     """Build the strategy graph using the execution preparation path."""
+    from saealib.strategies.base import warn_deprecated_build_graph_override
+
     build_graph = getattr(strategy, "build_graph", None)
     if not callable(build_graph):
         raise _InvalidStrategyGraphError("strategy requires a callable build_graph")
+    warn_deprecated_build_graph_override(strategy)
     graph = build_graph(provider)
     if not isinstance(graph, ComponentGraph):
         raise _InvalidStrategyGraphError(

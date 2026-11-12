@@ -10,13 +10,21 @@ page_type: concept
 
 ## OptimizationStrategyの役割
 
-graph-native経路の拡張点は `build_graph(provider) -> ComponentGraph` です。 Optimizerはこのグラフを実行前にCompilerへ渡し、`ExecutablePlan`を作成します。
+Strategyは、候補生成、予測、評価計画、Feedback、Population更新を一つの宣言フローとして記述します。 正規の書き方は、Stageが `(slot, role)` でコンポーネントを参照する `Pipeline` 宣言を `TemplateStrategy` に渡す形です。 実行前にOptimizerはこの宣言を `ComponentGraph` へ下ろしてCompilerに渡し、`ExecutablePlan` を作成します。
 
-`build_pipeline(provider) -> Pipeline` はStage互換経路で、既存のPipeline DSLを利用するStrategyが提供できる互換性用の記述形式です。 この形式を使う場合も、構造化Pipelineへ入れるStageは `stage_component(stage)` で明示的に包みます。
+`build_graph(provider) -> ComponentGraph` は宣言を下ろす境界として残りますが、独自Strategyでの上書きは非推奨です。 上書きすると `DeprecationWarning` が出力され、代替は `Pipeline` 宣言を渡した `TemplateStrategy` です。 フローをこの方法で検査できないStrategyは、引き続き `requires_surrogate: bool` を手で宣言します。
 
-`step(ctx, provider)` はStage互換経路に残る境界です。 新しいグラフネイティブコンポーネントは `StateView` を読み、`StatePatch` または `NodeResult` を返します。
+`requires_surrogate` は、この戦略が`SurrogateManager`に対して宣言する要件を持つ通常の属性です。 `OptimizationStrategy` が `False` を既定値として定義し、`TemplateStrategy` は宣言に判断を委ねるため `None` のままにします。 `DirectStrategy` と `SteadyStateStrategy` は `False` を、`IndividualBasedStrategy` と `PreSelectionStrategy` は `True` を宣言し、`GenerationBasedStrategy` は何も宣言しないため、surrogateのみの世代を持つかどうかによらず属性は `None` です。 通常の属性なので、クラス属性、Mixinから継承した属性、インスタンスへの代入、pickleやspecから復元した値のいずれもStrategyの宣言として扱われます。
 
-クラス属性`requires_surrogate: bool`は、この戦略が`SurrogateManager`を必要とするかを示します。 `Optimizer.validate()`がこの属性を見て、`surrogate_manager`が未設定のまま`requires_surrogate=True`の戦略を使おうとしていないかを確認します。
+この属性は実効要件ではありません。 標準のloweringを使う `TemplateStrategy` では、構成診断が宣言フローから要件を導出します。 宣言内のどのStage（ネストしたRepeat、Loop、Branch領域の内部も含む）が `ComponentRef` でsurrogate managerスロットを参照するか、surrogate managerを直接保持している場合に `True` になり、その値が `missing_surrogate_manager` と `missing_acquisition` エラーを決めます。 したがって `strategy.requires_surrogate` を真偽値として読むコードはそれを実効要件として扱えません。 構成を確認するには `Optimizer.validate()` か `Optimizer.contract_diagnostics()` の `missing_surrogate_manager` を使います。 導出された要件と食い違う宣言値は `contradicting_surrogate_requirement` WARNING診断として報告され、実行は継続します。 `build_graph` を上書きした戦略は宣言した属性をそのまま使います。
+
+## 組み込み省略形と明示的な方針コンポーネント
+
+組み込みコンストラクタは、宣言と既定の方針コンポーネントを組み合わせた省略形です。 `IndividualBasedStrategy(evaluation_ratio)` は `RatioEvaluation(evaluation_ratio, sanitize_nonfinite=True)` を、`PreSelectionStrategy(n_candidates, n_select)` は `TopKEvaluation(min(n_select, n_candidates), sanitize_nonfinite=True)` を既定plannerとして束ね、それぞれ既定のfeedback builderも供給します。 両形式は固定シードで同じ計画と同じ結果になります。
+
+`set_evaluation_planner` や `set_feedback_builder` などのsetterで明示設定したコンポーネントは省略形の既定より優先され、provenanceに明示設定として記録されます。 候補数（`n_candidates`、`n_offspring`）と内側世代数（`gen_ctrl`）は宣言の形そのものを決めるため、方針コンポーネントへは移らずコンストラクタ引数に留まります。 コンストラクタ引数はspecの往復とpickle復元でも使われます。
+
+省略形パラメータのin-place変更（例：`strategy.evaluation_ratio = 0.5`）は、次の確定点、つまり戦略が次に計画用に宣言を解決する時点で効きます。 明示設定されたコンポーネントには決して影響せず、そのコンポーネントは自身の設定を保ちます。
 
 ## 組み込みStrategy
 
@@ -28,7 +36,7 @@ graph-native経路の拡張点は `build_graph(provider) -> ComponentGraph` で�
 | `PreSelectionStrategy` | `n_candidates: int, n_select: int`（共に必須） | `n_candidates`件を生成してスコアリングし、上位`n_select`件だけ真に評価する |
 | `GenerationBasedStrategy` | `gen_ctrl: int`（必須） | `gen_ctrl`世代分をサロゲートのみで進め、その後1世代だけ真に評価する |
 
-`IndividualBasedStrategy`は個体の割合、`PreSelectionStrategy`は個体の件数で選抜する点が異なります。 `GenerationBasedStrategy`は個体単位ではなく世代単位でサロゲートと真の評価を切り替えます。 `DirectStrategy`はサロゲートを一切使わない比較対象で、`requires_surrogate=False`です。
+`IndividualBasedStrategy`は個体の割合、`PreSelectionStrategy`は個体の件数で選抜する点が異なります。 `GenerationBasedStrategy`は個体単位ではなく世代単位でサロゲートと真の評価を切り替えます。 `DirectStrategy`はサロゲートを一切使わない比較対象です。
 
 定常状態実行では、`DirectStrategy`と`AsyncEvaluationScheduler`を組み合わせます。スケジューラは利用可能なワーカースロットを埋め、ブロックせずにポーリングし、完了した更新をライフサイクル順にコミットします。
 
@@ -53,32 +61,31 @@ graph-native経路の拡張点は `build_graph(provider) -> ComponentGraph` で�
 
 ## 独自Strategyの実装方法
 
-独自の候補選択方式を実装するときは、graph-nativeの経路とStage互換の経路を分けて選びます。
-
-**グラフネイティブ経路**：`build_graph()`を実装して`ComponentGraph`を返します。パイプラインDSLを使って段階的に移行する場合は、各Stageを`stage_component()`でラップしてから`lower_pipeline()`に渡します。
+`(slot, role)` でコンポーネントを参照するStageを持つ `Pipeline` 宣言を `TemplateStrategy` に渡して、フローを宣言します。 コンポーネントは計画準備時にOptimizerのスロットから供給され、戦略は自身が所有するスロットの既定値を束ねられます。
 
 ```python
-from saealib import OptimizationStrategy, Pipeline
-from saealib.core import lower_pipeline
-from saealib.stages import stage_component
+from saealib.pipeline import ComponentRef, Pipeline
+from saealib.strategies import TemplateStrategy
+from saealib.stages import AskStage, CountGenerationStage, EvaluationPlanStage
 
 
-class CustomStrategy(OptimizationStrategy):
-    """Skeleton for building a Strategy ComponentGraph from the Pipeline DSL."""
+class CustomStrategy(TemplateStrategy):
+    """Skeleton for a declared candidate-selection flow."""
 
-    requires_surrogate = False
-
-    def build_graph(self, provider):
-        pipeline = Pipeline(
-            steps=[
-                stage_component(first_stage),
-                stage_component(second_stage),
-            ]
+    def __init__(self, n_offspring):
+        self.n_offspring = n_offspring
+        super().__init__(
+            Pipeline(
+                steps=[
+                    CountGenerationStage(),
+                    AskStage(ComponentRef("proposer"), n_offspring=n_offspring),
+                    EvaluationPlanStage(ComponentRef("evaluation_planner")),
+                ]
+            )
         )
-        return lower_pipeline(pipeline)
 ```
 
-`first_stage` と `second_stage` は、実際に組み合わせるStageインスタンスを表します。 この例はPipelineからComponentGraphを作る境界だけを示しており、評価計画やFeedbackの契約は各Stageの構成に応じて追加します。
+評価の送信、Feedback、TellのStageを構成に応じて追加します。 surrogate参照（`ComponentRef("predictor")`) はフローが必要な場合だけ宣言します。 surrogate要否は宣言から導出されます。
 
 既存のStrategyの一部だけを調整する場合は、新しいStrategyを作るよりも [Pipeline.replace/find](../extension_guidelines.md) で互換性用パイプラインを変更する方が適しています。
 

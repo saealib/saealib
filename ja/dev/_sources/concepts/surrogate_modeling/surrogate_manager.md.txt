@@ -13,9 +13,9 @@ page_type: concept
 
 `SurrogateManager`の抽象メソッドは`predict()`です。フィットと世代フックには既定実装があります。
 
-**`predict(candidates_x, archive, ctx=None, *, refit=True) -> SurrogatePrediction`**（抽象メソッド）：候補を予測します。`refit=True`（既定値）の場合は、予測前にサロゲートを再学習します。
+**`predict(candidates_x, archive, *, refit=True, ctx) -> SurrogatePrediction`**（抽象メソッド）：候補を予測します。`refit=True`（既定値）の場合は、予測前にサロゲートを再学習します。
 
-**`fit(archive, ctx=None) -> None`**：既定では何もしません。アーカイブが変化しない場合に、`predict(..., refit=False)`を連続して呼び出す前に1回だけ呼ぶ事前フィット用フックです。
+**`fit(archive, *, ctx) -> None`**：既定では何もしません。アーカイブが変化しない場合に、`predict(..., refit=False)`を連続して呼び出す前に1回だけ呼ぶ事前フィット用フックです。
 
 **`last_accuracy: SurrogateAccuracy | None`**（クラス属性）：直近の`fit`が計算した精度指標。詳細は[サロゲート精度評価と動的切り替え](surrogate_switching.md)で扱います。
 
@@ -28,7 +28,7 @@ page_type: concept
 | Stage互換境界 | `archive`、`candidates_x: np.ndarray`、`ctx`、`refit` | `SurrogatePrediction`、fit の完了状態 | 互換Stage、逐次互換ランタイム |
 | graph-native境界 | `GenomeBatch`、`FeatureEncoder`、`FeatureBatch`、宣言済みサービス | Surrogateがフィット・予測できる特徴と予測結果 | コンポーネント、Compiler、構造化ランタイム |
 
-Stage互換経路の現行vector形式のManager APIでは、`fit(archive, ctx=None)`と`predict(candidates_x: np.ndarray, archive, ctx=None, *, refit=True) -> SurrogatePrediction`を使います。現行APIには、`GlobalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`、`LocalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`、`PairwiseSurrogateManager(surrogate, training_set=None, n_ref=10)`などのコンストラクタも含まれます。
+Stage互換経路の現行vector形式のManager APIでは、`fit(archive, *, ctx)`と`predict(candidates_x: np.ndarray, archive, *, refit=True, ctx) -> SurrogatePrediction`を使います。現行APIには、`GlobalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`、`LocalSurrogateManager(surrogate, training_set=None, accuracy_evaluator=None)`、`PairwiseSurrogateManager(surrogate, training_set=None, n_ref=10)`などのコンストラクタも含まれます。
 構造化ランタイムでは、Surrogateの入力境界は`GenomeBatch → FeatureEncoder → FeatureBatch → Surrogate`です。`FeatureEncoder`は意味変換を行い、Surrogateが学習できる特徴を決めます。
 実行準備は、選択した戦略が`FeatureEncoder`を使う場合にエンコーダを選びます。`VectorSpace`は恒等エンコーディングを既定にし、選択元と理由をINFOで報告します。`PermutationSpace`と`SequenceSpace`は組み込みの既定エンコーダを使い、エンコーディングがサロゲートの学習対象を決めることを示して、明示選択を勧めるWARNINGを報告します。このWARNINGは実行を妨げません。
 `SearchSpace.services`に明示されたエンコーダは既定より優先され、既定選択の診断は出ません。`ObjectSpace`と独自の空間はエンコーダを自動で補わないため、必要な戦略を使う場合は空間が提供します。
@@ -69,13 +69,21 @@ Stage互換経路の現行vector形式のManager APIでは、`fit(archive, ctx=N
 
 ```python
 import numpy as np
-from saealib import AcquisitionFunction, AcquisitionResult
+from saealib import AcquisitionFunction, AcquisitionResult, OptimizationState
 
 
 class ConstantAcquisition(AcquisitionFunction):
     """A minimal acquisition that assigns every candidate the same score."""
 
-    def evaluate(self, candidates_x, prediction, archive, ctx=None, *, prepared=None):
+    def evaluate(
+        self,
+        candidates_x,
+        prediction,
+        archive,
+        *,
+        prepared=None,
+        ctx: OptimizationState | None,
+    ):
         return AcquisitionResult(scores=np.ones(len(candidates_x)))
 ```
 

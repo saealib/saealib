@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.surrogate.training_set &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>saealib.surrogate.training_set &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1003,6 +1003,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">PortContract</span><span class="p">,</span>
     <span class="n">PortDirection</span><span class="p">,</span>
     <span class="n">PortSpec</span><span class="p">,</span>
+    <span class="n">ServiceRequirement</span><span class="p">,</span>
     <span class="n">StateContract</span><span class="p">,</span>
     <span class="n">Var</span><span class="p">,</span>
 <span class="p">)</span>
@@ -1141,8 +1142,9 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build and return the training data.</span>
 
@@ -1180,8 +1182,9 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all archive points with raw objective values.&quot;&quot;&quot;</span>
         <span class="n">genomes</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="s2">&quot;genomes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -1227,8 +1230,9 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return k nearest-neighbour archive points around ``candidate_x``.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">candidate_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1264,8 +1268,9 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all archive points with raw constraint values.&quot;&quot;&quot;</span>
         <span class="n">g</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">g</span>
@@ -1311,8 +1316,9 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return k nearest-neighbour archive points with raw constraint values.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">candidate_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1371,8 +1377,9 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return feasibility binary labels (1 = feasible, 0 = infeasible).&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;population&quot;</span><span class="p">:</span>
@@ -1423,14 +1430,25 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">top_ratio</span> <span class="o">=</span> <span class="n">top_ratio</span></div>
 
 
+<div class="viewcode-block" id="TopKBipartitionSet.contract">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.TopKBipartitionSet.html#saealib.TopKBipartitionSet.contract">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the bipartition contract requiring population comparison.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">contract</span><span class="p">(),</span>
+            <span class="n">required_services</span><span class="o">=</span><span class="p">(</span><span class="n">ServiceRequirement</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;ComparisonService&quot;</span><span class="p">),),</span>
+        <span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="TopKBipartitionSet.build">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.TopKBipartitionSet.html#saealib.TopKBipartitionSet.build">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return bipartition labels based on sorted rank.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1483,14 +1501,25 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_levels</span> <span class="o">=</span> <span class="n">n_levels</span></div>
 
 
+<div class="viewcode-block" id="LevelBasedSet.contract">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.LevelBasedSet.html#saealib.LevelBasedSet.contract">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the level contract requiring population comparison.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">contract</span><span class="p">(),</span>
+            <span class="n">required_services</span><span class="o">=</span><span class="p">(</span><span class="n">ServiceRequirement</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;ComparisonService&quot;</span><span class="p">),),</span>
+        <span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="LevelBasedSet.build">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.LevelBasedSet.html#saealib.LevelBasedSet.build">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return level labels from equal-size sorted groups.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1567,13 +1596,17 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="PairwiseComparisonSet.contract">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.PairwiseComparisonSet.html#saealib.PairwiseComparisonSet.contract">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the pairwise-training contract.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the pairwise-training contract requiring comparison and RNG.&quot;&quot;&quot;</span>
         <span class="n">state</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">StateContract</span><span class="p">(</span><span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">RUNTIME_RNG</span><span class="p">,),</span> <span class="n">writes</span><span class="o">=</span><span class="p">(</span><span class="n">RUNTIME_RNG</span><span class="p">,))</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_pairs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span> <span class="ow">is</span> <span class="kc">None</span>
             <span class="k">else</span> <span class="n">StateContract</span><span class="p">()</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">contract</span><span class="p">(),</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">contract</span><span class="p">(),</span>
+            <span class="n">required_services</span><span class="o">=</span><span class="p">(</span><span class="n">ServiceRequirement</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;ComparisonService&quot;</span><span class="p">),),</span>
+            <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PairwiseComparisonSet.build">
@@ -1582,8 +1615,9 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return pairwise comparison training data.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1655,14 +1689,25 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">ref_source</span> <span class="o">=</span> <span class="n">ref_source</span></div>
 
 
+<div class="viewcode-block" id="ReferencePointComparisonSet.contract">
+<a class="viewcode-back" href="../../../api/_autosummary/saealib.ReferencePointComparisonSet.html#saealib.ReferencePointComparisonSet.contract">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the reference-point contract requiring population comparison.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">contract</span><span class="p">(),</span>
+            <span class="n">required_services</span><span class="o">=</span><span class="p">(</span><span class="n">ServiceRequirement</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;ComparisonService&quot;</span><span class="p">),),</span>
+        <span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="ReferencePointComparisonSet.build">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.ReferencePointComparisonSet.html#saealib.ReferencePointComparisonSet.build">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">candidate_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainingData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return binary labels: 1 if archive point dominates reference, 0 otherwise.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>獲得関数 &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>獲得関数 &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -995,7 +995,7 @@ or <code class="docutils literal notranslate"><span class="pre">t</span> <span c
 </section>
 <section id="corsdistance">
 <h2>CORSDistance<a class="headerlink" href="#corsdistance" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">CORSDistance</span></code>は、予測平均のスコアにCORSの距離制約を課します。<code class="docutils literal notranslate"><span class="pre">prepare(archive,</span> <span class="pre">ctx)</span></code>は<code class="docutils literal notranslate"><span class="pre">ctx.decision_count</span></code>からbetaを選び、評価済み点と合わせて保持する<code class="docutils literal notranslate"><span class="pre">CORSReference</span></code>を返します。そのため最初の判断では探索パターンの先頭要素が使われ、以降の判断はパターンを巡回します。原法に忠実な標準構成では、判断1回につき1点だけを真の評価に送ります。たとえば<code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy(...,</span> <span class="pre">n_select=1)</span></code>や<code class="docutils literal notranslate"><span class="pre">TopKEvaluation(1)</span></code>を使います。</p>
+<p><code class="docutils literal notranslate"><span class="pre">CORSDistance</span></code>は、予測平均のスコアにCORSの距離制約を課します。<code class="docutils literal notranslate"><span class="pre">prepare(archive,</span> <span class="pre">*,</span> <span class="pre">ctx)</span></code>は<code class="docutils literal notranslate"><span class="pre">ctx.decision_count</span></code>からbetaを選び、評価済み点と合わせて保持する<code class="docutils literal notranslate"><span class="pre">CORSReference</span></code>を返します。そのため最初の判断では探索パターンの先頭要素が使われ、以降の判断はパターンを巡回します。原法に忠実な標準構成では、判断1回につき1点だけを真の評価に送ります。たとえば<code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy(...,</span> <span class="pre">n_select=1)</span></code>や<code class="docutils literal notranslate"><span class="pre">TopKEvaluation(1)</span></code>を使います。</p>
 <p><code class="docutils literal notranslate"><span class="pre">delta=None</span></code>のとき、距離スケールは現在の候補プールから、評価済みアーカイブへの最小距離の最大値として近似されます。固定のスケールを使いたい場合は、有限の正の<code class="docutils literal notranslate"><span class="pre">delta</span></code>を渡します。</p>
 </section>
 </section>

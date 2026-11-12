@@ -10,7 +10,8 @@ To change the generational-replacement scheme, you only need to swap out this `S
 
 ## SurvivorSelection's role
 
-`SurvivorSelection` requires only one method, `select(ctx, pool, n_survivors) -> np.ndarray`, to be implemented.
+`SurvivorSelection` requires only one method, `select(pool, n_survivors, *, ctx) -> np.ndarray`, to be implemented.
+As with [ParentSelection](parent_selection.md), `ctx` is a trailing, keyword-only, required argument annotated `OptimizationState | None`, and selection rejects `ctx=None` with `ValidationError`.
 `pool` is a combined `Population` built by `Algorithm` — for example, the parent and offspring populations together — and it returns the indices of the `n_survivors` individuals that survive from it.
 
 Whether it's a $(\mu+\lambda)$ scheme (selecting from a pool of parents and offspring combined) or a $(\mu,\lambda)$ scheme (selecting from a pool of offspring only) is determined by how `Algorithm` builds `pool` — that is, what it includes.
@@ -35,13 +36,13 @@ The following example is a survivor selection that always keeps the single best 
 
 ```python
 import numpy as np
-from saealib import SurvivorSelection
+from saealib import OptimizationState, SurvivorSelection
 
 
 class ElitistSurvivorSelection(SurvivorSelection):
     """Always keeps the single best individual, choosing the rest at random."""
 
-    def select(self, ctx, pool, n_survivors):
+    def select(self, pool, n_survivors, *, ctx: OptimizationState | None):
         sorted_idx = ctx.comparator.rank_population(pool)
         best = sorted_idx[:1]
         rest_pool = sorted_idx[1:]

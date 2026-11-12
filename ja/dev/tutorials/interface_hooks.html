@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Hook、Stage、Callbackを選ぶ &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>Hook、Stage、Callbackを選ぶ &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -622,6 +622,7 @@
 </pre></div>
 </div>
 <p>Surrogateのfit後処理は、<code class="docutils literal notranslate"><span class="pre">fn(train_x,</span> <span class="pre">train_y,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code> を <code class="docutils literal notranslate"><span class="pre">with_post_fit()</span></code> に渡します。 このHookを使う具体的な契約は <a class="reference internal" href="../concepts/surrogate_modeling/surrogate.html"><span class="std std-doc">Surrogateの概念</span></a> を参照してください。</p>
+<p>コンポーネント側の文脈依存フック（<code class="docutils literal notranslate"><span class="pre">ParentSelection.select</span></code>、<code class="docutils literal notranslate"><span class="pre">SurvivorSelection.select</span></code>、<code class="docutils literal notranslate"><span class="pre">EvaluationPlanner.plan</span></code>、<code class="docutils literal notranslate"><span class="pre">FeedbackBuilder.build</span></code>、<code class="docutils literal notranslate"><span class="pre">TrainingSet.build</span></code>、<code class="docutils literal notranslate"><span class="pre">AcquisitionFunction.prepare</span></code>/<code class="docutils literal notranslate"><span class="pre">evaluate</span></code>、<code class="docutils literal notranslate"><span class="pre">SurrogateManager.fit</span></code>/<code class="docutils literal notranslate"><span class="pre">predict</span></code>）は、末尾のキーワード専用・必須引数 <code class="docutils literal notranslate"><span class="pre">ctx</span></code>（型は <code class="docutils literal notranslate"><span class="pre">OptimizationState</span> <span class="pre">|</span> <span class="pre">None</span></code>）という共通の引数規則に従います。 規則の詳細と独自実装での宣言方法は <a class="reference internal" href="../concepts/extension_guidelines.html"><span class="std std-doc">拡張ガイドライン</span></a> を参照してください。</p>
 </section>
 <section id="stage">
 <h2>Stageで実行単位を置き換える<a class="headerlink" href="#stage" title="Link to this heading">#</a></h2>

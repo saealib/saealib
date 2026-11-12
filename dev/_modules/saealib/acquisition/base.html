@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.acquisition.base &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.acquisition.base &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1090,7 +1090,7 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="AcquisitionFunction.prepare">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.AcquisitionFunction.html#saealib.AcquisitionFunction.prepare">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute a generation-scoped reference value shared across ``evaluate()`` calls.</span>
 
@@ -1102,7 +1102,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        ----------</span>
 <span class="sd">        archive : Archive</span>
 <span class="sd">            Archive of evaluated solutions.</span>
-<span class="sd">        ctx : OptimizationState or None, optional</span>
+<span class="sd">        ctx : OptimizationState or None</span>
 <span class="sd">            Optimization state, used here only for ``ctx.rng``.</span>
 
 <span class="sd">        Returns</span>
@@ -1121,9 +1121,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">candidates_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">prediction</span><span class="p">:</span> <span class="n">SurrogatePrediction</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">prepared</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">_UNSET</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AcquisitionResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute acquisition scores for a set of candidates.</span>
@@ -1137,13 +1137,14 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            archive-only acquisition that needs no prediction.</span>
 <span class="sd">        archive : Archive</span>
 <span class="sd">            Archive of evaluated solutions.</span>
-<span class="sd">        ctx : OptimizationState or None, optional</span>
+<span class="sd">        ctx : OptimizationState or None</span>
 <span class="sd">            Optimization state, used here only for ``ctx.rng``.</span>
 <span class="sd">        prepared : Any, optional</span>
 <span class="sd">            A previously computed reference value, as returned by</span>
 <span class="sd">            ``prepare()``. The default sentinel ``_UNSET`` means &quot;compute</span>
-<span class="sd">            it now via ``prepare(archive, ctx)``&quot;; an explicit ``None`` is a</span>
-<span class="sd">            valid prepared value in its own right and skips ``prepare()``.</span>
+<span class="sd">            it now via ``prepare(archive, ctx=ctx)``&quot;; an explicit ``None``</span>
+<span class="sd">            is a valid prepared value in its own right and skips</span>
+<span class="sd">            ``prepare()``.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1238,7 +1239,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="o">...</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Delegate to ``compute_reference(archive, rng=ctx.rng if ctx else None)``.&quot;&quot;&quot;</span>
         <span class="n">rng</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rng</span> <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_reference</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">)</span>
@@ -1248,9 +1249,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">candidates_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">prediction</span><span class="p">:</span> <span class="n">SurrogatePrediction</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">prepared</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">_UNSET</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AcquisitionResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Reject ``prediction is None``, resolve the reference, then ``score()``.</span>
@@ -1263,7 +1264,7 @@ window.runMermaid = runMermaid;</script>
             <span class="k">return</span> <span class="n">AcquisitionResult</span><span class="p">(</span><span class="n">scores</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">prediction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> requires a prediction, got None&quot;</span><span class="p">)</span>
-        <span class="n">reference</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span> <span class="k">if</span> <span class="n">prepared</span> <span class="ow">is</span> <span class="n">_UNSET</span> <span class="k">else</span> <span class="n">prepared</span>
+        <span class="n">reference</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">)</span> <span class="k">if</span> <span class="n">prepared</span> <span class="ow">is</span> <span class="n">_UNSET</span> <span class="k">else</span> <span class="n">prepared</span>
         <span class="n">rng</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rng</span> <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="n">scores</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">reference</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">)</span>
         <span class="n">scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1315,10 +1316,11 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">acquisitions</span> <span class="o">=</span> <span class="n">acquisitions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">combine_fn</span> <span class="o">=</span> <span class="n">combine_fn</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare every child acquisition; returns ``{name: child_prepared}``.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="n">name</span><span class="p">:</span> <span class="n">acq</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">acq</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisitions</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">acq</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">acq</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisitions</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
         <span class="p">}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
@@ -1326,9 +1328,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">candidates_x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">prediction</span><span class="p">:</span> <span class="n">SurrogatePrediction</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">archive</span><span class="p">:</span> <span class="n">Archive</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">prepared</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">_UNSET</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AcquisitionResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Evaluate every configured child acquisition, then ``combine_fn`` the scores.</span>
@@ -1350,7 +1352,9 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">prediction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> requires a prediction, got None&quot;</span><span class="p">)</span>
         <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates_x</span><span class="p">)</span>
-        <span class="n">prepared_map</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span> <span class="k">if</span> <span class="n">prepared</span> <span class="ow">is</span> <span class="n">_UNSET</span> <span class="k">else</span> <span class="n">prepared</span>
+        <span class="n">prepared_map</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">)</span> <span class="k">if</span> <span class="n">prepared</span> <span class="ow">is</span> <span class="n">_UNSET</span> <span class="k">else</span> <span class="n">prepared</span>
+        <span class="p">)</span>
         <span class="n">score_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">acq</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisitions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">prediction</span><span class="o">.</span><span class="n">channels</span><span class="p">:</span>
@@ -1362,7 +1366,11 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">prepared_map</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">prepared_map</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="n">_UNSET</span>
             <span class="p">)</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">acq</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-                <span class="n">candidates_x</span><span class="p">,</span> <span class="n">projected</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">prepared</span><span class="o">=</span><span class="n">child_prepared</span>
+                <span class="n">candidates_x</span><span class="p">,</span>
+                <span class="n">projected</span><span class="p">,</span>
+                <span class="n">archive</span><span class="p">,</span>
+                <span class="n">prepared</span><span class="o">=</span><span class="n">child_prepared</span><span class="p">,</span>
+                <span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">scores</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>

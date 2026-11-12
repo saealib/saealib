@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.policies.feedback &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.policies.feedback &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -962,15 +962,17 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">replace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cache</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">MANY</span><span class="p">,</span>
     <span class="n">ComponentContract</span><span class="p">,</span>
     <span class="n">DataSpec</span><span class="p">,</span>
     <span class="n">FeedbackBatch</span><span class="p">,</span>
+    <span class="n">PartSpec</span><span class="p">,</span>
     <span class="n">PortContract</span><span class="p">,</span>
     <span class="n">PortDirection</span><span class="p">,</span>
     <span class="n">PortSpec</span><span class="p">,</span>
@@ -994,6 +996,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">ObservationRecords</span><span class="p">,</span>
     <span class="n">ObservationSchema</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">POPULATIONS_MAIN</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationResult</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">OBJECTIVE_SOURCE_COLUMN</span>
@@ -1784,7 +1787,15 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="FeedbackBuilder.build">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.FeedbackBuilder.html#saealib.FeedbackBuilder.build">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">evaluated_indices</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">candidates</span><span class="p">,</span>
+        <span class="n">prediction</span><span class="p">,</span>
+        <span class="n">evaluation</span><span class="p">,</span>
+        <span class="n">evaluated_indices</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return feedback aligned to candidate IDs.&quot;&quot;&quot;</span></div>
 </div>
 
@@ -1804,8 +1815,17 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="TrueOnlyFeedback.build">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.TrueOnlyFeedback.html#saealib.TrueOnlyFeedback.build">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">evaluated_indices</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">candidates</span><span class="p">,</span>
+        <span class="n">prediction</span><span class="p">,</span>
+        <span class="n">evaluation</span><span class="p">,</span>
+        <span class="n">evaluated_indices</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build true-only feedback.&quot;&quot;&quot;</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">evaluation</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">evaluation</span><span class="o">.</span><span class="n">candidate_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_empty</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">n_obj</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">evaluation</span><span class="p">,</span> <span class="n">ObservationBatch</span><span class="p">):</span>
@@ -1871,7 +1891,15 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="PredictedFeedback.build">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.PredictedFeedback.html#saealib.PredictedFeedback.build">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">evaluated_indices</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">candidates</span><span class="p">,</span>
+        <span class="n">prediction</span><span class="p">,</span>
+        <span class="n">evaluation</span><span class="p">,</span>
+        <span class="n">evaluated_indices</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build predicted feedback.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">prediction</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="s2">&quot;objective&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">prediction</span><span class="o">.</span><span class="n">channels</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;PredictedFeedback requires an objective channel&quot;</span><span class="p">)</span>
@@ -1907,8 +1935,17 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="MixedFeedback.build">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.MixedFeedback.html#saealib.MixedFeedback.build">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">evaluated_indices</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">candidates</span><span class="p">,</span>
+        <span class="n">prediction</span><span class="p">,</span>
+        <span class="n">evaluation</span><span class="p">,</span>
+        <span class="n">evaluated_indices</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build mixed feedback.&quot;&quot;&quot;</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="nb">isinstance</span><span class="p">(</span><span class="n">evaluation</span><span class="p">,</span> <span class="n">EvaluationResult</span><span class="p">)</span>
             <span class="ow">and</span> <span class="n">evaluation</span><span class="o">.</span><span class="n">candidate_ids</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -1982,8 +2019,17 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="NoFeedback.build">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.NoFeedback.html#saealib.NoFeedback.build">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">evaluated_indices</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">candidates</span><span class="p">,</span>
+        <span class="n">prediction</span><span class="p">,</span>
+        <span class="n">evaluation</span><span class="p">,</span>
+        <span class="n">evaluated_indices</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build empty feedback.&quot;&quot;&quot;</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_empty</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">n_obj</span><span class="p">)</span></div>
 </div>
 
@@ -2027,18 +2073,35 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">inputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">replace</span><span class="p">(</span><span class="n">port</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">inputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">family</span><span class="o">.</span><span class="n">parts</span>
+        <span class="k">if</span> <span class="n">inner_contract</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">parts</span><span class="p">,</span> <span class="n">PartSpec</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">,</span> <span class="n">contract</span><span class="o">=</span><span class="n">inner_contract</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">replace</span><span class="p">(</span>
             <span class="n">family</span><span class="p">,</span>
             <span class="n">ports</span><span class="o">=</span><span class="p">{</span>
                 <span class="o">**</span><span class="n">family</span><span class="o">.</span><span class="n">ports</span><span class="p">,</span>
                 <span class="s2">&quot;feedback_builder&quot;</span><span class="p">:</span> <span class="n">replace</span><span class="p">(</span><span class="n">builder</span><span class="p">,</span> <span class="n">inputs</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">inputs</span><span class="p">)),</span>
             <span class="p">},</span>
+            <span class="n">parts</span><span class="o">=</span><span class="n">parts</span><span class="p">,</span>
+            <span class="n">state</span><span class="o">=</span><span class="n">replace</span><span class="p">(</span>
+                <span class="n">family</span><span class="o">.</span><span class="n">state</span><span class="p">,</span>
+                <span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="o">*</span><span class="n">family</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">reads</span><span class="p">,</span> <span class="n">POPULATIONS_MAIN</span><span class="p">),</span>
+            <span class="p">),</span>
         <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">evaluated_indices</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">candidates</span><span class="p">,</span>
+        <span class="n">prediction</span><span class="p">,</span>
+        <span class="n">evaluation</span><span class="p">,</span>
+        <span class="n">evaluated_indices</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build feedback and replace missing rows.&quot;&quot;&quot;</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
-            <span class="n">candidates</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">evaluated_indices</span><span class="p">,</span> <span class="n">ctx</span>
+            <span class="n">candidates</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">evaluated_indices</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">result</span>

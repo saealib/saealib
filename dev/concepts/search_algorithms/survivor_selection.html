@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>SurvivorSelection &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>SurvivorSelection &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -597,7 +597,8 @@
 To change the generational-replacement scheme, you only need to swap out this <code class="docutils literal notranslate"><span class="pre">SurvivorSelection</span></code>, not <code class="docutils literal notranslate"><span class="pre">GA</span></code> itself.</p>
 <section id="survivorselection-s-role">
 <h2>SurvivorSelection’s role<a class="headerlink" href="#survivorselection-s-role" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">SurvivorSelection</span></code> requires only one method, <code class="docutils literal notranslate"><span class="pre">select(ctx,</span> <span class="pre">pool,</span> <span class="pre">n_survivors)</span> <span class="pre">-&gt;</span> <span class="pre">np.ndarray</span></code>, to be implemented.
+<p><code class="docutils literal notranslate"><span class="pre">SurvivorSelection</span></code> requires only one method, <code class="docutils literal notranslate"><span class="pre">select(pool,</span> <span class="pre">n_survivors,</span> <span class="pre">*,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">np.ndarray</span></code>, to be implemented.
+As with <a class="reference internal" href="parent_selection.html"><span class="std std-doc">ParentSelection</span></a>, <code class="docutils literal notranslate"><span class="pre">ctx</span></code> is a trailing, keyword-only, required argument annotated <code class="docutils literal notranslate"><span class="pre">OptimizationState</span> <span class="pre">|</span> <span class="pre">None</span></code>, and selection rejects <code class="docutils literal notranslate"><span class="pre">ctx=None</span></code> with <code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>.
 <code class="docutils literal notranslate"><span class="pre">pool</span></code> is a combined <code class="docutils literal notranslate"><span class="pre">Population</span></code> built by <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> — for example, the parent and offspring populations together — and it returns the indices of the <code class="docutils literal notranslate"><span class="pre">n_survivors</span></code> individuals that survive from it.</p>
 <p>Whether it’s a <span class="math notranslate nohighlight">\((\mu+\lambda)\)</span> scheme (selecting from a pool of parents and offspring combined) or a <span class="math notranslate nohighlight">\((\mu,\lambda)\)</span> scheme (selecting from a pool of offspring only) is determined by how <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> builds <code class="docutils literal notranslate"><span class="pre">pool</span></code> — that is, what it includes.
 <code class="docutils literal notranslate"><span class="pre">SurvivorSelection</span></code>’s interface itself doesn’t distinguish between the two schemes.</p>
@@ -629,13 +630,13 @@ Because this tie-breaking consumes <code class="docutils literal notranslate"><s
 <p>If you need a custom generational-replacement scheme, subclass <code class="docutils literal notranslate"><span class="pre">SurvivorSelection</span></code> and implement only <code class="docutils literal notranslate"><span class="pre">select()</span></code>.
 The following example is a survivor selection that always keeps the single best individual, choosing the rest at random.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">SurvivorSelection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">SurvivorSelection</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">ElitistSurvivorSelection</span><span class="p">(</span><span class="n">SurvivorSelection</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Always keeps the single best individual, choosing the rest at random.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">n_survivors</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">n_survivors</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">):</span>
         <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">pool</span><span class="p">)</span>
         <span class="n">best</span> <span class="o">=</span> <span class="n">sorted_idx</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">rest_pool</span> <span class="o">=</span> <span class="n">sorted_idx</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>

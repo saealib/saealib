@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.PairwiseSurrogateManager &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.PairwiseSurrogateManager &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -988,7 +988,7 @@ used.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.PairwiseSurrogateManager.fit">
-<span class="sig-prename descclassname"><span class="pre">PairwiseSurrogateManager.</span></span><span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#PairwiseSurrogateManager.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.PairwiseSurrogateManager.fit" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">PairwiseSurrogateManager.</span></span><span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#PairwiseSurrogateManager.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.PairwiseSurrogateManager.fit" title="Link to this definition">#</a></dt>
 <dd><p>Fit the surrogate on pairwise comparison training data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1024,7 +1024,7 @@ used.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.PairwiseSurrogateManager.predict">
-<span class="sig-prename descclassname"><span class="pre">PairwiseSurrogateManager.</span></span><span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">refit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#PairwiseSurrogateManager.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.PairwiseSurrogateManager.predict" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">PairwiseSurrogateManager.</span></span><span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">refit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#PairwiseSurrogateManager.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.PairwiseSurrogateManager.predict" title="Link to this definition">#</a></dt>
 <dd><p>Predict per-candidate mean win rate against archive reference points.</p>
 <p>Draws a reference subset from the archive exactly once per call
 (not once per candidate) – this RNG-consumption timing is a
@@ -1038,7 +1038,7 @@ once per candidate batch.</p>
 training set is <code class="docutils literal notranslate"><span class="pre">PairwiseComparisonSet</span></code>, and to supply
 <code class="docutils literal notranslate"><span class="pre">ctx.rng</span></code> for reference sampling (falls back to a fresh
 unseeded generator when <code class="docutils literal notranslate"><span class="pre">ctx</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>).</p></li>
-<li><p><strong>refit</strong> (<em>bool</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> (default), fit the surrogate before predicting.</p></li>
+<li><p><strong>refit</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> (default), fit the surrogate before predicting.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>学習データ集合 &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>学習データ集合 &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -595,7 +595,7 @@
 <div class="layer-badges"><span class="layer-badge">Layer 3: Extend Components</span></div><p><code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager</span></code>/<code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager</span></code>/<code class="docutils literal notranslate"><span class="pre">PairwiseSurrogateManager</span></code>は、交換可能なコンポーネントである<code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code>に学習データの構築を委譲します。<code class="docutils literal notranslate"><span class="pre">training_set</span></code>引数で渡します。</p>
 <section id="trainingset">
 <h2>TrainingSetの役割<a class="headerlink" href="#trainingset" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code>が実装する必要があるメソッドは<code class="docutils literal notranslate"><span class="pre">build(archive,</span> <span class="pre">population,</span> <span class="pre">ctx,</span> <span class="pre">candidate_x=None)</span> <span class="pre">-&gt;</span> <span class="pre">TrainingData</span></code>の1つだけです。<code class="docutils literal notranslate"><span class="pre">candidate_x</span></code>は、<code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager</span></code>が候補ごとのk-NN検索中心として渡す引数です。<code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager</span></code>は<code class="docutils literal notranslate"><span class="pre">None</span></code>を渡して呼び出します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code>が実装する必要があるメソッドは<code class="docutils literal notranslate"><span class="pre">build(archive,</span> <span class="pre">population,</span> <span class="pre">candidate_x=None,</span> <span class="pre">*,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">TrainingData</span></code>の1つだけです。<code class="docutils literal notranslate"><span class="pre">candidate_x</span></code>は、<code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager</span></code>が候補ごとのk-NN検索中心として渡す引数です。<code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager</span></code>は<code class="docutils literal notranslate"><span class="pre">None</span></code>を渡して呼び出します。</p>
 <p><code class="docutils literal notranslate"><span class="pre">ctx</span></code>に準備済みの<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>がなく、空間にも明示登録がない場合、<code class="docutils literal notranslate"><span class="pre">ArchiveObjectiveSet</span></code>は最適化の実行準備と同じ対応済みの既定エンコーダを使い、Pythonの<code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>を出します。準備済みまたは明示登録されたエンコーダは優先され、既定を使ったという警告は出ません。</p>
 <p><code class="docutils literal notranslate"><span class="pre">TrainingData</span></code>は、<code class="docutils literal notranslate"><span class="pre">train_x</span></code>（通常は形状<code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">dim)</span></code>で、<code class="docutils literal notranslate"><span class="pre">PairwiseComparisonSet</span></code>だけが<code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">2*dim)</span></code>を使います）と、回帰では<code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">n_obj)</span></code>、分類またはランキングでは<code class="docutils literal notranslate"><span class="pre">(n_train,)</span></code>となる<code class="docutils literal notranslate"><span class="pre">train_y</span></code>を保持するデータクラスです。</p>
 <p>組み込みの8クラスは、直交する2つの軸に沿って整理されています。</p>
@@ -704,7 +704,7 @@
 <section id="id8">
 <h2>独自TrainingSetの実装方法<a class="headerlink" href="#id8" title="Link to this heading">#</a></h2>
 <p>独自の学習データ抽出方式が必要な場合は、<code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code>をサブクラス化し、<code class="docutils literal notranslate"><span class="pre">build()</span></code>だけを実装します。次の例は、直近に追加された<code class="docutils literal notranslate"><span class="pre">k</span></code>件だけを学習データとして使う実装です。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrainingSet</span><span class="p">,</span> <span class="n">TrainingData</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">TrainingData</span><span class="p">,</span> <span class="n">TrainingSet</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">RecentKSet</span><span class="p">(</span><span class="n">TrainingSet</span><span class="p">):</span>
@@ -713,7 +713,14 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">=</span> <span class="n">k</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">candidate_x</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">archive</span><span class="p">,</span>
+        <span class="n">population</span><span class="p">,</span>
+        <span class="n">candidate_x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="p">:]</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="p">:]</span>
         <span class="k">return</span> <span class="n">TrainingData</span><span class="p">(</span><span class="n">train_x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">train_y</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>

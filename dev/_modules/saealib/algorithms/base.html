@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.algorithms.base &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.algorithms.base &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -966,6 +966,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">MANY</span><span class="p">,</span>
     <span class="n">TRUE</span><span class="p">,</span>
@@ -1052,23 +1053,36 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="Algorithm.get_required_attrs">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.Algorithm.html#saealib.Algorithm.get_required_attrs">[docs]</a>
-    <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_required_attrs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">Problem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the list of attributes required for Population.&quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return population attributes required beyond the standard schema.</span>
+
+<span class="sd">        The initializer builds the standard ``x``/``f``/``g``/``cv``/``id``</span>
+<span class="sd">        schema itself; return additional attributes only when the algorithm</span>
+<span class="sd">        stores algorithm-specific state in the population.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        problem : Problem</span>
+<span class="sd">            The problem the population is initialized for.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list[PopulationAttribute]</span>
+<span class="sd">            Algorithm-specific attributes; empty by default.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
 
 
     <span class="nd">@property</span>
-    <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">population_class</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">Population</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the population class.&quot;&quot;&quot;</span>
-        <span class="k">pass</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the population collection used for the main population.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Population</span>
 
     <span class="nd">@property</span>
-    <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">archive_class</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">Archive</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the archive class.&quot;&quot;&quot;</span>
-        <span class="k">pass</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the population collection used for the archive.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Archive</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">pareto_archive_class</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">ParetoArchive</span><span class="p">]:</span>
@@ -1207,6 +1221,14 @@ window.runMermaid = runMermaid;</script>
 <span class="k">def</span><span class="w"> </span><span class="nf">algorithm_context</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">StateView</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExecutionContext</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the execution context bound to a built-in algorithm call.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">context</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">algorithm_state</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">ExecutionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the optimization state behind a built-in algorithm context.&quot;&quot;&quot;</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s2">&quot;_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">OptimizationState</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">state</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
 </pre></div>
 
                 </article>

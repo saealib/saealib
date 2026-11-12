@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>ParentSelection &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>ParentSelection &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -595,7 +595,7 @@
 <div class="layer-badges"><span class="layer-badge">Layer 3: Extend Components</span></div><p><code class="docutils literal notranslate"><span class="pre">GA</span></code>(<code class="docutils literal notranslate"><span class="pre">saealib.GA</span></code>)は、交叉に使う親個体を個体群から選ぶ処理を、<code class="docutils literal notranslate"><span class="pre">ParentSelection</span></code>という差し替え可能な演算子に委ねています。 選択圧（優れた個体をどれだけ優遇するか）を変えたいときは、<code class="docutils literal notranslate"><span class="pre">GA</span></code>本体ではなくこの<code class="docutils literal notranslate"><span class="pre">ParentSelection</span></code>だけを差し替えればよいです。</p>
 <section id="id1">
 <h2>ParentSelectionの役割<a class="headerlink" href="#id1" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">ParentSelection</span></code>が実装する必要があるメソッドは<code class="docutils literal notranslate"><span class="pre">select(ctx,</span> <span class="pre">population,</span> <span class="pre">n_pair,</span> <span class="pre">n_parents,</span> <span class="pre">rng)</span></code>の1つだけです。<code class="docutils literal notranslate"><span class="pre">n_parents</span></code>個体からなる親のグループを<code class="docutils literal notranslate"><span class="pre">n_pair</span></code>組選び、そのインデックスを形状<code class="docutils literal notranslate"><span class="pre">(n_pair,</span> <span class="pre">n_parents)</span></code>の配列として返します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">ParentSelection</span></code>が実装する必要があるメソッドは<code class="docutils literal notranslate"><span class="pre">select(population,</span> <span class="pre">n_pair,</span> <span class="pre">n_parents,</span> <span class="pre">rng,</span> <span class="pre">*,</span> <span class="pre">ctx)</span></code>の1つだけです。<code class="docutils literal notranslate"><span class="pre">n_parents</span></code>個体からなる親のグループを<code class="docutils literal notranslate"><span class="pre">n_pair</span></code>組選び、そのインデックスを形状<code class="docutils literal notranslate"><span class="pre">(n_pair,</span> <span class="pre">n_parents)</span></code>の配列として返します。</p>
 </section>
 <section id="id2">
 <h2>組み込みParentSelection<a class="headerlink" href="#id2" title="Link to this heading">#</a></h2>
@@ -634,7 +634,7 @@
 <h2>独自ParentSelectionの実装方法<a class="headerlink" href="#id5" title="Link to this heading">#</a></h2>
 <p>独自の選択方式が必要な場合は、<code class="docutils literal notranslate"><span class="pre">ParentSelection</span></code>を継承して<code class="docutils literal notranslate"><span class="pre">select()</span></code>だけを実装すればよいです。 次の例は、比較を行わず親を完全にランダムに選ぶ選択方式です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParentSelection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">ParentSelection</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">RandomPairSelection</span><span class="p">(</span><span class="n">ParentSelection</span><span class="p">):</span>
@@ -642,15 +642,20 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">ctx</span><span class="p">,</span>
         <span class="n">population</span><span class="p">,</span>
         <span class="n">n_pair</span><span class="p">,</span>
         <span class="n">n_parents</span><span class="p">,</span>
         <span class="n">rng</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">Generator</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="n">n_pop</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">population</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_pop</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_pair</span><span class="p">,</span> <span class="n">n_parents</span><span class="p">))</span>
 </pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">注釈</p>
+<p><code class="docutils literal notranslate"><span class="pre">ctx</span></code>は末尾のキーワード専用・必須引数で、型は<code class="docutils literal notranslate"><span class="pre">OptimizationState</span> <span class="pre">|</span> <span class="pre">None</span></code>です。 この規則は文脈依存のフック全体（<code class="docutils literal notranslate"><span class="pre">SurvivorSelection</span></code>、<code class="docutils literal notranslate"><span class="pre">EvaluationPlanner</span></code>、<code class="docutils literal notranslate"><span class="pre">FeedbackBuilder</span></code>、<code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code>、<code class="docutils literal notranslate"><span class="pre">AcquisitionFunction</span></code>、<code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>）に共通します。 Selectionは比較と乱数を必要とするため、組み込み実装は<code class="docutils literal notranslate"><span class="pre">ctx=None</span></code>で呼ばれると<code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>を送出します。 実行の外から単独で呼ぶときは、必ず<code class="docutils literal notranslate"><span class="pre">ctx=None</span></code>（または実際のstate）をキーワード引数として渡してください。</p>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">ctx.comparator</span></code>を参照する実装にすれば、<code class="docutils literal notranslate"><span class="pre">TournamentSelection</span></code>のように選択圧を持つ独自方式にもできます。</p>
 </section>

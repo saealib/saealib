@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>ComponentContract &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>ComponentContract &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -642,6 +642,7 @@ The Runtime creates StateViews according to the contract boundaries in the verif
 State <code class="docutils literal notranslate"><span class="pre">reads</span></code>, <code class="docutils literal notranslate"><span class="pre">writes</span></code>, and <code class="docutils literal notranslate"><span class="pre">exports</span></code> use typed StateKeys, and the Runtime does not expose undeclared keys to a Component.
 If a required execution capability is absent from the capabilities offered by CompileContext, the Compiler cannot mark the ExecutablePlan executable.
 An uncallable contract or incorrect return type becomes <code class="docutils literal notranslate"><span class="pre">contract_unavailable</span></code>; a held component whose contract differs from its declaration becomes <code class="docutils literal notranslate"><span class="pre">part_contract_mismatch</span></code>.
+A component attribute that holds an undeclared child component becomes a non-blocking <code class="docutils literal notranslate"><span class="pre">undeclared_part</span></code> WARNING naming the parent and the attribute; it stays in the structured diagnostic stream and does not block execution.
 Inconsistent target ports, required services, state effects, lifecycle, or Runtime capabilities are also reported as Compiler Diagnostics.
 An invalid contract type raises <code class="docutils literal notranslate"><span class="pre">ValidationError</span></code> when the contract is created.</p>
 </section>

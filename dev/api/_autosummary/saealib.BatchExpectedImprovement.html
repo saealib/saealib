@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.BatchExpectedImprovement &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.BatchExpectedImprovement &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -962,13 +962,18 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.BatchExpectedImprovement.evaluate">
-<span class="sig-prename descclassname"><span class="pre">BatchExpectedImprovement.</span></span><span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prediction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">prepared</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/acquisition/batch.html#BatchExpectedImprovement.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.BatchExpectedImprovement.evaluate" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">BatchExpectedImprovement.</span></span><span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prediction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">prepared</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/acquisition/batch.html#BatchExpectedImprovement.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.BatchExpectedImprovement.evaluate" title="Link to this definition">#</a></dt>
 <dd><p>Return greedy qEI marginal scores from joint normal draws.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.BatchExpectedImprovement.prepare">
-<span class="sig-prename descclassname"><span class="pre">BatchExpectedImprovement.</span></span><span class="sig-name descname"><span class="pre">prepare</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.BatchExpectedImprovement.prepare" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">BatchExpectedImprovement.</span></span><span class="sig-name descname"><span class="pre">prepare</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.BatchExpectedImprovement.prepare" title="Link to this definition">#</a></dt>
 <dd><p>Compute a generation-scoped reference value shared across <code class="docutils literal notranslate"><span class="pre">evaluate()</span></code> calls.</p>
 <p>Concrete hook returning <code class="docutils literal notranslate"><span class="pre">None</span></code> by default. <code class="xref py py-class docutils literal notranslate"><span class="pre">PointwiseAcquisition</span></code>
 overrides it with the <code class="docutils literal notranslate"><span class="pre">compute_reference()</span></code> behavior; archive-only
@@ -977,7 +982,7 @@ acquisitions need not override it.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>archive</strong> (<a class="reference internal" href="saealib.Archive.html#saealib.Archive" title="saealib.Archive"><em>Archive</em></a>) – Archive of evaluated solutions.</p></li>
-<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Optimization state, used here only for <code class="docutils literal notranslate"><span class="pre">ctx.rng</span></code>.</p></li>
+<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> or </em><em>None</em>) – Optimization state, used here only for <code class="docutils literal notranslate"><span class="pre">ctx.rng</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>

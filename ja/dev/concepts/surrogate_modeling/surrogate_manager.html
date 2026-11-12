@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>サロゲート管理 &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>サロゲート管理 &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -597,8 +597,8 @@
 <section id="surrogatemanager">
 <h2>SurrogateManagerの役割<a class="headerlink" href="#surrogatemanager" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>の抽象メソッドは<code class="docutils literal notranslate"><span class="pre">predict()</span></code>です。フィットと世代フックには既定実装があります。</p>
-<p><strong><code class="docutils literal notranslate"><span class="pre">predict(candidates_x,</span> <span class="pre">archive,</span> <span class="pre">ctx=None,</span> <span class="pre">*,</span> <span class="pre">refit=True)</span> <span class="pre">-&gt;</span> <span class="pre">SurrogatePrediction</span></code></strong>（抽象メソッド）：候補を予測します。<code class="docutils literal notranslate"><span class="pre">refit=True</span></code>（既定値）の場合は、予測前にサロゲートを再学習します。</p>
-<p><strong><code class="docutils literal notranslate"><span class="pre">fit(archive,</span> <span class="pre">ctx=None)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code></strong>：既定では何もしません。アーカイブが変化しない場合に、<code class="docutils literal notranslate"><span class="pre">predict(...,</span> <span class="pre">refit=False)</span></code>を連続して呼び出す前に1回だけ呼ぶ事前フィット用フックです。</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">predict(candidates_x,</span> <span class="pre">archive,</span> <span class="pre">*,</span> <span class="pre">refit=True,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">SurrogatePrediction</span></code></strong>（抽象メソッド）：候補を予測します。<code class="docutils literal notranslate"><span class="pre">refit=True</span></code>（既定値）の場合は、予測前にサロゲートを再学習します。</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">fit(archive,</span> <span class="pre">*,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code></strong>：既定では何もしません。アーカイブが変化しない場合に、<code class="docutils literal notranslate"><span class="pre">predict(...,</span> <span class="pre">refit=False)</span></code>を連続して呼び出す前に1回だけ呼ぶ事前フィット用フックです。</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">last_accuracy:</span> <span class="pre">SurrogateAccuracy</span> <span class="pre">|</span> <span class="pre">None</span></code></strong>（クラス属性）：直近の<code class="docutils literal notranslate"><span class="pre">fit</span></code>が計算した精度指標。詳細は<a class="reference internal" href="surrogate_switching.html"><span class="std std-doc">サロゲート精度評価と動的切り替え</span></a>で扱います。</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">on_generation_end(gen,</span> <span class="pre">archive,</span> <span class="pre">ctx=None)</span></code></strong> / <strong><code class="docutils literal notranslate"><span class="pre">with_on_generation_end(fn)</span></code></strong>：世代末フック。同じくコピー＋チェーン方式で拡張できます。</p>
 <p>二つの境界で受け取る値と返す値は次のとおりです。</p>
@@ -624,7 +624,7 @@
 </tbody>
 </table>
 </div>
-<p>Stage互換経路の現行vector形式のManager APIでは、<code class="docutils literal notranslate"><span class="pre">fit(archive,</span> <span class="pre">ctx=None)</span></code>と<code class="docutils literal notranslate"><span class="pre">predict(candidates_x:</span> <span class="pre">np.ndarray,</span> <span class="pre">archive,</span> <span class="pre">ctx=None,</span> <span class="pre">*,</span> <span class="pre">refit=True)</span> <span class="pre">-&gt;</span> <span class="pre">SurrogatePrediction</span></code>を使います。現行APIには、<code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">accuracy_evaluator=None)</span></code>、<code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">accuracy_evaluator=None)</span></code>、<code class="docutils literal notranslate"><span class="pre">PairwiseSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">n_ref=10)</span></code>などのコンストラクタも含まれます。
+<p>Stage互換経路の現行vector形式のManager APIでは、<code class="docutils literal notranslate"><span class="pre">fit(archive,</span> <span class="pre">*,</span> <span class="pre">ctx)</span></code>と<code class="docutils literal notranslate"><span class="pre">predict(candidates_x:</span> <span class="pre">np.ndarray,</span> <span class="pre">archive,</span> <span class="pre">*,</span> <span class="pre">refit=True,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">SurrogatePrediction</span></code>を使います。現行APIには、<code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">accuracy_evaluator=None)</span></code>、<code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">accuracy_evaluator=None)</span></code>、<code class="docutils literal notranslate"><span class="pre">PairwiseSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">n_ref=10)</span></code>などのコンストラクタも含まれます。
 構造化ランタイムでは、Surrogateの入力境界は<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">FeatureEncoder</span> <span class="pre">→</span> <span class="pre">FeatureBatch</span> <span class="pre">→</span> <span class="pre">Surrogate</span></code>です。<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>は意味変換を行い、Surrogateが学習できる特徴を決めます。
 実行準備は、選択した戦略が<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>を使う場合にエンコーダを選びます。<code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code>は恒等エンコーディングを既定にし、選択元と理由をINFOで報告します。<code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code>と<code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code>は組み込みの既定エンコーダを使い、エンコーディングがサロゲートの学習対象を決めることを示して、明示選択を勧めるWARNINGを報告します。このWARNINGは実行を妨げません。
 <code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code>に明示されたエンコーダは既定より優先され、既定選択の診断は出ません。<code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code>と独自の空間はエンコーダを自動で補わないため、必要な戦略を使う場合は空間が提供します。
@@ -691,13 +691,21 @@
 <h2>SurrogateManagerとアーカイブベースの取得関数の拡張<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>
 <p>独自の予測方式が必要な場合は<code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>を継承して<code class="docutils literal notranslate"><span class="pre">predict()</span></code>を実装します。独自のアーカイブベース基準が必要な場合は<code class="docutils literal notranslate"><span class="pre">AcquisitionFunction</span></code>を継承して評価契約を実装します。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcquisitionFunction</span><span class="p">,</span> <span class="n">AcquisitionResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcquisitionFunction</span><span class="p">,</span> <span class="n">AcquisitionResult</span><span class="p">,</span> <span class="n">OptimizationState</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">ConstantAcquisition</span><span class="p">(</span><span class="n">AcquisitionFunction</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;A minimal acquisition that assigns every candidate the same score.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates_x</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prepared</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">candidates_x</span><span class="p">,</span>
+        <span class="n">prediction</span><span class="p">,</span>
+        <span class="n">archive</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">prepared</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
         <span class="k">return</span> <span class="n">AcquisitionResult</span><span class="p">(</span><span class="n">scores</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">candidates_x</span><span class="p">)))</span>
 </pre></div>
 </div>

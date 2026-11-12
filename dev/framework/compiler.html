@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Compiler &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>Compiler &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1031,7 +1031,7 @@ The Runtime uses the generated ExecutablePlan and does not repeat Compiler resol
 <h2>Invariants and diagnostics<a class="headerlink" href="#invariants-and-diagnostics" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">Diagnostic</span></code> is a verification result with severity, code, message, contract path, and resolution hint.
 The Compiler does not represent failures only as arbitrary exceptions; it collects multiple issues in a DiagnosticBag for plan decisions.
-Typical failures include unknown node endpoints, unconnected required ports, mismatched DataSpecs, missing required services, undeclared state access, and missing Runtime capabilities.
+Typical failures include unknown node endpoints, unconnected required ports, mismatched DataSpecs, missing required services, undeclared state access, missing Runtime capabilities, and components that hold undeclared child components (<code class="docutils literal notranslate"><span class="pre">undeclared_part</span></code> WARNING).
 The implementation reports them with codes such as <code class="docutils literal notranslate"><span class="pre">invalid_graph_edge</span></code>, <code class="docutils literal notranslate"><span class="pre">incompatible_port</span></code>, <code class="docutils literal notranslate"><span class="pre">unresolved_service</span></code>, and <code class="docutils literal notranslate"><span class="pre">unknown_runtime_capability</span></code>.
 Compiler rules do not change undeclared Graph locations or arbitrarily change a StructuredRegion execution tree during resolution.
 Violations become Diagnostics such as <code class="docutils literal notranslate"><span class="pre">unclaimed_rewrite</span></code>, <code class="docutils literal notranslate"><span class="pre">conflicting_rewrite</span></code>, and <code class="docutils literal notranslate"><span class="pre">structured_execution_mutation</span></code>.

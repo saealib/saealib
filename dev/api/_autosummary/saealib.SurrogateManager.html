@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.SurrogateManager &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.SurrogateManager &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -967,7 +967,7 @@ and returns a <code class="docutils literal notranslate"><span class="pre">Surro
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.SurrogateManager.fit">
-<span class="sig-prename descclassname"><span class="pre">SurrogateManager.</span></span><span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#SurrogateManager.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.SurrogateManager.fit" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">SurrogateManager.</span></span><span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#SurrogateManager.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.SurrogateManager.fit" title="Link to this definition">#</a></dt>
 <dd><p>Pre-fit the surrogate on the archive.</p>
 <p>Call once before a sequence of <code class="docutils literal notranslate"><span class="pre">predict(...,</span> <span class="pre">refit=False)</span></code>
 calls when the archive does not change between calls (e.g. the
@@ -978,7 +978,7 @@ maintain a fitted surrogate model.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>archive</strong> (<a class="reference internal" href="saealib.Archive.html#saealib.Archive" title="saealib.Archive"><em>Archive</em></a>) – Archive of evaluated solutions used for surrogate training.</p></li>
-<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Current optimization context.</p></li>
+<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> or </em><em>None</em>) – Current optimization context.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -1007,14 +1007,14 @@ maintain a fitted surrogate model.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.SurrogateManager.predict">
-<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurrogateManager.</span></span><span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">refit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#SurrogateManager.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.SurrogateManager.predict" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurrogateManager.</span></span><span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">refit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#SurrogateManager.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.SurrogateManager.predict" title="Link to this definition">#</a></dt>
 <dd><p>Predict candidate solutions using the surrogate model.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>candidates_x</strong> (<em>np.ndarray</em>) – Candidate design variable matrix. shape: (n_candidates, dim)</p></li>
 <li><p><strong>archive</strong> (<a class="reference internal" href="saealib.Archive.html#saealib.Archive" title="saealib.Archive"><em>Archive</em></a>) – Archive of evaluated solutions used for surrogate training.</p></li>
-<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Current optimization context. Passed to <code class="docutils literal notranslate"><span class="pre">TrainingSet.build</span></code>
+<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> or </em><em>None</em>) – Current optimization context. Passed to <code class="docutils literal notranslate"><span class="pre">TrainingSet.build</span></code>
 for strategies that require comparator or population access.</p></li>
 <li><p><strong>refit</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> (default), fit the surrogate before predicting.
 Pass <code class="docutils literal notranslate"><span class="pre">False</span></code> after an explicit <a class="reference internal" href="#saealib.SurrogateManager.fit" title="saealib.SurrogateManager.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code></a> call to skip

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>SurrogateManager &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>SurrogateManager &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -596,9 +596,9 @@
 <section id="surrogatemanager-s-role">
 <h2>SurrogateManager’s role<a class="headerlink" href="#surrogatemanager-s-role" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>’s abstract method is <code class="docutils literal notranslate"><span class="pre">predict()</span></code>; fitting and generation hooks have default implementations.</p>
-<p><strong><code class="docutils literal notranslate"><span class="pre">predict(candidates_x,</span> <span class="pre">archive,</span> <span class="pre">ctx=None,</span> <span class="pre">*,</span> <span class="pre">refit=True)</span> <span class="pre">-&gt;</span> <span class="pre">SurrogatePrediction</span></code></strong> (abstract): Predicts the candidates.
+<p><strong><code class="docutils literal notranslate"><span class="pre">predict(candidates_x,</span> <span class="pre">archive,</span> <span class="pre">*,</span> <span class="pre">refit=True,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">SurrogatePrediction</span></code></strong> (abstract): Predicts the candidates.
 With <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> (the default), the surrogate is retrained before prediction.</p>
-<p><strong><code class="docutils literal notranslate"><span class="pre">fit(archive,</span> <span class="pre">ctx=None)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code></strong>: A no-op by default.
+<p><strong><code class="docutils literal notranslate"><span class="pre">fit(archive,</span> <span class="pre">*,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code></strong>: A no-op by default.
 A pre-fit hook meant to be called once before a series of <code class="docutils literal notranslate"><span class="pre">predict(...,</span> <span class="pre">refit=False)</span></code> calls, used when the archive does not change.</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">last_accuracy:</span> <span class="pre">SurrogateAccuracy</span> <span class="pre">|</span> <span class="pre">None</span></code></strong> (class attribute): The accuracy metric computed by the most recent <code class="docutils literal notranslate"><span class="pre">fit</span></code>.
 Covered in detail in <a class="reference internal" href="surrogate_switching.html"><span class="std std-doc">Surrogate accuracy evaluation and dynamic switching</span></a>.</p>
@@ -627,7 +627,7 @@ Also extensible via the same copy-and-chain approach.</p>
 </tbody>
 </table>
 </div>
-<p>The current vector-form Manager API on the Stage compatibility path uses <code class="docutils literal notranslate"><span class="pre">fit(archive,</span> <span class="pre">ctx=None)</span></code> and <code class="docutils literal notranslate"><span class="pre">predict(candidates_x:</span> <span class="pre">np.ndarray,</span> <span class="pre">archive,</span> <span class="pre">ctx=None,</span> <span class="pre">*,</span> <span class="pre">refit=True)</span> <span class="pre">-&gt;</span> <span class="pre">SurrogatePrediction</span></code>.
+<p>The current vector-form Manager API on the Stage compatibility path uses <code class="docutils literal notranslate"><span class="pre">fit(archive,</span> <span class="pre">*,</span> <span class="pre">ctx)</span></code> and <code class="docutils literal notranslate"><span class="pre">predict(candidates_x:</span> <span class="pre">np.ndarray,</span> <span class="pre">archive,</span> <span class="pre">*,</span> <span class="pre">refit=True,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">SurrogatePrediction</span></code>.
 The current API also includes constructors such as <code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">accuracy_evaluator=None)</span></code>, <code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">accuracy_evaluator=None)</span></code>, and <code class="docutils literal notranslate"><span class="pre">PairwiseSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">n_ref=10)</span></code>.
 In the structured runtime, the Surrogate input boundary is <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">FeatureEncoder</span> <span class="pre">→</span> <span class="pre">FeatureBatch</span> <span class="pre">→</span> <span class="pre">Surrogate</span></code>.
 <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code> performs semantic conversion and determines the features the surrogate can learn. It differs from a space capability such as <code class="docutils literal notranslate"><span class="pre">SamplingService</span></code>.
@@ -700,13 +700,21 @@ Use <code class="docutils literal notranslate"><span class="pre">CompositeAcquis
 <p>If you need a custom prediction scheme, subclass <code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code> and implement <code class="docutils literal notranslate"><span class="pre">predict()</span></code>.
 For a custom archive-based criterion, subclass <code class="docutils literal notranslate"><span class="pre">AcquisitionFunction</span></code> and implement its evaluation contract.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcquisitionFunction</span><span class="p">,</span> <span class="n">AcquisitionResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcquisitionFunction</span><span class="p">,</span> <span class="n">AcquisitionResult</span><span class="p">,</span> <span class="n">OptimizationState</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">ConstantAcquisition</span><span class="p">(</span><span class="n">AcquisitionFunction</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;A minimal acquisition that assigns every candidate the same score.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates_x</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prepared</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">candidates_x</span><span class="p">,</span>
+        <span class="n">prediction</span><span class="p">,</span>
+        <span class="n">archive</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">prepared</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
         <span class="k">return</span> <span class="n">AcquisitionResult</span><span class="p">(</span><span class="n">scores</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">candidates_x</span><span class="p">)))</span>
 </pre></div>
 </div>

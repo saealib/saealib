@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Acquisition Functions &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>Acquisition Functions &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -995,7 +995,7 @@ or <code class="docutils literal notranslate"><span class="pre">t</span> <span c
 <section id="corsdistance">
 <h2>CORSDistance<a class="headerlink" href="#corsdistance" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">CORSDistance</span></code> applies the CORS distance constraint to predicted-mean scores.
-<code class="docutils literal notranslate"><span class="pre">prepare(archive,</span> <span class="pre">ctx)</span></code> selects the beta value from <code class="docutils literal notranslate"><span class="pre">ctx.decision_count</span></code> and
+<code class="docutils literal notranslate"><span class="pre">prepare(archive,</span> <span class="pre">*,</span> <span class="pre">ctx)</span></code> selects the beta value from <code class="docutils literal notranslate"><span class="pre">ctx.decision_count</span></code> and
 returns a <code class="docutils literal notranslate"><span class="pre">CORSReference</span></code> carrying it alongside the evaluated points, so the
 first decision uses the first search-pattern entry and later decisions repeat
 the pattern cyclically. The canonical source-faithful configuration sends one

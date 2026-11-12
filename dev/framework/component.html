@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Component &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>Component &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -585,6 +585,10 @@ The parent Component includes the child contract in <code class="docutils litera
 <code class="docutils literal notranslate"><span class="pre">optional=True</span></code> means that the component may be omitted from the configuration.</p>
 <p>This inclusion lets the Compiler verify the parent ports and state effects together with the held component’s contract in the same plan.
 The Component owns component instances at runtime, while <code class="docutils literal notranslate"><span class="pre">ComponentContract</span></code> preserves contract immutability.</p>
+<p>Declare every held child component.
+When a component attribute holds a child component that is not declared in <code class="docutils literal notranslate"><span class="pre">parts</span></code>, contract checking reports a non-blocking <code class="docutils literal notranslate"><span class="pre">undeclared_part</span></code> WARNING naming the parent type and the attribute.
+The warning never registers the child, changes <code class="docutils literal notranslate"><span class="pre">parts</span></code>, or stops execution; it only points at the missing declaration.
+Attributes that hold ordinary data — including collaborators that are not components — produce no warning.</p>
 </section>
 <section id="construction-time-and-use-time">
 <h2>Construction time and use time<a class="headerlink" href="#construction-time-and-use-time" title="Link to this heading">#</a></h2>

@@ -10,7 +10,7 @@ page_type: concept
 
 ## AcquisitionFunction's role
 
-`AcquisitionFunction` requires `evaluate(candidates_x, prediction, archive, ctx=None, *, prepared=...) -> AcquisitionResult`.
+`AcquisitionFunction` requires `evaluate(candidates_x, prediction, archive, *, prepared=..., ctx) -> AcquisitionResult`.
 For pointwise criteria, the `PointwiseAcquisition` convenience base class splits this into two methods.
 
 **`compute_reference(archive, rng=None) -> Any`**: On `PointwiseAcquisition`, computes a reference value used for scoring (such as the current best value) from the archive.
@@ -19,7 +19,7 @@ An acquisition function that doesn't use a reference value may return `None`.
 **`score(prediction, reference, rng=None) -> np.ndarray`**: On `PointwiseAcquisition`, computes a score from `SurrogatePrediction` and the reference value.
 As with saealib's overall convention, a higher score is better.
 
-`compute_reference()` receives no `ctx`, so a subclass that needs runtime state (such as `LowerConfidenceBound`'s optional `beta_schedule`, which reads `ctx.decision_count`) overrides `prepare(archive, ctx=None)` directly instead; whatever it returns still flows into `score()` as `reference`.
+`compute_reference()` receives no `ctx`, so a subclass that needs runtime state (such as `LowerConfidenceBound`'s optional `beta_schedule`, which reads `ctx.decision_count`) overrides `prepare(archive, *, ctx)` directly instead; whatever it returns still flows into `score()` as `reference`.
 
 The class attribute `requires_uncertainty: bool` indicates whether this acquisition function needs `SurrogatePrediction.std` (uncertainty).
 `direction_sensitive: bool` (default `True`) indicates whether `Optimizer` automatically injects `problem.direction` into this acquisition function at the start of a run.

@@ -135,7 +135,7 @@ selects a fixed distance scale instead.
 
 ## Beta cadence
 
-`CORSDistance.prepare(archive, ctx)` selects
+`CORSDistance.prepare(archive, *, ctx)` selects
 `search_pattern[ctx.decision_count % len(search_pattern)]`. `decision_count`
 counts the evaluation plans the runtime has confirmed, so the first decision
 uses `search_pattern[0]` and the pattern repeats cyclically, one entry per

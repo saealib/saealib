@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>ComponentContract &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>ComponentContract &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -633,7 +633,7 @@
 </section>
 <section id="id5">
 <h2>不変条件と診断<a class="headerlink" href="#id5" title="Link to this heading">#</a></h2>
-<p>契約は凍結されたデータクラスとして扱われ、Compilerの検証中に変更されません。<code class="docutils literal notranslate"><span class="pre">ports</span></code>、<code class="docutils literal notranslate"><span class="pre">required_services</span></code>、<code class="docutils literal notranslate"><span class="pre">parts</span></code>は対応する宣言値だけを含み、role名とコンポーネント名は識別子として検証されます。状態の<code class="docutils literal notranslate"><span class="pre">reads</span></code>、<code class="docutils literal notranslate"><span class="pre">writes</span></code>、<code class="docutils literal notranslate"><span class="pre">exports</span></code>は型付きStateKeyを使い、Runtimeは宣言されていないキーをComponentに公開しません。必要な実行能力がCompileContextの提供する能力にない場合、CompilerはExecutablePlanを実行可能としてマークできません。呼び出せない契約や誤った戻り値の型は<code class="docutils literal notranslate"><span class="pre">contract_unavailable</span></code>となり、保持されたコンポーネントの契約が宣言と異なる場合は<code class="docutils literal notranslate"><span class="pre">part_contract_mismatch</span></code>となります。対象ポート、必須サービス、状態効果、ライフサイクル、Runtime能力の不整合もCompilerの診断として報告されます。無効な契約型を作成すると<code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>が発生します。</p>
+<p>契約は凍結されたデータクラスとして扱われ、Compilerの検証中に変更されません。<code class="docutils literal notranslate"><span class="pre">ports</span></code>、<code class="docutils literal notranslate"><span class="pre">required_services</span></code>、<code class="docutils literal notranslate"><span class="pre">parts</span></code>は対応する宣言値だけを含み、role名とコンポーネント名は識別子として検証されます。状態の<code class="docutils literal notranslate"><span class="pre">reads</span></code>、<code class="docutils literal notranslate"><span class="pre">writes</span></code>、<code class="docutils literal notranslate"><span class="pre">exports</span></code>は型付きStateKeyを使い、Runtimeは宣言されていないキーをComponentに公開しません。必要な実行能力がCompileContextの提供する能力にない場合、CompilerはExecutablePlanを実行可能としてマークできません。呼び出せない契約や誤った戻り値の型は<code class="docutils literal notranslate"><span class="pre">contract_unavailable</span></code>となり、保持されたコンポーネントの契約が宣言と異なる場合は<code class="docutils literal notranslate"><span class="pre">part_contract_mismatch</span></code>となります。 子コンポーネントを保持するが<code class="docutils literal notranslate"><span class="pre">parts</span></code>に宣言されていないコンポーネント属性は、親と属性を示す非ブロッキングの<code class="docutils literal notranslate"><span class="pre">undeclared_part</span></code> WARNINGになります。 これは構造化診断ストリームに現れ、実行を妨げません。対象ポート、必須サービス、状態効果、ライフサイクル、Runtime能力の不整合もCompilerの診断として報告されます。無効な契約型を作成すると<code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>が発生します。</p>
 </section>
 <section id="id6">
 <h2>最小例<a class="headerlink" href="#id6" title="Link to this heading">#</a></h2>

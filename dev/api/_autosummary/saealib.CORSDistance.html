@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.CORSDistance &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.CORSDistance &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1047,7 +1047,7 @@ mutable cycle state.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.CORSDistance.evaluate">
-<span class="sig-prename descclassname"><span class="pre">CORSDistance.</span></span><span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prediction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prepared=&lt;object</span> <span class="pre">object&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.CORSDistance.evaluate" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">CORSDistance.</span></span><span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prediction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prepared=&lt;object</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.CORSDistance.evaluate" title="Link to this definition">#</a></dt>
 <dd><p>Reject <code class="docutils literal notranslate"><span class="pre">prediction</span> <span class="pre">is</span> <span class="pre">None</span></code>, resolve the reference, then <code class="docutils literal notranslate"><span class="pre">score()</span></code>.</p>
 <p>See <a class="reference internal" href="saealib.AcquisitionFunction.html#saealib.AcquisitionFunction.evaluate" title="saealib.AcquisitionFunction.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">AcquisitionFunction.evaluate()</span></code></a> for the shared parameter
 contract, including the <code class="docutils literal notranslate"><span class="pre">_UNSET</span></code> vs. explicit <code class="docutils literal notranslate"><span class="pre">prepared=None</span></code>
@@ -1058,8 +1058,8 @@ distinction.</p>
 <li><p><strong>candidates_x</strong> (<em>np.ndarray</em>)</p></li>
 <li><p><strong>prediction</strong> (<a class="reference internal" href="saealib.SurrogatePrediction.html#saealib.SurrogatePrediction" title="saealib.SurrogatePrediction"><em>SurrogatePrediction</em></a><em> | </em><em>None</em>)</p></li>
 <li><p><strong>archive</strong> (<a class="reference internal" href="saealib.Archive.html#saealib.Archive" title="saealib.Archive"><em>Archive</em></a>)</p></li>
-<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>prepared</strong> (<em>Any</em>)</p></li>
+<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -1070,7 +1070,7 @@ distinction.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.CORSDistance.prepare">
-<span class="sig-prename descclassname"><span class="pre">CORSDistance.</span></span><span class="sig-name descname"><span class="pre">prepare</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/acquisition/mean.html#CORSDistance.prepare"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.CORSDistance.prepare" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">CORSDistance.</span></span><span class="sig-name descname"><span class="pre">prepare</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/acquisition/mean.html#CORSDistance.prepare"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.CORSDistance.prepare" title="Link to this definition">#</a></dt>
 <dd><p>Resolve the CORS reference for the current runtime decision.</p>
 <p><code class="docutils literal notranslate"><span class="pre">ctx.decision_count</span></code> counts confirmed evaluation plans, so it is
 unchanged by repeated preparation within a decision and advances by

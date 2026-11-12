@@ -10,7 +10,7 @@ Pass it via the `training_set` argument.
 
 ## TrainingSet's role
 
-`TrainingSet` requires only one method, `build(archive, population, ctx, candidate_x=None) -> TrainingData`, to be implemented.
+`TrainingSet` requires only one method, `build(archive, population, candidate_x=None, *, ctx) -> TrainingData`, to be implemented.
 `candidate_x` is an argument `LocalSurrogateManager` passes as the k-NN query center per candidate; `GlobalSurrogateManager` calls it with `None`.
 
 When `ctx` provides no prepared `FeatureEncoder` and the space registers none, `ArchiveObjectiveSet` uses the same supported default encoder as optimizer preparation and emits a Python `UserWarning`; a prepared or explicitly registered encoder keeps priority without the default warning.
@@ -69,7 +69,7 @@ If you need a custom training-data extraction scheme, subclass `TrainingSet` and
 The following example is an implementation that uses only the most recently added `k` entries as training data.
 
 ```python
-from saealib import TrainingSet, TrainingData
+from saealib import OptimizationState, TrainingData, TrainingSet
 
 
 class RecentKSet(TrainingSet):
@@ -78,7 +78,14 @@ class RecentKSet(TrainingSet):
     def __init__(self, k: int = 20):
         self.k = k
 
-    def build(self, archive, population, ctx, candidate_x=None):
+    def build(
+        self,
+        archive,
+        population,
+        candidate_x=None,
+        *,
+        ctx: OptimizationState | None,
+    ):
         x = archive.get_array("x")[-self.k :]
         y = archive.get_array("f")[-self.k :]
         return TrainingData(train_x=x, train_y=y)

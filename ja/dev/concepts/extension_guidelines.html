@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>拡張ガイドライン &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>拡張ガイドライン &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -658,6 +658,40 @@
 <p>フレームワーク契約は <code class="docutils literal notranslate"><span class="pre">saealib.core</span></code> から取得し、実装モジュールを安定した拡張APIとして扱いません。</p>
 <p><code class="docutils literal notranslate"><span class="pre">Algorithm</span></code>、<code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code>、<code class="docutils literal notranslate"><span class="pre">Surrogate</span></code>、<code class="docutils literal notranslate"><span class="pre">AcquisitionFunction</span></code>、<code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>には、それぞれ差し替え可能な契約があります。 独自の探索や予測を実装するときは、対象のドメインコンポーネントを実装して <code class="docutils literal notranslate"><span class="pre">Optimizer.set_*()</span></code> から登録します。 既存コンポーネントの一部だけを変更する場合は、次の軽量な拡張手段を使えます。</p>
 </section>
+<section id="id3">
+<h2>文脈依存フック<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>
+<p>文脈依存の公開フックは、末尾のキーワード専用・必須引数 <code class="docutils literal notranslate"><span class="pre">ctx</span></code>（型は <code class="docutils literal notranslate"><span class="pre">OptimizationState</span> <span class="pre">|</span> <span class="pre">None</span></code>）という共通の引数規則に従います。 <code class="docutils literal notranslate"><span class="pre">ParentSelection.select</span></code>、<code class="docutils literal notranslate"><span class="pre">SurvivorSelection.select</span></code>、<code class="docutils literal notranslate"><span class="pre">EvaluationPlanner.plan</span></code>、<code class="docutils literal notranslate"><span class="pre">FeedbackBuilder.build</span></code>、<code class="docutils literal notranslate"><span class="pre">TrainingSet.build</span></code>、<code class="docutils literal notranslate"><span class="pre">AcquisitionFunction.prepare</span></code>/<code class="docutils literal notranslate"><span class="pre">evaluate</span></code>、<code class="docutils literal notranslate"><span class="pre">SurrogateManager.fit</span></code>/<code class="docutils literal notranslate"><span class="pre">predict</span></code>が対象です。 <code class="docutils literal notranslate"><span class="pre">ctx</span></code>を位置引数で渡したり省略したりする呼び出しは <code class="docutils literal notranslate"><span class="pre">TypeError</span></code> になるため、キーワード引数で渡してください。 独自オーバーライドも同じ形で <code class="docutils literal notranslate"><span class="pre">ctx</span></code> を宣言します。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">ParentSelection</span>
+
+
+<span class="n">selection</span><span class="o">.</span><span class="n">select</span><span class="p">(</span>
+    <span class="n">population</span><span class="p">,</span>
+    <span class="n">n_pair</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">n_parents</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">,</span>
+    <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MySelection</span><span class="p">(</span><span class="n">ParentSelection</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">population</span><span class="p">,</span>
+        <span class="n">n_pair</span><span class="p">,</span>
+        <span class="n">n_parents</span><span class="p">,</span>
+        <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(),</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Selectionは比較と乱数を必要とするため、組み込み実装は <code class="docutils literal notranslate"><span class="pre">ctx=None</span></code> に対して <code class="docutils literal notranslate"><span class="pre">ValidationError</span></code> を送出します。 実行の外から単独で呼ぶときは <code class="docutils literal notranslate"><span class="pre">ctx=None</span></code> を明示的に渡し、他のファミリーはそれぞれが必要とする文脈の拒否動作を保ちます。 純粋な計算にとどまるフック（<code class="docutils literal notranslate"><span class="pre">Surrogate.fit</span></code>/<code class="docutils literal notranslate"><span class="pre">predict</span></code>、交叉・突然変異の本体、<code class="docutils literal notranslate"><span class="pre">Comparator</span></code>、<code class="docutils literal notranslate"><span class="pre">Decomposition</span></code>、<code class="docutils literal notranslate"><span class="pre">Variable</span></code>）は <code class="docutils literal notranslate"><span class="pre">ctx</span></code> を受け取りません。</p>
+<div class="admonition note">
+<p class="admonition-title">注釈</p>
+<p>コンポーネントに <code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code> 全体を渡すのはフルコンテキストの退避路です。 独自コンポーネントは <code class="docutils literal notranslate"><span class="pre">ctx</span></code> を無視しても最小限の宣言で動作します。</p>
+</div>
+</section>
 <section id="with-post-with-post-fit">
 <h2>with_post / with_post_fitによる後処理<a class="headerlink" href="#with-post-with-post-fit" title="Link to this heading">#</a></h2>
 <p><a class="reference internal" href="search_algorithms/crossover.html"><span class="std std-doc">Crossover</span></a>/<a class="reference internal" href="search_algorithms/mutation.html"><span class="std std-doc">Mutation</span></a> の <code class="docutils literal notranslate"><span class="pre">with_post(fn)</span></code> と <a class="reference internal" href="surrogate_modeling/surrogate.html"><span class="std std-doc">Surrogate</span></a> の <code class="docutils literal notranslate"><span class="pre">with_post_fit(fn)</span></code> は、サブクラス化せずに既存インスタンスへ後処理を追加します。元のインスタンスは変更せず、フックを追加したコピーを返します。</p>
@@ -696,8 +730,8 @@
 <p><a class="reference internal" href="observation_and_state/callbacks.html"><span class="std std-doc">CallbackManager</span></a> はEvent発火時にハンドラを呼び出す観測機構です。 <code class="docutils literal notranslate"><span class="pre">candidates</span></code> などのEventフィールドは観測用であり、再代入してもPipelineの入力は変わりません。 データフローの後処理には <code class="docutils literal notranslate"><span class="pre">with_post()</span></code> / <code class="docutils literal notranslate"><span class="pre">with_post_fit()</span></code>、実行単位の置換には <code class="docutils literal notranslate"><span class="pre">Stage</span></code>、実行構成の変更には <code class="docutils literal notranslate"><span class="pre">Runtime</span></code> を選びます。</p>
 <p><code class="docutils literal notranslate"><span class="pre">iterate()</span></code> / <code class="docutils literal notranslate"><span class="pre">run()</span></code> のステップ境界で <code class="docutils literal notranslate"><span class="pre">optimizer.set_*()</span></code> やコンポーネント属性を変更すると、実行環境が変化を検出してplanを再コンパイルし、次世代から反映します。 この手順はStage互換経路とgraph-native経路のどちらでも利用できます。 Component側から再コンパイルを要求する経路については <a class="reference internal" href="execution_and_evaluation/strategies.html"><span class="std std-doc">OptimizationStrategy</span></a> の「Behavior of runtime swapping」を参照してください。 Callbackは観測専用で、ハンドラから <code class="docutils literal notranslate"><span class="pre">RuntimeCommand</span></code> を返すことはできません。 Callbackのクロージャで <code class="docutils literal notranslate"><span class="pre">optimizer.set_*()</span></code> を呼ぶ変更は上記の経路として反映されますが、構成変更は <code class="docutils literal notranslate"><span class="pre">iterate()</span></code> 側の手順として案内します。</p>
 </section>
-<section id="id3">
-<h2>レジストリ<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>
+<section id="id4">
+<h2>レジストリ<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">saealib.registry</span></code>は、名前（文字列）またはspec（<code class="docutils literal notranslate"><span class="pre">{&quot;type&quot;:</span> <span class="pre">&quot;Name&quot;,</span> <span class="pre">&quot;params&quot;:</span> <span class="pre">{...}}</span></code>）から実インスタンスを構築する仕組みです。 <code class="docutils literal notranslate"><span class="pre">with_post</span></code>/<code class="docutils literal notranslate"><span class="pre">Pipeline</span></code>-<code class="docutils literal notranslate"><span class="pre">Stage</span></code>/<code class="docutils literal notranslate"><span class="pre">CallbackManager</span></code>が「実行時の挙動を変える」ための機構であるのに対し、Registryは「コンポーネントを文字列や設定ファイルから組み立てる」ための機構であり、目的が異なります。 プリセットYAML経由の設定駆動構築（<code class="docutils literal notranslate"><span class="pre">Optimizer.set_preset()</span></code>）やチェックポイント再開のように、クラスを直接importしない場面で使います。</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">register(name=None)</span></code></strong>（デコレータ）：クラスや関数をレジストリへ登録します。 独自の<code class="docutils literal notranslate"><span class="pre">Algorithm</span></code>/<code class="docutils literal notranslate"><span class="pre">Surrogate</span></code>等のサブクラスに<code class="docutils literal notranslate"><span class="pre">&#64;register()</span></code>を付けるだけで、組み込みコンポーネントと同じように短い名前で参照できるようになります。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
@@ -725,8 +759,8 @@
 </div>
 <p>各コンポーネントページで「◯◯クラスは<code class="docutils literal notranslate"><span class="pre">&#64;register()</span></code>未登録」という注記が複数箇所にありますが、いずれもRegistry経由でクラス名から解決する使い方をする場合にのみ影響します。</p>
 </section>
-<section id="id4">
-<h2>使い分けの指針<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>
+<section id="id5">
+<h2>使い分けの指針<a class="headerlink" href="#id5" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>やりたいこと</p></th>
@@ -750,8 +784,8 @@
 </table>
 </div>
 </section>
-<section id="id5">
-<h2>関連コンポーネント<a class="headerlink" href="#id5" title="Link to this heading">#</a></h2>
+<section id="id6">
+<h2>関連コンポーネント<a class="headerlink" href="#id6" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="search_algorithms/crossover.html"><span class="std std-doc">Crossover</span></a> / <a class="reference internal" href="search_algorithms/mutation.html"><span class="std std-doc">Mutation</span></a> / <a class="reference internal" href="surrogate_modeling/surrogate.html"><span class="std std-doc">Surrogate</span></a>：<code class="docutils literal notranslate"><span class="pre">with_post</span></code>系フックを持つコンポーネント</p></li>
 <li><p><a class="reference internal" href="observation_and_state/stage.html"><span class="std std-doc">Stage</span></a>：<code class="docutils literal notranslate"><span class="pre">Pipeline</span></code>が組み合わせる各ステージの契約</p></li>
@@ -759,8 +793,8 @@
 <li><p><a class="reference internal" href="execution_and_evaluation/strategies.html"><span class="std std-doc">strategies</span></a>：パイプラインの再構築タイミング</p></li>
 </ul>
 </section>
-<section id="id6">
-<h2>参照<a class="headerlink" href="#id6" title="Link to this heading">#</a></h2>
+<section id="id7">
+<h2>参照<a class="headerlink" href="#id7" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../api/_autosummary/saealib.register.html#saealib.register" title="saealib.register"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.register()</span></code></a></p></li>
 </ul>
@@ -815,13 +849,14 @@
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">拡張点を選ぶ</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">文脈依存フック</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#with-post-with-post-fit">with_post / with_post_fitによる後処理</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pipelinestage">PipelineとStage</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#callbackmanager">CallbackManager</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">レジストリ</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">使い分けの指針</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">関連コンポーネント</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">参照</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">レジストリ</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">使い分けの指針</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">関連コンポーネント</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">参照</a></li>
 </ul>
   </nav></div>
 

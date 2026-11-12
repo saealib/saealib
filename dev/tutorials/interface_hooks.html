@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Choose a Hook, Stage, or Callback &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>Choose a Hook, Stage, or Callback &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -623,6 +623,8 @@
 </div>
 <p>For post-processing after a Surrogate fit, pass <code class="docutils literal notranslate"><span class="pre">fn(train_x,</span> <span class="pre">train_y,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code> to <code class="docutils literal notranslate"><span class="pre">with_post_fit()</span></code>.
 See the <a class="reference internal" href="../concepts/surrogate_modeling/surrogate.html"><span class="std std-doc">Surrogate concept</span></a> for the contract used by this Hook.</p>
+<p>The context-dependent component hooks themselves — <code class="docutils literal notranslate"><span class="pre">ParentSelection.select</span></code>, <code class="docutils literal notranslate"><span class="pre">SurvivorSelection.select</span></code>, <code class="docutils literal notranslate"><span class="pre">EvaluationPlanner.plan</span></code>, <code class="docutils literal notranslate"><span class="pre">FeedbackBuilder.build</span></code>, <code class="docutils literal notranslate"><span class="pre">TrainingSet.build</span></code>, <code class="docutils literal notranslate"><span class="pre">AcquisitionFunction.prepare</span></code>/<code class="docutils literal notranslate"><span class="pre">evaluate</span></code>, and <code class="docutils literal notranslate"><span class="pre">SurrogateManager.fit</span></code>/<code class="docutils literal notranslate"><span class="pre">predict</span></code> — share one argument rule: a trailing, keyword-only, required <code class="docutils literal notranslate"><span class="pre">ctx</span></code> annotated <code class="docutils literal notranslate"><span class="pre">OptimizationState</span> <span class="pre">|</span> <span class="pre">None</span></code>.
+See <a class="reference internal" href="../concepts/extension_guidelines.html"><span class="std std-doc">Extension guidelines</span></a> for the rule and how custom implementations declare it.</p>
 </section>
 <section id="replace-an-execution-unit-with-a-stage">
 <h2>Replace an execution unit with a Stage<a class="headerlink" href="#replace-an-execution-unit-with-a-stage" title="Link to this heading">#</a></h2>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>探索アルゴリズム &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>探索アルゴリズム &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -675,10 +675,17 @@
 </section>
 <section id="id6">
 <h2>独自Algorithmの実装方法<a class="headerlink" href="#id6" title="Link to this heading">#</a></h2>
-<p>独自の探索アルゴリズムを実装するときは、<code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> を継承して <code class="docutils literal notranslate"><span class="pre">ask()</span></code> と <code class="docutils literal notranslate"><span class="pre">tell()</span></code> を実装します。 <code class="docutils literal notranslate"><span class="pre">get_required_attrs()</span></code>、<code class="docutils literal notranslate"><span class="pre">population_class</span></code>、<code class="docutils literal notranslate"><span class="pre">archive_class</span></code> も、既存のPopulation互換経路を使う場合には実装が必要です。</p>
+<p>独自の探索アルゴリズムを実装するときは、<code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> を継承して <code class="docutils literal notranslate"><span class="pre">ask()</span></code> と <code class="docutils literal notranslate"><span class="pre">tell()</span></code> を実装します。 それだけが必須です。 基底は <code class="docutils literal notranslate"><span class="pre">get_required_attrs()</span> <span class="pre">-&gt;</span> <span class="pre">[]</span></code>、<code class="docutils literal notranslate"><span class="pre">population_class</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">Population</span></code>、<code class="docutils literal notranslate"><span class="pre">archive_class</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">Archive</span></code> の既定を提供するため、ask/tellだけを実装する最小のAlgorithmが、初期化子が構築する標準の <code class="docutils literal notranslate"><span class="pre">x</span></code>/<code class="docutils literal notranslate"><span class="pre">f</span></code>/<code class="docutils literal notranslate"><span class="pre">g</span></code>/<code class="docutils literal notranslate"><span class="pre">cv</span></code>/<code class="docutils literal notranslate"><span class="pre">id</span></code> スキーマと標準の <code class="docutils literal notranslate"><span class="pre">Population</span></code>/<code class="docutils literal notranslate"><span class="pre">Archive</span></code> でそのまま動作します。</p>
+<p>メタデータは、アルゴリズムがより多くを必要とするときだけオーバーライドします:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">get_required_attrs()</span></code> は、PSOの <code class="docutils literal notranslate"><span class="pre">velocity</span></code>/<code class="docutils literal notranslate"><span class="pre">pbest_*</span></code> 列のようなアルゴリズム固有の状態を個体群に格納するときに追加属性を宣言します。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">population_class</span></code>/<code class="docutils literal notranslate"><span class="pre">archive_class</span></code> は入れ物を <code class="docutils literal notranslate"><span class="pre">Population</span></code> サブクラスへ差し替えます。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">create_pareto_archive()</span></code>（すでに非抽象）は、独自のParetoコレクションのために引き続きオーバーライドできます。</p></li>
+</ul>
+<p>algorithmスロットはダックタイピングです。 <code class="docutils literal notranslate"><span class="pre">set_algorithm()</span></code>、検証、実行準備、初期化子のどれも <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> の継承や <code class="docutils literal notranslate"><span class="pre">ask</span></code>/<code class="docutils literal notranslate"><span class="pre">tell</span></code> を要求しません。 初期化子のメタデータフック（<code class="docutils literal notranslate"><span class="pre">get_required_attrs</span></code>、<code class="docutils literal notranslate"><span class="pre">population_class</span></code>、<code class="docutils literal notranslate"><span class="pre">archive_class</span></code>、<code class="docutils literal notranslate"><span class="pre">create_pareto_archive</span></code>）だけを持つオブジェクトは、独自StrategyとStageによる非ask/tellの制御フローで実行できます。</p>
 <p>新しい実装では、<code class="docutils literal notranslate"><span class="pre">ask()</span></code> は <code class="docutils literal notranslate"><span class="pre">ProposalBatch</span></code> を返し、<code class="docutils literal notranslate"><span class="pre">tell()</span></code> は <code class="docutils literal notranslate"><span class="pre">StatePatch</span></code> を返します。 <code class="docutils literal notranslate"><span class="pre">state</span></code> は宣言された状態キーだけを参照できる <code class="docutils literal notranslate"><span class="pre">StateView</span></code> です。 候補数、候補ID、評価結果の対応付けは <code class="docutils literal notranslate"><span class="pre">ProposalBatch</span></code> と <code class="docutils literal notranslate"><span class="pre">FeedbackBatch</span></code> の契約に従います。</p>
 <p>次の骨格は、独自Algorithmが実装する境界だけを示しています。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Algorithm</span><span class="p">,</span> <span class="n">Archive</span><span class="p">,</span> <span class="n">Population</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Algorithm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.algorithms</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProposalRequest</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeedbackBatch</span><span class="p">,</span> <span class="n">ProposalBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">StatePatch</span><span class="p">,</span> <span class="n">StateView</span>
@@ -686,17 +693,6 @@
 
 <span class="k">class</span><span class="w"> </span><span class="nc">CustomAlgorithm</span><span class="p">(</span><span class="n">Algorithm</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Skeleton for an Algorithm that generates candidates and consumes Feedback.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_attrs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">[]</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">population_class</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">Population</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">archive_class</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">Archive</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">ask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">ProposalRequest</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">StateView</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProposalBatch</span><span class="p">:</span>
         <span class="c1"># Read the current Population from state.context and declared StateKeys.</span>
@@ -706,6 +702,55 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">tell</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feedback</span><span class="p">:</span> <span class="n">FeedbackBatch</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">StateView</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatePatch</span><span class="p">:</span>
         <span class="c1"># Read the FeedbackBatch and collect changes to Population and other state in a StatePatch.</span>
         <span class="o">...</span>
+</pre></div>
+</div>
+<p>次の最小Algorithmは <code class="docutils literal notranslate"><span class="pre">ask</span></code>/<code class="docutils literal notranslate"><span class="pre">tell</span></code> だけを実装し、標準のPopulationとArchiveでそのまま使えます:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Algorithm</span><span class="p">,</span> <span class="n">Optimizer</span><span class="p">,</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">DirectStrategy</span><span class="p">,</span> <span class="n">LHSInitializer</span><span class="p">,</span> <span class="n">Termination</span><span class="p">,</span> <span class="n">max_gen</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.algorithms</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProposalRequest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.algorithms.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">algorithm_context</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">FeedbackBatch</span><span class="p">,</span>
+    <span class="n">FeedbackRequirement</span><span class="p">,</span>
+    <span class="n">ProposalBatch</span><span class="p">,</span>
+    <span class="n">ProposalRelations</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">StatePatch</span><span class="p">,</span> <span class="n">StateView</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">KeepPopulation</span><span class="p">(</span><span class="n">Algorithm</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A minimal ask/tell-only algorithm that keeps the population as-is.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">ask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">ProposalRequest</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">StateView</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProposalBatch</span><span class="p">:</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">algorithm_context</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">population</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">capacity</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ProposalBatch</span><span class="o">.</span><span class="n">from_allocator</span><span class="p">(</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">proposal_id_allocator</span><span class="p">,</span>
+            <span class="n">candidates</span><span class="o">=</span><span class="n">candidates</span><span class="p">,</span>
+            <span class="n">relations</span><span class="o">=</span><span class="n">ProposalRelations</span><span class="p">(</span><span class="n">row_count</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+            <span class="n">requirements</span><span class="o">=</span><span class="n">FeedbackRequirement</span><span class="p">(</span><span class="n">quantities</span><span class="o">=</span><span class="p">()),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">tell</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feedback</span><span class="p">:</span> <span class="n">FeedbackBatch</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">StateView</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatePatch</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">StatePatch</span><span class="p">(</span><span class="n">writes</span><span class="o">=</span><span class="p">{})</span>
+
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mf">2.0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">2.0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_initializer</span><span class="p">(</span><span class="n">LHSInitializer</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="o">.</span><span class="n">set_algorithm</span><span class="p">(</span><span class="n">KeepPopulation</span><span class="p">())</span>
+    <span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="n">DirectStrategy</span><span class="p">())</span>
+    <span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_gen</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
+<span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">tell()</span></code> が受け取るFeedbackは、どの評価経路から届いたかと、候補IDとの対応を保持します。 真の評価だけを必要とするか、予測値を受け入れるかは、Algorithmの契約と<code class="docutils literal notranslate"><span class="pre">FeedbackPolicy</span></code>で宣言します。 PSOのpbestのような永続的な補助情報は、Population属性または宣言済みの<code class="docutils literal notranslate"><span class="pre">StateKey</span></code>として扱います。</p>

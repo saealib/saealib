@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TrainingSet &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>TrainingSet &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -595,7 +595,7 @@
 Pass it via the <code class="docutils literal notranslate"><span class="pre">training_set</span></code> argument.</p>
 <section id="trainingset-s-role">
 <h2>TrainingSet’s role<a class="headerlink" href="#trainingset-s-role" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code> requires only one method, <code class="docutils literal notranslate"><span class="pre">build(archive,</span> <span class="pre">population,</span> <span class="pre">ctx,</span> <span class="pre">candidate_x=None)</span> <span class="pre">-&gt;</span> <span class="pre">TrainingData</span></code>, to be implemented.
+<p><code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code> requires only one method, <code class="docutils literal notranslate"><span class="pre">build(archive,</span> <span class="pre">population,</span> <span class="pre">candidate_x=None,</span> <span class="pre">*,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">TrainingData</span></code>, to be implemented.
 <code class="docutils literal notranslate"><span class="pre">candidate_x</span></code> is an argument <code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager</span></code> passes as the k-NN query center per candidate; <code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager</span></code> calls it with <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
 <p>When <code class="docutils literal notranslate"><span class="pre">ctx</span></code> provides no prepared <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code> and the space registers none, <code class="docutils literal notranslate"><span class="pre">ArchiveObjectiveSet</span></code> uses the same supported default encoder as optimizer preparation and emits a Python <code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>; a prepared or explicitly registered encoder keeps priority without the default warning.</p>
 <p><code class="docutils literal notranslate"><span class="pre">TrainingData</span></code> is a dataclass holding <code class="docutils literal notranslate"><span class="pre">train_x</span></code> (normally shape <code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">dim)</span></code>; only <code class="docutils literal notranslate"><span class="pre">PairwiseComparisonSet</span></code> uses <code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">2*dim)</span></code>) and <code class="docutils literal notranslate"><span class="pre">train_y</span></code> (<code class="docutils literal notranslate"><span class="pre">(n_train,</span> <span class="pre">n_obj)</span></code> for regression, <code class="docutils literal notranslate"><span class="pre">(n_train,)</span></code> for classification or ranking).</p>
@@ -708,7 +708,7 @@ It needs to be paired with a dedicated pairwise-comparison surrogate from the <a
 <h2>Implementing a custom TrainingSet<a class="headerlink" href="#implementing-a-custom-trainingset" title="Link to this heading">#</a></h2>
 <p>If you need a custom training-data extraction scheme, subclass <code class="docutils literal notranslate"><span class="pre">TrainingSet</span></code> and implement only <code class="docutils literal notranslate"><span class="pre">build()</span></code>.
 The following example is an implementation that uses only the most recently added <code class="docutils literal notranslate"><span class="pre">k</span></code> entries as training data.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrainingSet</span><span class="p">,</span> <span class="n">TrainingData</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">TrainingData</span><span class="p">,</span> <span class="n">TrainingSet</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">RecentKSet</span><span class="p">(</span><span class="n">TrainingSet</span><span class="p">):</span>
@@ -717,7 +717,14 @@ The following example is an implementation that uses only the most recently adde
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">=</span> <span class="n">k</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">candidate_x</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">archive</span><span class="p">,</span>
+        <span class="n">population</span><span class="p">,</span>
+        <span class="n">candidate_x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="p">:]</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="p">:]</span>
         <span class="k">return</span> <span class="n">TrainingData</span><span class="p">(</span><span class="n">train_x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">train_y</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>

@@ -121,7 +121,7 @@ CORSの原法は、制約付き予測を最小化して候補点を逐次選び�
 
 ## betaの進み方
 
-`CORSDistance.prepare(archive, ctx)`は`search_pattern[ctx.decision_count % len(search_pattern)]`を選びます。`decision_count`はランタイムが確定した評価計画の数なので、最初の判断では`search_pattern[0]`が使われ、以降は判断1回につき1要素ずつパターンを巡回します。同じ判断に対して再びprepareが呼ばれたとき（アーカイブの変更でキャッシュされた参照が無効になった場合など）は、その判断の要素を使い直し、先へ進めることはありません。`score()`を繰り返し呼んでも、用意済みのbetaを使うだけでパターンは進みません。
+`CORSDistance.prepare(archive, *, ctx)`は`search_pattern[ctx.decision_count % len(search_pattern)]`を選びます。`decision_count`はランタイムが確定した評価計画の数なので、最初の判断では`search_pattern[0]`が使われ、以降は判断1回につき1要素ずつパターンを巡回します。同じ判断に対して再びprepareが呼ばれたとき（アーカイブの変更でキャッシュされた参照が無効になった場合など）は、その判断の要素を使い直し、先へ進めることはありません。`score()`を繰り返し呼んでも、用意済みのbetaを使うだけでパターンは進みません。
 
 ## 関連
 

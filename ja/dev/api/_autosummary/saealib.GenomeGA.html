@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.GenomeGA &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>saealib.GenomeGA &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -936,7 +936,7 @@
 <td><p>Create a ParetoArchive with the correct direction for the problem.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.GenomeGA.get_required_attrs" title="saealib.GenomeGA.get_required_attrs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_required_attrs</span></code></a></p></td>
-<td><p>Return population attributes required by this algorithm.</p></td>
+<td><p>Return population attributes required beyond the standard schema.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.GenomeGA.tell" title="saealib.GenomeGA.tell"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tell</span></code></a></p></td>
 <td><p>Update the population with evaluated offspring.</p></td>
@@ -1006,14 +1006,20 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.GenomeGA.get_required_attrs">
-<span class="sig-prename descclassname"><span class="pre">GenomeGA.</span></span><span class="sig-name descname"><span class="pre">get_required_attrs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/algorithms/genome_ga.html#GenomeGA.get_required_attrs"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.GenomeGA.get_required_attrs" title="Link to this definition">#</a></dt>
-<dd><p>Return population attributes required by this algorithm.</p>
+<span class="sig-prename descclassname"><span class="pre">GenomeGA.</span></span><span class="sig-name descname"><span class="pre">get_required_attrs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.GenomeGA.get_required_attrs" title="Link to this definition">#</a></dt>
+<dd><p>Return population attributes required beyond the standard schema.</p>
+<p>The initializer builds the standard <code class="docutils literal notranslate"><span class="pre">x</span></code>/<code class="docutils literal notranslate"><span class="pre">f</span></code>/<code class="docutils literal notranslate"><span class="pre">g</span></code>/<code class="docutils literal notranslate"><span class="pre">cv</span></code>/<code class="docutils literal notranslate"><span class="pre">id</span></code>
+schema itself; return additional attributes only when the algorithm
+stores algorithm-specific state in the population.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>problem</strong> (<a class="reference internal" href="saealib.Problem.html#saealib.Problem" title="saealib.problem.problem.Problem"><em>Problem</em></a>)</p>
+<dd class="field-odd"><p><strong>problem</strong> (<a class="reference internal" href="saealib.Problem.html#saealib.Problem" title="saealib.Problem"><em>Problem</em></a>) -- The problem the population is initialized for.</p>
 </dd>
-<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-even"><p>list[<a class="reference internal" href="saealib.PopulationAttribute.html#saealib.PopulationAttribute" title="saealib.identity.PopulationAttribute"><em>PopulationAttribute</em></a>]</p>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>Algorithm-specific attributes; empty by default.</p>
+</dd>
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[<a class="reference internal" href="saealib.PopulationAttribute.html#saealib.PopulationAttribute" title="saealib.PopulationAttribute">PopulationAttribute</a>]</p>
 </dd>
 </dl>
 </dd></dl>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Population &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>Population &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -607,6 +607,7 @@ Genomeは、<code class="docutils literal notranslate"><span class="pre">DenseVe
 <p><code class="docutils literal notranslate"><span class="pre">Population</span></code> は通常インスタンスとして使い、独自の個体管理が必要な場合だけサブクラス化します。</p>
 <p>属性スキーマは <code class="docutils literal notranslate"><span class="pre">PopulationAttribute(name,</span> <span class="pre">dtype,</span> <span class="pre">shape,</span> <span class="pre">default)</span></code> のリストで定義します。
 旧来のベクトル経路では <code class="docutils literal notranslate"><span class="pre">x</span></code>、<code class="docutils literal notranslate"><span class="pre">f</span></code>、<code class="docutils literal notranslate"><span class="pre">g</span></code>、<code class="docutils literal notranslate"><span class="pre">cv</span></code> と、<code class="docutils literal notranslate"><span class="pre">Algorithm.get_required_attrs(problem)</span></code> が返す補助属性をこのスキーマへ追加します。
+<code class="docutils literal notranslate"><span class="pre">get_required_attrs</span></code> の既定は空です。アルゴリズムが固有の状態を個体群に格納するときだけ属性を宣言します。
 Genome-native経路では、GenomeBatchとSearchSpaceの契約が表現の構造を担い、列スキーマだけで個体を表しません。</p>
 </section>
 <section id="id2">
@@ -719,7 +720,7 @@ Genome-native経路では、GenomeBatchとSearchSpaceの契約が表現の構造
 <h2>Populationの拡張<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">ArchiveMixin</span></code>/<code class="docutils literal notranslate"><span class="pre">ParetoMixin</span></code>は、<code class="docutils literal notranslate"><span class="pre">Population</span></code>のサブクラスに多重継承でミックスインするという前提で設計されています。
 独自の個体群管理ロジックが必要な場合、これらのMixinを組み合わせた新しいクラス（<code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">MyArchive(ArchiveMixin,</span> <span class="pre">Population):</span> <span class="pre">...</span></code>）を定義できます。
-また<a class="reference internal" href="../search_algorithms/algorithm.html"><span class="std std-doc">Algorithm</span></a>の<code class="docutils literal notranslate"><span class="pre">population_class</span></code>/<code class="docutils literal notranslate"><span class="pre">archive_class</span></code>をオーバーライドすれば、<code class="docutils literal notranslate"><span class="pre">Initializer</span></code>が生成するPopulation/Archiveを独自サブクラスに差し替えられます。</p>
+また<a class="reference internal" href="../search_algorithms/algorithm.html"><span class="std std-doc">Algorithm</span></a>の<code class="docutils literal notranslate"><span class="pre">population_class</span></code>/<code class="docutils literal notranslate"><span class="pre">archive_class</span></code>をオーバーライドすれば、<code class="docutils literal notranslate"><span class="pre">Initializer</span></code>が生成するPopulation/Archiveを独自サブクラスに差し替えられます。 どちらも標準の<code class="docutils literal notranslate"><span class="pre">Population</span></code>/<code class="docutils literal notranslate"><span class="pre">Archive</span></code>が既定のため、オーバーライドは任意です。</p>
 </section>
 <section id="id5">
 <h2>関連コンポーネント<a class="headerlink" href="#id5" title="Link to this heading">#</a></h2>

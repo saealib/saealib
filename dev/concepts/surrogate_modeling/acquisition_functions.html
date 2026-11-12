@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>AcquisitionFunction &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>AcquisitionFunction &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -595,13 +595,13 @@
 <code class="docutils literal notranslate"><span class="pre">AcquisitionFunction</span></code> receives candidates, predictions, the archive, context, and prepared data, but it does not know the Surrogate’s internal implementation or the algorithm that produced the predictions.</p>
 <section id="acquisitionfunction-s-role">
 <h2>AcquisitionFunction’s role<a class="headerlink" href="#acquisitionfunction-s-role" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">AcquisitionFunction</span></code> requires <code class="docutils literal notranslate"><span class="pre">evaluate(candidates_x,</span> <span class="pre">prediction,</span> <span class="pre">archive,</span> <span class="pre">ctx=None,</span> <span class="pre">*,</span> <span class="pre">prepared=...)</span> <span class="pre">-&gt;</span> <span class="pre">AcquisitionResult</span></code>.
+<p><code class="docutils literal notranslate"><span class="pre">AcquisitionFunction</span></code> requires <code class="docutils literal notranslate"><span class="pre">evaluate(candidates_x,</span> <span class="pre">prediction,</span> <span class="pre">archive,</span> <span class="pre">*,</span> <span class="pre">prepared=...,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">AcquisitionResult</span></code>.
 For pointwise criteria, the <code class="docutils literal notranslate"><span class="pre">PointwiseAcquisition</span></code> convenience base class splits this into two methods.</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">compute_reference(archive,</span> <span class="pre">rng=None)</span> <span class="pre">-&gt;</span> <span class="pre">Any</span></code></strong>: On <code class="docutils literal notranslate"><span class="pre">PointwiseAcquisition</span></code>, computes a reference value used for scoring (such as the current best value) from the archive.
 An acquisition function that doesn’t use a reference value may return <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">score(prediction,</span> <span class="pre">reference,</span> <span class="pre">rng=None)</span> <span class="pre">-&gt;</span> <span class="pre">np.ndarray</span></code></strong>: On <code class="docutils literal notranslate"><span class="pre">PointwiseAcquisition</span></code>, computes a score from <code class="docutils literal notranslate"><span class="pre">SurrogatePrediction</span></code> and the reference value.
 As with saealib’s overall convention, a higher score is better.</p>
-<p><code class="docutils literal notranslate"><span class="pre">compute_reference()</span></code> receives no <code class="docutils literal notranslate"><span class="pre">ctx</span></code>, so a subclass that needs runtime state (such as <code class="docutils literal notranslate"><span class="pre">LowerConfidenceBound</span></code>’s optional <code class="docutils literal notranslate"><span class="pre">beta_schedule</span></code>, which reads <code class="docutils literal notranslate"><span class="pre">ctx.decision_count</span></code>) overrides <code class="docutils literal notranslate"><span class="pre">prepare(archive,</span> <span class="pre">ctx=None)</span></code> directly instead; whatever it returns still flows into <code class="docutils literal notranslate"><span class="pre">score()</span></code> as <code class="docutils literal notranslate"><span class="pre">reference</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">compute_reference()</span></code> receives no <code class="docutils literal notranslate"><span class="pre">ctx</span></code>, so a subclass that needs runtime state (such as <code class="docutils literal notranslate"><span class="pre">LowerConfidenceBound</span></code>’s optional <code class="docutils literal notranslate"><span class="pre">beta_schedule</span></code>, which reads <code class="docutils literal notranslate"><span class="pre">ctx.decision_count</span></code>) overrides <code class="docutils literal notranslate"><span class="pre">prepare(archive,</span> <span class="pre">*,</span> <span class="pre">ctx)</span></code> directly instead; whatever it returns still flows into <code class="docutils literal notranslate"><span class="pre">score()</span></code> as <code class="docutils literal notranslate"><span class="pre">reference</span></code>.</p>
 <p>The class attribute <code class="docutils literal notranslate"><span class="pre">requires_uncertainty:</span> <span class="pre">bool</span></code> indicates whether this acquisition function needs <code class="docutils literal notranslate"><span class="pre">SurrogatePrediction.std</span></code> (uncertainty).
 <code class="docutils literal notranslate"><span class="pre">direction_sensitive:</span> <span class="pre">bool</span></code> (default <code class="docutils literal notranslate"><span class="pre">True</span></code>) indicates whether <code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> automatically injects <code class="docutils literal notranslate"><span class="pre">problem.direction</span></code> into this acquisition function at the start of a run.
 Acquisition functions with no notion of objective direction, such as feasibility probability, set <code class="docutils literal notranslate"><span class="pre">direction_sensitive</span> <span class="pre">=</span> <span class="pre">False</span></code> to disable this auto-injection.</p>

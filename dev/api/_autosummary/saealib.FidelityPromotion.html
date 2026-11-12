@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.FidelityPromotion &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.FidelityPromotion &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -926,7 +926,7 @@
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.FidelityPromotion.contract" title="saealib.FidelityPromotion.contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract</span></code></a></p></td>
-<td><p>Return the evaluation-planner family contract.</p></td>
+<td><p>Return the request-planner contract declaring allocator state use.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.FidelityPromotion.plan" title="saealib.FidelityPromotion.plan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plan</span></code></a></p></td>
 <td><p>Build a low-fidelity request with a standard continuation marker.</p></td>
@@ -953,7 +953,7 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.FidelityPromotion.contract">
 <span class="sig-prename descclassname"><span class="pre">FidelityPromotion.</span></span><span class="sig-name descname"><span class="pre">contract</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#saealib.FidelityPromotion.contract" title="Link to this definition">#</a></dt>
-<dd><p>Return the evaluation-planner family contract.</p>
+<dd><p>Return the request-planner contract declaring allocator state use.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="saealib.core.ComponentContract.html#saealib.core.ComponentContract" title="saealib.core.contracts.contract.ComponentContract"><em>ComponentContract</em></a></p>
@@ -963,8 +963,13 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.FidelityPromotion.plan">
-<span class="sig-prename descclassname"><span class="pre">FidelityPromotion.</span></span><span class="sig-name descname"><span class="pre">plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acquisition</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/policies/evaluation.html#FidelityPromotion.plan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.FidelityPromotion.plan" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">FidelityPromotion.</span></span><span class="sig-name descname"><span class="pre">plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acquisition</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/policies/evaluation.html#FidelityPromotion.plan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.FidelityPromotion.plan" title="Link to this definition">#</a></dt>
 <dd><p>Build a low-fidelity request with a standard continuation marker.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>

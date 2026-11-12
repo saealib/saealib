@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -984,6 +984,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">QuantityRequirement</span><span class="p">,</span>
     <span class="n">StateContract</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.contract</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span> <span class="k">as</span> <span class="n">_ComponentContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">PollResult</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ARCHIVES_MAIN</span><span class="p">,</span>
@@ -1043,6 +1044,26 @@ window.runMermaid = runMermaid;</script>
 <span class="k">class</span><span class="w"> </span><span class="nc">AsyncEvaluationScheduler</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Coordinate asynchronous requests and serialized state mutation.&quot;&quot;&quot;</span>
 
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_held_part_contract</span><span class="p">(</span><span class="n">held</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_ComponentContract</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the held object&#39;s contract when it exposes one.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">contract_method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">held</span><span class="p">,</span> <span class="s2">&quot;contract&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">contract_method</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">contract</span> <span class="o">=</span> <span class="n">contract_method</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">contract</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">contract</span><span class="p">,</span> <span class="n">_ComponentContract</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_algorithm_part_contract</span><span class="p">(</span><span class="n">algorithm</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_ComponentContract</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the held algorithm&#39;s contract when it is a component.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">AsyncEvaluationScheduler</span><span class="o">.</span><span class="n">_held_part_contract</span><span class="p">(</span><span class="n">algorithm</span><span class="p">)</span>
+
 <div class="viewcode-block" id="AsyncEvaluationScheduler.contract">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.execution.AsyncEvaluationScheduler.html#saealib.execution.AsyncEvaluationScheduler.contract">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
@@ -1072,8 +1093,15 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">algorithm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">reads</span> <span class="o">+=</span> <span class="p">(</span><span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">RUNTIME_RNG</span><span class="p">)</span>
             <span class="n">writes</span> <span class="o">+=</span> <span class="p">(</span><span class="n">POPULATIONS_MAIN</span><span class="p">,</span> <span class="n">RUNTIME_RNG</span><span class="p">)</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">PartSpec</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="n">contract</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">contract</span><span class="p">())]</span>
+        <span class="n">algorithm_contract</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm_part_contract</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">algorithm</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">algorithm_contract</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PartSpec</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="n">contract</span><span class="o">=</span><span class="n">algorithm_contract</span><span class="p">))</span>
+        <span class="n">builder_contract</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_held_part_contract</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">builder_contract</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PartSpec</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span> <span class="n">contract</span><span class="o">=</span><span class="n">builder_contract</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">ComponentContract</span><span class="p">(</span>
-            <span class="n">parts</span><span class="o">=</span><span class="p">(</span><span class="n">PartSpec</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="n">contract</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">contract</span><span class="p">()),),</span>
+            <span class="n">parts</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">parts</span><span class="p">),</span>
             <span class="n">state</span><span class="o">=</span><span class="n">StateContract</span><span class="p">(</span>
                 <span class="n">reads</span><span class="o">=</span><span class="n">reads</span><span class="p">,</span>
                 <span class="n">writes</span><span class="o">=</span><span class="n">writes</span><span class="p">,</span>
@@ -2465,7 +2493,7 @@ window.runMermaid = runMermaid;</script>
             <span class="ow">or</span> <span class="n">state</span><span class="o">.</span><span class="n">predictions</span><span class="p">,</span>
             <span class="n">evaluation</span><span class="p">,</span>
             <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span>
-            <span class="n">state</span><span class="p">,</span>
+            <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">):</span>
             <span class="n">rows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rows</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">))</span>
@@ -2700,7 +2728,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">pending</span><span class="o">.</span><span class="n">prediction</span> <span class="ow">or</span> <span class="n">state</span><span class="o">.</span><span class="n">predictions</span><span class="p">,</span>
                 <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="p">,</span>
                 <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span>
-                <span class="n">state</span><span class="p">,</span>
+                <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">proposal_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proposal_id</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">))</span>
             <span class="n">feedback</span> <span class="o">=</span> <span class="n">_feedback_batch_from_result</span><span class="p">(</span>

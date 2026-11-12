@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.stages &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>saealib.stages &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -2049,8 +2049,8 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">_prepared_feature_encoder</span><span class="p">(</span><span class="n">state</span><span class="p">),</span>
             <span class="p">),</span>
             <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span>
-            <span class="n">state</span><span class="p">,</span>
             <span class="n">refit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_refit</span><span class="p">,</span>
+            <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refit</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">_dispatch_callback</span><span class="p">(</span>
@@ -2078,7 +2078,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">notation</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;$C \leftarrow \text</span><span class="si">{pending}</span><span class="s2">(C)$&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;_scheduler&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheduler</span><span class="p">),))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">flow_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StageFlowSummary</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare this stage&#39;s state-only flow.&quot;&quot;&quot;</span>
@@ -2228,7 +2228,9 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">archive</span><span class="o">.</span><span class="n">structure_version</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_cache_key</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_cache_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_acquisition</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_cache_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_acquisition</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span>
+                    <span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">state</span>
+                <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_cache_key</span> <span class="o">=</span> <span class="n">key</span>
             <span class="n">prepared</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepared_cache_value</span>
 
@@ -2240,8 +2242,8 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">),</span>
                 <span class="n">state</span><span class="o">.</span><span class="n">predictions</span><span class="p">,</span>
                 <span class="n">archive</span><span class="p">,</span>
-                <span class="n">state</span><span class="p">,</span>
                 <span class="n">prepared</span><span class="o">=</span><span class="n">prepared</span><span class="p">,</span>
+                <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">scores</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="kc">None</span>
@@ -2354,7 +2356,7 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="SurrogateFitStage.execute">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateFitStage.html#saealib.SurrogateFitStage.execute">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span>
                 <span class="n">PostSurrogateFitEvent</span><span class="p">(</span>
@@ -2575,12 +2577,12 @@ window.runMermaid = runMermaid;</script>
             <span class="n">acquisition</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">acquisition_result</span> <span class="ow">or</span> <span class="n">AcquisitionResult</span><span class="p">(</span>
                 <span class="n">scores</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">scores</span>
             <span class="p">)</span>
-            <span class="n">plan</span> <span class="o">=</span> <span class="n">TopKEvaluation</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">plan</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+            <span class="n">plan</span> <span class="o">=</span> <span class="n">TopKEvaluation</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">plan</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">acquisition</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">acquisition_result</span>
             <span class="k">if</span> <span class="n">acquisition</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">state</span><span class="o">.</span><span class="n">scores</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">acquisition</span> <span class="o">=</span> <span class="n">AcquisitionResult</span><span class="p">(</span><span class="n">scores</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">scores</span><span class="p">)</span>
-            <span class="n">plan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_planner</span><span class="o">.</span><span class="n">plan</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+            <span class="n">plan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_planner</span><span class="o">.</span><span class="n">plan</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">EvaluationPlan</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">EvaluationProtocolError</span><span class="p">(</span>
                 <span class="s2">&quot;evaluation planner must return EvaluationPlan&quot;</span>
@@ -2796,7 +2798,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">)</span>
                 <span class="n">plan</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">plan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_planner</span><span class="o">.</span><span class="n">plan</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+            <span class="n">plan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_planner</span><span class="o">.</span><span class="n">plan</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
             <span class="n">state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">decision_count</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">decision_count</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">EvaluationPlan</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">EvaluationProtocolError</span><span class="p">(</span>
@@ -4133,7 +4135,11 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">candidate_ids</span><span class="o">=</span><span class="n">ids</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
-            <span class="n">offspring</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">predictions</span><span class="p">,</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_new_ids</span><span class="p">,</span> <span class="n">state</span>
+            <span class="n">offspring</span><span class="p">,</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">predictions</span><span class="p">,</span>
+            <span class="n">evaluation</span><span class="p">,</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">evaluation_new_ids</span><span class="p">,</span>
+            <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">feedback_result</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
@@ -4339,8 +4345,6 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="SurrogateOnlyLoopStage.contract">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateOnlyLoopStage.html#saealib.SurrogateOnlyLoopStage.contract">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">contract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComponentContract</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_ctrl</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">(</span><span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">ARCHIVES_MAIN</span><span class="p">,))</span>
         <span class="n">components</span> <span class="o">=</span> <span class="p">[</span>
             <span class="p">(</span><span class="s2">&quot;_sm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="p">),</span>
             <span class="p">(</span><span class="s2">&quot;_algorithm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_algorithm</span><span class="p">),</span>
@@ -4348,6 +4352,8 @@ window.runMermaid = runMermaid;</script>
         <span class="p">]</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;_builder&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_ctrl</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">(</span><span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">ARCHIVES_MAIN</span><span class="p">,),</span> <span class="n">components</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">components</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">_stage_contract</span><span class="p">(</span>
             <span class="n">reads</span><span class="o">=</span><span class="p">(</span><span class="n">ARCHIVES_MAIN</span><span class="p">,),</span>
             <span class="n">components</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">components</span><span class="p">),</span>
@@ -4500,7 +4506,7 @@ window.runMermaid = runMermaid;</script>
 <a class="viewcode-back" href="../../api/_autosummary/saealib.SurrogateOnlyLoopStage.html#saealib.SurrogateOnlyLoopStage.execute">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_ctrl</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">_dispatch_callback</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span><span class="p">,</span>

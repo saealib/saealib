@@ -44,6 +44,9 @@ mutation = MutationUniform(0.3).with_post(snap_to_grid)
 For post-processing after a Surrogate fit, pass `fn(train_x, train_y, ctx) -> None` to `with_post_fit()`.
 See the [Surrogate concept](../concepts/surrogate_modeling/surrogate.md) for the contract used by this Hook.
 
+The context-dependent component hooks themselves — `ParentSelection.select`, `SurvivorSelection.select`, `EvaluationPlanner.plan`, `FeedbackBuilder.build`, `TrainingSet.build`, `AcquisitionFunction.prepare`/`evaluate`, and `SurrogateManager.fit`/`predict` — share one argument rule: a trailing, keyword-only, required `ctx` annotated `OptimizationState | None`.
+See [Extension guidelines](../concepts/extension_guidelines.md) for the rule and how custom implementations declare it.
+
 ## Replace an execution unit with a Stage
 
 `Stage` is the compatibility boundary `execute(state) -> state`.

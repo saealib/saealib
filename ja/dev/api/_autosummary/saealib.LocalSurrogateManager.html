@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.LocalSurrogateManager &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>saealib.LocalSurrogateManager &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -982,7 +982,7 @@ estimated by fitting a local model for each archive point via the same
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.LocalSurrogateManager.fit">
-<span class="sig-prename descclassname"><span class="pre">LocalSurrogateManager.</span></span><span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#LocalSurrogateManager.fit"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.LocalSurrogateManager.fit" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">LocalSurrogateManager.</span></span><span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#LocalSurrogateManager.fit"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.LocalSurrogateManager.fit" title="Link to this definition">#</a></dt>
 <dd><p>Compute accuracy metrics from the archive (no global model is fitted).</p>
 <p>For <code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager</span></code>, there is no persistent global surrogate
 to pre-fit; local models are always built per candidate inside
@@ -1023,7 +1023,7 @@ regardless of which strategy is used.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.LocalSurrogateManager.predict">
-<span class="sig-prename descclassname"><span class="pre">LocalSurrogateManager.</span></span><span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">refit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#LocalSurrogateManager.predict"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.LocalSurrogateManager.predict" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">LocalSurrogateManager.</span></span><span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">refit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/manager.html#LocalSurrogateManager.predict"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.LocalSurrogateManager.predict" title="Link to this definition">#</a></dt>
 <dd><p>Fit a local model per candidate and predict each individually.</p>
 <p>When <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> and an <code class="docutils literal notranslate"><span class="pre">accuracy_evaluator</span></code> is configured,
 accuracy is estimated inline using a nearest-neighbor holdout method:
@@ -1043,8 +1043,8 @@ into one batched <code class="docutils literal notranslate"><span class="pre">Su
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>candidates_x</strong> (<em>np.ndarray</em>)</p></li>
 <li><p><strong>archive</strong> (<a class="reference internal" href="saealib.Archive.html#saealib.Archive" title="saealib.Archive"><em>Archive</em></a>)</p></li>
-<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>refit</strong> (<em>bool</em>)</p></li>
+<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>

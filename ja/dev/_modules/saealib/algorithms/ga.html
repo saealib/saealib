@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.algorithms.ga &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>saealib.algorithms.ga &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -971,6 +971,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">AskTellAlgorithm</span><span class="p">,</span>
     <span class="n">ProposalRequest</span><span class="p">,</span>
     <span class="n">algorithm_context</span><span class="p">,</span>
+    <span class="n">algorithm_state</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">PostAskEvent</span><span class="p">,</span> <span class="n">PostCrossoverEvent</span><span class="p">,</span> <span class="n">PostMutationEvent</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -994,7 +995,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">MutationCategorical</span><span class="p">,</span>
     <span class="n">MutationIntegerUniform</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span><span class="p">,</span> <span class="n">Population</span><span class="p">,</span> <span class="n">PopulationAttribute</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Population</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.genome</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenseVectorBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
@@ -1329,26 +1330,24 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;survivor_selection&quot;</span><span class="p">,</span>
                     <span class="n">contract</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">survivor_selection</span><span class="o">.</span><span class="n">contract</span><span class="p">(),</span>
                 <span class="p">),</span>
+                <span class="n">PartSpec</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;integer_crossover&quot;</span><span class="p">,</span>
+                    <span class="n">contract</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">integer_crossover</span><span class="o">.</span><span class="n">contract</span><span class="p">(),</span>
+                <span class="p">),</span>
+                <span class="n">PartSpec</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;integer_mutation&quot;</span><span class="p">,</span> <span class="n">contract</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">integer_mutation</span><span class="o">.</span><span class="n">contract</span><span class="p">()</span>
+                <span class="p">),</span>
+                <span class="n">PartSpec</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;categorical_crossover&quot;</span><span class="p">,</span>
+                    <span class="n">contract</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">categorical_crossover</span><span class="o">.</span><span class="n">contract</span><span class="p">(),</span>
+                <span class="p">),</span>
+                <span class="n">PartSpec</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;categorical_mutation&quot;</span><span class="p">,</span>
+                    <span class="n">contract</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">categorical_mutation</span><span class="o">.</span><span class="n">contract</span><span class="p">(),</span>
+                <span class="p">),</span>
             <span class="p">),</span>
         <span class="p">)</span></div>
 
-
-<div class="viewcode-block" id="GA.get_required_attrs">
-<a class="viewcode-back" href="../../../api/_autosummary/saealib.GA.html#saealib.GA.get_required_attrs">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_attrs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">Problem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return algorithm-specific attributes (GA needs none beyond the defaults).&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="p">[]</span></div>
-
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">population_class</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the population class.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Population</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">archive_class</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the archive class.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Archive</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">ask_notation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -1389,6 +1388,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        ProposalBatch</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">ctx</span> <span class="o">=</span> <span class="n">algorithm_context</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">selection_ctx</span> <span class="o">=</span> <span class="n">algorithm_state</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
         <span class="n">n_offspring</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">n_offspring</span>
         <span class="c1"># Re-validate per-type crossover consistency here because operators may be</span>
         <span class="c1"># replaced or mutated after __init__, bypassing constructor checks.</span>
@@ -1423,11 +1423,11 @@ window.runMermaid = runMermaid;</script>
         <span class="n">n_pair</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">target</span> <span class="o">/</span> <span class="n">n_children</span><span class="p">)</span>
         <span class="n">parent_idx_m</span> <span class="o">=</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">parent_selection</span><span class="o">.</span><span class="n">select</span><span class="p">(</span>
-                <span class="n">ctx</span><span class="p">,</span>
                 <span class="n">ctx</span><span class="o">.</span><span class="n">population</span><span class="p">,</span>
                 <span class="n">n_pair</span><span class="o">=</span><span class="n">n_pair</span><span class="p">,</span>
                 <span class="n">n_parents</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">crossover</span><span class="o">.</span><span class="n">n_parents</span><span class="p">,</span>
                 <span class="n">rng</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">rng</span><span class="p">,</span>
+                <span class="n">ctx</span><span class="o">=</span><span class="n">selection_ctx</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="o">%</span> <span class="n">popsize</span>
         <span class="p">)</span>
@@ -1696,11 +1696,11 @@ window.runMermaid = runMermaid;</script>
         <span class="n">n_pair</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_target</span> <span class="o">/</span> <span class="n">n_children</span><span class="p">)</span>
         <span class="n">parent_idx</span> <span class="o">=</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">parent_selection</span><span class="o">.</span><span class="n">select</span><span class="p">(</span>
-                <span class="n">ctx</span><span class="p">,</span>
                 <span class="n">ctx</span><span class="o">.</span><span class="n">population</span><span class="p">,</span>
                 <span class="n">n_pair</span><span class="o">=</span><span class="n">n_pair</span><span class="p">,</span>
                 <span class="n">n_parents</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">crossover</span><span class="o">.</span><span class="n">n_parents</span><span class="p">,</span>
                 <span class="n">rng</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">rng</span><span class="p">,</span>
+                <span class="n">ctx</span><span class="o">=</span><span class="n">algorithm_state</span><span class="p">(</span><span class="n">ctx</span><span class="p">),</span>
             <span class="p">)</span>
             <span class="o">%</span> <span class="n">popsize</span>
         <span class="p">)</span>
@@ -1742,7 +1742,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">pool</span><span class="o">.</span><span class="n">_extend_internal</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">preserve_ids</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">pool</span><span class="o">.</span><span class="n">_extend_internal</span><span class="p">(</span><span class="n">offspring</span><span class="p">,</span> <span class="n">preserve_ids</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="n">survivor_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">survivor_selection</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">popsize</span><span class="p">)</span>
+        <span class="n">survivor_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">survivor_selection</span><span class="o">.</span><span class="n">select</span><span class="p">(</span>
+            <span class="n">pool</span><span class="p">,</span> <span class="n">popsize</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">algorithm_state</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">population</span><span class="o">.</span><span class="n">_replace_from_population</span><span class="p">(</span>
             <span class="n">pool</span><span class="p">,</span> <span class="n">survivor_idx</span><span class="p">,</span> <span class="n">preserve_ids</span><span class="o">=</span><span class="kc">True</span>

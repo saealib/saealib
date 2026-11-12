@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>CORS-RBF (Constrained Optimization using Response Surfaces) &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>CORS-RBF (Constrained Optimization using Response Surfaces) &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1138,7 +1138,7 @@ selects a fixed distance scale instead.</p>
 </section>
 <section id="beta-cadence">
 <h2>Beta cadence<a class="headerlink" href="#beta-cadence" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">CORSDistance.prepare(archive,</span> <span class="pre">ctx)</span></code> selects
+<p><code class="docutils literal notranslate"><span class="pre">CORSDistance.prepare(archive,</span> <span class="pre">*,</span> <span class="pre">ctx)</span></code> selects
 <code class="docutils literal notranslate"><span class="pre">search_pattern[ctx.decision_count</span> <span class="pre">%</span> <span class="pre">len(search_pattern)]</span></code>. <code class="docutils literal notranslate"><span class="pre">decision_count</span></code>
 counts the evaluation plans the runtime has confirmed, so the first decision
 uses <code class="docutils literal notranslate"><span class="pre">search_pattern[0]</span></code> and the pattern repeats cyclically, one entry per

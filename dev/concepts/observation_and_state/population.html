@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Population &#8212; saealib 0.1.1.dev41+g963108c8b documentation</title>
+    <title>Population &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=a8338413"></script>
+    <script src="../../_static/documentation_options.js?v=b60631b1"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -606,6 +606,7 @@ Subsequent Population operations such as <code class="docutils literal notransla
 <p>Use <code class="docutils literal notranslate"><span class="pre">Population</span></code> as an instance in ordinary cases, and subclass it only when custom individual management is needed.</p>
 <p>Define the attribute schema as a list of <code class="docutils literal notranslate"><span class="pre">PopulationAttribute(name,</span> <span class="pre">dtype,</span> <span class="pre">shape,</span> <span class="pre">default)</span></code> values.
 On the legacy vector path, add <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">f</span></code>, <code class="docutils literal notranslate"><span class="pre">g</span></code>, <code class="docutils literal notranslate"><span class="pre">cv</span></code>, and the auxiliary attributes returned by <code class="docutils literal notranslate"><span class="pre">Algorithm.get_required_attrs(problem)</span></code> to this schema.
+<code class="docutils literal notranslate"><span class="pre">get_required_attrs</span></code> returns <code class="docutils literal notranslate"><span class="pre">[]</span></code> by default — an algorithm declares attributes only when it stores algorithm-specific state in the population.
 On the Genome-native path, the GenomeBatch and SearchSpace contracts own the representation structure; individuals are not represented by a column schema alone.</p>
 </section>
 <section id="what-population-holds">
@@ -718,7 +719,7 @@ The <code class="docutils literal notranslate"><span class="pre">0.0</span></cod
 <h2>Extending Population<a class="headerlink" href="#extending-population" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">ArchiveMixin</span></code>/<code class="docutils literal notranslate"><span class="pre">ParetoMixin</span></code> are designed on the assumption that they’re mixed into a subclass of <code class="docutils literal notranslate"><span class="pre">Population</span></code> via multiple inheritance.
 If you need custom population-management logic, you can define a new class combining these mixins (<code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">MyArchive(ArchiveMixin,</span> <span class="pre">Population):</span> <span class="pre">...</span></code>).
-You can also override <a class="reference internal" href="../search_algorithms/algorithm.html"><span class="std std-doc">Algorithm</span></a>’s <code class="docutils literal notranslate"><span class="pre">population_class</span></code>/<code class="docutils literal notranslate"><span class="pre">archive_class</span></code> to swap the Population/Archive that <code class="docutils literal notranslate"><span class="pre">Initializer</span></code> generates for your own custom subclass.</p>
+You can also override <a class="reference internal" href="../search_algorithms/algorithm.html"><span class="std std-doc">Algorithm</span></a>’s <code class="docutils literal notranslate"><span class="pre">population_class</span></code>/<code class="docutils literal notranslate"><span class="pre">archive_class</span></code> to swap the Population/Archive that <code class="docutils literal notranslate"><span class="pre">Initializer</span></code> generates for your own custom subclass. Both default to the standard <code class="docutils literal notranslate"><span class="pre">Population</span></code>/<code class="docutils literal notranslate"><span class="pre">Archive</span></code>, so the override is optional.</p>
 </section>
 <section id="related-components">
 <h2>Related components<a class="headerlink" href="#related-components" title="Link to this heading">#</a></h2>

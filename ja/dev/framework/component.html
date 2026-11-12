@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Component &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>Component &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -577,6 +577,7 @@
 <h2>PartSpecの包含<a class="headerlink" href="#partspec" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">PartSpec</span></code>は、Componentがコンストラクターなどで保持する別のComponentの契約を名前付きで宣言します。 親Componentは子Componentを継承するのではなく、<code class="docutils literal notranslate"><span class="pre">parts</span></code>に子の契約を含めます。 <code class="docutils literal notranslate"><span class="pre">optional=True</span></code>は、そのコンポーネントが構成上省略可能であることを表します。</p>
 <p>この包含により、Compilerは親のポートや状態効果と、保持コンポーネントの契約を同じ計画上で検証できます。 実行時のコンポーネントインスタンスの所有者はComponentであり、契約の不変性は<code class="docutils literal notranslate"><span class="pre">ComponentContract</span></code>が担保します。</p>
+<p>保持する子コンポーネントはすべて宣言します。 コンポーネント属性が<code class="docutils literal notranslate"><span class="pre">parts</span></code>に宣言されていない子コンポーネントを保持する場合、契約検査は親型と属性名を示す非ブロッキングの<code class="docutils literal notranslate"><span class="pre">undeclared_part</span></code> WARNINGを出します。 この警告は子を登録したり<code class="docutils literal notranslate"><span class="pre">parts</span></code>を変更したり実行を停止したりすることはなく、欠けた宣言を指し示すだけです。 コンポーネントではない協調オブジェクトのような通常のデータ属性は警告を出しません。</p>
 </section>
 <section id="id2">
 <h2>生成時点と利用時点<a class="headerlink" href="#id2" title="Link to this heading">#</a></h2>

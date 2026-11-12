@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.PairwiseComparisonSet &#8212; saealib 0.1.1.dev41+g963108c8b ドキュメント</title>
+    <title>saealib.PairwiseComparisonSet &#8212; saealib 0.1.1.dev43+gcaf9ff6f8 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=31293fbd"></script>
+    <script src="../../_static/documentation_options.js?v=2f1c8a1f"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -946,7 +946,7 @@ available pairs, all pairs are used.</p></li>
 <td><p>Return pairwise comparison training data.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.PairwiseComparisonSet.contract" title="saealib.PairwiseComparisonSet.contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract</span></code></a></p></td>
-<td><p>Return the pairwise-training contract.</p></td>
+<td><p>Return the pairwise-training contract requiring comparison and RNG.</p></td>
 </tr>
 </tbody>
 </table>
@@ -971,15 +971,15 @@ available pairs, all pairs are used.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.PairwiseComparisonSet.build">
-<span class="sig-prename descclassname"><span class="pre">PairwiseComparisonSet.</span></span><span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">population</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">candidate_x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/training_set.html#PairwiseComparisonSet.build"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.PairwiseComparisonSet.build" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">PairwiseComparisonSet.</span></span><span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">archive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">population</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">candidate_x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/training_set.html#PairwiseComparisonSet.build"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.PairwiseComparisonSet.build" title="Link to this definition">#</a></dt>
 <dd><p>Return pairwise comparison training data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>archive</strong> (<a class="reference internal" href="saealib.Archive.html#saealib.Archive" title="saealib.Archive"><em>Archive</em></a>)</p></li>
 <li><p><strong>population</strong> (<a class="reference internal" href="saealib.Population.html#saealib.Population" title="saealib.Population"><em>Population</em></a><em> | </em><em>None</em>)</p></li>
-<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>candidate_x</strong> (<em>np.ndarray</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
@@ -991,7 +991,7 @@ available pairs, all pairs are used.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.PairwiseComparisonSet.contract">
 <span class="sig-prename descclassname"><span class="pre">PairwiseComparisonSet.</span></span><span class="sig-name descname"><span class="pre">contract</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/training_set.html#PairwiseComparisonSet.contract"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.PairwiseComparisonSet.contract" title="Link to this definition">#</a></dt>
-<dd><p>Return the pairwise-training contract.</p>
+<dd><p>Return the pairwise-training contract requiring comparison and RNG.</p>
 <dl class="field-list simple">
 <dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="saealib.core.ComponentContract.html#saealib.core.ComponentContract" title="saealib.core.contracts.contract.ComponentContract"><em>ComponentContract</em></a></p>

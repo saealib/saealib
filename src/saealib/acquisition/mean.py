@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.spatial import distance
 
 from saealib.acquisition.base import PointwiseAcquisition
+from saealib.core.contracts import ComponentContract, StateContract
+from saealib.core.state import RUNTIME_DECISION_COUNT, RUNTIME_RNG
 from saealib.exceptions import ValidationError
 from saealib.registry import register
 from saealib.surrogate.prediction import SurrogatePrediction
@@ -55,6 +57,13 @@ class MeanPrediction(PointwiseAcquisition):
         self.weights = weights
         self.direction = direction
         self.reference = reference
+
+    def contract(self) -> ComponentContract:
+        """Return the acquisition contract with the random generator it reads."""
+        return replace(
+            super().contract(),
+            state=StateContract(reads=(RUNTIME_RNG,)),
+        )
 
     def compute_reference(
         self, archive: Archive, rng: np.random.Generator | None = None
@@ -208,6 +217,15 @@ class CORSDistance(PointwiseAcquisition):
         self.search_pattern = pattern
         self.weights = weights
         self.direction = direction
+
+    def contract(self) -> ComponentContract:
+        """Return the acquisition contract with the counter and generator it reads."""
+        return replace(
+            super().contract(),
+            state=StateContract(
+                reads=(RUNTIME_DECISION_COUNT, RUNTIME_RNG),
+            ),
+        )
 
     def compute_reference(
         self, archive: Archive, rng: np.random.Generator | None = None

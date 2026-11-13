@@ -22,7 +22,9 @@ from saealib.core.contracts import (
     PortDirection,
     PortSpec,
     ServiceRequirement,
+    StateContract,
 )
+from saealib.core.state import RUNTIME_RNG
 from saealib.exceptions import ValidationError
 
 if TYPE_CHECKING:
@@ -345,6 +347,13 @@ class CompositeAcquisition(AcquisitionFunction):
             )
         self.acquisitions = acquisitions
         self.combine_fn = combine_fn
+
+    def contract(self) -> ComponentContract:
+        """Return the composite contract with the random generator it may use."""
+        return replace(
+            super().contract(),
+            state=StateContract(reads=(RUNTIME_RNG,), writes=(RUNTIME_RNG,)),
+        )
 
     def prepare(self, archive: Archive, *, ctx: OptimizationState | None) -> Any:
         """Prepare every child acquisition; returns ``{name: child_prepared}``."""

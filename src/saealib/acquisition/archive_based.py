@@ -12,6 +12,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 
 from saealib.acquisition.base import _UNSET, AcquisitionFunction, AcquisitionResult
+from saealib.core.contracts import ComponentContract
 
 if TYPE_CHECKING:
     from saealib.context import OptimizationState
@@ -36,6 +37,10 @@ class NoveltyAcquisition(AcquisitionFunction):
 
     def __init__(self, k: int = 1):
         self.k = k
+
+    def contract(self) -> ComponentContract:
+        """Return the acquisition contract; the archive is an argument."""
+        return super().contract()
 
     def evaluate(
         self,

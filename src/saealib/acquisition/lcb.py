@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from saealib.acquisition.base import PointwiseAcquisition, direction_to_minimize_sign
 from saealib.acquisition.kernels import lower_confidence_bound_kernel
+from saealib.core.contracts import ComponentContract, StateContract
+from saealib.core.state import RUNTIME_DECISION_COUNT, RUNTIME_RNG
 from saealib.exceptions import ValidationError
 from saealib.surrogate.prediction import SurrogatePrediction
 
@@ -82,6 +84,13 @@ class LowerConfidenceBound(PointwiseAcquisition):
         self.obj_idx = obj_idx
         self.beta_schedule = beta_schedule
         self.direction = direction
+
+    def contract(self) -> ComponentContract:
+        """Return the acquisition contract with the random generator it reads."""
+        return replace(
+            super().contract(),
+            state=StateContract(reads=(RUNTIME_DECISION_COUNT, RUNTIME_RNG)),
+        )
 
     def compute_reference(
         self, archive: Archive, rng: np.random.Generator | None = None

@@ -9,6 +9,7 @@ from saealib.comparators.comparators import (
     SingleObjectiveComparator,
     SPEA2Comparator,
     WeightedSumComparator,
+    default_comparator,
 )
 from saealib.comparators.dominance import (
     Dominator,
@@ -42,6 +43,7 @@ __all__ = [
     "crowding_distance",
     "crowding_distance_all_fronts",
     "dda_non_dominated_sort",
+    "default_comparator",
     "non_dominated_sort",
     "spea2_fitness",
 ]

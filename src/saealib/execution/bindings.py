@@ -21,9 +21,14 @@ BINDING_SLOTS = (
     "feedback_builder",
     "evaluator",
     "cbmanager",
+    "comparator",
 )
 
 _COMPONENT_SLOTS = (*BINDING_SLOTS, "initializer", "termination")
+
+# The comparator is resolved from its own sources: it has no preset entry and
+# no strategy default, and the default population size depends on it.
+_SELECTION_SLOTS = tuple(slot for slot in _COMPONENT_SLOTS if slot != "comparator")
 
 
 @dataclass(frozen=True)
@@ -70,6 +75,77 @@ def _feature_encoder_signature(value: object) -> str:
         return repr(to_spec(value))
     except Exception:
         return ""
+
+
+def _comparator_signature(value: object) -> str:
+    """Identify a comparator by its plan-relevant settings.
+
+    The constraint and objective tolerances are rewritten during a run and do
+    not change the prepared plan, so they stay out of the signature.
+    """
+    from saealib.registry import _strip_params, to_spec
+
+    try:
+        return repr(_strip_params(to_spec(value), "eps_cv", "eps_obj"))
+    except Exception:
+        return _signature(value)
+
+
+def _bind_comparator_direction(comparator: object, problem: object) -> None:
+    """Give a comparator without a direction the problem's direction."""
+    if getattr(comparator, "direction", None) is not None:
+        return
+    direction = getattr(problem, "direction", None)
+    if direction is not None:
+        cast(Any, comparator).direction = direction
+
+
+def _default_comparator(problem: object) -> object:
+    """Build the comparator chosen by the problem's objective count."""
+    from saealib.comparators import default_comparator
+
+    return default_comparator(
+        int(getattr(problem, "n_obj")),
+        getattr(problem, "direction", None),
+        eps_cv=float(getattr(problem, "eps_cv", 1e-6)),
+        eps_obj=float(getattr(problem, "eps_obj", 1e-6)),
+    )
+
+
+def _resolve_comparator(
+    optimizer: object, problem: object
+) -> tuple[object, _ComponentOrigin]:
+    """Resolve the comparator slot, falling back to the objective-count default."""
+    assigned = getattr(optimizer, "comparator", None)
+    origin = _stored_origin(optimizer, "comparator", assigned)
+    if assigned is not None and (
+        origin is None or origin.source != "framework default"
+    ):
+        source = origin.source if origin is not None else "direct assignment"
+        reason = (
+            origin.reason
+            if origin is not None
+            else "Assigned directly to the optimizer."
+        )
+        _bind_comparator_direction(assigned, problem)
+        return assigned, _ComponentOrigin(
+            assigned, source, reason, _comparator_signature(assigned)
+        )
+
+    cached = getattr(optimizer, "_comparator_default", None)
+    if isinstance(cached, tuple) and len(cached) == 2 and cached[0] is problem:
+        comparator = cached[1]
+    else:
+        comparator = _default_comparator(problem)
+    _bind_comparator_direction(comparator, problem)
+    n_obj = int(getattr(problem, "n_obj"))
+    selected = "SingleObjectiveComparator" if n_obj == 1 else "NSGA2Comparator"
+    return comparator, _ComponentOrigin(
+        comparator,
+        "framework default",
+        f"Selected from the number of objectives: n_obj = {n_obj} uses {selected}.",
+        _comparator_signature(comparator),
+    )
 
 
 def _clone_default(value: object) -> object:
@@ -182,10 +258,9 @@ def _preset_candidates(
     return result
 
 
-def _resolve_defaults(optimizer: object) -> DefaultResolution:
+def _resolve_defaults(optimizer: object, comparator: object) -> DefaultResolution:
     problem = getattr(optimizer, "problem")
     dim = problem.dim
-    comparator = getattr(problem, "comparator", None)
     reference_points = getattr(comparator, "reference_points", None)
     aligns_to_reference_points = getattr(
         comparator, "aligns_population_to_reference_points", False
@@ -339,6 +414,7 @@ def resolve_components(
             {slot: configured[slot] for slot in BINDING_SLOTS if slot in configured}
         )
     problem = getattr(optimizer, "problem")
+    comparator, comparator_origin = _resolve_comparator(optimizer, problem)
     feature_encoder_space = getattr(problem, "space", None)
     feature_encoder, feature_encoder_origin = _resolve_explicit_feature_encoder(
         optimizer, feature_encoder_space
@@ -347,7 +423,7 @@ def resolve_components(
     explicit: dict[str, _Candidate] = {}
     materialized: dict[str, _ComponentOrigin | None] = {}
     framework: dict[str, _Candidate] = {}
-    for slot in _COMPONENT_SLOTS:
+    for slot in _SELECTION_SLOTS:
         candidate, origin = _assigned_candidate(optimizer, slot, raw.get(slot))
         if candidate is not None:
             explicit[slot] = candidate
@@ -363,7 +439,7 @@ def resolve_components(
     user_preset = getattr(optimizer, "_preset", None)
     user_slots = {
         slot
-        for slot in _COMPONENT_SLOTS
+        for slot in _SELECTION_SLOTS
         if user_preset is not None and slot in user_preset
     }
     user_slots.difference_update(explicit)
@@ -429,7 +505,7 @@ def resolve_components(
     bundled_slots = {
         slot
         for slot in bundled_preset
-        if slot in _COMPONENT_SLOTS
+        if slot in _SELECTION_SLOTS
         and slot not in explicit
         and slot not in persisted_candidates
         and slot not in user_candidates
@@ -470,7 +546,7 @@ def resolve_components(
                 )
 
     candidates: dict[str, _Candidate] = {}
-    for slot in _COMPONENT_SLOTS:
+    for slot in _SELECTION_SLOTS:
         if slot in explicit:
             candidates[slot] = explicit[slot]
         elif slot in persisted_candidates:
@@ -526,7 +602,7 @@ def resolve_components(
                 raw["cbmanager"], origin.source, origin.reason
             )
 
-    defaults_resolution = _resolve_defaults(optimizer)
+    defaults_resolution = _resolve_defaults(optimizer, comparator)
     if "initializer" not in explicit:
         if "initializer" in user_candidates:
             candidates["initializer"] = user_candidates["initializer"]
@@ -562,9 +638,10 @@ def resolve_components(
             )
 
     origins: dict[str, _ComponentOrigin] = {}
-    resolved_values: dict[str, object] = {}
+    resolved_values: dict[str, object] = {"comparator": comparator}
+    origins["comparator"] = comparator_origin
     reuse_origins = getattr(optimizer, "_component_origins", {})
-    for slot in _COMPONENT_SLOTS:
+    for slot in _SELECTION_SLOTS:
         candidate = candidates.get(slot)
         if candidate is None:
             resolved_values[slot] = raw.get(slot)

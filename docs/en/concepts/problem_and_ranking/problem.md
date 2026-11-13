@@ -21,7 +21,7 @@ The `Problem` constructor accepts the following arguments.
 Problem(
     func, dim, n_obj, direction, lb=None, ub=None,
     comparator=None, constraints=None, *,
-    eps_cv=1e-6, eps_obj=1e-6, handler=None, variables=None,
+    eps_cv=1e-6, eps_obj=None, handler=None, variables=None,
     space=None, evaluation_adapter=None,
 )
 ```
@@ -39,16 +39,20 @@ Passing any other value raises an exception at construction time.
 They are required when neither `variables` nor `space` supplies the representation.
 When `variables` is provided, the bounds are derived from the variables' ranges.
 
-**`comparator`**: The [Comparator](comparators.md) that compares solutions.
-If omitted, `SingleObjectiveComparator` is auto-selected when `n_obj == 1`, and `NSGA2Comparator` when `n_obj > 1`.
-If the passed `Comparator`'s `direction` is unset (`None`), `Problem`'s `direction` is injected directly.
+**`comparator`**: Deprecated.
+Configure the [Comparator](comparators.md) that compares solutions with `Optimizer.set_comparator()`, which keeps it on the optimizer rather than on the problem.
+A value passed here emits a `DeprecationWarning` and is adopted as an explicit comparator of the `Optimizer` created for this problem; a comparator set with `set_comparator()` takes precedence over it.
+Without an explicit comparator, `Optimizer` selects one from the number of objectives (`SingleObjectiveComparator` when `n_obj == 1`, `NSGA2Comparator` when `n_obj > 1`) and records that choice as a framework default.
+`Problem` keeps its own `comparator` attribute as the default derived from this problem; it is what a standalone `OptimizationState.load()` uses, and it is not the object a run compares with.
+A comparator with an unset (`None`) `direction` receives this problem's `direction` when it enters the optimizer slot.
 
 **`constraints`**: A list of inequality constraints (`InequalityConstraint`).
 How to define them is covered in [Constrained Optimization](../../tutorials/constraints.md).
 
 **`eps_cv`**/**`eps_obj`**: The tolerance for feasibility judgment and the tolerance for objective-value equality judgment, respectively.
 `eps_cv` is only carried over to the default `handler`/`comparator` at constructor time — directly rewriting `problem.eps_cv` after construction has no effect on runtime behavior.
-The threshold actually used is `handler.feasibility_threshold`, which is synchronized to `comparator`/`pareto_archive` every generation during an `Optimizer` run.
+The threshold actually used is `handler.feasibility_threshold`, which is synchronized to `state.comparator`/`pareto_archive` every generation during an `Optimizer` run.
+`eps_obj` is deprecated: it only seeds the default comparator, and a value passed here emits a `DeprecationWarning`. Pass the tolerance to the comparator you configure with `Optimizer.set_comparator()` instead.
 
 **`handler`**: The [ConstraintHandler](constraints.md) responsible for aggregating constraint violations and correcting the objective function.
 If omitted, `StaticToleranceHandler(eps_cv=eps_cv)` is used.
@@ -121,7 +125,7 @@ For a variable type that needs a correspondence between category values and an i
 
 ## External library adapters
 
-`PymooProblem(pymoo_problem, *, eq_tolerance=1e-6, **problem_kwargs)` wraps an already-constructed [pymoo](https://pymoo.org/) problem instance (a built-in benchmark, or existing research code) as a `Problem`, forwarding `problem_kwargs` (`comparator`, `handler`, `eps_cv`, `eps_obj`) to `Problem.__init__`.
+`PymooProblem(pymoo_problem, *, eq_tolerance=1e-6, **problem_kwargs)` wraps an already-constructed [pymoo](https://pymoo.org/) problem instance (a built-in benchmark, or existing research code) as a `Problem`, forwarding `problem_kwargs` (`comparator`, `handler`, `eps_cv`, `eps_obj`) to `Problem.__init__`; the forwarded `comparator` and `eps_obj` keep the deprecation described above.
 `direction` is always all `-1`, since pymoo problems are unconditionally minimization; pymoo's inequality constraints (`G`) map to `InequalityConstraint` and equality constraints (`H`) to `EqualityConstraint`, both verbatim (no sign flip).
 
 pymoo problems batch-evaluate (`_evaluate(X, out)`), and `PymooProblem.evaluate_batch` exploits this directly by calling the wrapped problem's own `evaluate(X, return_as_dictionary=True)` once for the whole batch; `SerialEvaluator` uses this automatically whenever it's available.
@@ -131,7 +135,7 @@ See [Installation](../../getting_started/installation.md) for the `pymoo` extra.
 
 ## Related components
 
-- [Comparator](comparators.md): Swaps out how solutions are compared, via the `comparator` argument
+- [Comparator](comparators.md): Swaps out how solutions are compared, via `Optimizer.set_comparator()`
 - [ConstraintHandler](constraints.md): Swaps out how constraint violations are handled, via the `handler` argument
 - [Crossover](../search_algorithms/crossover.md) / [Mutation](../search_algorithms/mutation.md): Operators applied per variable type as defined in `variables`
 - [Constrained Optimization](../../tutorials/constraints.md): How to define constraints and choose a built-in `ConstraintHandler`

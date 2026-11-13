@@ -35,10 +35,11 @@ All four evaluate the initial Archive, rank it with the Comparator, and pass the
 Sample (n_init_archive points)
   -> Evaluate via provider.evaluator.evaluate_batch
   -> add to archive / pareto_archive
-  -> Rank via problem.comparator.rank_population
+  -> Rank via state.comparator.rank_population
   -> Feed the top n_init_population into population
 ```
 
+The comparator used here is the one resolved for the optimizer, which is created before the initializer because the default population size and the initial ranking both depend on it; it is the same object the run exposes as `state.comparator`.
 Because this ranks a freshly assembled Archive rather than reusing state from a prior selection, it calls `rank_population` rather than `sort_population` directly — see [Comparator](../problem_and_ranking/comparators.md) for the distinction.
 For a Comparator like `SPEA2Comparator`, this is also what first populates its persisted ranking state (`spea2_fitness`) on the initial Population.
 

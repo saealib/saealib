@@ -85,7 +85,6 @@ from saealib.termination import Termination, max_fe
 
 problem = dtlz2(n_obj=3)
 reference_points = uniform_weight_vectors(n_obj=3, n_divisions=8)
-problem.comparator = NSGA3Comparator(reference_points)
 
 algorithm = GA(
     CrossoverSBX(prob=1.0, eta=30.0),
@@ -96,6 +95,7 @@ algorithm = GA(
 
 opt = (
     Optimizer(problem)
+    .set_comparator(NSGA3Comparator(reference_points))
     .set_algorithm(algorithm)
     .set_strategy(DirectStrategy())
     .set_termination(Termination(max_fe(3000)))
@@ -104,8 +104,8 @@ ctx = opt.run()
 pareto_f = ctx.pareto_archive.get_array("f")
 ```
 
-The `problem.comparator = NSGA3Comparator(reference_points)` line cannot be omitted.
-In NSGA-II, `NSGA2Comparator` is the default for `n_obj > 1`, so the same line could be omitted, but in NSGA-III, as with SPEA2, an explicit assignment is required.
+The `set_comparator(NSGA3Comparator(reference_points))` call cannot be omitted.
+In NSGA-II, `NSGA2Comparator` is the default for `n_obj > 1`, so the same call could be omitted, but in NSGA-III, as with SPEA2, an explicit comparator is required.
 
 The example uses the three-objective DTLZ2 rather than a two-objective ZDT benchmark because NSGA-III primarily targets many-objective optimization while still exposing reference-direction niche preservation with three objectives.
 

@@ -6,8 +6,28 @@ page_type: concept
 
 # Comparator
 
-`Problem`は、解の相対的な優劣を判断する処理を、差し替え可能なトップレベルコンポーネントである`Comparator`に委ねています。
-`Problem`の`comparator`引数で渡します。
+`Optimizer`は、解の相対的な優劣を判断する処理を、差し替え可能なトップレベルコンポーネントである`Comparator`に委ねています。
+`Optimizer.set_comparator()`で渡します。
+
+```python
+from saealib import Optimizer
+from saealib.comparators import HypervolumeComparator
+
+optimizer = Optimizer(problem, seed=0).set_comparator(HypervolumeComparator())
+ctx = optimizer.run()
+print(ctx.comparator is optimizer.comparator)  # True
+```
+
+comparatorはProblemの一部ではなく、Optimizerの結びつけ枠です。
+comparatorを設定しない場合、`Optimizer`は目的数から既定（`n_obj == 1`なら`SingleObjectiveComparator`、`n_obj > 1`なら`NSGA2Comparator`）を選び、その出どころをframework defaultとして記録します。明示的に設定したcomparatorは常に優先されます。
+comparator自身の`direction`が未設定であれば、枠に入る時点でProblemの`direction`を受け取ります。direction、目的ごとの重み、参照点がProblemの目的数と一致しないcomparatorは`Optimizer.validate()`が報告します。
+実行中、各コンポーネントは有効なcomparatorを`state.comparator`から読みます。そのため、制約ハンドラが毎世代書き込むεの閾値は、探索が解の順序付けに使うのと同じオブジェクトに届きます。
+
+`Problem(comparator=...)`と`Problem(eps_obj=...)`は非推奨です。
+`Problem`に渡したcomparatorは`DeprecationWarning`を出したうえでOptimizerの明示的なcomparatorとして扱われ、`eps_obj`は既定のcomparatorの許容誤差を決めるだけです。
+`Problem`は目的数から導いた既定のcomparatorを引き続き公開しており、Optimizerを伴わずに状態を作成・読み込みした`OptimizationState`はそれを使います。実行を再開するときは`Optimizer.run_from()`または`Optimizer.iterate_from()`を使うと、そのOptimizerのcomparatorが使われます。
+
+アイランドでは、既定のcomparatorは`Optimizer`ごとに作られるため、2つの島が1つを共有することはありません。`set_comparator()`に同じインスタンスを渡した場合は意図どおり共有されますが、ランタイムはそのインスタンスへハンドラの閾値を書き込むため、ハンドラの異なる島で1つを共有することは勧めません。
 
 ## Comparatorの役割
 
@@ -127,7 +147,7 @@ class RandomComparator(Comparator):
 - [Dominator](dominance.md): `ParetoComparator`系の`dominator`引数
 - [NonDominatedSorter](nondominated_sorting.md): `ParetoComparator`系の`sorter`引数
 - [Decomposition](decomposition.md): `DecompositionComparator`が使うスカラー化関数
-- [Problem](problem.md): `comparator`引数の渡し方と既定の選択ルール
+- [Problem](problem.md): Problemが公開する既定のcomparatorと非推奨の`comparator`引数
 - [ParentSelection](../search_algorithms/parent_selection.md) / [SurvivorSelection](../search_algorithms/survivor_selection.md): `Comparator`を使って個体を選択するオペレーター
 - [Population](../observation_and_state/population.md): `get_required_attrs`が拡張する`PopulationAttribute`スキーマ
 

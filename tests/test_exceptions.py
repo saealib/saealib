@@ -87,6 +87,8 @@ class TestOptimizerBoundary:
         Optimizer.resolve_defaults() as of the Registry-based defaults."""
         import numpy as np
 
+        from saealib.comparators import ParetoComparator
+
         problem = saealib.Problem(
             func=lambda x: np.sum(x),
             dim=2,
@@ -95,8 +97,9 @@ class TestOptimizerBoundary:
             lb=[-5.0, -5.0],
             ub=[5.0, 5.0],
         )
-        problem.comparator.direction = np.array([1.0, 1.0])  # len 2 != n_obj=1
-        return saealib.Optimizer(problem)
+        return saealib.Optimizer(problem).set_comparator(
+            ParetoComparator(direction=np.array([1.0, 1.0]))
+        )
 
     def test_misconfigured_run_raises_configuration_error(self):
         with pytest.raises(ConfigurationError, match="Optimizer misconfigured"):

@@ -24,8 +24,10 @@ __all__ = ["IslandModel"]
 class IslandModel:
     """Run optimizers in parallel and periodically exchange individuals.
 
-    Migration selects the best individuals from a source island using its
-    problem comparator and overwrites the worst rows of the target population.
+    Migration selects the best individuals from a source island using that
+    island's own resolved comparator and overwrites the worst rows of the
+    target population. Each optimizer resolves its own default comparator, so
+    islands do not share one unless the same instance is set explicitly.
     The target rows' existing ``id`` values are intentionally retained: an
     island migration is a value transfer, not a candidate-identity transfer.
 

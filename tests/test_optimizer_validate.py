@@ -13,7 +13,7 @@ from saealib.acquisition.mean import MeanPrediction
 from saealib.acquisition.pof import ProbabilityOfFeasibility, ProductOfFeasibility
 from saealib.acquisition.uncertainty import MaxUncertainty
 from saealib.algorithms import PSO
-from saealib.comparators import SingleObjectiveComparator
+from saealib.comparators import ParetoComparator
 from saealib.core.contracts import ComponentContract
 from saealib.execution.initializer import LHSInitializer
 from saealib.optimizer import Optimizer
@@ -37,7 +37,6 @@ def _make_problem(n_obj: int = N_OBJ) -> Problem:
         direction=np.array([-1.0] * n_obj),
         lb=[-5.0] * DIM,
         ub=[5.0] * DIM,
-        comparator=SingleObjectiveComparator(),
     )
 
 
@@ -137,7 +136,7 @@ def test_strategy_requires_surrogate_present():
 
 def test_comparator_weight_mismatch():
     opt = _fully_configured()
-    opt.problem.comparator.direction = np.array([1.0, 1.0])  # len 2 != n_obj=1
+    opt.set_comparator(ParetoComparator(direction=np.array([1.0, 1.0])))
     assert any("direction" in m for m in opt.validate())
 
 
@@ -177,14 +176,14 @@ def test_mean_prediction_with_rbf_ok():
 
 def test_run_raises_on_unresolvable_misconfiguration():
     opt = _fully_configured()
-    opt.problem.comparator.direction = np.array([1.0, 1.0])  # len 2 != n_obj=1
+    opt.set_comparator(ParetoComparator(direction=np.array([1.0, 1.0])))
     with pytest.raises(ValueError, match="Optimizer misconfigured"):
         opt.run()
 
 
 def test_iterate_raises_on_unresolvable_misconfiguration():
     opt = _fully_configured()
-    opt.problem.comparator.direction = np.array([1.0, 1.0])  # len 2 != n_obj=1
+    opt.set_comparator(ParetoComparator(direction=np.array([1.0, 1.0])))
     with pytest.raises(ValueError, match="Optimizer misconfigured"):
         opt.iterate()
 

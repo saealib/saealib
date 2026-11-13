@@ -64,7 +64,7 @@ result = minimize(
 
 ## Resultを読む
 
-`minimize()` と `maximize()` は `Result` を返します。 単目的では `result.x` が最良設計変数、`result.f` が要素数1の配列として対応する目的値を保持します。 `result.fe` は真の評価回数、`result.gen` は完了した世代数です。 多目的では `x` と `f` がPareto解の行列になります。
+`minimize()` と `maximize()` は `Result` を返します。 単目的では `result.x` が最良設計変数、`result.f` が要素数1の配列として対応する目的値を保持します。 `result.fe` は真の評価回数、`result.gen` は完了した世代数です。 多目的では `x` と `f` が、既定の基準で選んだ非劣解の行列になります。
 
 ```python
 print(result.x)
@@ -73,6 +73,18 @@ print(result.fe, result.gen)
 
 archive = result.ctx.archive
 print(archive.get_array("x"))
+```
+
+`result.best()` は1つの解を、`result.front()` は非劣解の集合を返します。どちらも `criterion` に `Comparator` を受け取り、省略時は既定の基準を使います。既定の基準は実行可能解を優先し、実行可能性は制約ごとの違反量（不等式は`0.0`、等式はその`tolerance`）で判定したうえでPareto支配を使います。実行可能な解が1つもない場合、既定の基準では単目的は`cv`が最小の最初の行を、多目的は`cv`が最小の行のうち非劣な解を使います。明示した基準では、`cv`が最小のすべての行をその基準で順位付けします。
+
+```python
+from saealib.comparators import ParetoComparator
+
+best_x, best_f = result.best()
+front_x, front_f = result.front()
+custom_x, custom_f = result.best(
+    ParetoComparator(direction=result.problem.direction)
+)
 ```
 
 `result.ctx` は完全な `OptimizationState` です。 世代ごとの状態取得、途中の停止、コンポーネントの組み立てが必要になったら [低レベルAPI](lowlevel_api.md) に進みます。

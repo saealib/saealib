@@ -78,7 +78,7 @@ Both behaviors are correct, and the choice is yours based on the configuration y
 `minimize()` and `maximize()` return a `Result`.
 For a single objective, `result.x` holds the best design variables and `result.f` holds the corresponding objective value as a one-element array.
 `result.fe` is the number of true evaluations, and `result.gen` is the number of completed generations.
-For multiple objectives, `x` and `f` are matrices of Pareto solutions.
+For multiple objectives, `x` and `f` are matrices of the non-dominated solutions under the default criterion, recomputed from the truly evaluated rows of the main archive.
 
 ```python
 print(result.x)
@@ -87,6 +87,20 @@ print(result.fe, result.gen)
 
 archive = result.ctx.archive
 print(archive.get_array("x"))
+```
+
+`result.best()` returns one solution and `result.front()` returns the non-dominated set.
+Both accept a `Comparator` as `criterion` and use the default criterion when it is omitted: feasibility first, decided by the per-constraint violations (an inequality is satisfied at `0.0` and an equality at its `tolerance`), then Pareto dominance among the feasible solutions.
+When no solution is feasible, the default criterion uses the first row with the minimum `cv` for a single-objective problem and the non-dominated solutions among the minimum-`cv` rows for a multi-objective problem; a supplied criterion ranks every row with the minimum `cv`.
+
+```python
+from saealib.comparators import ParetoComparator
+
+best_x, best_f = result.best()
+front_x, front_f = result.front()
+custom_x, custom_f = result.best(
+    ParetoComparator(direction=result.problem.direction)
+)
 ```
 
 `result.ctx` is the complete `OptimizationState`.

@@ -11,6 +11,7 @@ import numpy as np
 from saealib.exceptions import ValidationError
 
 if TYPE_CHECKING:
+    from saealib.comparators import Comparator
     from saealib.context import OptimizationState
     from saealib.execution.history import History
 
@@ -62,8 +63,9 @@ class Result:
         spaces; use ``problem.space.services`` to convert
         ``result.ctx.archive.genomes`` when dense design variables are needed.
     f : np.ndarray
-        Best objective values. Shape ``(n_obj,)`` for single-objective,
-        ``(n_pareto, n_obj)`` for multi-objective.
+        Best objective values under the default criterion. Shape ``(n_obj,)``
+        for single-objective, ``(n_pareto, n_obj)`` for multi-objective. Use
+        :meth:`best` or :meth:`front` to select a different criterion.
     fe : int
         Total number of true function evaluations used.
     gen : int
@@ -85,64 +87,191 @@ class Result:
     def from_state(cls, state: OptimizationState) -> Result:
         """Build a result from the final or currently observed state.
 
-        A solution is feasible when every per-constraint violation is zero
-        after its own tolerance, so the reported result does not depend on the
-        aggregation that produced ``cv`` or on a search-time epsilon
-        relaxation.
+        ``x`` and ``f`` are the default-criterion view: the best solution for a
+        single-objective problem and the non-dominated set of the truly
+        evaluated main-archive rows for a multi-objective problem. The
+        default criterion is feasibility first, then Pareto dominance; see
+        :meth:`best` and :meth:`front`.
         """
-        from saealib.problem.constraint import _feasible_rows
-
-        archive_f = state.archive.get_array("f")
-        archive_cv = state.archive.get_array("cv")
-        direction = state.problem.direction
-
-        feasible = np.flatnonzero(
-            _feasible_rows(state.archive, state.problem.constraints)
-        )
-        if len(feasible):
-            pool = feasible
-        elif len(archive_cv):
-            pool = np.array([int(np.argmin(archive_cv))])
-        else:
+        if len(state.archive) == 0:
             raise ValidationError(
                 "Cannot build a result from a state whose archive is empty. "
                 "Evaluate at least one candidate before requesting a result."
             )
 
-        if state.problem.n_obj == 1:
-            scores = archive_f[pool] @ direction
-            best_idx = pool[int(np.argmax(scores))]
-            try:
-                best_x = state.archive.get_array("x")[best_idx]
-            except AttributeError:
-                best_x = None
-            best_f = archive_f[best_idx]
-        else:
-            if len(state.pareto_archive) > 0:
-                try:
-                    best_x = state.pareto_archive.get_array("x")
-                except AttributeError:
-                    best_x = None
-                best_f = state.pareto_archive.get_array("f")
-            else:
-                from saealib.comparators import non_dominated_sort
-
-                _, fronts = non_dominated_sort(archive_f[pool], direction=direction)
-                pareto_idx = pool[fronts[0]]
-                try:
-                    best_x = state.archive.get_array("x")[pareto_idx]
-                except AttributeError:
-                    best_x = None
-                best_f = archive_f[pareto_idx]
-
-        return cls(
-            x=None if best_x is None else np.array(best_x, copy=True),
-            f=np.array(best_f, copy=True),
+        result = cls(
+            x=None,
+            f=np.empty((0,), dtype=float),
             fe=int(state.fe),
             gen=int(state.gen),
             history=state.history,
             ctx=state,
         )
+        if state.problem.n_obj == 1:
+            x, f = result.best()
+        else:
+            x, f = result.front()
+        result.x = x
+        result.f = f
+        return result
+
+    def best(
+        self, criterion: Comparator | None = None
+    ) -> tuple[np.ndarray | None, np.ndarray]:
+        """Return the best solution under *criterion*.
+
+        Parameters
+        ----------
+        criterion : Comparator, optional
+            Comparison criterion. When omitted, the default criterion is used:
+            a solution is feasible when every per-constraint violation is zero
+            after its own tolerance, feasible solutions rank before infeasible
+            ones, and feasible solutions are ranked by Pareto dominance. When
+            no solution is feasible, the default criterion uses the first row
+            with the minimum ``cv`` for a single-objective problem and the
+            non-dominated rows among the minimum ``cv`` rows for a
+            multi-objective problem. A supplied criterion keeps its own
+            ``direction`` and ``eps_cv`` and ranks every row with the minimum
+            ``cv`` when no row is feasible.
+
+        Returns
+        -------
+        tuple of (np.ndarray or None, np.ndarray)
+            Design variables with shape ``(dim,)`` and objective values with
+            shape ``(n_obj,)``. The design variables are ``None`` for a
+            non-dense search space.
+
+        Raises
+        ------
+        ValidationError
+            If *criterion* is not a :class:`~saealib.Comparator` or the
+            main archive is empty.
+        """
+        is_default = criterion is None
+        criterion = self._resolve_criterion(criterion)
+        f, _ = self._archive_values()
+        pool = self._selection_pool(criterion, is_default)
+
+        if is_default and self.problem.n_obj == 1:
+            scores = f[pool] @ np.asarray(self.problem.direction, dtype=float)
+            index = int(pool[int(np.argmax(scores))])
+        elif is_default:
+            index = int(self._first_front(criterion, f, pool)[0])
+        else:
+            order = criterion.sort_population(self.archive.extract(pool))
+            index = int(pool[int(order[0])])
+        return self._archive_row(index)
+
+    def front(
+        self, criterion: Comparator | None = None
+    ) -> tuple[np.ndarray | None, np.ndarray]:
+        """Return the non-dominated solutions under *criterion*.
+
+        Parameters
+        ----------
+        criterion : Comparator, optional
+            Comparison criterion. When omitted, the default criterion is used:
+            a solution is feasible when every per-constraint violation is zero
+            after its own tolerance, and the feasible solutions are filtered by
+            Pareto dominance with the criterion's own sorter. When no solution
+            is feasible, the default criterion returns the first row with the
+            minimum ``cv`` for a single-objective problem and the non-dominated
+            rows among the minimum ``cv`` rows for a multi-objective problem.
+            A supplied criterion keeps its own ``direction`` and ``eps_cv`` and
+            ranks every row with the minimum ``cv`` when no row is feasible.
+
+        Returns
+        -------
+        tuple of (np.ndarray or None, np.ndarray)
+            Design variables with shape ``(n_front, dim)`` and objective values
+            with shape ``(n_front, n_obj)``. The design variables are ``None``
+            for a non-dense search space.
+
+        Raises
+        ------
+        ValidationError
+            If *criterion* is not a :class:`~saealib.Comparator` or the
+            main archive is empty.
+        """
+        is_default = criterion is None
+        criterion = self._resolve_criterion(criterion)
+        f, _ = self._archive_values()
+        pool = self._selection_pool(criterion, is_default)
+        indices = self._first_front(criterion, f, pool)
+        return self._archive_rows(indices)
+
+    def _resolve_criterion(self, criterion: Comparator | None) -> Comparator:
+        from saealib.comparators import Comparator, ParetoComparator
+
+        if criterion is None:
+            return ParetoComparator(
+                direction=np.asarray(self.problem.direction, dtype=float),
+                eps_cv=0.0,
+            )
+        if not isinstance(criterion, Comparator):
+            raise ValidationError("criterion must be a Comparator instance or None.")
+        return criterion
+
+    def _archive_values(self) -> tuple[np.ndarray, np.ndarray]:
+        archive = self.ctx.archive
+        if len(archive) == 0:
+            raise ValidationError(
+                "Cannot select solutions from a result whose archive is empty."
+            )
+        f = np.asarray(archive.get_array("f"), dtype=float)
+        cv = np.asarray(archive.get_array("cv"), dtype=float)
+        return f, cv
+
+    def _selection_pool(self, criterion: Comparator, is_default: bool) -> np.ndarray:
+        _, cv = self._archive_values()
+        if is_default:
+            from saealib.problem.constraint import _feasible_rows
+
+            feasible = _feasible_rows(self.ctx.archive, self.problem.constraints)
+        else:
+            feasible = cv <= float(criterion.eps_cv)
+        indices = np.flatnonzero(feasible)
+        if len(indices):
+            return indices
+        if is_default and self.problem.n_obj == 1:
+            return np.asarray([int(np.argmin(cv))])
+        minimum = np.flatnonzero(cv == np.min(cv))
+        return minimum if len(minimum) else np.arange(len(cv))
+
+    def _first_front(
+        self, criterion: Comparator, f: np.ndarray, pool: np.ndarray
+    ) -> np.ndarray:
+        from saealib.comparators import Dominator, non_dominated_sort
+
+        dominator = getattr(criterion, "dominator", None)
+        if isinstance(dominator, Dominator):
+            sorter = getattr(criterion, "sorter", None)
+            if not callable(sorter):
+                sorter = non_dominated_sort
+            ranks, _ = sorter(
+                f[pool],
+                direction=getattr(criterion, "direction", None),
+                dominator=dominator,
+            )
+            ranks = np.asarray(ranks)
+            return pool[np.flatnonzero(ranks == np.min(ranks))]
+        order = criterion.sort_population(self.ctx.archive.extract(pool))
+        return pool[np.asarray(order[:1], dtype=int)]
+
+    def _archive_row(self, index: int) -> tuple[np.ndarray | None, np.ndarray]:
+        x, f = self._archive_rows(np.asarray([index], dtype=int))
+        return (None if x is None else x[0], f[0])
+
+    def _archive_rows(
+        self, indices: np.ndarray
+    ) -> tuple[np.ndarray | None, np.ndarray]:
+        archive = self.ctx.archive
+        f = np.array(archive.get_array("f")[indices], dtype=float, copy=True)
+        try:
+            x = np.array(archive.get_array("x")[indices], dtype=float, copy=True)
+        except AttributeError:
+            x = None
+        return x, f
 
     @property
     def problem(self):

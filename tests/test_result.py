@@ -31,23 +31,37 @@ from saealib.space import PermutationSpace
 
 
 class _Archive:
-    def __init__(self, x, f, cv):
+    def __init__(self, x, f, cv, g=None):
         self._arrays = {
             "x": np.asarray(x, dtype=float),
             "f": np.asarray(f, dtype=float),
             "cv": np.asarray(cv, dtype=float),
         }
+        if g is not None:
+            self._arrays["g"] = np.asarray(g, dtype=float)
+
+    @property
+    def schema(self):
+        return self._arrays
 
     def get_array(self, name):
         return self._arrays[name]
+
+    def extract(self, indices):
+        return _Archive(
+            self._arrays["x"][indices],
+            self._arrays["f"][indices],
+            self._arrays["cv"][indices],
+            self._arrays["g"][indices] if "g" in self._arrays else None,
+        )
 
     def __len__(self):
         return len(self._arrays["x"])
 
 
-def _state(f, cv, direction, pareto=None):
+def _state(f, cv, direction, pareto=None, g=None, constraints=None):
     x = np.arange(len(f) * 2, dtype=float).reshape(len(f), 2)
-    archive = _Archive(x, f, cv)
+    archive = _Archive(x, f, cv, g)
     pareto_archive = (
         _Archive(
             np.asarray(pareto[0], dtype=float),
@@ -62,7 +76,7 @@ def _state(f, cv, direction, pareto=None):
             n_obj=len(direction),
             direction=np.asarray(direction, dtype=float),
             eps_cv=0.0,
-            constraints=[],
+            constraints=[] if constraints is None else list(constraints),
         ),
         archive=archive,
         pareto_archive=pareto_archive,
@@ -99,7 +113,7 @@ def test_single_objective_min_and_max():
     assert Result.from_state(state).f[0] == 4
 
 
-def test_multi_objective_uses_nonempty_pareto_archive():
+def test_multi_objective_front_is_recomputed_from_main_archive():
     state = _state(
         [[1, 9], [9, 1]],
         [0, 0],
@@ -107,7 +121,90 @@ def test_multi_objective_uses_nonempty_pareto_archive():
         pareto=([[3, 3]], [[2, 2]]),
     )
     result = Result.from_state(state)
-    np.testing.assert_array_equal(result.f, [[2, 2]])
+    np.testing.assert_array_equal(result.f, [[1, 9], [9, 1]])
+    front_x, front_f = result.front()
+    np.testing.assert_array_equal(front_f, [[1, 9], [9, 1]])
+    np.testing.assert_array_equal(front_x, [[0, 1], [2, 3]])
+
+
+def test_multi_objective_best_uses_the_first_row_of_the_default_front():
+    state = _state([[1, 9], [9, 1]], [0, 0], [-1, -1])
+    result = Result.from_state(state)
+    x, f = result.best()
+    np.testing.assert_array_equal(f, [1, 9])
+    np.testing.assert_array_equal(x, [0, 1])
+
+
+def test_front_uses_the_criterion_sorter_like_best():
+    from saealib.comparators import ParetoComparator
+
+    def inverted_sorter(f, direction=None, *, dominator=None):
+        ranks = np.arange(len(f), dtype=int)[::-1]
+        return ranks, [[int(index)] for index in ranks]
+
+    state = _state([[0, 0], [1, 1], [2, 2]], [0, 0, 0], [-1, -1])
+    result = Result.from_state(state)
+    criterion = ParetoComparator(
+        direction=np.array([-1.0, -1.0]), sorter=inverted_sorter
+    )
+
+    _, best_f = result.best(criterion)
+    _, front_f = result.front(criterion)
+
+    np.testing.assert_array_equal(best_f, [2, 2])
+    np.testing.assert_array_equal(front_f, [[2, 2]])
+
+
+def test_multi_objective_front_ignores_an_epsilon_relaxed_pareto_archive():
+    from saealib import InequalityConstraint
+
+    constraint = InequalityConstraint(lambda x: 0.0)
+    state = _state(
+        [[1, 9], [2, 2]],
+        [0.0, 0.1],
+        [-1, -1],
+        pareto=([[2, 2]], [[2, 2]]),
+        g=[[-0.1], [0.1]],
+        constraints=[constraint],
+    )
+    result = Result.from_state(state)
+    np.testing.assert_array_equal(result.f, [[1, 9]])
+    np.testing.assert_array_equal(result.pareto_archive.get_array("f"), [[2, 2]])
+
+
+def test_multi_objective_without_feasible_rows_uses_the_minimum_cv_front():
+    state = _state(
+        [[1, 9], [9, 1], [5, 5], [4, 4]],
+        [0.5, 0.2, 0.3, 0.2],
+        [-1, -1],
+    )
+    result = Result.from_state(state)
+    np.testing.assert_array_equal(result.f, [[9, 1], [4, 4]])
+
+
+def test_front_accepts_a_custom_criterion():
+    from saealib.comparators import ParetoComparator, WeightedSumComparator
+
+    state = _state(
+        [[1, 9], [9, 1], [2, 2]],
+        [0, 0, 0.4],
+        [-1, -1],
+    )
+    result = Result.from_state(state)
+
+    _, relaxed = result.front(
+        ParetoComparator(direction=np.array([-1.0, -1.0]), eps_cv=0.5)
+    )
+    np.testing.assert_array_equal(relaxed, [[1, 9], [9, 1], [2, 2]])
+
+    _, scalar = result.best(WeightedSumComparator(direction=np.array([-1.0, -1.0])))
+    np.testing.assert_array_equal(scalar, [1, 9])
+
+
+def test_invalid_criterion_is_rejected():
+    result = Result.from_state(_state([[1]], [0], [-1]))
+    with pytest.raises(ValidationError, match="Comparator"):
+        result.best(object())  # ty: ignore[invalid-argument-type]
 
 
 def test_multi_objective_empty_pareto_archive_uses_first_front():
@@ -116,10 +213,50 @@ def test_multi_objective_empty_pareto_archive_uses_first_front():
     np.testing.assert_array_equal(result.f, [[1, 9], [9, 1]])
 
 
+def test_single_objective_without_feasible_rows_keeps_the_first_minimum_cv_row():
+    state = _state([[100], [1]], [0.2, 0.2], [-1])
+
+    result = Result.from_state(state)
+
+    np.testing.assert_array_equal(result.f, [100])
+    np.testing.assert_array_equal(result.best()[1], [100])
+
+
+def test_explicit_single_objective_criterion_ranks_all_minimum_cv_rows():
+    from saealib.comparators import SingleObjectiveComparator, WeightedSumComparator
+
+    state = _state([[100], [1]], [0.2, 0.2], [-1])
+    result = Result.from_state(state)
+    np.testing.assert_array_equal(result.best()[1], [100])
+
+    for criterion in (
+        SingleObjectiveComparator(direction=-1.0),
+        WeightedSumComparator(direction=np.array([-1.0])),
+    ):
+        order = criterion.sort_population(state.archive)
+        assert order.tolist() == [1, 0]
+        np.testing.assert_array_equal(result.best(criterion)[1], [1])
+        np.testing.assert_array_equal(result.front(criterion)[1], [[1]])
+
+
 def test_feasibility_is_prioritized_and_impossible_uses_min_cv():
     state = _state([[100], [1], [2]], [0.1, 0, 0], [-1])
     assert Result.from_state(state).f[0] == 1
     state = _state([[100], [1], [2]], [0.5, 0.2, 0.3], [-1])
+    assert Result.from_state(state).f[0] == 1
+
+
+def test_equality_tolerance_decides_feasibility_for_the_default_criterion():
+    from saealib import EqualityConstraint
+
+    constraint = EqualityConstraint(lambda x: 0.0)
+    state = _state(
+        [[1], [2]],
+        [5e-5, 1e-3],
+        [-1],
+        g=[[5e-5], [1e-3]],
+        constraints=[constraint],
+    )
     assert Result.from_state(state).f[0] == 1
 
 
@@ -242,3 +379,32 @@ def test_state_properties_delegate_by_identity():
     assert result.archive is state.archive
     assert result.pareto_archive is state.pareto_archive
     assert result.population is state.population
+
+
+def test_epsilon_relaxed_run_can_differ_from_the_pareto_archive():
+    from saealib import (
+        EpsilonConstraintHandler,
+        InequalityConstraint,
+        linear_epsilon_schedule,
+    )
+
+    problem = Problem(
+        func=lambda x: np.array([x[0] ** 2 + x[1], (x[0] - 1) ** 2 + (x[1] - 1) ** 2]),
+        dim=2,
+        n_obj=2,
+        direction=np.array([-1.0, -1.0]),
+        lb=[0.0, 0.0],
+        ub=[2.0, 2.0],
+        constraints=[InequalityConstraint(lambda x: 0.6 - x[0])],
+        handler=EpsilonConstraintHandler(linear_epsilon_schedule(eps0=0.5, n_gen=8)),
+    )
+    state = (
+        Optimizer(problem, seed=0)
+        .set_initializer(LHSInitializer(12, 8, seed=0))
+        .set_termination(Termination(max_gen(8)))
+        .run()
+    )
+    result = Result.from_state(state)
+
+    assert result.f.shape == (8, 2)
+    assert state.pareto_archive.get_array("f").shape == (10, 2)

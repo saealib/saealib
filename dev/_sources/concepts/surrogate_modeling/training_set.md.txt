@@ -41,7 +41,7 @@ The 8 built-in classes are organized along two orthogonal axes.
 | `KNNObjectiveSet` | `n_neighbors=50` | The k nearest archive points to `candidate_x`. `LocalSurrogateManager`'s default |
 | `ConstraintObjectiveSet` | None | Uses the entire archive with raw constraint values `g` |
 | `KNNConstraintObjectiveSet` | `n_neighbors=50` | The k-NN version of `ConstraintObjectiveSet` |
-| `FeasibilityClassificationSet` | `source="archive"` | Binary classification labels via `cv <= eps_cv` |
+| `FeasibilityClassificationSet` | `source="archive"` | Binary classification labels from the per-constraint feasibility decision |
 | `TopKBipartitionSet` | `source="archive", top_ratio=0.5` | After sorting, labels the top `floor(n * top_ratio)` as label=1 and the rest as label=0 |
 | `LevelBasedSet` | `source="population", n_levels=5` | After sorting, assigns multi-level labels across `n_levels` equally divided groups |
 | `PairwiseComparisonSet` | `source="archive", n_pairs=None, rng=None` | Pairs up two points and labels the win/loss of their comparison |
@@ -49,7 +49,7 @@ The 8 built-in classes are organized along two orthogonal axes.
 
 `ConstraintObjectiveSet`/`KNNConstraintObjectiveSet` raise `ValueError` if the problem has no constraints (`archive.g` has 0 columns).
 
-The `eps_cv` used for `FeasibilityClassificationSet`'s feasibility judgment is obtained from `ctx.problem.eps_cv`, falling back to `1e-6` when `ctx=None`.
+`FeasibilityClassificationSet` labels a sample feasible when every per-constraint violation in `g` is zero after its own tolerance, the same decision `Result` and the summary history use. Without `ctx` the constraints are unknown, so it falls back to `cv <= 0`.
 
 Classes with a `source` argument (`FeasibilityClassificationSet`/`TopKBipartitionSet`/`LevelBasedSet`/`PairwiseComparisonSet`) all share the behavior of raising `ValueError` if `source="population"` is specified while `population=None`.
 

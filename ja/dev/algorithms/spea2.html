@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>SPEA2 (Strength Pareto Evolutionary Algorithm 2) &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>SPEA2 (Strength Pareto Evolutionary Algorithm 2) &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1098,7 +1098,6 @@ window.runMermaid = runMermaid;</script>
 <span class="n">N_BAR</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># SPEA2 external archive size</span>
 
 <span class="n">problem</span> <span class="o">=</span> <span class="n">zdt1</span><span class="p">(</span><span class="n">n_var</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-<span class="n">problem</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">SPEA2Comparator</span><span class="p">()</span>
 
 <span class="n">algorithm</span> <span class="o">=</span> <span class="n">GA</span><span class="p">(</span>
     <span class="n">CrossoverSBX</span><span class="p">(</span><span class="n">prob</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">20.0</span><span class="p">),</span>
@@ -1109,6 +1108,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="n">opt</span> <span class="o">=</span> <span class="p">(</span>
     <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_comparator</span><span class="p">(</span><span class="n">SPEA2Comparator</span><span class="p">())</span>
     <span class="o">.</span><span class="n">set_initializer</span><span class="p">(</span><span class="n">LHSInitializer</span><span class="p">(</span><span class="n">n_init_archive</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">n_init_population</span><span class="o">=</span><span class="n">N_BAR</span><span class="p">))</span>
     <span class="o">.</span><span class="n">set_algorithm</span><span class="p">(</span><span class="n">algorithm</span><span class="p">)</span>
     <span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="n">DirectStrategy</span><span class="p">(</span><span class="n">n_offspring</span><span class="o">=</span><span class="n">N</span><span class="p">))</span>
@@ -1118,7 +1118,7 @@ window.runMermaid = runMermaid;</script>
 <span class="n">pareto_f</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">problem.comparator</span> <span class="pre">=</span> <span class="pre">SPEA2Comparator()</span></code>の行は省略できません。
+<p><code class="docutils literal notranslate"><span class="pre">set_comparator(SPEA2Comparator())</span></code>の呼び出しは省略できません。
 NSGA-IIでは<code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code>が<code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>のときの既定値なので同じ行を省略できましたが、SPEA2ではそうではありません。</p>
 <p><code class="docutils literal notranslate"><span class="pre">ctx.pareto_archive</span></code>はsaealib独自の累積非劣解アーカイブであり、特定のアルゴリズムとは独立に実行全体を通じて追跡されます。
 SPEA2の外部アーカイブ（<code class="docutils literal notranslate"><span class="pre">ctx.population</span></code>に対応）と同じ状態コンテナではありません。原論文の出力<span class="math notranslate nohighlight">\(A\)</span>（最終的な外部アーカイブ<span class="math notranslate nohighlight">\(\bar P_{t+1}\)</span>内の非劣解群）そのものが必要な場合は<code class="docutils literal notranslate"><span class="pre">ctx.population</span></code>を直接参照してください。</p>
@@ -1139,7 +1139,7 @@ saealibの<code class="docutils literal notranslate"><span class="pre">LHSInitia
 <h3>計算量<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
 <p>適応度計算(<span class="math notranslate nohighlight">\(S(i)\)</span>/<span class="math notranslate nohighlight">\(R(i)\)</span>/<span class="math notranslate nohighlight">\(D(i)\)</span>)は<span class="math notranslate nohighlight">\(O(M^2)\)</span>（<span class="math notranslate nohighlight">\(M=N+\bar N\)</span>）で、密度推定のための距離ソートを含めると<span class="math notranslate nohighlight">\(O(M^2\log M)\)</span>になります。
 打ち切り演算子は最悪<span class="math notranslate nohighlight">\(O(M^3)\)</span>、平均では<span class="math notranslate nohighlight">\(O(M^2\log M)\)</span>です<span class="bibtex-citation" id="id9">[<a class="reference internal" href="../references.html#id24" title="Eckart Zitzler, Marco Laumanns, and Lothar Thiele. Spea2: improving the strength pareto evolutionary algorithm. Technical Report 103, Computer Engineering and Networks Laboratory (TIK), ETH Zurich, 2001.">4</a>]</span>。</p>
-<p><strong><span class="math notranslate nohighlight">\(N\)</span>と<span class="math notranslate nohighlight">\(\bar N\)</span>の独立設定</strong>：<code class="docutils literal notranslate"><span class="pre">ctx.population</span></code>はSPEA2のアーカイブ<span class="math notranslate nohighlight">\(\bar P\)</span>の役割を担います——<code class="docutils literal notranslate"><span class="pre">GA.tell()</span></code>がこれを子個体群と統合し、<code class="docutils literal notranslate"><span class="pre">TruncationSelection</span></code>（<code class="docutils literal notranslate"><span class="pre">problem.comparator</span></code>で設定された<code class="docutils literal notranslate"><span class="pre">SPEA2Comparator</span></code>を利用）がその結果に対して環境選択を行います——そのため<code class="docutils literal notranslate"><span class="pre">LHSInitializer(n_init_population=...)</span></code>が<span class="math notranslate nohighlight">\(\bar N\)</span>を、<code class="docutils literal notranslate"><span class="pre">DirectStrategy(n_offspring=...)</span></code>が各世代で生成（かつ真の評価が行われる）子個体数<span class="math notranslate nohighlight">\(N\)</span>を設定します。
+<p><strong><span class="math notranslate nohighlight">\(N\)</span>と<span class="math notranslate nohighlight">\(\bar N\)</span>の独立設定</strong>：<code class="docutils literal notranslate"><span class="pre">ctx.population</span></code>はSPEA2のアーカイブ<span class="math notranslate nohighlight">\(\bar P\)</span>の役割を担います——<code class="docutils literal notranslate"><span class="pre">GA.tell()</span></code>がこれを子個体群と統合し、<code class="docutils literal notranslate"><span class="pre">TruncationSelection</span></code>（<code class="docutils literal notranslate"><span class="pre">set_comparator()</span></code>で設定した<code class="docutils literal notranslate"><span class="pre">SPEA2Comparator</span></code>を利用）がその結果に対して環境選択を行います——そのため<code class="docutils literal notranslate"><span class="pre">LHSInitializer(n_init_population=...)</span></code>が<span class="math notranslate nohighlight">\(\bar N\)</span>を、<code class="docutils literal notranslate"><span class="pre">DirectStrategy(n_offspring=...)</span></code>が各世代で生成（かつ真の評価が行われる）子個体数<span class="math notranslate nohighlight">\(N\)</span>を設定します。
 <code class="docutils literal notranslate"><span class="pre">LHSInitializer</span></code>のもう一方のサイズパラメータ<code class="docutils literal notranslate"><span class="pre">n_init_archive</span></code>は、saealib自身の累積<code class="docutils literal notranslate"><span class="pre">Archive</span></code>（<code class="docutils literal notranslate"><span class="pre">ctx.archive</span></code>）——SPEA2の外部アーカイブとは異なり、以降の各世代の評価によって増え続ける、より長命なコンテナ——に最初に評価されるエントリ数を設定します。
 <span class="math notranslate nohighlight">\(t=0\)</span>時点に限っては、これは最初の適応度割り当てと環境選択の対象となる候補プールのサイズも兼ねるため（前述の<em>Differences from the source</em>参照）、文献に忠実な初期化では<code class="docutils literal notranslate"><span class="pre">n_init_archive=N</span></code>とします。
 組み込みのInitializerは<code class="docutils literal notranslate"><span class="pre">n_init_population</span> <span class="pre">&lt;=</span> <span class="pre">n_init_archive</span></code>を前提とするため、<span class="math notranslate nohighlight">\(\bar N &gt; N\)</span>という初期状態を直接構成することはできません。</p>

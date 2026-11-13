@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.ConstraintHandler &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>saealib.ConstraintHandler &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -919,6 +919,8 @@ gradient-based repair, augmented Lagrangian) without forking core classes.</p>
                <span class="o">-&gt;</span> <span class="p">[</span><span class="n">compute_cv</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">)]</span>        <span class="o">-&gt;</span> <span class="n">cv</span>
                <span class="o">-&gt;</span> <span class="p">[</span><span class="n">augment_objective</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">)]</span> <span class="o">-&gt;</span> <span class="sa">f</span><span class="s1">&#39;</span>
 <span class="n">Tell</span>           <span class="o">-&gt;</span> <span class="n">Comparator</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;, cv) with eps_cv = feasibility_threshold</span>
+               <span class="p">(</span><span class="n">a</span> <span class="n">search</span><span class="o">-</span><span class="n">time</span> <span class="n">relaxation</span><span class="p">;</span> <span class="n">reported</span> <span class="n">feasibility</span> <span class="n">uses</span>
+               <span class="n">the</span> <span class="n">per</span><span class="o">-</span><span class="n">constraint</span> <span class="n">violations</span><span class="p">)</span>
 <span class="n">Generation</span> <span class="n">end</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="n">on_generation_end</span><span class="p">(</span><span class="n">gen</span><span class="p">,</span> <span class="n">population</span><span class="p">)]</span>
 </pre></div>
 </div>

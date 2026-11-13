@@ -68,7 +68,7 @@ print(constraint.violation(result.x))  # 0.0 means the constraint is satisfied
 
 `g(x) >= threshold`の形で制約を課したい場合は、`func`の符号を反転させて渡します。
 
-等式制約`h(x) = 0`は、`InequalityConstraint`を符号反転で組み合わせる代わりに`EqualityConstraint(func, tolerance=1e-6)`を使います。
+等式制約`h(x) = 0`は、`InequalityConstraint`を符号反転で組み合わせる代わりに`EqualityConstraint(func, tolerance=1e-4)`を使います。`1e-4`は等式の既定の許容幅で、CEC 2006とpymooの既定に合わせています。
 
 ```python
 from saealib import EqualityConstraint
@@ -79,34 +79,67 @@ def h1(x):
     return np.sum(x) - 1.0
 
 
-equality = EqualityConstraint(h1, tolerance=1e-6)
+equality = EqualityConstraint(h1, tolerance=1e-4)
 ```
 
 `EqualityConstraint`は、`|h(x)| <= tolerance`を満たす解を実行可能解として扱います。
 
 ## 実行可能性を確認する
 
-`Problem`の`eps_cv`（既定値`1e-6`）以下の制約違反量`cv`を持つ解が実行可能解です。
+各制約が許容幅の内側にある解が実行可能解です。不等式は`g(x) <= threshold`、等式は`|h(x)| <= tolerance`で判定します。
 
 ```python
-archive_cv = result.ctx.archive.get_array("cv")
-feasible = archive_cv <= problem.eps_cv
-print(f"feasible: {feasible.sum()} / {len(archive_cv)}")
+g = result.ctx.archive.get_array("g")
+feasible = np.array(
+    [
+        all(
+            c.violation_from_value(float(value)) == 0.0
+            for c, value in zip(problem.constraints, row)
+        )
+        for row in g
+    ]
+)
+print(f"feasible: {feasible.sum()} / {len(feasible)}")
 ```
+
+同じ判定が`result.x`/`result.f`、履歴の`best_f`と`feasible_ratio`、学習データのラベル、Paretoアーカイブを駆動します。そのため、`cv`の集約方法や探索中のε緩和には左右されません。
 
 ## ConstraintHandlerで制約処理をカスタマイズする
 
-複数の制約から`cv`を集約する方法と、その値をもとに実行可能性を判定する方法は、`ConstraintHandler`が決めます。
+`ConstraintHandler`は、`Problem(cv_aggregator=...)`が設定されていないときに`cv`を供給し、comparatorが使う探索側の緩和を保持します。
 
-`Problem`の`handler`引数を省略すると、`StaticToleranceHandler(eps_cv=problem.eps_cv)`が使われ、`cv <= eps_cv`かどうかで実行可能性を判定します。
+`Problem`の`handler`引数を省略すると`StaticToleranceHandler`が使われ、`sum_violation`と同じく制約ごとの違反量の和を`cv`として集約します。
+
+集約だけを変えたい場合は、ハンドラを書く代わりに`Problem(cv_aggregator=...)`を渡します。集約の契約は「すべての違反が0のとき、かつそのときに限り`cv == 0`」で、役割は実行不可能な解どうしの順位付けだけです。実行可能性は常に制約定義から決まります。
+
+```python
+from saealib.problem import sum_violation
+
+
+def squared_inequality(constraints, x, g):
+    return sum(
+        max(0.0, float(gi) - c.threshold) ** 2 for gi, c in zip(g, constraints)
+    )
+
+
+problem = Problem(
+    func=expensive_func,
+    dim=DIM,
+    n_obj=1,
+    direction=np.array([-1.0]),
+    constraints=constraints,
+    cv_aggregator=squared_inequality,
+)
+```
 
 | クラス | 動作 |
 |--------|------|
-| `StaticToleranceHandler` | 固定の許容誤差`eps_cv`で実行可能性を判定する（既定） |
-| `EpsilonConstraintHandler` | 許容誤差を世代とともに0へ近づけ、徐々に実行可能領域へ解を追い込む |
+| `StaticToleranceHandler` | 制約ごとの違反量を合計し、固定の探索側の緩和を持つ（既定） |
+| `EpsilonConstraintHandler` | 探索側の緩和を世代とともに0へ近づけ、徐々に実行可能領域へ解を追い込む |
 | `GradientRepairHandler` | 制約の勾配を使って実行不可能解を修復する |
 
 `EpsilonConstraintHandler`には、世代番号を受け取り許容誤差を返す関数を渡します。
+その緩和はcomparatorにだけ適用され、報告される実行可能性は制約の許容幅を使い続けます。
 
 ```python
 from saealib import EpsilonConstraintHandler

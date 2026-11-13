@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Population &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>Population &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -711,10 +711,12 @@ Genome-native経路では、GenomeBatchとSearchSpaceの契約が表現の構造
 <p><code class="docutils literal notranslate"><span class="pre">ParetoArchive</span></code>は、<code class="docutils literal notranslate"><span class="pre">ParetoMixin</span></code>を<code class="docutils literal notranslate"><span class="pre">Population</span></code>にミックスインした具象クラスで、非優越解集合を常時維持します。</p>
 <p>新規解を追加するたびに、その解に支配される既存解を削除し、新規解自体が既存解に支配されている場合はその新規解を破棄します。
 支配関係の判定は実行可能性優先方式で行われます。
-実行可能解（<code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code>）は常に実行不可能解を支配し、両方が実行可能な場合にのみ<a class="reference internal" href="../problem_and_ranking/dominance.html"><span class="std std-doc">Dominator</span></a>の<code class="docutils literal notranslate"><span class="pre">dominates</span></code>が使われます。</p>
+実行可能解は常に実行不可能解を支配し、両方が実行可能な場合にのみ<a class="reference internal" href="../problem_and_ranking/dominance.html"><span class="std std-doc">Dominator</span></a>の<code class="docutils literal notranslate"><span class="pre">dominates</span></code>が使われます。
+アーカイブがProblemの制約を<code class="docutils literal notranslate"><span class="pre">constraints</span></code>引数で受け取り、行が<code class="docutils literal notranslate"><span class="pre">g</span></code>列を持つ場合、実行可能性は制約定義から決まります。制約ごとの違反量が許容幅の内側ですべて0の行が実行可能であり、<code class="docutils literal notranslate"><span class="pre">Result</span></code>や履歴と同じ判定です。
+<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>はアルゴリズム経由でProblemの制約を渡してアーカイブを作り、checkpointからの復元でも同じ制約を渡します。</p>
 <p><code class="docutils literal notranslate"><span class="pre">dominator</span></code>引数で支配関係の定義を差し替えられます。
-<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>の既定値は<code class="docutils literal notranslate"><span class="pre">0.0</span></code>（厳密に実行可能な解のみを許容可能とみなす）ですが、<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>実行中はこの値が毎世代<code class="docutils literal notranslate"><span class="pre">problem.handler.feasibility_threshold</span></code>で上書きされます。
-<code class="docutils literal notranslate"><span class="pre">0.0</span></code>という既定値は、<code class="docutils literal notranslate"><span class="pre">ParetoArchive</span></code>を<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>から切り離して単体で使う場合にのみ意味を持ちます。</p>
+制約または<code class="docutils literal notranslate"><span class="pre">g</span></code>列が無い場合、実行可能性は<code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code>にフォールバックします。<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>の既定値は<code class="docutils literal notranslate"><span class="pre">0.0</span></code>で、実行可能な解だけが0になる集約に対しては制約による判定と一致します。
+探索中のε緩和はcomparatorが持ち、アーカイブには書き込まれません。</p>
 </section>
 <section id="id4">
 <h2>Populationの拡張<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>

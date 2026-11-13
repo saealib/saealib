@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>SMS-EMOA (S Metric Selection EMOA) &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>SMS-EMOA (S Metric Selection EMOA) &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../_static/documentation_options.js?v=f572a240"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1096,7 +1096,6 @@ This avoids having to compare <span class="math notranslate nohighlight">\(\bino
 
 
 <span class="n">problem</span> <span class="o">=</span> <span class="n">zdt1</span><span class="p">(</span><span class="n">n_var</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-<span class="n">problem</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">HypervolumeComparator</span><span class="p">()</span>
 
 <span class="n">algorithm</span> <span class="o">=</span> <span class="n">GA</span><span class="p">(</span>
     <span class="n">CrossoverSBX</span><span class="p">(</span><span class="n">prob</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">20.0</span><span class="p">),</span>
@@ -1108,6 +1107,7 @@ This avoids having to compare <span class="math notranslate nohighlight">\(\bino
 
 <span class="n">opt</span> <span class="o">=</span> <span class="p">(</span>
     <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_comparator</span><span class="p">(</span><span class="n">HypervolumeComparator</span><span class="p">())</span>
     <span class="o">.</span><span class="n">set_algorithm</span><span class="p">(</span><span class="n">algorithm</span><span class="p">)</span>
     <span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="n">SteadyStateStrategy</span><span class="p">())</span>
     <span class="o">.</span><span class="n">set_evaluator</span><span class="p">(</span><span class="n">evaluator</span><span class="p">)</span>
@@ -1117,7 +1117,7 @@ This avoids having to compare <span class="math notranslate nohighlight">\(\bino
 <span class="n">pareto_f</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">problem.comparator</span> <span class="pre">=</span> <span class="pre">HypervolumeComparator()</span></code> line cannot be omitted.
+<p>The <code class="docutils literal notranslate"><span class="pre">set_comparator(HypervolumeComparator())</span></code> call cannot be omitted.
 In NSGA-II, <code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code> is the default for <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, so the same line could be omitted, but as with SPEA2 and NSGA-III, SMS-EMOA also requires an explicit assignment.</p>
 <p><strong>Asynchronous extension</strong>: When evaluation times vary, combine <code class="docutils literal notranslate"><span class="pre">SteadyStateStrategy</span></code> with <code class="docutils literal notranslate"><span class="pre">AsyncEvaluator</span></code> and <code class="docutils literal notranslate"><span class="pre">AsyncEvaluationScheduler</span></code> (for example, <code class="docutils literal notranslate"><span class="pre">max_workers=2</span></code>, <code class="docutils literal notranslate"><span class="pre">max_pending=2</span></code>). This extension has a different evaluation order from the sequential configuration above.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncEvaluator</span><span class="p">,</span> <span class="n">AsyncEvaluationScheduler</span>
@@ -1126,6 +1126,7 @@ In NSGA-II, <code class="docutils literal notranslate"><span class="pre">NSGA2Co
 <span class="n">async_schedule</span> <span class="o">=</span> <span class="n">AsyncEvaluationScheduler</span><span class="p">(</span><span class="n">async_evaluator</span><span class="p">,</span> <span class="n">max_pending</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="n">async_opt</span> <span class="o">=</span> <span class="p">(</span>
     <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_comparator</span><span class="p">(</span><span class="n">HypervolumeComparator</span><span class="p">())</span>
     <span class="o">.</span><span class="n">set_algorithm</span><span class="p">(</span><span class="n">algorithm</span><span class="p">)</span>
     <span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="n">SteadyStateStrategy</span><span class="p">())</span>
     <span class="o">.</span><span class="n">set_evaluator</span><span class="p">(</span><span class="n">async_evaluator</span><span class="p">)</span>

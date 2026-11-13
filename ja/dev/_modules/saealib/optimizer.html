@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.optimizer &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>saealib.optimizer &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1006,6 +1006,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointError</span><span class="p">,</span> <span class="n">ConfigurationError</span><span class="p">,</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.bindings</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">BINDING_SLOTS</span><span class="p">,</span>
+    <span class="n">_comparator_signature</span><span class="p">,</span>
     <span class="n">_ComponentOrigin</span><span class="p">,</span>
     <span class="n">_ComponentResolution</span><span class="p">,</span>
     <span class="n">_feature_encoder_signature</span><span class="p">,</span>
@@ -1036,6 +1037,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.algorithms.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Algorithm</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">Comparator</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.defaults.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultResolution</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.initializer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Initializer</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
@@ -1058,6 +1060,36 @@ window.runMermaid = runMermaid;</script>
     <span class="p">):</span>
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;WinRateAcquisition&quot;</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{}}</span>
     <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;MeanPrediction&quot;</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;direction&quot;</span><span class="p">:</span> <span class="n">direction</span><span class="p">}}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_restored_problem_comparator</span><span class="p">(</span><span class="n">problem</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the comparator a restored Problem kept as an explicit setting.</span>
+
+<span class="sd">    A restored Problem without a ``_comparator_explicit`` attribute carries no</span>
+<span class="sd">    record of the source of its comparator, so the stored comparator is</span>
+<span class="sd">    compared with the one this Problem builds by default: a different</span>
+<span class="sd">    specification marks an explicit comparator that belongs in the optimizer</span>
+<span class="sd">    slot.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">problem</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="s2">&quot;_comparator_explicit&quot;</span> <span class="ow">in</span> <span class="nb">vars</span><span class="p">(</span><span class="n">problem</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">stored</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">stored</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_comparator</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="n">default_comparator</span><span class="p">(</span>
+            <span class="nb">int</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">&quot;n_obj&quot;</span><span class="p">)),</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">&quot;direction&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="n">eps_cv</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">&quot;eps_cv&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)),</span>
+            <span class="n">eps_obj</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">&quot;eps_obj&quot;</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)),</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">stored</span>
+    <span class="k">if</span> <span class="n">_signature</span><span class="p">(</span><span class="n">stored</span><span class="p">)</span> <span class="o">==</span> <span class="n">_signature</span><span class="p">(</span><span class="n">expected</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">stored</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Dispatchable</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
@@ -1289,6 +1321,16 @@ window.runMermaid = runMermaid;</script>
             <span class="s2">&quot;Uses the optimizer callback manager.&quot;</span><span class="p">,</span>
             <span class="n">_signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cbmanager</span><span class="p">),</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span><span class="p">:</span> <span class="n">Comparator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_comparator_default</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Problem</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">&quot;_comparator_explicit&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">comparator</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="s2">&quot;comparator&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span><span class="p">,</span>
+                <span class="s2">&quot;deprecated Problem argument&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Adopted from the deprecated Problem(comparator=...) argument.&quot;</span><span class="p">,</span>
+                <span class="n">_comparator_signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">comparator</span><span class="p">),</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_track_component_assignments</span> <span class="o">=</span> <span class="kc">True</span></div>
 
 
@@ -1549,7 +1591,12 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_version</span><span class="p">,</span>
             <span class="nb">tuple</span><span class="p">(</span>
-                <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">_signature</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+                <span class="p">(</span>
+                    <span class="n">name</span><span class="p">,</span>
+                    <span class="n">_comparator_signature</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;comparator&quot;</span>
+                    <span class="k">else</span> <span class="n">_signature</span><span class="p">(</span><span class="n">value</span><span class="p">),</span>
+                <span class="p">)</span>
                 <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
             <span class="p">),</span>
             <span class="nb">tuple</span><span class="p">(</span>
@@ -1565,7 +1612,6 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">signature</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">),</span>
-            <span class="n">_signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="p">),</span>
             <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">),</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_verification_enabled</span><span class="p">,</span>
             <span class="n">require_initializer</span><span class="p">,</span>
@@ -1665,6 +1711,16 @@ window.runMermaid = runMermaid;</script>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown history channel(s): </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">unknown</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">history_channels</span> <span class="o">=</span> <span class="n">requested</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">history_channels_explicit</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="Optimizer.set_comparator">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_comparator">[ドキュメント]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_comparator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">comparator</span><span class="p">:</span> <span class="n">Comparator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the comparator that orders solutions. Returns self.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="n">comparator</span><span class="p">,</span> <span class="s2">&quot;Configured with set_comparator().&quot;</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -1972,6 +2028,17 @@ window.runMermaid = runMermaid;</script>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_component_resolution</span> <span class="o">=</span> <span class="n">resolution</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_default_resolution</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">defaults</span>
+        <span class="n">comparator_origin</span> <span class="o">=</span> <span class="n">resolution</span><span class="o">.</span><span class="n">origins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">comparator_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">comparator_origin</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;framework default&quot;</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_comparator_default</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="p">,</span>
+                <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">comparator_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_comparator_default</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="ow">and</span> <span class="n">resolution</span><span class="o">.</span><span class="n">feature_encoder_origin</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;framework default&quot;</span>
@@ -2377,8 +2444,16 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="p">{})</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="p">{})</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_feature_encoder_default&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_comparator_default&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_track_component_assignments&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">stored_comparator</span> <span class="o">=</span> <span class="n">_restored_problem_comparator</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;problem&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">stored_comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="n">stored_comparator</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;_component_origins&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
             <span class="n">source</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="s2">&quot;persisted&quot;</span>
@@ -2394,6 +2469,14 @@ window.runMermaid = runMermaid;</script>
                         <span class="s2">&quot;Retained the component stored in optimizer state.&quot;</span><span class="p">,</span>
                         <span class="n">_signature</span><span class="p">(</span><span class="n">value</span><span class="p">),</span>
                     <span class="p">)</span>
+        <span class="n">comparator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;comparator&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="s2">&quot;comparator&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span>
+                <span class="n">comparator</span><span class="p">,</span>
+                <span class="s2">&quot;persisted&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Adopted from the comparator stored on the restored problem.&quot;</span><span class="p">,</span>
+                <span class="n">_comparator_signature</span><span class="p">(</span><span class="n">comparator</span><span class="p">),</span>
+            <span class="p">)</span>
         <span class="n">space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="s2">&quot;space&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">services</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="s2">&quot;services&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">getter</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">services</span><span class="p">,</span> <span class="s2">&quot;get&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>

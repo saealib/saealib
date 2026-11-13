@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>NSGA-III &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>NSGA-III &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../_static/documentation_options.js?v=f572a240"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1096,7 +1096,6 @@ Parents are chosen randomly from the current population, and crossover and mutat
 
 <span class="n">problem</span> <span class="o">=</span> <span class="n">dtlz2</span><span class="p">(</span><span class="n">n_obj</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="n">reference_points</span> <span class="o">=</span> <span class="n">uniform_weight_vectors</span><span class="p">(</span><span class="n">n_obj</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">n_divisions</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
-<span class="n">problem</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">NSGA3Comparator</span><span class="p">(</span><span class="n">reference_points</span><span class="p">)</span>
 
 <span class="n">algorithm</span> <span class="o">=</span> <span class="n">GA</span><span class="p">(</span>
     <span class="n">CrossoverSBX</span><span class="p">(</span><span class="n">prob</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">30.0</span><span class="p">),</span>
@@ -1107,6 +1106,7 @@ Parents are chosen randomly from the current population, and crossover and mutat
 
 <span class="n">opt</span> <span class="o">=</span> <span class="p">(</span>
     <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_comparator</span><span class="p">(</span><span class="n">NSGA3Comparator</span><span class="p">(</span><span class="n">reference_points</span><span class="p">))</span>
     <span class="o">.</span><span class="n">set_algorithm</span><span class="p">(</span><span class="n">algorithm</span><span class="p">)</span>
     <span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="n">DirectStrategy</span><span class="p">())</span>
     <span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">3000</span><span class="p">)))</span>
@@ -1115,8 +1115,8 @@ Parents are chosen randomly from the current population, and crossover and mutat
 <span class="n">pareto_f</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">problem.comparator</span> <span class="pre">=</span> <span class="pre">NSGA3Comparator(reference_points)</span></code> line cannot be omitted.
-In NSGA-II, <code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code> is the default for <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, so the same line could be omitted, but in NSGA-III, as with SPEA2, an explicit assignment is required.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">set_comparator(NSGA3Comparator(reference_points))</span></code> call cannot be omitted.
+In NSGA-II, <code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code> is the default for <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, so the same call could be omitted, but in NSGA-III, as with SPEA2, an explicit comparator is required.</p>
 <p>The example uses the three-objective DTLZ2 rather than a two-objective ZDT benchmark because NSGA-III primarily targets many-objective optimization while still exposing reference-direction niche preservation with three objectives.</p>
 </section>
 <section id="differences-from-the-source">

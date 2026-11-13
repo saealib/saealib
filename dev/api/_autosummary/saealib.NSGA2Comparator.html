@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.NSGA2Comparator &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.NSGA2Comparator &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -904,7 +904,7 @@
 <h1>saealib.NSGA2Comparator<a class="headerlink" href="#saealib-nsga2comparator" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="saealib.NSGA2Comparator">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">NSGA2Comparator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">direction=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_cv=1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_obj=1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sorter=&lt;function</span> <span class="pre">non_dominated_sort&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dominator=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/comparators/comparators.html#NSGA2Comparator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.NSGA2Comparator" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">NSGA2Comparator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">direction=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_cv=0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_obj=1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sorter=&lt;function</span> <span class="pre">non_dominated_sort&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dominator=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/comparators/comparators.html#NSGA2Comparator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.NSGA2Comparator" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="saealib.ParetoComparator.html#saealib.ParetoComparator" title="saealib.comparators.comparators.ParetoComparator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParetoComparator</span></code></a></p>
 <p>Comparator for multi-objective optimization via NSGA-II style ranking.</p>
 <p>Extends ParetoComparator with crowding-distance-based secondary ordering:</p>
@@ -962,7 +962,7 @@ None means all objectives are minimized.</p></li>
 <p class="rubric">Method Details</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.NSGA2Comparator.__init__">
-<span class="sig-prename descclassname"><span class="pre">NSGA2Comparator.</span></span><span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">direction=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_cv=1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_obj=1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sorter=&lt;function</span> <span class="pre">non_dominated_sort&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dominator=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/comparators/comparators.html#NSGA2Comparator.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.NSGA2Comparator.__init__" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">NSGA2Comparator.</span></span><span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">direction=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_cv=0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_obj=1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sorter=&lt;function</span> <span class="pre">non_dominated_sort&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dominator=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/comparators/comparators.html#NSGA2Comparator.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.NSGA2Comparator.__init__" title="Link to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.problem.problem &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.problem.problem &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -970,11 +970,8 @@ window.runMermaid = runMermaid;</script>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationAdapter</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">SearchSpace</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Comparator</span><span class="p">,</span>
-    <span class="n">NSGA2Comparator</span><span class="p">,</span>
-    <span class="n">SingleObjectiveComparator</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib._deprecation</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn_deprecated</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">Comparator</span><span class="p">,</span> <span class="n">default_comparator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem.constraint</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ConstraintHandler</span><span class="p">,</span>
@@ -1011,20 +1008,25 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    variables : list[Variable]</span>
 <span class="sd">        Per-dimension variable definitions.</span>
 <span class="sd">    comparator : Comparator</span>
-<span class="sd">        Comparator instance to compare solutions.</span>
+<span class="sd">        Deprecated comparator instance of this problem. A run uses the</span>
+<span class="sd">        ``Optimizer`` comparator slot instead; this value is adopted as an</span>
+<span class="sd">        explicit ``Optimizer`` setting.</span>
 <span class="sd">    eps_cv : float</span>
-<span class="sd">        Epsilon for constraint violation feasibility threshold. Only used to</span>
-<span class="sd">        seed the default ``handler``/``comparator`` at construction time;</span>
-<span class="sd">        mutating this attribute afterwards has no runtime effect. The actual</span>
-<span class="sd">        running threshold is ``handler.feasibility_threshold``, which the</span>
-<span class="sd">        ``Runner`` syncs into ``comparator``/``pareto_archive`` every</span>
-<span class="sd">        generation. Explicit handlers may therefore use a running threshold</span>
-<span class="sd">        intentionally different from this value. This value remains the</span>
-<span class="sd">        feasibility basis for ``Result`` and summary ``best_f``; an explicit</span>
-<span class="sd">        handler with a different running threshold can therefore make reported</span>
-<span class="sd">        solutions disagree with the comparator&#39;s criterion.</span>
+<span class="sd">        Deprecated search-time feasibility relaxation for the default</span>
+<span class="sd">        ``handler``/``comparator``. A run treats ``cv &lt;= eps_cv`` as feasible</span>
+<span class="sd">        when it ranks solutions, and reported feasibility never uses this</span>
+<span class="sd">        value. Mutating this attribute afterwards has no runtime effect; the</span>
+<span class="sd">        running relaxation is ``handler.feasibility_threshold``, which the</span>
+<span class="sd">        ``Runner`` syncs into ``comparator`` every generation. Default: 0.0.</span>
+<span class="sd">    cv_aggregator : callable or None</span>
+<span class="sd">        Aggregation that turns raw constraint values into ``cv``. When set,</span>
+<span class="sd">        it replaces ``handler.compute_cv``. The default is</span>
+<span class="sd">        :func:`~saealib.problem.constraint.sum_violation` through the default</span>
+<span class="sd">        handler.</span>
 <span class="sd">    eps_obj : float</span>
-<span class="sd">        Epsilon for objective value equality comparison.</span>
+<span class="sd">        Deprecated epsilon for objective value equality comparison. It seeds</span>
+<span class="sd">        the ``eps_obj`` of the default comparator; configure the comparator</span>
+<span class="sd">        with ``Optimizer.set_comparator()`` instead.</span>
 <span class="sd">    func : callable -&gt; float</span>
 <span class="sd">        Objective function to evaluate solutions.</span>
 <span class="sd">    constraints : list[InequalityConstraint]</span>
@@ -1033,6 +1035,11 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        Constraint-handling strategy used to aggregate violations and augment</span>
 <span class="sd">        objectives.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">cv_aggregator</span><span class="p">:</span> <span class="p">(</span>
+        <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">InequalityConstraint</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_comparator_explicit</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
 <div class="viewcode-block" id="Problem.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.Problem.html#saealib.Problem.__init__">[docs]</a>
@@ -1047,9 +1054,13 @@ window.runMermaid = runMermaid;</script>
         <span class="n">comparator</span><span class="p">:</span> <span class="n">Comparator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InequalityConstraint</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
-        <span class="n">eps_cv</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
-        <span class="n">eps_obj</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+        <span class="n">eps_cv</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">eps_obj</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">handler</span><span class="p">:</span> <span class="n">ConstraintHandler</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cv_aggregator</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">InequalityConstraint</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">float</span>
+        <span class="p">]</span>
+        <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">space</span><span class="p">:</span> <span class="n">SearchSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">evaluation_adapter</span><span class="p">:</span> <span class="n">EvaluationAdapter</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1077,19 +1088,35 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            dimensions; otherwise, the array must have length dim.</span>
 <span class="sd">            Required when *variables* is not provided.</span>
 <span class="sd">        comparator : Comparator, optional</span>
-<span class="sd">            Comparator instance to use. If None, auto-selected based on n_obj:</span>
-<span class="sd">            n_obj == 1 -&gt; SingleObjectiveComparator,</span>
-<span class="sd">            n_obj &gt;  1 -&gt; NSGA2Comparator.</span>
+<span class="sd">            Deprecated. Configure the comparator with</span>
+<span class="sd">            :meth:`saealib.Optimizer.set_comparator` instead. A value passed</span>
+<span class="sd">            here emits a ``DeprecationWarning`` and is adopted as an explicit</span>
+<span class="sd">            ``Optimizer`` comparator setting. If omitted, the default</span>
+<span class="sd">            comparator follows ``n_obj``: ``n_obj == 1`` uses</span>
+<span class="sd">            ``SingleObjectiveComparator`` and ``n_obj &gt; 1`` uses</span>
+<span class="sd">            ``NSGA2Comparator``. If the passed comparator&#39;s ``direction`` is</span>
+<span class="sd">            unset, this problem&#39;s ``direction`` is injected.</span>
 <span class="sd">        constraints : list[InequalityConstraint], optional</span>
 <span class="sd">            List of inequality constraint definitions. Default: empty list.</span>
 <span class="sd">        eps_cv : float, optional</span>
-<span class="sd">            Epsilon for constraint violation feasibility threshold. Default: 1e-6.</span>
+<span class="sd">            Deprecated. Search-time feasibility relaxation for the default</span>
+<span class="sd">            handler and comparator; a run ranks ``cv &lt;= eps_cv`` solutions as</span>
+<span class="sd">            feasible, and reported feasibility ignores it. Default: 0.0.</span>
 <span class="sd">        eps_obj : float, optional</span>
-<span class="sd">            Epsilon for objective value equality comparison. Default: 1e-6.</span>
+<span class="sd">            Deprecated. Configure the tolerance on the comparator with</span>
+<span class="sd">            :meth:`saealib.Optimizer.set_comparator` instead. A value passed</span>
+<span class="sd">            here emits a ``DeprecationWarning`` and is used as the</span>
+<span class="sd">            ``eps_obj`` of the default comparator. Default: 1e-6.</span>
 <span class="sd">        handler : ConstraintHandler, optional</span>
 <span class="sd">            Constraint-handling strategy. If None, a StaticToleranceHandler</span>
-<span class="sd">            (sum-of-violations, fixed eps_cv) is used, reproducing the default</span>
-<span class="sd">            behavior.</span>
+<span class="sd">            (sum-of-violations, fixed eps_cv) is used.</span>
+<span class="sd">        cv_aggregator : callable, optional</span>
+<span class="sd">            Aggregates raw constraint values into ``cv`` as</span>
+<span class="sd">            ``cv_aggregator(constraints, x, g) -&gt; float``. It replaces</span>
+<span class="sd">            ``handler.compute_cv`` when given, and a plain function works. The</span>
+<span class="sd">            default handler aggregates with</span>
+<span class="sd">            :func:`~saealib.problem.constraint.sum_violation`, so the default</span>
+<span class="sd">            ``cv`` is the sum of the per-constraint violations.</span>
 <span class="sd">        variables : list[Variable], optional</span>
 <span class="sd">            Per-dimension variable definitions.  When provided, *lb* and *ub*</span>
 <span class="sd">            are derived from the variable bounds.  ``len(variables)`` must equal</span>
@@ -1176,7 +1203,23 @@ window.runMermaid = runMermaid;</script>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">n_obj</span> <span class="o">=</span> <span class="n">n_obj</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="n">direction</span>
+        <span class="k">if</span> <span class="n">eps_cv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">eps_cv</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">warn_deprecated</span><span class="p">(</span>
+                <span class="s2">&quot;Problem(eps_cv=...)&quot;</span><span class="p">,</span>
+                <span class="n">since</span><span class="o">=</span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
+                <span class="n">replacement</span><span class="o">=</span><span class="s2">&quot;the constraint tolerances or EpsilonConstraintHandler&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">eps_cv</span>
+        <span class="k">if</span> <span class="n">eps_obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">eps_obj</span> <span class="o">=</span> <span class="mf">1e-6</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">warn_deprecated</span><span class="p">(</span>
+                <span class="s2">&quot;Problem(eps_obj=...)&quot;</span><span class="p">,</span>
+                <span class="n">since</span><span class="o">=</span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
+                <span class="n">replacement</span><span class="o">=</span><span class="s2">&quot;Optimizer.set_comparator()&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eps_obj</span> <span class="o">=</span> <span class="n">eps_obj</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">func</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="o">=</span> <span class="n">constraints</span> <span class="k">if</span> <span class="n">constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
@@ -1184,18 +1227,21 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">handler</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">handler</span> <span class="k">if</span> <span class="n">handler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">StaticToleranceHandler</span><span class="p">(</span><span class="n">eps_cv</span><span class="o">=</span><span class="n">eps_cv</span><span class="p">)</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cv_aggregator</span> <span class="o">=</span> <span class="n">cv_aggregator</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_comparator_explicit</span> <span class="o">=</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warn_deprecated</span><span class="p">(</span>
+                <span class="s2">&quot;Problem(comparator=...)&quot;</span><span class="p">,</span>
+                <span class="n">since</span><span class="o">=</span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
+                <span class="n">replacement</span><span class="o">=</span><span class="s2">&quot;Optimizer.set_comparator()&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
             <span class="k">if</span> <span class="n">comparator</span><span class="o">.</span><span class="n">direction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">comparator</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="n">direction</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">comparator</span>
-        <span class="k">elif</span> <span class="n">n_obj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">SingleObjectiveComparator</span><span class="p">(</span>
-                <span class="n">direction</span><span class="o">=</span><span class="n">direction</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">eps_cv</span><span class="o">=</span><span class="n">eps_cv</span><span class="p">,</span> <span class="n">eps_obj</span><span class="o">=</span><span class="n">eps_obj</span>
-            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">NSGA2Comparator</span><span class="p">(</span>
-                <span class="n">direction</span><span class="o">=</span><span class="n">direction</span><span class="p">,</span> <span class="n">eps_cv</span><span class="o">=</span><span class="n">eps_cv</span><span class="p">,</span> <span class="n">eps_obj</span><span class="o">=</span><span class="n">eps_obj</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">default_comparator</span><span class="p">(</span>
+                <span class="n">n_obj</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">eps_cv</span><span class="o">=</span><span class="n">eps_cv</span><span class="p">,</span> <span class="n">eps_obj</span><span class="o">=</span><span class="n">eps_obj</span>
             <span class="p">)</span></div>
 
 
@@ -1296,7 +1342,8 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            Raw constraint values. shape = (n_constraints, )</span>
 <span class="sd">            Empty array when no constraints are defined.</span>
 <span class="sd">        cv : float</span>
-<span class="sd">            Aggregate constraint violation as computed by ``handler.compute_cv``.</span>
+<span class="sd">            Aggregate constraint violation, computed by ``cv_aggregator``</span>
+<span class="sd">            when one is configured and by ``handler.compute_cv`` otherwise.</span>
 <span class="sd">            0.0 when no constraints are defined.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
@@ -1304,9 +1351,15 @@ window.runMermaid = runMermaid;</script>
         <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">):</span>
             <span class="n">g</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">cv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">compute_cv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate_cv</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">g</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">cv</span><span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_aggregate_cv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Aggregate raw constraint values with the configured aggregator.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cv_aggregator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_aggregator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">compute_cv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
 
 <div class="viewcode-block" id="Problem.evaluate_batch">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.Problem.html#saealib.Problem.evaluate_batch">[docs]</a>

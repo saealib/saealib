@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.problem.pymoo_problem &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>saealib.problem.pymoo_problem &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1029,7 +1029,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    eq_tolerance : float, optional</span>
 <span class="sd">        Feasibility tolerance forwarded to each :class:`EqualityConstraint`</span>
 <span class="sd">        built from the pymoo problem&#39;s ``H`` (equality constraint) output.</span>
-<span class="sd">        Default: 1e-6.</span>
+<span class="sd">        Default: 1e-4, the equality tolerance pymoo uses.</span>
 <span class="sd">    **problem_kwargs</span>
 <span class="sd">        Forwarded to :class:`~saealib.problem.problem.Problem` (e.g.</span>
 <span class="sd">        ``comparator``, ``handler``, ``eps_cv``, ``eps_obj``).</span>
@@ -1065,7 +1065,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">pymoo_problem</span><span class="p">:</span> <span class="n">PymooCoreProblem</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
-        <span class="n">eq_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+        <span class="n">eq_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
         <span class="o">**</span><span class="n">problem_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">pymoo_problem</span><span class="o">.</span><span class="n">xl</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">pymoo_problem</span><span class="o">.</span><span class="n">xu</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

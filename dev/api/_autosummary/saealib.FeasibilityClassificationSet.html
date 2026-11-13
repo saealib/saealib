@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.FeasibilityClassificationSet &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.FeasibilityClassificationSet &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -907,8 +907,11 @@
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">FeasibilityClassificationSet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'archive'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/surrogate/training_set.html#FeasibilityClassificationSet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.FeasibilityClassificationSet" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="saealib.TrainingSet.html#saealib.TrainingSet" title="saealib.surrogate.training_set.TrainingSet"><code class="xref py py-class docutils literal notranslate"><span class="pre">TrainingSet</span></code></a></p>
 <p>Binary labels derived from constraint violation: 1 if feasible, 0 otherwise.</p>
-<p>A sample is feasible when <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code>, where <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> is taken from
-<code class="docutils literal notranslate"><span class="pre">ctx.problem.eps_cv</span></code> (defaults to <code class="docutils literal notranslate"><span class="pre">1e-6</span></code> when <code class="docutils literal notranslate"><span class="pre">ctx</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>).</p>
+<p>A sample is feasible when every per-constraint violation in the <code class="docutils literal notranslate"><span class="pre">g</span></code>
+column is zero after its own tolerance, the same decision <code class="docutils literal notranslate"><span class="pre">Result</span></code> and
+the summary history use. Without <code class="docutils literal notranslate"><span class="pre">ctx</span></code> the constraints are unknown, so a
+sample is feasible when <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">0</span></code>, which the default aggregation makes
+equivalent.</p>
 <p>This set is algo-agnostic and works with any surrogate that accepts binary
 classification targets (shape <code class="docutils literal notranslate"><span class="pre">(n_train,)</span></code>).</p>
 <dl class="field-list simple">

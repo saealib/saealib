@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Population &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>Population &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -710,10 +710,12 @@ The attribute used for duplicate detection is specified via the <code class="doc
 <p><code class="docutils literal notranslate"><span class="pre">ParetoArchive</span></code> is a concrete class mixing <code class="docutils literal notranslate"><span class="pre">ParetoMixin</span></code> into <code class="docutils literal notranslate"><span class="pre">Population</span></code>, continuously maintaining a non-dominated solution set.</p>
 <p>Every time a new solution is added, existing solutions it dominates are removed, and if the new solution is itself dominated by an existing one, the new solution is discarded.
 Dominance is judged using a feasibility-first scheme.
-A feasible solution (<code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code>) always dominates an infeasible one; <a class="reference internal" href="../problem_and_ranking/dominance.html"><span class="std std-doc">Dominator</span></a>’s <code class="docutils literal notranslate"><span class="pre">dominates</span></code> is used only when both are feasible.</p>
+A feasible solution always dominates an infeasible one; <a class="reference internal" href="../problem_and_ranking/dominance.html"><span class="std std-doc">Dominator</span></a>’s <code class="docutils literal notranslate"><span class="pre">dominates</span></code> is used only when both are feasible.
+Feasibility comes from the problem’s constraint definitions when the archive holds them in its <code class="docutils literal notranslate"><span class="pre">constraints</span></code> argument and the rows carry a <code class="docutils literal notranslate"><span class="pre">g</span></code> column: a row is feasible when every per-constraint violation is zero after its own tolerance, the same decision <code class="docutils literal notranslate"><span class="pre">Result</span></code> and the history use.
+<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> creates the archive through the algorithm with the problem’s constraints, and a checkpoint restore passes them again.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">dominator</span></code> argument lets you swap out the definition of the dominance relation.
-<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>’s default is <code class="docutils literal notranslate"><span class="pre">0.0</span></code> (only strictly feasible solutions are considered acceptable), but during an <code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> run, this value is overwritten every generation with <code class="docutils literal notranslate"><span class="pre">problem.handler.feasibility_threshold</span></code>.
-The <code class="docutils literal notranslate"><span class="pre">0.0</span></code> default only matters when using <code class="docutils literal notranslate"><span class="pre">ParetoArchive</span></code> standalone, detached from <code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>.</p>
+Without constraints, or without a <code class="docutils literal notranslate"><span class="pre">g</span></code> column, feasibility falls back to <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code>, whose default is <code class="docutils literal notranslate"><span class="pre">0.0</span></code> and matches the constraint-based decision for an aggregation that reaches zero only for a feasible solution.
+A search-time ε relaxation stays on the comparator and is not written to the archive.</p>
 </section>
 <section id="extending-population">
 <h2>Extending Population<a class="headerlink" href="#extending-population" title="Link to this heading">#</a></h2>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.evaluator &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>saealib.execution.evaluator &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1707,9 +1707,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">f_raw</span><span class="p">,</span> <span class="n">g_raw</span> <span class="o">=</span> <span class="n">raw</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
                 <span class="n">xi</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">_payload_value</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
-                <span class="n">cv</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
-                    <span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">compute_cv</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">constraints</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">g_raw</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-                <span class="p">)</span>
+                <span class="n">cv</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">_aggregate_cv</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">g_raw</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
                 <span class="n">f</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">augment_objective</span><span class="p">(</span>
                     <span class="n">f_raw</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">problem</span><span class="o">.</span><span class="n">constraints</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">g_raw</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
                 <span class="p">)</span>

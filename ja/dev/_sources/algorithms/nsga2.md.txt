@@ -80,7 +80,6 @@ from saealib.termination import Termination, max_fe
 
 
 problem = zdt1(n_var=10)
-problem.comparator = NSGA2Comparator()
 
 algorithm = GA(
     CrossoverSBX(prob=0.9, eta=20.0),
@@ -99,7 +98,7 @@ ctx = opt.run()
 pareto_f = ctx.pareto_archive.get_array("f")
 ```
 
-`problem.comparator = NSGA2Comparator()`の行は、`n_obj > 1`のときの既定値と同じであるため省略できます。サロゲートを一切使わないため、`Optimizer`に`set_surrogate_manager()`を呼ぶ必要はありません。
+`NSGA2Comparator`は`n_obj > 1`のときの既定値なので、明示的に設定する必要はありません。サロゲートを一切使わないため、`Optimizer`に`set_surrogate_manager()`を呼ぶ必要はありません。
 
 ## 原法との差分
 

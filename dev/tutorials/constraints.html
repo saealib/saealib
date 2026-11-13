@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Constrained Optimization &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>Constrained Optimization &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../_static/documentation_options.js?v=f572a240"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -614,7 +614,7 @@ This page covers defining constraints on a <code class="docutils literal notrans
 </pre></div>
 </div>
 <p>To impose a constraint of the form <code class="docutils literal notranslate"><span class="pre">g(x)</span> <span class="pre">&gt;=</span> <span class="pre">threshold</span></code>, pass <code class="docutils literal notranslate"><span class="pre">func</span></code> with its sign flipped.</p>
-<p>For an equality constraint <code class="docutils literal notranslate"><span class="pre">h(x)</span> <span class="pre">=</span> <span class="pre">0</span></code>, use <code class="docutils literal notranslate"><span class="pre">EqualityConstraint(func,</span> <span class="pre">tolerance=1e-6)</span></code> instead of combining two sign-flipped <code class="docutils literal notranslate"><span class="pre">InequalityConstraint</span></code>s.</p>
+<p>For an equality constraint <code class="docutils literal notranslate"><span class="pre">h(x)</span> <span class="pre">=</span> <span class="pre">0</span></code>, use <code class="docutils literal notranslate"><span class="pre">EqualityConstraint(func,</span> <span class="pre">tolerance=1e-4)</span></code> instead of combining two sign-flipped <code class="docutils literal notranslate"><span class="pre">InequalityConstraint</span></code>s; 1e-4 is the default equality tolerance, matching CEC 2006 and pymoo.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">EqualityConstraint</span>
 
 
@@ -623,24 +623,53 @@ This page covers defining constraints on a <code class="docutils literal notrans
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span>
 
 
-<span class="n">equality</span> <span class="o">=</span> <span class="n">EqualityConstraint</span><span class="p">(</span><span class="n">h1</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+<span class="n">equality</span> <span class="o">=</span> <span class="n">EqualityConstraint</span><span class="p">(</span><span class="n">h1</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">EqualityConstraint</span></code> treats solutions satisfying <code class="docutils literal notranslate"><span class="pre">|h(x)|</span> <span class="pre">&lt;=</span> <span class="pre">tolerance</span></code> as feasible.</p>
 </section>
 <section id="check-feasibility">
 <h2>Check feasibility<a class="headerlink" href="#check-feasibility" title="Link to this heading">#</a></h2>
-<p>A solution is feasible if its constraint violation <code class="docutils literal notranslate"><span class="pre">cv</span></code> is at most <code class="docutils literal notranslate"><span class="pre">Problem</span></code>’s <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> (default <code class="docutils literal notranslate"><span class="pre">1e-6</span></code>).</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">archive_cv</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">)</span>
-<span class="n">feasible</span> <span class="o">=</span> <span class="n">archive_cv</span> <span class="o">&lt;=</span> <span class="n">problem</span><span class="o">.</span><span class="n">eps_cv</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;feasible: </span><span class="si">{</span><span class="n">feasible</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">archive_cv</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<p>A solution is feasible when every constraint is satisfied after its own tolerance: <code class="docutils literal notranslate"><span class="pre">g(x)</span> <span class="pre">&lt;=</span> <span class="pre">threshold</span></code> for an inequality and <code class="docutils literal notranslate"><span class="pre">|h(x)|</span> <span class="pre">&lt;=</span> <span class="pre">tolerance</span></code> for an equality.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">g</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">)</span>
+<span class="n">feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+    <span class="p">[</span>
+        <span class="nb">all</span><span class="p">(</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">violation_from_value</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">))</span> <span class="o">==</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">constraints</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">g</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;feasible: </span><span class="si">{</span><span class="n">feasible</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">feasible</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>The same decision drives <code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code>, the history’s <code class="docutils literal notranslate"><span class="pre">best_f</span></code> and <code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>, training-set labels, and the Pareto archive, so it does not depend on how violations are aggregated into <code class="docutils literal notranslate"><span class="pre">cv</span></code> or on any ε relaxation used during search.</p>
 </section>
 <section id="customize-constraint-handling-with-constrainthandler">
 <h2>Customize constraint handling with ConstraintHandler<a class="headerlink" href="#customize-constraint-handling-with-constrainthandler" title="Link to this heading">#</a></h2>
-<p>How <code class="docutils literal notranslate"><span class="pre">cv</span></code> is aggregated from multiple constraints, and how feasibility is judged from that value, is decided by <code class="docutils literal notranslate"><span class="pre">ConstraintHandler</span></code>.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">Problem</span></code>’s <code class="docutils literal notranslate"><span class="pre">handler</span></code> argument is omitted, <code class="docutils literal notranslate"><span class="pre">StaticToleranceHandler(eps_cv=problem.eps_cv)</span></code> is used, which judges feasibility by whether <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ConstraintHandler</span></code> supplies <code class="docutils literal notranslate"><span class="pre">cv</span></code> when <code class="docutils literal notranslate"><span class="pre">Problem(cv_aggregator=...)</span></code> is not set, and holds the search-side relaxation the comparator uses.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">Problem</span></code>’s <code class="docutils literal notranslate"><span class="pre">handler</span></code> argument is omitted, <code class="docutils literal notranslate"><span class="pre">StaticToleranceHandler</span></code> is used; it aggregates <code class="docutils literal notranslate"><span class="pre">cv</span></code> as the sum of the per-constraint violations, the same as <code class="docutils literal notranslate"><span class="pre">sum_violation</span></code>.</p>
+<p>To change only the aggregation, pass <code class="docutils literal notranslate"><span class="pre">Problem(cv_aggregator=...)</span></code> instead of writing a handler. The aggregation contract is <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">==</span> <span class="pre">0</span></code> if and only if every violation is zero, and its only role is ordering infeasible solutions; feasibility itself always comes from the constraints.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">sum_violation</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">squared_inequality</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
+        <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">gi</span><span class="p">)</span> <span class="o">-</span> <span class="n">c</span><span class="o">.</span><span class="n">threshold</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">gi</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+    <span class="p">)</span>
+
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="n">func</span><span class="o">=</span><span class="n">expensive_func</span><span class="p">,</span>
+    <span class="n">dim</span><span class="o">=</span><span class="n">DIM</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">,</span>
+    <span class="n">cv_aggregator</span><span class="o">=</span><span class="n">squared_inequality</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Class</p></th>
@@ -649,10 +678,10 @@ This page covers defining constraints on a <code class="docutils literal notrans
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">StaticToleranceHandler</span></code></p></td>
-<td><p>Judges feasibility with a fixed tolerance <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> (default)</p></td>
+<td><p>Sums the per-constraint violations and keeps a fixed search-time relaxation (default)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code></p></td>
-<td><p>Shrinks the tolerance toward 0 over generations, gradually driving solutions into the feasible region</p></td>
+<td><p>Shrinks the search-time relaxation toward 0 over generations, gradually driving solutions into the feasible region</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GradientRepairHandler</span></code></p></td>
 <td><p>Repairs infeasible solutions using the constraint gradient</p></td>
@@ -660,7 +689,8 @@ This page covers defining constraints on a <code class="docutils literal notrans
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code> takes a function that receives the generation number and returns the tolerance.</p>
+<p><code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code> takes a function that receives the generation number and returns the tolerance.
+Its relaxation applies to the comparator only; reported feasibility keeps using the constraint tolerances.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpsilonConstraintHandler</span>
 
 

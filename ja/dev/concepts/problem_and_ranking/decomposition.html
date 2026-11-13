@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Decomposition &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>Decomposition &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -633,7 +633,7 @@ MOEA/D<span class="bibtex-citation" id="id1">[<a class="reference internal" href
 </section>
 <section id="decompositioncomparator">
 <h2>DecompositionComparator<a class="headerlink" href="#decompositioncomparator" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">DecompositionComparator(decomposition,</span> <span class="pre">weights,</span> <span class="pre">ideal_point=None,</span> <span class="pre">direction=None,</span> <span class="pre">*,</span> <span class="pre">eps_cv=1e-6,</span> <span class="pre">eps_obj=1e-6)</span></code>は、<a class="reference internal" href="comparators.html"><span class="std std-doc">Comparator</span></a>のサブクラスとしてMOEA/D風の順位付けを実装します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">DecompositionComparator(decomposition,</span> <span class="pre">weights,</span> <span class="pre">ideal_point=None,</span> <span class="pre">direction=None,</span> <span class="pre">*,</span> <span class="pre">eps_cv=0.0,</span> <span class="pre">eps_obj=1e-6)</span></code>は、<a class="reference internal" href="comparators.html"><span class="std std-doc">Comparator</span></a>のサブクラスとしてMOEA/D風の順位付けを実装します。</p>
 <p>順序付けの規則は、実行可能性を優先（実行可能性優先<span class="bibtex-citation" id="id7">[<a class="reference internal" href="../../references.html#id34" title="Kalyanmoy Deb. An efficient constraint handling method for genetic algorithms. Computer Methods in Applied Mechanics and Engineering, 186(2–4):311–338, 2000. doi:10.1016/S0045-7825(99)00389-8.">10</a>]</span>）した上で、集約スコアの昇順で並べます。</p>
 <p><code class="docutils literal notranslate"><span class="pre">ideal_point</span></code>を省略（<code class="docutils literal notranslate"><span class="pre">None</span></code>）すると、<code class="docutils literal notranslate"><span class="pre">sort_population</span></code>は個体群の実行可能個体から理想点を動的に計算します。
 一方、2点だけを比較する<code class="docutils literal notranslate"><span class="pre">compare</span></code>では、その2点の目的関数値の最小値をローカルな理想点近似として使います。

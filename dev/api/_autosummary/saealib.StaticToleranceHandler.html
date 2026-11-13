@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.StaticToleranceHandler &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.StaticToleranceHandler &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -904,7 +904,7 @@
 <h1>saealib.StaticToleranceHandler<a class="headerlink" href="#saealib-statictolerancehandler" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="saealib.StaticToleranceHandler">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">StaticToleranceHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eps_cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/constraint.html#StaticToleranceHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.StaticToleranceHandler" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">StaticToleranceHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eps_cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/constraint.html#StaticToleranceHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.StaticToleranceHandler" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="saealib.ConstraintHandler.html#saealib.ConstraintHandler" title="saealib.problem.constraint.ConstraintHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConstraintHandler</span></code></a></p>
 <p>Default constraint handler reproducing the static-tolerance behavior.</p>
 <p>The constraint violation is the sum of per-constraint violations
@@ -915,8 +915,11 @@ so inequality (<code class="docutils literal notranslate"><span class="pre">max(
 are not augmented.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>eps_cv</strong> (<em>float</em><em>, </em><em>optional</em>) – Feasibility threshold returned by <code class="xref py py-attr docutils literal notranslate"><span class="pre">feasibility_threshold</span></code>.
-Default: 1e-6.</p>
+<dd class="field-odd"><p><strong>eps_cv</strong> (<em>float</em><em>, </em><em>optional</em>) – Search-time feasibility relaxation returned by
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">feasibility_threshold</span></code> and copied onto the comparator. The
+default of 0.0 treats a solution as feasible only when
+<code class="xref py py-func docutils literal notranslate"><span class="pre">sum_violation()</span></code> is zero, which matches the per-constraint
+feasibility decision.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -931,7 +934,7 @@ Default: 1e-6.</p>
 <td><p>Transform objective values using constraint information.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.StaticToleranceHandler.compute_cv" title="saealib.StaticToleranceHandler.compute_cv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_cv</span></code></a></p></td>
-<td><p>Return the sum of per-constraint <code class="docutils literal notranslate"><span class="pre">c_i.violation_from_value(g_i)</span></code>.</p></td>
+<td><p>Return <code class="xref py py-func docutils literal notranslate"><span class="pre">sum_violation()</span></code> of the raw constraint values.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.StaticToleranceHandler.on_generation_end" title="saealib.StaticToleranceHandler.on_generation_end"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_generation_end</span></code></a></p></td>
 <td><p>Run end-of-generation bookkeeping.</p></td>
@@ -945,7 +948,7 @@ Default: 1e-6.</p>
 <p class="rubric">Method Details</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.StaticToleranceHandler.__init__">
-<span class="sig-prename descclassname"><span class="pre">StaticToleranceHandler.</span></span><span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eps_cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/constraint.html#StaticToleranceHandler.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.StaticToleranceHandler.__init__" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">StaticToleranceHandler.</span></span><span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eps_cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/constraint.html#StaticToleranceHandler.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.StaticToleranceHandler.__init__" title="Link to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>eps_cv</strong> (<em>float</em>)</p>
@@ -980,7 +983,7 @@ is the identity (objectives are returned unchanged).</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.StaticToleranceHandler.compute_cv">
 <span class="sig-prename descclassname"><span class="pre">StaticToleranceHandler.</span></span><span class="sig-name descname"><span class="pre">compute_cv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constraints</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/constraint.html#StaticToleranceHandler.compute_cv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.StaticToleranceHandler.compute_cv" title="Link to this definition">#</a></dt>
-<dd><p>Return the sum of per-constraint <code class="docutils literal notranslate"><span class="pre">c_i.violation_from_value(g_i)</span></code>.</p>
+<dd><p>Return <code class="xref py py-func docutils literal notranslate"><span class="pre">sum_violation()</span></code> of the raw constraint values.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -969,7 +969,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">scipy.stats</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">InitialEvaluationEndEvent</span><span class="p">,</span> <span class="n">InitialEvaluationStartEvent</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">NSGA3Comparator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">Comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">MANY</span><span class="p">,</span>
@@ -1061,6 +1061,29 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_provider_comparator</span><span class="p">(</span><span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Comparator</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the comparator the provider resolved for this plan.&quot;&quot;&quot;</span>
+    <span class="n">comparator</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">comparator</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comparator</span><span class="p">,</span> <span class="n">Comparator</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_create_pareto_archive</span><span class="p">(</span>
+    <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">,</span>
+    <span class="n">attrs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">],</span>
+    <span class="n">init_capacity</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">problem</span><span class="p">:</span> <span class="n">Problem</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create the Pareto archive and bind the problem&#39;s constraints to it.&quot;&quot;&quot;</span>
+    <span class="n">pareto_archive</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="o">.</span><span class="n">create_pareto_archive</span><span class="p">(</span>
+        <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span> <span class="n">init_capacity</span><span class="o">=</span><span class="n">init_capacity</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">problem</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">pareto_archive</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;constraints&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pareto_archive</span><span class="o">.</span><span class="n">constraints</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">constraints</span><span class="p">)</span> <span class="k">if</span> <span class="n">problem</span><span class="o">.</span><span class="n">constraints</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">pareto_archive</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_defaults_equal</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">b</span><span class="p">),</span> <span class="n">equal_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
@@ -1084,7 +1107,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">sources</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">sources</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="o">.</span><span class="n">get_required_attrs</span><span class="p">(</span><span class="n">problem</span><span class="p">))</span>
-    <span class="n">comparator</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">comparator</span>
+    <span class="n">comparator</span> <span class="o">=</span> <span class="n">_provider_comparator</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">sources</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">comparator</span><span class="o">.</span><span class="n">get_required_attrs</span><span class="p">(</span><span class="n">problem</span><span class="p">))</span>
     <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">sources</span><span class="p">:</span>
@@ -1184,11 +1207,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">,</span>
         <span class="n">rng</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">Generator</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="nb">isinstance</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">_rng</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="p">):</span>
-            <span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">comparator</span> <span class="o">=</span> <span class="n">_provider_comparator</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span><span class="p">)</span> <span class="ow">and</span> <span class="n">comparator</span><span class="o">.</span><span class="n">_rng</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">comparator</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="n">OptimizationState</span><span class="p">(</span>
             <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
@@ -1196,6 +1217,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">,</span>
             <span class="n">pareto_archive</span><span class="o">=</span><span class="n">pareto_archive</span><span class="p">,</span>
             <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">,</span>
+            <span class="n">comparator</span><span class="o">=</span><span class="n">comparator</span><span class="p">,</span>
             <span class="n">fe</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">archive</span><span class="p">),</span>
             <span class="n">gen</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
             <span class="n">history</span><span class="o">=</span><span class="n">History</span><span class="p">(</span>
@@ -1287,8 +1309,8 @@ window.runMermaid = runMermaid;</script>
             <span class="n">problem</span><span class="p">,</span>
             <span class="n">empty_genomes</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">pareto_archive</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="o">.</span><span class="n">create_pareto_archive</span><span class="p">(</span>
-            <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span> <span class="n">init_capacity</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">problem</span>
+        <span class="n">pareto_archive</span> <span class="o">=</span> <span class="n">_create_pareto_archive</span><span class="p">(</span>
+            <span class="n">provider</span><span class="p">,</span> <span class="n">attrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">problem</span>
         <span class="p">)</span>
         <span class="n">ctx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_context</span><span class="p">(</span>
             <span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">rng</span>
@@ -1320,7 +1342,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">ctx</span><span class="o">.</span><span class="n">count_fe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">)</span>
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
-        <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
+        <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
         <span class="n">archive_sorted</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">sorted_idx</span><span class="p">)</span>
         <span class="n">archive</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="n">archive</span><span class="o">.</span><span class="n">_extend_internal</span><span class="p">(</span><span class="n">archive_sorted</span><span class="p">,</span> <span class="n">preserve_ids</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1439,8 +1461,8 @@ window.runMermaid = runMermaid;</script>
             <span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span>
             <span class="n">problem</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">pareto_archive</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="o">.</span><span class="n">create_pareto_archive</span><span class="p">(</span>
-            <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span> <span class="n">init_capacity</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">problem</span>
+        <span class="n">pareto_archive</span> <span class="o">=</span> <span class="n">_create_pareto_archive</span><span class="p">(</span>
+            <span class="n">provider</span><span class="p">,</span> <span class="n">attrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">problem</span>
         <span class="p">)</span>
         <span class="n">pareto_archive</span><span class="o">.</span><span class="n">_dense_numeric_view</span> <span class="o">=</span> <span class="n">_resolved_dense_view</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
 
@@ -1480,7 +1502,7 @@ window.runMermaid = runMermaid;</script>
 
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
-        <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
+        <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
         <span class="n">archive_sorted</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">sorted_idx</span><span class="p">)</span>
         <span class="n">archive</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="n">archive</span><span class="o">.</span><span class="n">_extend_internal</span><span class="p">(</span><span class="n">archive_sorted</span><span class="p">,</span> <span class="n">preserve_ids</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1601,8 +1623,8 @@ window.runMermaid = runMermaid;</script>
             <span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span>
             <span class="n">problem</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">pareto_archive</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="o">.</span><span class="n">create_pareto_archive</span><span class="p">(</span>
-            <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span> <span class="n">init_capacity</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">problem</span>
+        <span class="n">pareto_archive</span> <span class="o">=</span> <span class="n">_create_pareto_archive</span><span class="p">(</span>
+            <span class="n">provider</span><span class="p">,</span> <span class="n">attrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">problem</span>
         <span class="p">)</span>
         <span class="n">pareto_archive</span><span class="o">.</span><span class="n">_dense_numeric_view</span> <span class="o">=</span> <span class="n">_resolved_dense_view</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
 
@@ -1639,7 +1661,7 @@ window.runMermaid = runMermaid;</script>
 
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
-        <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
+        <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
         <span class="n">archive_sorted</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">sorted_idx</span><span class="p">)</span>
         <span class="n">archive</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="n">archive</span><span class="o">.</span><span class="n">_extend_internal</span><span class="p">(</span><span class="n">archive_sorted</span><span class="p">,</span> <span class="n">preserve_ids</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1760,8 +1782,8 @@ window.runMermaid = runMermaid;</script>
             <span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span>
             <span class="n">problem</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">pareto_archive</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="o">.</span><span class="n">create_pareto_archive</span><span class="p">(</span>
-            <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span> <span class="n">init_capacity</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">problem</span>
+        <span class="n">pareto_archive</span> <span class="o">=</span> <span class="n">_create_pareto_archive</span><span class="p">(</span>
+            <span class="n">provider</span><span class="p">,</span> <span class="n">attrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">problem</span>
         <span class="p">)</span>
         <span class="n">pareto_archive</span><span class="o">.</span><span class="n">_dense_numeric_view</span> <span class="o">=</span> <span class="n">_resolved_dense_view</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
 
@@ -1801,7 +1823,7 @@ window.runMermaid = runMermaid;</script>
 
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
-        <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
+        <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
         <span class="n">archive_sorted</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">sorted_idx</span><span class="p">)</span>
         <span class="n">archive</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="n">archive</span><span class="o">.</span><span class="n">_extend_internal</span><span class="p">(</span><span class="n">archive_sorted</span><span class="p">,</span> <span class="n">preserve_ids</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>

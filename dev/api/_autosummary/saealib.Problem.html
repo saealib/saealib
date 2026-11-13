@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Problem &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.Problem &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -904,7 +904,7 @@
 <h1>saealib.Problem<a class="headerlink" href="#saealib-problem" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="saealib.Problem">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">Problem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_obj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ub</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comparator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">handler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">space</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">evaluation_adapter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/problem.html#Problem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Problem" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">Problem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_obj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ub</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comparator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">handler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_aggregator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">space</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">evaluation_adapter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/problem.html#Problem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Problem" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Definition of optimization problem.</p>
 <dl class="field-list simple">
@@ -918,9 +918,10 @@
 <li><p><strong>ub</strong> (<em>npt.ArrayLike</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>comparator</strong> (<a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><em>Comparator</em></a><em> | </em><em>None</em>)</p></li>
 <li><p><strong>constraints</strong> (<em>list</em><em>[</em><a class="reference internal" href="saealib.InequalityConstraint.html#saealib.InequalityConstraint" title="saealib.InequalityConstraint"><em>InequalityConstraint</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
-<li><p><strong>eps_cv</strong> (<em>float</em>)</p></li>
-<li><p><strong>eps_obj</strong> (<em>float</em>)</p></li>
+<li><p><strong>eps_cv</strong> (<em>float</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>eps_obj</strong> (<em>float</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>handler</strong> (<a class="reference internal" href="saealib.ConstraintHandler.html#saealib.ConstraintHandler" title="saealib.ConstraintHandler"><em>ConstraintHandler</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>cv_aggregator</strong> (<em>Callable</em><em>[</em><em>[</em><em>list</em><em>[</em><a class="reference internal" href="saealib.InequalityConstraint.html#saealib.InequalityConstraint" title="saealib.problem.constraint.InequalityConstraint"><em>InequalityConstraint</em></a><em>]</em><em>, </em><em>ndarray</em><em>, </em><em>ndarray</em><em>]</em><em>, </em><em>float</em><em>] </em><em>| </em><em>None</em>)</p></li>
 <li><p><strong>variables</strong> (<em>list</em><em>[</em><a class="reference internal" href="saealib.Variable.html#saealib.Variable" title="saealib.Variable"><em>Variable</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
 <li><p><strong>space</strong> (<a class="reference internal" href="saealib.space.SearchSpace.html#saealib.space.SearchSpace" title="saealib.space.SearchSpace"><em>SearchSpace</em></a><em> | </em><em>None</em>)</p></li>
 <li><p><strong>evaluation_adapter</strong> (<a class="reference internal" href="saealib.EvaluationAdapter.html#saealib.EvaluationAdapter" title="saealib.EvaluationAdapter"><em>EvaluationAdapter</em></a><em> | </em><em>None</em>)</p></li>
@@ -997,7 +998,9 @@ Each element must be +1 (maximize) or -1 (minimize).</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="saealib.Problem.comparator">
 <span class="sig-name descname"><span class="pre">comparator</span></span><a class="headerlink" href="#saealib.Problem.comparator" title="Link to this definition">#</a></dt>
-<dd><p>Comparator instance to compare solutions.</p>
+<dd><p>Deprecated comparator instance of this problem. A run uses the
+<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> comparator slot instead; this value is adopted as an
+explicit <code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> setting.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator">Comparator</a></p>
@@ -1008,16 +1011,12 @@ Each element must be +1 (maximize) or -1 (minimize).</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="saealib.Problem.eps_cv">
 <span class="sig-name descname"><span class="pre">eps_cv</span></span><a class="headerlink" href="#saealib.Problem.eps_cv" title="Link to this definition">#</a></dt>
-<dd><p>Epsilon for constraint violation feasibility threshold. Only used to
-seed the default <code class="docutils literal notranslate"><span class="pre">handler</span></code>/<code class="docutils literal notranslate"><span class="pre">comparator</span></code> at construction time;
-mutating this attribute afterwards has no runtime effect. The actual
-running threshold is <code class="docutils literal notranslate"><span class="pre">handler.feasibility_threshold</span></code>, which the
-<code class="docutils literal notranslate"><span class="pre">Runner</span></code> syncs into <code class="docutils literal notranslate"><span class="pre">comparator</span></code>/<code class="docutils literal notranslate"><span class="pre">pareto_archive</span></code> every
-generation. Explicit handlers may therefore use a running threshold
-intentionally different from this value. This value remains the
-feasibility basis for <code class="docutils literal notranslate"><span class="pre">Result</span></code> and summary <code class="docutils literal notranslate"><span class="pre">best_f</span></code>; an explicit
-handler with a different running threshold can therefore make reported
-solutions disagree with the comparator’s criterion.</p>
+<dd><p>Deprecated search-time feasibility relaxation for the default
+<code class="docutils literal notranslate"><span class="pre">handler</span></code>/<code class="docutils literal notranslate"><span class="pre">comparator</span></code>. A run treats <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code> as feasible
+when it ranks solutions, and reported feasibility never uses this
+value. Mutating this attribute afterwards has no runtime effect; the
+running relaxation is <code class="docutils literal notranslate"><span class="pre">handler.feasibility_threshold</span></code>, which the
+<code class="docutils literal notranslate"><span class="pre">Runner</span></code> syncs into <code class="docutils literal notranslate"><span class="pre">comparator</span></code> every generation. Default: 0.0.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -1026,9 +1025,25 @@ solutions disagree with the comparator’s criterion.</p>
 </dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="saealib.Problem.cv_aggregator">
+<span class="sig-name descname"><span class="pre">cv_aggregator</span></span><a class="headerlink" href="#saealib.Problem.cv_aggregator" title="Link to this definition">#</a></dt>
+<dd><p>Aggregation that turns raw constraint values into <code class="docutils literal notranslate"><span class="pre">cv</span></code>. When set,
+it replaces <code class="docutils literal notranslate"><span class="pre">handler.compute_cv</span></code>. The default is
+<code class="xref py py-func docutils literal notranslate"><span class="pre">sum_violation()</span></code> through the default
+handler.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>callable or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="saealib.Problem.eps_obj">
 <span class="sig-name descname"><span class="pre">eps_obj</span></span><a class="headerlink" href="#saealib.Problem.eps_obj" title="Link to this definition">#</a></dt>
-<dd><p>Epsilon for objective value equality comparison.</p>
+<dd><p>Deprecated epsilon for objective value equality comparison. It seeds
+the <code class="docutils literal notranslate"><span class="pre">eps_obj</span></code> of the default comparator; configure the comparator
+with <code class="docutils literal notranslate"><span class="pre">Optimizer.set_comparator()</span></code> instead.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -1096,7 +1111,7 @@ objectives.</p>
 <p class="rubric">Method Details</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Problem.__init__">
-<span class="sig-prename descclassname"><span class="pre">Problem.</span></span><span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_obj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ub</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comparator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">handler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">space</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">evaluation_adapter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/problem.html#Problem.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Problem.__init__" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Problem.</span></span><span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_obj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ub</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comparator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">handler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_aggregator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">space</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">evaluation_adapter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/problem.html#Problem.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Problem.__init__" title="Link to this definition">#</a></dt>
 <dd><p>Initialize Problem instance.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1112,15 +1127,30 @@ Required when <em>variables</em> is not provided.</p></li>
 <li><p><strong>ub</strong> (<em>array_like</em><em>, </em><em>optional</em>) – Upper bounds for design variables. A scalar is broadcast to all
 dimensions; otherwise, the array must have length dim.
 Required when <em>variables</em> is not provided.</p></li>
-<li><p><strong>comparator</strong> (<a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><em>Comparator</em></a><em>, </em><em>optional</em>) – Comparator instance to use. If None, auto-selected based on n_obj:
-n_obj == 1 -&gt; SingleObjectiveComparator,
-n_obj &gt;  1 -&gt; NSGA2Comparator.</p></li>
+<li><p><strong>comparator</strong> (<a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><em>Comparator</em></a><em>, </em><em>optional</em>) – Deprecated. Configure the comparator with
+<a class="reference internal" href="saealib.Optimizer.html#saealib.Optimizer.set_comparator" title="saealib.Optimizer.set_comparator"><code class="xref py py-meth docutils literal notranslate"><span class="pre">saealib.Optimizer.set_comparator()</span></code></a> instead. A value passed
+here emits a <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code> and is adopted as an explicit
+<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> comparator setting. If omitted, the default
+comparator follows <code class="docutils literal notranslate"><span class="pre">n_obj</span></code>: <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">==</span> <span class="pre">1</span></code> uses
+<code class="docutils literal notranslate"><span class="pre">SingleObjectiveComparator</span></code> and <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> uses
+<code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code>. If the passed comparator’s <code class="docutils literal notranslate"><span class="pre">direction</span></code> is
+unset, this problem’s <code class="docutils literal notranslate"><span class="pre">direction</span></code> is injected.</p></li>
 <li><p><strong>constraints</strong> (<em>list</em><em>[</em><a class="reference internal" href="saealib.InequalityConstraint.html#saealib.InequalityConstraint" title="saealib.InequalityConstraint"><em>InequalityConstraint</em></a><em>]</em><em>, </em><em>optional</em>) – List of inequality constraint definitions. Default: empty list.</p></li>
-<li><p><strong>eps_cv</strong> (<em>float</em><em>, </em><em>optional</em>) – Epsilon for constraint violation feasibility threshold. Default: 1e-6.</p></li>
-<li><p><strong>eps_obj</strong> (<em>float</em><em>, </em><em>optional</em>) – Epsilon for objective value equality comparison. Default: 1e-6.</p></li>
+<li><p><strong>eps_cv</strong> (<em>float</em><em>, </em><em>optional</em>) – Deprecated. Search-time feasibility relaxation for the default
+handler and comparator; a run ranks <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code> solutions as
+feasible, and reported feasibility ignores it. Default: 0.0.</p></li>
+<li><p><strong>eps_obj</strong> (<em>float</em><em>, </em><em>optional</em>) – Deprecated. Configure the tolerance on the comparator with
+<a class="reference internal" href="saealib.Optimizer.html#saealib.Optimizer.set_comparator" title="saealib.Optimizer.set_comparator"><code class="xref py py-meth docutils literal notranslate"><span class="pre">saealib.Optimizer.set_comparator()</span></code></a> instead. A value passed
+here emits a <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code> and is used as the
+<code class="docutils literal notranslate"><span class="pre">eps_obj</span></code> of the default comparator. Default: 1e-6.</p></li>
 <li><p><strong>handler</strong> (<a class="reference internal" href="saealib.ConstraintHandler.html#saealib.ConstraintHandler" title="saealib.ConstraintHandler"><em>ConstraintHandler</em></a><em>, </em><em>optional</em>) – Constraint-handling strategy. If None, a StaticToleranceHandler
-(sum-of-violations, fixed eps_cv) is used, reproducing the default
-behavior.</p></li>
+(sum-of-violations, fixed eps_cv) is used.</p></li>
+<li><p><strong>cv_aggregator</strong> (<em>callable</em><em>, </em><em>optional</em>) – Aggregates raw constraint values into <code class="docutils literal notranslate"><span class="pre">cv</span></code> as
+<code class="docutils literal notranslate"><span class="pre">cv_aggregator(constraints,</span> <span class="pre">x,</span> <span class="pre">g)</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code>. It replaces
+<code class="docutils literal notranslate"><span class="pre">handler.compute_cv</span></code> when given, and a plain function works. The
+default handler aggregates with
+<code class="xref py py-func docutils literal notranslate"><span class="pre">sum_violation()</span></code>, so the default
+<code class="docutils literal notranslate"><span class="pre">cv</span></code> is the sum of the per-constraint violations.</p></li>
 <li><p><strong>variables</strong> (<em>list</em><em>[</em><a class="reference internal" href="saealib.Variable.html#saealib.Variable" title="saealib.Variable"><em>Variable</em></a><em>]</em><em>, </em><em>optional</em>) – Per-dimension variable definitions.  When provided, <em>lb</em> and <em>ub</em>
 are derived from the variable bounds.  <code class="docutils literal notranslate"><span class="pre">len(variables)</span></code> must equal
 <em>dim</em>.</p></li>
@@ -1207,7 +1237,8 @@ Row order matches the order of rows in <em>x</em>.</p>
 <dd class="field-even"><p><ul class="simple">
 <li><p><strong>g</strong> (<em>np.ndarray</em>) – Raw constraint values. shape = (n_constraints, )
 Empty array when no constraints are defined.</p></li>
-<li><p><strong>cv</strong> (<em>float</em>) – Aggregate constraint violation as computed by <code class="docutils literal notranslate"><span class="pre">handler.compute_cv</span></code>.
+<li><p><strong>cv</strong> (<em>float</em>) – Aggregate constraint violation, computed by <code class="docutils literal notranslate"><span class="pre">cv_aggregator</span></code>
+when one is configured and by <code class="docutils literal notranslate"><span class="pre">handler.compute_cv</span></code> otherwise.
 0.0 when no constraints are defined.</p></li>
 </ul>
 </p>
@@ -1296,6 +1327,7 @@ Clips continuous dimensions to <code class="docutils literal notranslate"><span 
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Problem.variables"><code class="docutils literal notranslate"><span class="pre">Problem.variables</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Problem.comparator"><code class="docutils literal notranslate"><span class="pre">Problem.comparator</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Problem.eps_cv"><code class="docutils literal notranslate"><span class="pre">Problem.eps_cv</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Problem.cv_aggregator"><code class="docutils literal notranslate"><span class="pre">Problem.cv_aggregator</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Problem.eps_obj"><code class="docutils literal notranslate"><span class="pre">Problem.eps_obj</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Problem.func"><code class="docutils literal notranslate"><span class="pre">Problem.func</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Problem.constraints"><code class="docutils literal notranslate"><span class="pre">Problem.constraints</span></code></a></li>

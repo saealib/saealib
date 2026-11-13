@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>ConstraintHandler &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>ConstraintHandler &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -597,12 +597,14 @@
 <section id="id1">
 <h2>ConstraintHandlerの役割<a class="headerlink" href="#id1" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">ConstraintHandler</span></code>は、制約の処理方式を差し替え可能なライフサイクルフックの集合として公開しています。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Ask</span>            <span class="o">-&gt;</span> <span class="p">[</span><span class="n">repair</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">)]</span>
-               <span class="o">-&gt;</span> <span class="n">evaluate</span> <span class="n">f</span><span class="p">,</span> <span class="n">g</span>
-               <span class="o">-&gt;</span> <span class="p">[</span><span class="n">compute_cv</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">)]</span>        <span class="o">-&gt;</span> <span class="n">cv</span>
-               <span class="o">-&gt;</span> <span class="p">[</span><span class="n">augment_objective</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">)]</span> <span class="o">-&gt;</span> <span class="sa">f</span><span class="s1">&#39;</span>
-<span class="n">Tell</span>           <span class="o">-&gt;</span> <span class="n">Comparator</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;, cv) with eps_cv = feasibility_threshold</span>
-<span class="n">Generation</span> <span class="n">end</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="n">on_generation_end</span><span class="p">(</span><span class="n">gen</span><span class="p">,</span> <span class="n">population</span><span class="p">)]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Ask            -&gt; [repair(x, constraints, lb, ub)]
+               -&gt; evaluate f, g
+               -&gt; [compute_cv(constraints, x, g)]        -&gt; cv
+               -&gt; [augment_objective(f, constraints, x, g)] -&gt; f&#39;
+Tell           -&gt; Comparator(f&#39;, cv) with eps_cv = feasibility_threshold
+                  （探索中の緩和であり、報告される実行可能性は
+                  制約ごとの違反量で決まる）
+Generation end -&gt; [on_generation_end(gen, population)]
 </pre></div>
 </div>
 <p>抽象メソッドは<code class="docutils literal notranslate"><span class="pre">compute_cv</span></code>だけであり、残りのフックはいずれも既定実装を持ちます。
@@ -613,13 +615,25 @@
 <p><strong><code class="docutils literal notranslate"><span class="pre">augment_objective(f,</span> <span class="pre">constraints,</span> <span class="pre">x,</span> <span class="pre">g)</span></code></strong>：目的関数値を制約情報で変換します。
 既定は恒等関数（変換しない）で、ペナルティ関数法やaugmented Lagrangian法を実装する際にオーバーライドする場所です。
 組み込み3種のハンドラはいずれもこのフックをオーバーライドしていないため、現状は将来の拡張点として空いています。</p>
-<p><strong><code class="docutils literal notranslate"><span class="pre">feasibility_threshold</span></code></strong>（プロパティ）：既定<code class="docutils literal notranslate"><span class="pre">1e-6</span></code>。
-この値が<code class="docutils literal notranslate"><span class="pre">Comparator</span></code>の<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>として使われ、<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>実行中は毎世代同期されます。</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">feasibility_threshold</span></code></strong>（プロパティ）：既定<code class="docutils literal notranslate"><span class="pre">0.0</span></code>。
+この値は探索中の緩和であり、<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>実行中は毎世代<code class="docutils literal notranslate"><span class="pre">Comparator</span></code>の<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>へ書き写されます。報告される実行可能性を決めることはありません。</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">on_generation_end(gen,</span> <span class="pre">population)</span></code></strong>：世代の終わりに呼ばれます。
 既定はno-opで、<code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code>のようにε値を世代ごとに更新する内部状態を持つハンドラが使います。</p>
 </section>
 <section id="id2">
-<h2>組み込みハンドラがオーバーライドするフック<a class="headerlink" href="#id2" title="Link to this heading">#</a></h2>
+<h2>制約違反と実行可能性<a class="headerlink" href="#id2" title="Link to this heading">#</a></h2>
+<p>実行可能性は集約後の<code class="docutils literal notranslate"><span class="pre">cv</span></code>ではなく制約定義から決まります。制約ごとに<code class="docutils literal notranslate"><span class="pre">violation_from_value</span></code>が許容幅の内側で0を返すとき、つまり不等式なら<code class="docutils literal notranslate"><span class="pre">g(x)</span> <span class="pre">&lt;=</span> <span class="pre">threshold</span></code>、等式なら<code class="docutils literal notranslate"><span class="pre">|h(x)|</span> <span class="pre">&lt;=</span> <span class="pre">tolerance</span></code>のとき、その解は実行可能です。
+<code class="docutils literal notranslate"><span class="pre">Result</span></code>、履歴の<code class="docutils literal notranslate"><span class="pre">best_f</span></code>と<code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>、<code class="docutils literal notranslate"><span class="pre">FeasibilityClassificationSet</span></code>、Paretoアーカイブはすべてこの判定を使うため、探索中にcomparatorを緩和しても報告される実行可能性は変わりません。
+自分で行を分類する場合は、各行の<code class="docutils literal notranslate"><span class="pre">g</span></code>列に<code class="docutils literal notranslate"><span class="pre">violation_from_value</span></code>を適用します。すべての結果が0の行が実行可能です。</p>
+<p>集約後の<code class="docutils literal notranslate"><span class="pre">cv</span></code>の役割は1つで、実行不可能な解どうしの順位付けです。
+契約は「すべての制約違反が0のとき、かつそのときに限り<code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">==</span> <span class="pre">0</span></code>」と単調性です。
+既定の集約は制約ごとの違反量の和である<code class="docutils literal notranslate"><span class="pre">sum_violation</span></code>で、<code class="docutils literal notranslate"><span class="pre">StaticToleranceHandler</span></code>が計算する値と同じです。
+<code class="docutils literal notranslate"><span class="pre">Problem(cv_aggregator=...)</span></code>に<code class="docutils literal notranslate"><span class="pre">cv_aggregator(constraints,</span> <span class="pre">x,</span> <span class="pre">g)</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code>というcallable（通常の関数も可）を渡すと置き換えられます。<code class="docutils literal notranslate"><span class="pre">cv_aggregator</span></code>を渡さない場合、ハンドラの<code class="docutils literal notranslate"><span class="pre">compute_cv</span></code>が<code class="docutils literal notranslate"><span class="pre">cv</span></code>を供給します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code>は集約契約に対する探索側の例外です。その式（等式は<code class="docutils literal notranslate"><span class="pre">|h(x)|</span></code>、不等式は<code class="docutils literal notranslate"><span class="pre">max(0,</span> <span class="pre">g(x)</span> <span class="pre">-</span> <span class="pre">threshold)</span> <span class="pre">**</span> <span class="pre">2</span></code>）は、等式の残差が厳密に0のときだけ0になるため、制約の許容幅より厳しくなります。
+この式はε制約法のために維持され、その緩和は<code class="docutils literal notranslate"><span class="pre">feasibility_threshold</span></code>を通じてcomparatorに届きます。報告される実行可能性は常に上記の制約定義から決まります。</p>
+</section>
+<section id="id3">
+<h2>組み込みハンドラがオーバーライドするフック<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>クラス</p></th>
@@ -639,9 +653,9 @@
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code><span class="bibtex-citation" id="id3">[<a class="reference internal" href="../../references.html#id62" title="Efrén Mezura-Montes and Carlos A. Coello Coello. Constraint-handling in nature-inspired numerical optimization: past, present and future. Swarm and Evolutionary Computation, 1(4):173–194, 2011. doi:10.1016/j.swevo.2011.10.001.">1</a>]</span>は、<code class="docutils literal notranslate"><span class="pre">schedule(gen)</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code>という関数でεを世代ごとに更新します。
+<p><code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code><span class="bibtex-citation" id="id4">[<a class="reference internal" href="../../references.html#id62" title="Efrén Mezura-Montes and Carlos A. Coello Coello. Constraint-handling in nature-inspired numerical optimization: past, present and future. Swarm and Evolutionary Computation, 1(4):173–194, 2011. doi:10.1016/j.swevo.2011.10.001.">1</a>]</span>は、<code class="docutils literal notranslate"><span class="pre">schedule(gen)</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code>という関数でεを世代ごとに更新します。
 <code class="docutils literal notranslate"><span class="pre">linear_epsilon_schedule(eps0,</span> <span class="pre">n_gen)</span></code>/<code class="docutils literal notranslate"><span class="pre">exponential_epsilon_schedule(eps0,</span> <span class="pre">decay)</span></code>という組み込みのスケジュール生成関数も公開されています。</p>
-<p><code class="docutils literal notranslate"><span class="pre">GradientRepairHandler</span></code><span class="bibtex-citation" id="id4">[<a class="reference internal" href="../../references.html#id63" title="Piya Chootinan and Anthony Chen. Constraint handling in genetic algorithms using a gradient-based repair method. Computers &amp; Operations Research, 33(8):2263–2281, 2006. doi:10.1016/j.cor.2005.02.002.">2</a>]</span>は、現在違反している等式制約と不等式制約に対して、Moore-Penrose擬似逆行列による同時更新を行う<code class="docutils literal notranslate"><span class="pre">repair()</span></code>を実装します。
+<p><code class="docutils literal notranslate"><span class="pre">GradientRepairHandler</span></code><span class="bibtex-citation" id="id5">[<a class="reference internal" href="../../references.html#id63" title="Piya Chootinan and Anthony Chen. Constraint handling in genetic algorithms using a gradient-based repair method. Computers &amp; Operations Research, 33(8):2263–2281, 2006. doi:10.1016/j.cor.2005.02.002.">2</a>]</span>は、現在違反している等式制約と不等式制約に対して、Moore-Penrose擬似逆行列による同時更新を行う<code class="docutils literal notranslate"><span class="pre">repair()</span></code>を実装します。
 <code class="docutils literal notranslate"><span class="pre">gradient()</span></code>が<code class="docutils literal notranslate"><span class="pre">None</span></code>を返す制約は、スキップせず前進差分による数値近似へフォールバックします。</p>
 </section>
 <section id="inequalityconstraint-equalityconstraint">
@@ -653,8 +667,8 @@
 既定は<code class="docutils literal notranslate"><span class="pre">max(0,</span> <span class="pre">g</span> <span class="pre">-</span> <span class="pre">threshold)</span></code>です。
 <code class="docutils literal notranslate"><span class="pre">EqualityConstraint</span></code>はこのメソッドだけをオーバーライドし、<code class="docutils literal notranslate"><span class="pre">max(0,</span> <span class="pre">|h(x)|</span> <span class="pre">-</span> <span class="pre">tolerance)</span></code>という独自の変換を定義しています。</p>
 </section>
-<section id="id5">
-<h2>独自ConstraintHandlerの実装方法<a class="headerlink" href="#id5" title="Link to this heading">#</a></h2>
+<section id="id6">
+<h2>独自ConstraintHandlerの実装方法<a class="headerlink" href="#id6" title="Link to this heading">#</a></h2>
 <p>独自の制約処理戦略が必要な場合は、<code class="docutils literal notranslate"><span class="pre">ConstraintHandler</span></code>を継承して<code class="docutils literal notranslate"><span class="pre">compute_cv()</span></code>だけを実装すればよいです。
 次の例は、制約違反量を目的関数値へ加算するペナルティ関数法です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConstraintHandler</span>
@@ -676,16 +690,16 @@
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">augment_objective</span></code>をオーバーライドしてペナルティを目的関数値に加算する一方で、<code class="docutils literal notranslate"><span class="pre">compute_cv</span></code>は制約違反として<code class="docutils literal notranslate"><span class="pre">0</span></code>を返す実装にすれば、ペナルティ関数法だけで実行可能性を扱わない（全解を実行可能とみなす）構成にもできます。</p>
 </section>
-<section id="id6">
-<h2>関連コンポーネント<a class="headerlink" href="#id6" title="Link to this heading">#</a></h2>
+<section id="id7">
+<h2>関連コンポーネント<a class="headerlink" href="#id7" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../../tutorials/constraints.html"><span class="std std-doc">制約付き最適化</span></a>：制約の定義と組み込みハンドラの基本的な使い方</p></li>
-<li><p><a class="reference internal" href="problem.html"><span class="std std-doc">Problem</span></a>：<code class="docutils literal notranslate"><span class="pre">handler</span></code>引数の渡し方</p></li>
+<li><p><a class="reference internal" href="problem.html"><span class="std std-doc">Problem</span></a>：<code class="docutils literal notranslate"><span class="pre">handler</span></code>引数と<code class="docutils literal notranslate"><span class="pre">cv_aggregator</span></code>引数の渡し方</p></li>
 <li><p><a class="reference internal" href="comparators.html"><span class="std std-doc">Comparator</span></a>：<code class="docutils literal notranslate"><span class="pre">feasibility_threshold</span></code>が<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>として同期される先</p></li>
 </ul>
 </section>
-<section id="id7">
-<h2>参照<a class="headerlink" href="#id7" title="Link to this heading">#</a></h2>
+<section id="id8">
+<h2>参照<a class="headerlink" href="#id8" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.ConstraintHandler.html#saealib.ConstraintHandler" title="saealib.ConstraintHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.ConstraintHandler</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.StaticToleranceHandler.html#saealib.StaticToleranceHandler" title="saealib.StaticToleranceHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.StaticToleranceHandler</span></code></a></p></li>
@@ -693,6 +707,7 @@
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.GradientRepairHandler.html#saealib.GradientRepairHandler" title="saealib.GradientRepairHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.GradientRepairHandler</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.InequalityConstraint.html#saealib.InequalityConstraint" title="saealib.InequalityConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.InequalityConstraint</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.EqualityConstraint.html#saealib.EqualityConstraint" title="saealib.EqualityConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.EqualityConstraint</span></code></a></p></li>
+<li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.problem.constraint.sum_violation()</span></code></p></li>
 <li><p><a class="reference internal" href="../../api/problem.html#saealib.linear_epsilon_schedule" title="saealib.linear_epsilon_schedule"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.linear_epsilon_schedule()</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/problem.html#saealib.exponential_epsilon_schedule" title="saealib.exponential_epsilon_schedule"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.exponential_epsilon_schedule()</span></code></a></p></li>
 </ul>
@@ -747,11 +762,12 @@
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">ConstraintHandlerの役割</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">組み込みハンドラがオーバーライドするフック</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">制約違反と実行可能性</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">組み込みハンドラがオーバーライドするフック</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inequalityconstraint-equalityconstraint">InequalityConstraint/EqualityConstraintの拡張点</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">独自ConstraintHandlerの実装方法</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">関連コンポーネント</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">参照</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">独自ConstraintHandlerの実装方法</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">関連コンポーネント</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">参照</a></li>
 </ul>
   </nav></div>
 

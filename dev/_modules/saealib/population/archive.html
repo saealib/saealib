@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.population.archive &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.population.archive &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1879,9 +1879,14 @@ window.runMermaid = runMermaid;</script>
 
 <span class="sd">    Feasibility-first dominance is applied:</span>
 
-<span class="sd">    - A feasible solution (cv ≤ eps_cv) dominates every infeasible one.</span>
+<span class="sd">    - A feasible solution dominates every infeasible one.</span>
 <span class="sd">    - Among two infeasible solutions the one with lower cv dominates.</span>
 <span class="sd">    - Among two feasible solutions ``dominator.dominates`` is used.</span>
+
+<span class="sd">    Feasibility is decided from the problem&#39;s constraints when</span>
+<span class="sd">    ``constraints`` is given and the rows carry a ``g`` column: a row is</span>
+<span class="sd">    feasible when every per-constraint violation is zero after its own</span>
+<span class="sd">    tolerance. Otherwise a row is feasible when ``cv &lt;= eps_cv``.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1895,12 +1900,17 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    dominator : Dominator or None, optional</span>
 <span class="sd">        Dominance predicate.  ``None`` defaults to ``ParetoDominator()``.</span>
 <span class="sd">    eps_cv : float, optional</span>
-<span class="sd">        Feasibility threshold for constraint violation, by default 0.0.</span>
-<span class="sd">        Under ``Optimizer`` execution this value is overwritten every</span>
-<span class="sd">        generation from ``problem.handler.feasibility_threshold``; the</span>
-<span class="sd">        default of 0.0 (strictly feasible only) is only meaningful for</span>
-<span class="sd">        standalone (non-``Optimizer``) use of ``ParetoArchive``.</span>
+<span class="sd">        Fallback feasibility threshold on ``cv``, used only when the archive</span>
+<span class="sd">        cannot decide feasibility from the constraints. Default: 0.0, which</span>
+<span class="sd">        matches the constraint-based decision for an aggregation that is zero</span>
+<span class="sd">        exactly when every violation is zero.</span>
+<span class="sd">    constraints : list[InequalityConstraint] or None, optional</span>
+<span class="sd">        The problem&#39;s constraints. When given and the rows carry a ``g``</span>
+<span class="sd">        column, feasibility comes from the per-constraint violations instead</span>
+<span class="sd">        of ``eps_cv``. ``Algorithm.create_pareto_archive`` supplies them.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="ParetoMixin.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.ParetoMixin.html#saealib.ParetoMixin.__init__">[docs]</a>
@@ -1911,6 +1921,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">direction</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dominator</span><span class="p">:</span> <span class="n">Dominator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">eps_cv</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">key_attr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span>
         <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
         <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
@@ -1951,6 +1962,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">dominator</span> <span class="k">if</span> <span class="n">dominator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">ParetoDominator</span><span class="p">()</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">eps_cv</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">constraints</span><span class="p">)</span> <span class="k">if</span> <span class="n">constraints</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">key_attr</span> <span class="o">=</span> <span class="n">key_attr</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">atol</span> <span class="o">=</span> <span class="n">atol</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rtol</span> <span class="o">=</span> <span class="n">rtol</span>
@@ -1995,15 +2007,95 @@ window.runMermaid = runMermaid;</script>
 
         <span class="k">return</span> <span class="n">f</span><span class="p">,</span> <span class="n">cv</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rebind_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Bind the problem&#39;s constraints and rebuild the stored rows under them.</span>
+
+<span class="sd">        Rows that the bound constraints reject, or that are dominated under</span>
+<span class="sd">        the feasibility-first rule, are removed; the remaining rows keep their</span>
+<span class="sd">        ids and values. A row is compared with the archive contract through</span>
+<span class="sd">        ``_new_dominates_existing``, so the rebuilt set matches what adding the</span>
+<span class="sd">        rows in stored order yields.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">constraints</span><span class="p">)</span> <span class="k">if</span> <span class="n">constraints</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">archive</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="s2">&quot;g&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">f_arr</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;f&quot;</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">cv_arr</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;cv&quot;</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">g_arr</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">)</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
+        <span class="n">kept</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">size</span><span class="p">):</span>
+            <span class="n">f_new</span> <span class="o">=</span> <span class="n">f_arr</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="k">if</span> <span class="n">f_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">cv_new</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cv_arr</span><span class="p">[</span><span class="n">index</span><span class="p">])</span> <span class="k">if</span> <span class="n">cv_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="n">g_new</span> <span class="o">=</span> <span class="n">g_arr</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_new_dominates_existing</span><span class="p">(</span>
+                    <span class="n">f_arr</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">if</span> <span class="n">f_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">cv_arr</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="k">if</span> <span class="n">cv_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="n">f_new</span><span class="p">,</span>
+                    <span class="n">cv_new</span><span class="p">,</span>
+                    <span class="n">g_arr</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
+                    <span class="n">g_new</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">kept</span>
+            <span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">kept</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">j</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">kept</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_dominates_existing</span><span class="p">(</span>
+                    <span class="n">f_new</span><span class="p">,</span>
+                    <span class="n">cv_new</span><span class="p">,</span>
+                    <span class="n">f_arr</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">if</span> <span class="n">f_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">cv_arr</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="k">if</span> <span class="n">cv_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="n">g_new</span><span class="p">,</span>
+                    <span class="n">g_arr</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="p">]</span>
+            <span class="n">kept</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">kept</span><span class="p">)</span> <span class="o">!=</span> <span class="n">size</span><span class="p">:</span>
+            <span class="n">dropped</span> <span class="o">=</span> <span class="p">[</span><span class="n">index</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">size</span><span class="p">)</span> <span class="k">if</span> <span class="n">index</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">kept</span><span class="p">)]</span>
+            <span class="n">archive</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">dropped</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_extract_g</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">element</span><span class="p">:</span> <span class="n">Individual</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract the raw constraint values of the new solution.&quot;&quot;&quot;</span>
+        <span class="n">g_val</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">g_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">g_val</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">element</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s2">&quot;g&quot;</span><span class="p">):</span>
+                <span class="n">g_val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s2">&quot;g&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">g_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">g_val</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_feasible_flags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the feasibility mask for rows with the given cv and g values.&quot;&quot;&quot;</span>
+        <span class="n">constraints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;constraints&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">g</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem.constraint</span><span class="w"> </span><span class="kn">import</span> <span class="n">_feasible_mask</span>
+
+            <span class="k">return</span> <span class="n">_feasible_mask</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cv</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_new_dominates_existing</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">f_new</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cv_new</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">f_ex</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cv_ex</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">g_new</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">g_ex</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="n">new_feasible</span> <span class="o">=</span> <span class="n">cv_new</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span>
-        <span class="n">ex_feasible</span> <span class="o">=</span> <span class="n">cv_ex</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span>
+        <span class="n">new_feasible</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feasible_flags</span><span class="p">([</span><span class="n">cv_new</span><span class="p">],</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">g_new</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[</span><span class="n">g_new</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">ex_feasible</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_feasible_flags</span><span class="p">([</span><span class="n">cv_ex</span><span class="p">],</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">g_ex</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[</span><span class="n">g_ex</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">new_feasible</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">ex_feasible</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
@@ -2026,8 +2118,10 @@ window.runMermaid = runMermaid;</script>
         <span class="n">cv_new</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">f_ex</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cv_ex</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">g_new</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">g_ex</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_dominates_existing</span><span class="p">(</span><span class="n">f_ex</span><span class="p">,</span> <span class="n">cv_ex</span><span class="p">,</span> <span class="n">f_new</span><span class="p">,</span> <span class="n">cv_new</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_dominates_existing</span><span class="p">(</span><span class="n">f_ex</span><span class="p">,</span> <span class="n">cv_ex</span><span class="p">,</span> <span class="n">f_new</span><span class="p">,</span> <span class="n">cv_new</span><span class="p">,</span> <span class="n">g_ex</span><span class="p">,</span> <span class="n">g_new</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ParetoMixin.add">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.ParetoMixin.html#saealib.ParetoMixin.add">[docs]</a>
@@ -2058,6 +2152,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        &gt;&gt;&gt; archive.add(x=x_val, f=f_val)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">f_new</span><span class="p">,</span> <span class="n">cv_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_fv</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">g_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_g</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
 
         <span class="n">id_val</span> <span class="o">=</span> <span class="n">_extract_id_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>  <span class="c1"># ty: ignore[unresolved-attribute]</span>
         <span class="k">if</span> <span class="n">id_val</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
@@ -2077,6 +2172,7 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># ty: ignore[unresolved-attribute]</span>
             <span class="n">f_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;f&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_schema</span> <span class="k">else</span> <span class="kc">None</span>  <span class="c1"># ty: ignore[unresolved-attribute]</span>
             <span class="n">cv_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;cv&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_schema</span> <span class="k">else</span> <span class="kc">None</span>  <span class="c1"># ty: ignore[unresolved-attribute]</span>
+            <span class="n">g_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;g&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_schema</span> <span class="k">else</span> <span class="kc">None</span>  <span class="c1"># ty: ignore[unresolved-attribute]</span>
             <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>  <span class="c1"># ty: ignore[unresolved-attribute]</span>
 
             <span class="n">has_nan</span> <span class="o">=</span> <span class="p">(</span><span class="n">f_new</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">f_new</span><span class="p">)))</span> <span class="ow">or</span> <span class="p">(</span>
@@ -2091,10 +2187,18 @@ window.runMermaid = runMermaid;</script>
 
             <span class="k">if</span> <span class="n">use_fast_path</span><span class="p">:</span>
                 <span class="n">cv_ex_arr</span> <span class="o">=</span> <span class="n">cv_arr</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="k">if</span> <span class="n">cv_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-                <span class="c1"># np.bool_ (not a plain Python bool) so that `~` below is a</span>
-                <span class="c1"># correct logical negation rather than a bitwise int inversion.</span>
-                <span class="n">new_feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span><span class="n">cv_new</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span><span class="p">)</span>
-                <span class="n">ex_feasible</span> <span class="o">=</span> <span class="n">cv_ex_arr</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;constraints&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">g_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">new_feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_feasible_flags</span><span class="p">([</span><span class="n">cv_new</span><span class="p">],</span> <span class="p">[</span><span class="n">g_new</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">g_new</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                        <span class="k">else</span> <span class="n">cv_new</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span>
+                    <span class="p">)</span>
+                    <span class="n">ex_feasible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feasible_flags</span><span class="p">(</span><span class="n">cv_ex_arr</span><span class="p">,</span> <span class="n">g_arr</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># np.bool_ (not a plain Python bool) so that `~` below is a</span>
+                    <span class="c1"># correct logical negation rather than a bitwise int inversion.</span>
+                    <span class="n">new_feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span><span class="n">cv_new</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span><span class="p">)</span>
+                    <span class="n">ex_feasible</span> <span class="o">=</span> <span class="n">cv_ex_arr</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps_cv</span>
 
                 <span class="n">existing_dominates_new</span> <span class="o">|=</span> <span class="p">(</span><span class="o">~</span><span class="n">new_feasible</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">ex_feasible</span>
                 <span class="n">new_dominates_existing</span> <span class="o">|=</span> <span class="n">new_feasible</span> <span class="o">&amp;</span> <span class="p">(</span><span class="o">~</span><span class="n">ex_feasible</span><span class="p">)</span>
@@ -2127,7 +2231,10 @@ window.runMermaid = runMermaid;</script>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
                     <span class="n">f_ex</span> <span class="o">=</span> <span class="n">f_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">f_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
                     <span class="n">cv_ex</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cv_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">if</span> <span class="n">cv_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.0</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_existing_dominates_new</span><span class="p">(</span><span class="n">f_new</span><span class="p">,</span> <span class="n">cv_new</span><span class="p">,</span> <span class="n">f_ex</span><span class="p">,</span> <span class="n">cv_ex</span><span class="p">):</span>
+                    <span class="n">g_ex</span> <span class="o">=</span> <span class="n">g_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">g_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_existing_dominates_new</span><span class="p">(</span>
+                        <span class="n">f_new</span><span class="p">,</span> <span class="n">cv_new</span><span class="p">,</span> <span class="n">f_ex</span><span class="p">,</span> <span class="n">cv_ex</span><span class="p">,</span> <span class="n">g_new</span><span class="p">,</span> <span class="n">g_ex</span>
+                    <span class="p">):</span>
                         <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
 
                 <span class="c1"># Collect indices of existing solutions dominated by the new one.</span>
@@ -2135,7 +2242,10 @@ window.runMermaid = runMermaid;</script>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
                     <span class="n">f_ex</span> <span class="o">=</span> <span class="n">f_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">f_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
                     <span class="n">cv_ex</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cv_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">if</span> <span class="n">cv_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.0</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_dominates_existing</span><span class="p">(</span><span class="n">f_new</span><span class="p">,</span> <span class="n">cv_new</span><span class="p">,</span> <span class="n">f_ex</span><span class="p">,</span> <span class="n">cv_ex</span><span class="p">):</span>
+                    <span class="n">g_ex</span> <span class="o">=</span> <span class="n">g_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">g_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_dominates_existing</span><span class="p">(</span>
+                        <span class="n">f_new</span><span class="p">,</span> <span class="n">cv_new</span><span class="p">,</span> <span class="n">f_ex</span><span class="p">,</span> <span class="n">cv_ex</span><span class="p">,</span> <span class="n">g_new</span><span class="p">,</span> <span class="n">g_ex</span>
+                    <span class="p">):</span>
                         <span class="n">dominated_mask</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
 
             <span class="c1"># Remove dominated solutions in one pass using delete().</span>

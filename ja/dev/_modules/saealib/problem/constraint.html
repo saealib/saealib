@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.problem.constraint &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>saealib.problem.constraint &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1091,10 +1091,11 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    func : callable</span>
 <span class="sd">        Constraint function h(x). Should return a scalar float.</span>
 <span class="sd">    tolerance : float, optional</span>
-<span class="sd">        Feasibility tolerance for ``|h(x)| &lt;= tolerance``. Default: 1e-6.</span>
-<span class="sd">        Set ``tolerance=0.0`` to defer the feasibility threshold to a handler</span>
-<span class="sd">        such as ``EpsilonConstraintHandler``, where the threshold is managed</span>
-<span class="sd">        externally rather than baked into the constraint.</span>
+<span class="sd">        Feasibility tolerance for ``|h(x)| &lt;= tolerance``. Default: 1e-4,</span>
+<span class="sd">        the equality tolerance used by CEC 2006 and pymoo. Set</span>
+<span class="sd">        ``tolerance=0.0`` to treat any non-zero residual as a violation, for</span>
+<span class="sd">        example when a handler such as ``EpsilonConstraintHandler`` supplies</span>
+<span class="sd">        the search-time threshold.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
@@ -1104,7 +1105,7 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="EqualityConstraint.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.EqualityConstraint.html#saealib.EqualityConstraint.__init__">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span> <span class="o">=</span> <span class="n">tolerance</span></div>
 
@@ -1116,6 +1117,114 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span><span class="p">)</span></div>
 </div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">sum_violation</span><span class="p">(</span>
+    <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InequalityConstraint</span><span class="p">],</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">g</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Aggregate raw constraint values by summing the per-constraint violations.</span>
+
+<span class="sd">    This is the default constraint-violation aggregation and the aggregation</span>
+<span class="sd">    :class:`StaticToleranceHandler` uses: each constraint maps its own raw</span>
+<span class="sd">    value through :meth:`InequalityConstraint.violation_from_value`, so</span>
+<span class="sd">    inequality (``max(0, g - threshold)``) and equality</span>
+<span class="sd">    (``max(0, |h| - tolerance)``) constraints combine freely. The result is</span>
+<span class="sd">    zero exactly when every per-constraint violation is zero.</span>
+
+<span class="sd">    Pass it to ``Problem(cv_aggregator=...)`` to select it explicitly;</span>
+<span class="sd">    ``Problem`` uses it through the default handler otherwise.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    constraints : list[InequalityConstraint]</span>
+<span class="sd">        The problem&#39;s constraints, aligned with ``g``.</span>
+<span class="sd">    x : np.ndarray</span>
+<span class="sd">        The evaluated design vector. shape = (dim, )</span>
+<span class="sd">    g : np.ndarray</span>
+<span class="sd">        Raw constraint values g(x). shape = (n_constraints, )</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Sum of the per-constraint violations; ``0.0`` means feasible.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cv</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">gi</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">constraints</span><span class="p">):</span>
+        <span class="n">cv</span> <span class="o">+=</span> <span class="n">c</span><span class="o">.</span><span class="n">violation_from_value</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">gi</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">cv</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_feasible_mask</span><span class="p">(</span>
+    <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InequalityConstraint</span><span class="p">],</span>
+    <span class="n">g</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Mark the rows whose every per-constraint violation is zero.</span>
+
+<span class="sd">    Feasibility is decided from the constraint definitions alone: a row is</span>
+<span class="sd">    feasible when :meth:`InequalityConstraint.violation_from_value` returns</span>
+<span class="sd">    zero for every constraint after its own tolerance. The decision does not</span>
+<span class="sd">    depend on how violations are aggregated into ``cv`` and does not use any</span>
+<span class="sd">    search-time epsilon relaxation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    constraints : list[InequalityConstraint]</span>
+<span class="sd">        The problem&#39;s constraints, aligned with the columns of ``g``.</span>
+<span class="sd">    g : np.ndarray</span>
+<span class="sd">        Raw constraint values per row. shape = (n_rows, n_constraints)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        Boolean mask of feasible rows. shape = (n_rows, )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">column</span><span class="p">,</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">constraints</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">column</span> <span class="o">&gt;=</span> <span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">break</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">feasible</span><span class="p">[</span><span class="n">row</span><span class="p">]:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">constraint</span><span class="o">.</span><span class="n">violation_from_value</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">column</span><span class="p">]))</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">feasible</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="n">feasible</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_feasible_rows</span><span class="p">(</span>
+    <span class="n">collection</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InequalityConstraint</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Mark the feasible rows of a population or archive.</span>
+
+<span class="sd">    Uses :func:`_feasible_mask` over the stored raw constraint values. A</span>
+<span class="sd">    collection without a ``g`` column falls back to ``cv &lt;= 0``, which the</span>
+<span class="sd">    default aggregation makes equivalent.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    collection : Population or Archive</span>
+<span class="sd">        Rows to classify. The ``g`` column is read when present.</span>
+<span class="sd">    constraints : list[InequalityConstraint]</span>
+<span class="sd">        The problem&#39;s constraints, aligned with the ``g`` columns.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        Boolean mask of feasible rows. shape = (len(collection), )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">schema</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="k">if</span> <span class="s2">&quot;g&quot;</span> <span class="ow">in</span> <span class="n">schema</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_feasible_mask</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">collection</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">))</span>
+    <span class="n">cv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cv</span> <span class="o">&lt;=</span> <span class="mf">0.0</span>
 
 
 <div class="viewcode-block" id="ConstraintHandler">
@@ -1137,6 +1246,8 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">                       -&gt; [compute_cv(constraints, x, g)]        -&gt; cv</span>
 <span class="sd">                       -&gt; [augment_objective(f, constraints, x, g)] -&gt; f&#39;</span>
 <span class="sd">        Tell           -&gt; Comparator(f&#39;, cv) with eps_cv = feasibility_threshold</span>
+<span class="sd">                       (a search-time relaxation; reported feasibility uses</span>
+<span class="sd">                       the per-constraint violations)</span>
 <span class="sd">        Generation end -&gt; [on_generation_end(gen, population)]</span>
 
 <span class="sd">    Only :meth:`compute_cv` is abstract; the remaining hooks have sensible</span>
@@ -1251,8 +1362,8 @@ window.runMermaid = runMermaid;</script>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">feasibility_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Constraint-violation threshold below which a solution is feasible.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="mf">1e-6</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Search-time threshold the comparator copies onto its ``eps_cv``.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
 
 <div class="viewcode-block" id="ConstraintHandler.on_generation_end">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.ConstraintHandler.html#saealib.ConstraintHandler.on_generation_end">[ドキュメント]</a>
@@ -1290,13 +1401,16 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    eps_cv : float, optional</span>
-<span class="sd">        Feasibility threshold returned by :attr:`feasibility_threshold`.</span>
-<span class="sd">        Default: 1e-6.</span>
+<span class="sd">        Search-time feasibility relaxation returned by</span>
+<span class="sd">        :attr:`feasibility_threshold` and copied onto the comparator. The</span>
+<span class="sd">        default of 0.0 treats a solution as feasible only when</span>
+<span class="sd">        :func:`sum_violation` is zero, which matches the per-constraint</span>
+<span class="sd">        feasibility decision.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="StaticToleranceHandler.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.StaticToleranceHandler.html#saealib.StaticToleranceHandler.__init__">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eps_cv</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eps_cv</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_eps_cv</span> <span class="o">=</span> <span class="n">eps_cv</span></div>
 
 
@@ -1308,16 +1422,13 @@ window.runMermaid = runMermaid;</script>
         <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">g</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the sum of per-constraint ``c_i.violation_from_value(g_i)``.&quot;&quot;&quot;</span>
-        <span class="n">cv</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">for</span> <span class="n">gi</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">constraints</span><span class="p">):</span>
-            <span class="n">cv</span> <span class="o">+=</span> <span class="n">c</span><span class="o">.</span><span class="n">violation_from_value</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">gi</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">cv</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return :func:`sum_violation` of the raw constraint values.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">sum_violation</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span></div>
 
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">feasibility_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fixed feasibility threshold ``eps_cv``.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fixed search-time feasibility relaxation ``eps_cv``.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eps_cv</span></div>
 
 
@@ -1550,11 +1661,8 @@ window.runMermaid = runMermaid;</script>
         <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">g</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return sum of per-constraint violations (same as StaticToleranceHandler).&quot;&quot;&quot;</span>
-        <span class="n">cv</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">for</span> <span class="n">gi</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">constraints</span><span class="p">):</span>
-            <span class="n">cv</span> <span class="o">+=</span> <span class="n">c</span><span class="o">.</span><span class="n">violation_from_value</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">gi</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">cv</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return :func:`sum_violation` of the raw constraint values.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">sum_violation</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span></div>
 </div>
 
 

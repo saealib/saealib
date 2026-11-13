@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Result &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>saealib.Result &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1036,8 +1036,10 @@ spaces; use <code class="docutils literal notranslate"><span class="pre">problem
 <dt class="sig sig-object py" id="saealib.Result.from_state">
 <em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">Result.</span></span><span class="sig-name descname"><span class="pre">from_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/result.html#Result.from_state"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Result.from_state" title="Link to this definition">#</a></dt>
 <dd><p>Build a result from the final or currently observed state.</p>
-<p>Result feasibility uses <code class="docutils literal notranslate"><span class="pre">problem.eps_cv</span></code> and intentionally differs
-from <code class="docutils literal notranslate"><span class="pre">problem.handler.feasibility_threshold</span></code>.</p>
+<p>A solution is feasible when every per-constraint violation is zero
+after its own tolerance, so the reported result does not depend on the
+aggregation that produced <code class="docutils literal notranslate"><span class="pre">cv</span></code> or on a search-time epsilon
+relaxation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>state</strong> (<em>OptimizationState</em>)</p>
@@ -1082,17 +1084,15 @@ to minimize-space before an indicator runs, and neither is normalized,
 so an indicator value keeps raw objective units.</p>
 <p>Indicators read the <code class="docutils literal notranslate"><span class="pre">front</span></code> channel, a per-generation snapshot of the
 Pareto archive holding objective values alone, with no constraint
-violation column. That archive judges feasibility by its own <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>,
-which the built-in algorithms leave at <code class="docutils literal notranslate"><span class="pre">0.0</span></code>, so it admits a solution
-as feasible only at exactly zero violation. While it holds no such
-solution, constrained dominance reduces the front to the lowest-cv
-solutions and an indicator over that generation describes an infeasible
-front; <code class="docutils literal notranslate"><span class="pre">front_size</span></code> collapsing to a single point is the visible sign.</p>
-<p>Feasibility elsewhere in the series rests on different thresholds:
-<code class="docutils literal notranslate"><span class="pre">&quot;best&quot;</span></code> selects from the archive under <code class="docutils literal notranslate"><span class="pre">problem.eps_cv</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">&quot;feasible_ratio&quot;</span></code> counts the population under the running
-<code class="docutils literal notranslate"><span class="pre">problem.handler.feasibility_threshold</span></code>. The three are independent
-and can disagree, most visibly while epsilon is relaxed.</p>
+violation column. The archive decides feasibility from the problem's
+constraints, so it admits a solution only when every per-constraint
+violation is zero. While it holds no such solution, constrained
+dominance reduces the front to the lowest-cv solutions and an indicator
+over that generation describes an infeasible front; <code class="docutils literal notranslate"><span class="pre">front_size</span></code>
+collapsing to a single point is the visible sign.</p>
+<p><code class="docutils literal notranslate"><span class="pre">&quot;best&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;feasible_ratio&quot;</span></code> use the same constraint-based
+decision, so relaxing the comparator during an epsilon-constrained run
+changes neither; <code class="docutils literal notranslate"><span class="pre">min_cv</span></code> describes the population's raw violation.</p>
 </dd></dl>
 
 </section>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.surrogate.training_set &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.surrogate.training_set &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1010,6 +1010,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.archive</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.genome</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenseVectorBatch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem.constraint</span><span class="w"> </span><span class="kn">import</span> <span class="n">_feasible_rows</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.space.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">_encode_features</span><span class="p">,</span> <span class="n">_encode_features_with_default</span>
 
@@ -1154,8 +1155,9 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        population:</span>
 <span class="sd">            Current population. Not used by all implementations.</span>
 <span class="sd">        ctx:</span>
-<span class="sd">            Optimization context. Provides ``comparator``, ``problem.eps_cv``,</span>
-<span class="sd">            etc. Required by ranking- and comparison-based implementations.</span>
+<span class="sd">            Optimization context. Provides ``comparator``,</span>
+<span class="sd">            ``problem.constraints``, etc. Required by ranking- and</span>
+<span class="sd">            comparison-based implementations.</span>
 <span class="sd">        candidate_x:</span>
 <span class="sd">            Centre point for k-NN queries (shape ``(dim,)``). Passed by</span>
 <span class="sd">            ``LocalSurrogateManager`` for each candidate; ``None`` when called</span>
@@ -1346,8 +1348,11 @@ window.runMermaid = runMermaid;</script>
 <span class="k">class</span><span class="w"> </span><span class="nc">FeasibilityClassificationSet</span><span class="p">(</span><span class="n">TrainingSet</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Binary labels derived from constraint violation: 1 if feasible, 0 otherwise.</span>
 
-<span class="sd">    A sample is feasible when ``cv &lt;= eps_cv``, where ``eps_cv`` is taken from</span>
-<span class="sd">    ``ctx.problem.eps_cv`` (defaults to ``1e-6`` when ``ctx`` is ``None``).</span>
+<span class="sd">    A sample is feasible when every per-constraint violation in the ``g``</span>
+<span class="sd">    column is zero after its own tolerance, the same decision ``Result`` and</span>
+<span class="sd">    the summary history use. Without ``ctx`` the constraints are unknown, so a</span>
+<span class="sd">    sample is feasible when ``cv &lt;= 0``, which the default aggregation makes</span>
+<span class="sd">    equivalent.</span>
 
 <span class="sd">    This set is algo-agnostic and works with any surrogate that accepts binary</span>
 <span class="sd">    classification targets (shape ``(n_train,)``).</span>
@@ -1390,9 +1395,11 @@ window.runMermaid = runMermaid;</script>
             <span class="n">src</span> <span class="o">=</span> <span class="n">population</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">src</span> <span class="o">=</span> <span class="n">archive</span>
-        <span class="n">eps</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">eps_cv</span> <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">1e-6</span>
-        <span class="n">labels</span> <span class="o">=</span> <span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">eps</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">TrainingData</span><span class="p">(</span><span class="n">train_x</span><span class="o">=</span><span class="n">src</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="n">train_y</span><span class="o">=</span><span class="n">labels</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">feasible</span> <span class="o">=</span> <span class="n">_feasible_rows</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">constraints</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">0.0</span>
+        <span class="k">return</span> <span class="n">TrainingData</span><span class="p">(</span><span class="n">train_x</span><span class="o">=</span><span class="n">src</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="n">train_y</span><span class="o">=</span><span class="n">feasible</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">))</span></div>
 </div>
 
 

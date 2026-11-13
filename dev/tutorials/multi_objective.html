@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Multi-Objective Optimization &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>Multi-Objective Optimization &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../_static/documentation_options.js?v=f572a240"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -612,7 +612,7 @@ Set multi-objective ranking by choosing one of the following Comparators.</p>
 <section id="choose-a-comparator">
 <h2>Choose a comparator<a class="headerlink" href="#choose-a-comparator" title="Link to this heading">#</a></h2>
 <p>In multi-objective optimization, <code class="docutils literal notranslate"><span class="pre">Comparator</span></code> decides the relative superiority between candidate solutions.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">Problem</span></code>’s <code class="docutils literal notranslate"><span class="pre">comparator</span></code> argument is omitted, one is auto-selected based on the number of objectives (<code class="docutils literal notranslate"><span class="pre">SingleObjectiveComparator</span></code> when <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">==</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code> when <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>).</p>
+<p>If no comparator is set, one is auto-selected based on the number of objectives (<code class="docutils literal notranslate"><span class="pre">SingleObjectiveComparator</span></code> when <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">==</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code> when <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>).</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Class</p></th>
@@ -641,13 +641,20 @@ Set multi-objective ranking by choosing one of the following Comparators.</p>
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">comparator</span></code> can be swapped as an attribute of the <code class="docutils literal notranslate"><span class="pre">Problem</span></code> instance.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypervolumeComparator</span>
+<p>Set the comparator on the <code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> with <code class="docutils literal notranslate"><span class="pre">Optimizer.set_comparator()</span></code>.
+An explicitly set comparator takes precedence over the default, and the comparator is recorded on the run state as <code class="docutils literal notranslate"><span class="pre">ctx.comparator</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimizer</span><span class="p">,</span> <span class="n">Termination</span><span class="p">,</span> <span class="n">max_fe</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypervolumeComparator</span>
 
-<span class="n">problem</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">HypervolumeComparator</span><span class="p">()</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_fe</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_comparator</span><span class="p">(</span><span class="n">HypervolumeComparator</span><span class="p">())</span>
+    <span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">2000</span><span class="p">)))</span>
+<span class="p">)</span>
+<span class="n">ctx</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">Problem(comparator=...)</span></code> still works but is deprecated; it emits a <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code> and the value is adopted as the optimizer’s explicit comparator.</p>
 </section>
 <section id="extract-the-pareto-front">
 <h2>Extract the Pareto front<a class="headerlink" href="#extract-the-pareto-front" title="Link to this heading">#</a></h2>

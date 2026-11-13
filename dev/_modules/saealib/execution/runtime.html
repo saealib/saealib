@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -2688,6 +2688,10 @@ window.runMermaid = runMermaid;</script>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current_services</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="n">current_services</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_binding_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">version</span>
+            <span class="n">comparator</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">comparator</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">comparator</span>
+                <span class="n">prepare_state_comparator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publish_scheduler</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
 
@@ -3082,9 +3086,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_increment_step</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">handler</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span>
         <span class="n">handler</span><span class="o">.</span><span class="n">on_generation_end</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">gen</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">population</span><span class="p">)</span>
-        <span class="n">threshold</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">feasibility_threshold</span>
-        <span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">threshold</span>
-        <span class="n">state</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">threshold</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">feasibility_threshold</span>
         <span class="n">manager</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">manager</span><span class="o">.</span><span class="n">on_generation_end</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">gen</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
@@ -3222,6 +3224,16 @@ window.runMermaid = runMermaid;</script>
     <span class="n">sequential</span> <span class="o">=</span> <span class="n">SequentialPlan</span><span class="o">.</span><span class="n">from_executable_plan</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
     <span class="n">environment</span> <span class="o">=</span> <span class="n">_OptimizerEnvironment</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">sequential</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">environment</span><span class="o">.</span><span class="n">execute_async</span><span class="p">(</span><span class="n">sequential</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">prepare_state_comparator</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Bind the run state&#39;s comparator to the search criteria of this run.&quot;&quot;&quot;</span>
+    <span class="n">comparator</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">comparator</span>
+    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">comparator</span><span class="p">,</span> <span class="s2">&quot;direction&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">comparator</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span>
+    <span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">feasibility_threshold</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span><span class="p">)</span> <span class="ow">and</span> <span class="n">comparator</span><span class="o">.</span><span class="n">_rng</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">comparator</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">PipelineRuntime</span><span class="p">:</span>
@@ -3677,14 +3689,7 @@ window.runMermaid = runMermaid;</script>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_state</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">threshold</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">feasibility_threshold</span>
-        <span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">threshold</span>
-        <span class="n">state</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">threshold</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="nb">isinstance</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">_rng</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="p">):</span>
-            <span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">prepare_state_comparator</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">AsyncPipelineRuntime</span><span class="p">(</span><span class="n">PipelineRuntime</span><span class="p">):</span>

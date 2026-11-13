@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>ConstraintHandler &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>ConstraintHandler &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -612,10 +612,22 @@ The default is <code class="docutils literal notranslate"><span class="pre">np.c
 <p><strong><code class="docutils literal notranslate"><span class="pre">augment_objective(f,</span> <span class="pre">constraints,</span> <span class="pre">x,</span> <span class="pre">g)</span></code></strong>: Transforms the objective value using constraint information.
 The default is the identity function (no transformation) — this is where you’d override to implement a penalty-function method or the augmented Lagrangian method.
 None of the three built-in handlers override this hook, so it’s currently left open as a future extension point.</p>
-<p><strong><code class="docutils literal notranslate"><span class="pre">feasibility_threshold</span></code></strong> (property): Defaults to <code class="docutils literal notranslate"><span class="pre">1e-6</span></code>.
-This value is used as <code class="docutils literal notranslate"><span class="pre">Comparator</span></code>’s <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>, and is synchronized every generation during an <code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> run.</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">feasibility_threshold</span></code></strong> (property): Defaults to <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.
+This value is a search-time relaxation: the runtime copies it onto the comparator’s <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> every generation during an <code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> run, and it never decides reported feasibility.</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">on_generation_end(gen,</span> <span class="pre">population)</span></code></strong>: Called at the end of a generation.
 The default is a no-op; used by handlers with internal state that updates an ε value per generation, such as <code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code>.</p>
+</section>
+<section id="constraint-violation-and-feasibility">
+<h2>Constraint violation and feasibility<a class="headerlink" href="#constraint-violation-and-feasibility" title="Link to this heading">#</a></h2>
+<p>Feasibility is decided from the constraint definitions, not from the aggregate <code class="docutils literal notranslate"><span class="pre">cv</span></code>: a solution is feasible when <code class="docutils literal notranslate"><span class="pre">violation_from_value</span></code> returns zero for every constraint after its own tolerance, that is <code class="docutils literal notranslate"><span class="pre">g(x)</span> <span class="pre">&lt;=</span> <span class="pre">threshold</span></code> for an inequality and <code class="docutils literal notranslate"><span class="pre">|h(x)|</span> <span class="pre">&lt;=</span> <span class="pre">tolerance</span></code> for an equality.
+<code class="docutils literal notranslate"><span class="pre">Result</span></code>, the history’s <code class="docutils literal notranslate"><span class="pre">best_f</span></code> and <code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>, the <code class="docutils literal notranslate"><span class="pre">FeasibilityClassificationSet</span></code> training set, and the Pareto archive all use this decision, so relaxing a comparator during search never changes what is reported as feasible.
+To classify rows yourself, apply <code class="docutils literal notranslate"><span class="pre">violation_from_value</span></code> to each row’s <code class="docutils literal notranslate"><span class="pre">g</span></code> column: a row is feasible when every result is zero.</p>
+<p>The aggregate <code class="docutils literal notranslate"><span class="pre">cv</span></code> has one job: ordering infeasible solutions against each other.
+Its contract is <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">==</span> <span class="pre">0</span></code> if and only if every per-constraint violation is zero, plus monotonicity.
+The default aggregation is <code class="docutils literal notranslate"><span class="pre">sum_violation</span></code>, the sum of the per-constraint violations, which is also what <code class="docutils literal notranslate"><span class="pre">StaticToleranceHandler</span></code> computes.
+<code class="docutils literal notranslate"><span class="pre">Problem(cv_aggregator=...)</span></code> replaces it with any callable <code class="docutils literal notranslate"><span class="pre">cv_aggregator(constraints,</span> <span class="pre">x,</span> <span class="pre">g)</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code>, including a plain function; without <code class="docutils literal notranslate"><span class="pre">cv_aggregator</span></code>, a handler’s <code class="docutils literal notranslate"><span class="pre">compute_cv</span></code> supplies <code class="docutils literal notranslate"><span class="pre">cv</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code> is a search-side exception to the aggregation contract: its formula (<code class="docutils literal notranslate"><span class="pre">|h(x)|</span></code> for equalities, <code class="docutils literal notranslate"><span class="pre">max(0,</span> <span class="pre">g(x)</span> <span class="pre">-</span> <span class="pre">threshold)</span> <span class="pre">**</span> <span class="pre">2</span></code> for inequalities) reaches zero only when an equality residual is exactly zero, which is stricter than the constraint tolerance.
+That formula is kept for the ε-constrained method, and its relaxation reaches the comparator through <code class="docutils literal notranslate"><span class="pre">feasibility_threshold</span></code>; reported feasibility always comes from the constraint definitions above.</p>
 </section>
 <section id="hooks-overridden-by-the-built-in-handlers">
 <h2>Hooks overridden by the built-in handlers<a class="headerlink" href="#hooks-overridden-by-the-built-in-handlers" title="Link to this heading">#</a></h2>
@@ -679,7 +691,7 @@ The following example is a penalty-function method that adds the constraint viol
 <h2>Related components<a class="headerlink" href="#related-components" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../../tutorials/constraints.html"><span class="std std-doc">Constrained Optimization</span></a>: Defining constraints and basic usage of the built-in handlers</p></li>
-<li><p><a class="reference internal" href="problem.html"><span class="std std-doc">Problem</span></a>: How to pass the <code class="docutils literal notranslate"><span class="pre">handler</span></code> argument</p></li>
+<li><p><a class="reference internal" href="problem.html"><span class="std std-doc">Problem</span></a>: How to pass the <code class="docutils literal notranslate"><span class="pre">handler</span></code> and <code class="docutils literal notranslate"><span class="pre">cv_aggregator</span></code> arguments</p></li>
 <li><p><a class="reference internal" href="comparators.html"><span class="std std-doc">Comparator</span></a>: Where <code class="docutils literal notranslate"><span class="pre">feasibility_threshold</span></code> is synchronized to, as <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code></p></li>
 </ul>
 </section>
@@ -692,6 +704,7 @@ The following example is a penalty-function method that adds the constraint viol
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.GradientRepairHandler.html#saealib.GradientRepairHandler" title="saealib.GradientRepairHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.GradientRepairHandler</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.InequalityConstraint.html#saealib.InequalityConstraint" title="saealib.InequalityConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.InequalityConstraint</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.EqualityConstraint.html#saealib.EqualityConstraint" title="saealib.EqualityConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.EqualityConstraint</span></code></a></p></li>
+<li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.problem.constraint.sum_violation()</span></code></p></li>
 <li><p><a class="reference internal" href="../../api/problem.html#saealib.linear_epsilon_schedule" title="saealib.linear_epsilon_schedule"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.linear_epsilon_schedule()</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/problem.html#saealib.exponential_epsilon_schedule" title="saealib.exponential_epsilon_schedule"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.exponential_epsilon_schedule()</span></code></a></p></li>
 </ul>
@@ -746,6 +759,7 @@ The following example is a penalty-function method that adds the constraint viol
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#constrainthandler-s-role">ConstraintHandler’s role</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#constraint-violation-and-feasibility">Constraint violation and feasibility</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hooks-overridden-by-the-built-in-handlers">Hooks overridden by the built-in handlers</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#extension-points-on-inequalityconstraint-equalityconstraint">Extension points on InequalityConstraint/EqualityConstraint</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implementing-a-custom-constrainthandler">Implementing a custom ConstraintHandler</a></li>

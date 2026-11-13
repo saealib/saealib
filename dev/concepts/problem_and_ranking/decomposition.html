@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Decomposition &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>Decomposition &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -634,7 +634,7 @@ A larger value applies a stronger penalty to solutions that deviate from the wei
 </section>
 <section id="decompositioncomparator">
 <h2>DecompositionComparator<a class="headerlink" href="#decompositioncomparator" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">DecompositionComparator(decomposition,</span> <span class="pre">weights,</span> <span class="pre">ideal_point=None,</span> <span class="pre">direction=None,</span> <span class="pre">*,</span> <span class="pre">eps_cv=1e-6,</span> <span class="pre">eps_obj=1e-6)</span></code> implements MOEA/D-style ranking as a subclass of <a class="reference internal" href="comparators.html"><span class="std std-doc">Comparator</span></a>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">DecompositionComparator(decomposition,</span> <span class="pre">weights,</span> <span class="pre">ideal_point=None,</span> <span class="pre">direction=None,</span> <span class="pre">*,</span> <span class="pre">eps_cv=0.0,</span> <span class="pre">eps_obj=1e-6)</span></code> implements MOEA/D-style ranking as a subclass of <a class="reference internal" href="comparators.html"><span class="std std-doc">Comparator</span></a>.</p>
 <p>The ordering rule prioritizes feasibility (feasibility-first <span class="bibtex-citation" id="id5">[<a class="reference internal" href="../../references.html#id33" title="Kalyanmoy Deb. An efficient constraint handling method for genetic algorithms. Computer Methods in Applied Mechanics and Engineering, 186(2–4):311–338, 2000. doi:10.1016/S0045-7825(99)00389-8.">10</a>]</span>), then sorts by ascending aggregated score.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">ideal_point</span></code> is omitted (<code class="docutils literal notranslate"><span class="pre">None</span></code>), <code class="docutils literal notranslate"><span class="pre">sort_population</span></code> dynamically computes the ideal point from the population’s feasible individuals.
 <code class="docutils literal notranslate"><span class="pre">compare</span></code>, which compares only two points, on the other hand, uses the minimum of those two points’ objective values as a local approximation of the ideal point.

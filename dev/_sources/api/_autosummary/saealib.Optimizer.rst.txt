@@ -31,6 +31,7 @@
    ~Optimizer.set_acquisition
    ~Optimizer.set_algorithm
    ~Optimizer.set_async_evaluation_scheduler
+   ~Optimizer.set_comparator
    ~Optimizer.set_evaluation_planner
    ~Optimizer.set_evaluator
    ~Optimizer.set_feedback_builder
@@ -99,6 +100,9 @@
 
 
 .. automethod:: saealib.Optimizer.set_async_evaluation_scheduler
+
+
+.. automethod:: saealib.Optimizer.set_comparator
 
 
 .. automethod:: saealib.Optimizer.set_evaluation_planner

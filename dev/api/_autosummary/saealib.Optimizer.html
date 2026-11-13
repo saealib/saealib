@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Optimizer &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.Optimizer &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1102,43 +1102,46 @@ model manager, and termination condition, and manages the optimization process.<
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_async_evaluation_scheduler" title="saealib.Optimizer.set_async_evaluation_scheduler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_async_evaluation_scheduler</span></code></a></p></td>
 <td><p>Configure asynchronous evaluation for built-in strategies.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_evaluation_planner" title="saealib.Optimizer.set_evaluation_planner"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_evaluation_planner</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_comparator" title="saealib.Optimizer.set_comparator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_comparator</span></code></a></p></td>
+<td><p>Set the comparator that orders solutions.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_evaluation_planner" title="saealib.Optimizer.set_evaluation_planner"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_evaluation_planner</span></code></a></p></td>
 <td><p>Set the evaluation planner.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_evaluator" title="saealib.Optimizer.set_evaluator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_evaluator</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_evaluator" title="saealib.Optimizer.set_evaluator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_evaluator</span></code></a></p></td>
 <td><p>Set the evaluator.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_feedback_builder" title="saealib.Optimizer.set_feedback_builder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_feedback_builder</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_feedback_builder" title="saealib.Optimizer.set_feedback_builder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_feedback_builder</span></code></a></p></td>
 <td><p>Set the feedback builder.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_history" title="saealib.Optimizer.set_history"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_history</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_history" title="saealib.Optimizer.set_history"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_history</span></code></a></p></td>
 <td><p>Set execution history channels and return self.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_initializer" title="saealib.Optimizer.set_initializer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_initializer</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_initializer" title="saealib.Optimizer.set_initializer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_initializer</span></code></a></p></td>
 <td><p>Set the initializer.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_instance_name" title="saealib.Optimizer.set_instance_name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_instance_name</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_instance_name" title="saealib.Optimizer.set_instance_name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_instance_name</span></code></a></p></td>
 <td><p>Set the instance name.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_preset" title="saealib.Optimizer.set_preset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_preset</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_preset" title="saealib.Optimizer.set_preset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_preset</span></code></a></p></td>
 <td><p>Set a user-defined preset.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_seed" title="saealib.Optimizer.set_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seed</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_seed" title="saealib.Optimizer.set_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seed</span></code></a></p></td>
 <td><p>Set the master random seed.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_strategy" title="saealib.Optimizer.set_strategy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_strategy</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_strategy" title="saealib.Optimizer.set_strategy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_strategy</span></code></a></p></td>
 <td><p>Set the optimization strategy.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_surrogate" title="saealib.Optimizer.set_surrogate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_surrogate</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_surrogate" title="saealib.Optimizer.set_surrogate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_surrogate</span></code></a></p></td>
 <td><p>Wrap a raw Surrogate in a LocalSurrogateManager.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_surrogate_manager" title="saealib.Optimizer.set_surrogate_manager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_surrogate_manager</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_surrogate_manager" title="saealib.Optimizer.set_surrogate_manager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_surrogate_manager</span></code></a></p></td>
 <td><p>Set the surrogate manager.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_termination" title="saealib.Optimizer.set_termination"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_termination</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_termination" title="saealib.Optimizer.set_termination"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_termination</span></code></a></p></td>
 <td><p>Set the termination condition.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.validate" title="saealib.Optimizer.validate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.validate" title="saealib.Optimizer.validate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate</span></code></a></p></td>
 <td><p>Check configuration consistency.</p></td>
 </tr>
 </tbody>
@@ -1460,6 +1463,20 @@ problems of different dimensionality.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="saealib.Optimizer.set_comparator">
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_comparator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comparator</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_comparator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_comparator" title="Link to this definition">#</a></dt>
+<dd><p>Set the comparator that orders solutions. Returns self.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>comparator</strong> (<a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><em>Comparator</em></a>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Self</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.set_evaluation_planner">
 <span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_evaluation_planner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">planner</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_evaluation_planner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_evaluation_planner" title="Link to this definition">#</a></dt>
 <dd><p>Set the evaluation planner.</p>
@@ -1732,6 +1749,7 @@ resuming from a checkpoint where initialization is not needed.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.set_acquisition"><code class="docutils literal notranslate"><span class="pre">Optimizer.set_acquisition()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.set_algorithm"><code class="docutils literal notranslate"><span class="pre">Optimizer.set_algorithm()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.set_async_evaluation_scheduler"><code class="docutils literal notranslate"><span class="pre">Optimizer.set_async_evaluation_scheduler()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.set_comparator"><code class="docutils literal notranslate"><span class="pre">Optimizer.set_comparator()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.set_evaluation_planner"><code class="docutils literal notranslate"><span class="pre">Optimizer.set_evaluation_planner()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.set_evaluator"><code class="docutils literal notranslate"><span class="pre">Optimizer.set_evaluator()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.set_feedback_builder"><code class="docutils literal notranslate"><span class="pre">Optimizer.set_feedback_builder()</span></code></a></li>

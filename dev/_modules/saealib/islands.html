@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.islands &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.islands &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -984,8 +984,10 @@ window.runMermaid = runMermaid;</script>
 <span class="k">class</span><span class="w"> </span><span class="nc">IslandModel</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run optimizers in parallel and periodically exchange individuals.</span>
 
-<span class="sd">    Migration selects the best individuals from a source island using its</span>
-<span class="sd">    problem comparator and overwrites the worst rows of the target population.</span>
+<span class="sd">    Migration selects the best individuals from a source island using that</span>
+<span class="sd">    island&#39;s own resolved comparator and overwrites the worst rows of the</span>
+<span class="sd">    target population. Each optimizer resolves its own default comparator, so</span>
+<span class="sd">    islands do not share one unless the same instance is set explicitly.</span>
 <span class="sd">    The target rows&#39; existing ``id`` values are intentionally retained: an</span>
 <span class="sd">    island migration is a value transfer, not a candidate-identity transfer.</span>
 

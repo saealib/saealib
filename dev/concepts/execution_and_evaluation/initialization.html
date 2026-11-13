@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Initializer &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>Initializer &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -631,11 +631,12 @@ All four evaluate the initial Archive, rank it with the Comparator, and pass the
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Sample</span> <span class="p">(</span><span class="n">n_init_archive</span> <span class="n">points</span><span class="p">)</span>
   <span class="o">-&gt;</span> <span class="n">Evaluate</span> <span class="n">via</span> <span class="n">provider</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">evaluate_batch</span>
   <span class="o">-&gt;</span> <span class="n">add</span> <span class="n">to</span> <span class="n">archive</span> <span class="o">/</span> <span class="n">pareto_archive</span>
-  <span class="o">-&gt;</span> <span class="n">Rank</span> <span class="n">via</span> <span class="n">problem</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span>
+  <span class="o">-&gt;</span> <span class="n">Rank</span> <span class="n">via</span> <span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span>
   <span class="o">-&gt;</span> <span class="n">Feed</span> <span class="n">the</span> <span class="n">top</span> <span class="n">n_init_population</span> <span class="n">into</span> <span class="n">population</span>
 </pre></div>
 </div>
-<p>Because this ranks a freshly assembled Archive rather than reusing state from a prior selection, it calls <code class="docutils literal notranslate"><span class="pre">rank_population</span></code> rather than <code class="docutils literal notranslate"><span class="pre">sort_population</span></code> directly — see <a class="reference internal" href="../problem_and_ranking/comparators.html"><span class="std std-doc">Comparator</span></a> for the distinction.
+<p>The comparator used here is the one resolved for the optimizer, which is created before the initializer because the default population size and the initial ranking both depend on it; it is the same object the run exposes as <code class="docutils literal notranslate"><span class="pre">state.comparator</span></code>.
+Because this ranks a freshly assembled Archive rather than reusing state from a prior selection, it calls <code class="docutils literal notranslate"><span class="pre">rank_population</span></code> rather than <code class="docutils literal notranslate"><span class="pre">sort_population</span></code> directly — see <a class="reference internal" href="../problem_and_ranking/comparators.html"><span class="std std-doc">Comparator</span></a> for the distinction.
 For a Comparator like <code class="docutils literal notranslate"><span class="pre">SPEA2Comparator</span></code>, this is also what first populates its persisted ranking state (<code class="docutils literal notranslate"><span class="pre">spea2_fitness</span></code>) on the initial Population.</p>
 <p>The three classes’ implementations are nearly identical except for the one line doing the sampling — this is a deliberate choice for simplicity, a design that doesn’t over-abstract the shared processing.</p>
 </section>

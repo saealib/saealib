@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>学習データ集合 &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>学習データ集合 &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -670,7 +670,7 @@
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FeasibilityClassificationSet</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">source=&quot;archive&quot;</span></code></p></td>
-<td><p>による二値分類ラベル <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code>。</p></td>
+<td><p>制約ごとの実行可能性判定による二値分類ラベル。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">TopKBipartitionSet</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">source=&quot;archive&quot;,</span> <span class="pre">top_ratio=0.5</span></code></p></td>
@@ -692,7 +692,7 @@
 </table>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">ConstraintObjectiveSet</span></code>/<code class="docutils literal notranslate"><span class="pre">KNNConstraintObjectiveSet</span></code>は、問題に制約がない場合（<code class="docutils literal notranslate"><span class="pre">archive.g</span></code>の列数が0）に<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>を送出します。</p>
-<p><code class="docutils literal notranslate"><span class="pre">FeasibilityClassificationSet</span></code>の実行可能性判定に使う<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>は<code class="docutils literal notranslate"><span class="pre">ctx.problem.eps_cv</span></code>から取得し、<code class="docutils literal notranslate"><span class="pre">ctx=None</span></code>の場合は<code class="docutils literal notranslate"><span class="pre">1e-6</span></code>にフォールバックします。</p>
+<p><code class="docutils literal notranslate"><span class="pre">FeasibilityClassificationSet</span></code>は、<code class="docutils literal notranslate"><span class="pre">g</span></code>の制約ごとの違反量が許容幅の内側ですべて0のサンプルを実行可能とラベル付けします。<code class="docutils literal notranslate"><span class="pre">Result</span></code>とsummary履歴が使うのと同じ判定です。<code class="docutils literal notranslate"><span class="pre">ctx</span></code>が無い場合は制約が分からないため<code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">0</span></code>にフォールバックします。</p>
 <p><code class="docutils literal notranslate"><span class="pre">source</span></code>引数を持つクラス（<code class="docutils literal notranslate"><span class="pre">FeasibilityClassificationSet</span></code>/<code class="docutils literal notranslate"><span class="pre">TopKBipartitionSet</span></code>/<code class="docutils literal notranslate"><span class="pre">LevelBasedSet</span></code>/<code class="docutils literal notranslate"><span class="pre">PairwiseComparisonSet</span></code>）は、<code class="docutils literal notranslate"><span class="pre">source=&quot;population&quot;</span></code>を指定したときに<code class="docutils literal notranslate"><span class="pre">population=None</span></code>であれば、いずれも<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>を送出します。</p>
 <p><code class="docutils literal notranslate"><span class="pre">PairwiseComparisonSet</span></code>は、各ペア<code class="docutils literal notranslate"><span class="pre">(a,</span> <span class="pre">b)</span></code>について<code class="docutils literal notranslate"><span class="pre">train_x</span> <span class="pre">=</span> <span class="pre">[x_a,</span> <span class="pre">x_b]</span></code>を連結し、形状<code class="docutils literal notranslate"><span class="pre">(n_pairs,</span> <span class="pre">2*dim)</span></code>の配列を構築します。<code class="docutils literal notranslate"><span class="pre">comparator.compare(f_a,</span> <span class="pre">cv_a,</span> <span class="pre">f_b,</span> <span class="pre">cv_b)</span> <span class="pre">&lt;=</span> <span class="pre">0</span></code>（aがbに勝つか同点）の場合は<code class="docutils literal notranslate"><span class="pre">1</span></code>、それ以外は<code class="docutils literal notranslate"><span class="pre">0</span></code>とラベル付けします。<code class="docutils literal notranslate"><span class="pre">n_pairs=None</span></code>の場合は、すべてのペア<code class="docutils literal notranslate"><span class="pre">n*(n-1)/2</span></code>個を使います。</p>
 <div class="admonition warning">

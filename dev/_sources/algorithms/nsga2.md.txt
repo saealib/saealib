@@ -82,7 +82,6 @@ from saealib.termination import Termination, max_fe
 
 
 problem = zdt1(n_var=10)
-problem.comparator = NSGA2Comparator()
 
 algorithm = GA(
     CrossoverSBX(prob=0.9, eta=20.0),
@@ -101,7 +100,7 @@ ctx = opt.run()
 pareto_f = ctx.pareto_archive.get_array("f")
 ```
 
-The `problem.comparator = NSGA2Comparator()` line can be omitted, since it's the same as the default when `n_obj > 1`.
+The `NSGA2Comparator` is the default when `n_obj > 1`, so setting it explicitly is optional.
 Because no surrogate is used at all, there's no need to call `set_surrogate_manager()` on the `Optimizer`.
 
 ## Differences from the source

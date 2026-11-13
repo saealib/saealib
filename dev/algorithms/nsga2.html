@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>NSGA-II (Nondominated Sorting Genetic Algorithm II) &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>NSGA-II (Nondominated Sorting Genetic Algorithm II) &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../_static/documentation_options.js?v=f572a240"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1089,7 +1089,6 @@ It combines non-dominated sorting with crowding distance to simultaneously achie
 
 
 <span class="n">problem</span> <span class="o">=</span> <span class="n">zdt1</span><span class="p">(</span><span class="n">n_var</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-<span class="n">problem</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">NSGA2Comparator</span><span class="p">()</span>
 
 <span class="n">algorithm</span> <span class="o">=</span> <span class="n">GA</span><span class="p">(</span>
     <span class="n">CrossoverSBX</span><span class="p">(</span><span class="n">prob</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">20.0</span><span class="p">),</span>
@@ -1108,7 +1107,7 @@ It combines non-dominated sorting with crowding distance to simultaneously achie
 <span class="n">pareto_f</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">problem.comparator</span> <span class="pre">=</span> <span class="pre">NSGA2Comparator()</span></code> line can be omitted, since it’s the same as the default when <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>.
+<p>The <code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code> is the default when <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, so setting it explicitly is optional.
 Because no surrogate is used at all, there’s no need to call <code class="docutils literal notranslate"><span class="pre">set_surrogate_manager()</span></code> on the <code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>.</p>
 </section>
 <section id="differences-from-the-source">

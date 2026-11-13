@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.result &#8212; saealib 0.1.1.dev44+g3449657c6 documentation</title>
+    <title>saealib.result &#8212; saealib 0.1.1.dev46+g2b77c1d2c documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6250e482"></script>
+    <script src="../../_static/documentation_options.js?v=f572a240"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1047,15 +1047,20 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">from_state</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Result</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a result from the final or currently observed state.</span>
 
-<span class="sd">        Result feasibility uses ``problem.eps_cv`` and intentionally differs</span>
-<span class="sd">        from ``problem.handler.feasibility_threshold``.</span>
+<span class="sd">        A solution is feasible when every per-constraint violation is zero</span>
+<span class="sd">        after its own tolerance, so the reported result does not depend on the</span>
+<span class="sd">        aggregation that produced ``cv`` or on a search-time epsilon</span>
+<span class="sd">        relaxation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem.constraint</span><span class="w"> </span><span class="kn">import</span> <span class="n">_feasible_rows</span>
+
         <span class="n">archive_f</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
         <span class="n">archive_cv</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">)</span>
         <span class="n">direction</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span>
-        <span class="n">eps</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">eps_cv</span>
 
-        <span class="n">feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">archive_cv</span> <span class="o">&lt;=</span> <span class="n">eps</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span>
+            <span class="n">_feasible_rows</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">constraints</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">feasible</span><span class="p">):</span>
             <span class="n">pool</span> <span class="o">=</span> <span class="n">feasible</span>
         <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive_cv</span><span class="p">):</span>
@@ -1172,18 +1177,16 @@ window.runMermaid = runMermaid;</script>
 
 <span class="sd">        Indicators read the ``front`` channel, a per-generation snapshot of the</span>
 <span class="sd">        Pareto archive holding objective values alone, with no constraint</span>
-<span class="sd">        violation column. That archive judges feasibility by its own ``eps_cv``,</span>
-<span class="sd">        which the built-in algorithms leave at ``0.0``, so it admits a solution</span>
-<span class="sd">        as feasible only at exactly zero violation. While it holds no such</span>
-<span class="sd">        solution, constrained dominance reduces the front to the lowest-cv</span>
-<span class="sd">        solutions and an indicator over that generation describes an infeasible</span>
-<span class="sd">        front; ``front_size`` collapsing to a single point is the visible sign.</span>
+<span class="sd">        violation column. The archive decides feasibility from the problem&#39;s</span>
+<span class="sd">        constraints, so it admits a solution only when every per-constraint</span>
+<span class="sd">        violation is zero. While it holds no such solution, constrained</span>
+<span class="sd">        dominance reduces the front to the lowest-cv solutions and an indicator</span>
+<span class="sd">        over that generation describes an infeasible front; ``front_size``</span>
+<span class="sd">        collapsing to a single point is the visible sign.</span>
 
-<span class="sd">        Feasibility elsewhere in the series rests on different thresholds:</span>
-<span class="sd">        ``&quot;best&quot;`` selects from the archive under ``problem.eps_cv``, and</span>
-<span class="sd">        ``&quot;feasible_ratio&quot;`` counts the population under the running</span>
-<span class="sd">        ``problem.handler.feasibility_threshold``. The three are independent</span>
-<span class="sd">        and can disagree, most visibly while epsilon is relaxed.</span>
+<span class="sd">        ``&quot;best&quot;`` and ``&quot;feasible_ratio&quot;`` use the same constraint-based</span>
+<span class="sd">        decision, so relaxing the comparator during an epsilon-constrained run</span>
+<span class="sd">        changes neither; ``min_cv`` describes the population&#39;s raw violation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">x</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_HISTORY_X</span><span class="p">:</span>
             <span class="n">valid</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot;&#39;</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_HISTORY_X_NAMES</span><span class="p">)</span>

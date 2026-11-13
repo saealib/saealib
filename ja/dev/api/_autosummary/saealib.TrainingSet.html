@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.TrainingSet &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>saealib.TrainingSet &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -942,8 +942,9 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>archive</strong> (<a class="reference internal" href="saealib.Archive.html#saealib.Archive" title="saealib.Archive"><em>Archive</em></a>) -- Evaluated solutions archive.</p></li>
 <li><p><strong>population</strong> (<a class="reference internal" href="saealib.Population.html#saealib.Population" title="saealib.Population"><em>Population</em></a><em> | </em><em>None</em>) -- Current population. Not used by all implementations.</p></li>
-<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>) -- Optimization context. Provides <code class="docutils literal notranslate"><span class="pre">comparator</span></code>, <code class="docutils literal notranslate"><span class="pre">problem.eps_cv</span></code>,
-etc. Required by ranking- and comparison-based implementations.</p></li>
+<li><p><strong>ctx</strong> (<em>OptimizationState</em><em> | </em><em>None</em>) -- Optimization context. Provides <code class="docutils literal notranslate"><span class="pre">comparator</span></code>,
+<code class="docutils literal notranslate"><span class="pre">problem.constraints</span></code>, etc. Required by ranking- and
+comparison-based implementations.</p></li>
 <li><p><strong>candidate_x</strong> (<em>np.ndarray</em><em> | </em><em>None</em>) -- Centre point for k-NN queries (shape <code class="docutils literal notranslate"><span class="pre">(dim,)</span></code>). Passed by
 <code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager</span></code> for each candidate; <code class="docutils literal notranslate"><span class="pre">None</span></code> when called
 from <code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager</span></code>.</p></li>

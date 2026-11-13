@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Comparator &#8212; saealib 0.1.1.dev44+g3449657c6 ドキュメント</title>
+    <title>Comparator &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fb4a5f2c"></script>
+    <script src="../../_static/documentation_options.js?v=6c6819ee"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -594,8 +594,24 @@
                   
   <section class="tex2jax_ignore mathjax_ignore" id="comparator">
 <h1>Comparator<a class="headerlink" href="#comparator" title="Link to this heading">#</a></h1>
-<div class="layer-badges"><span class="layer-badge">Layer 2: Compose</span></div><p><code class="docutils literal notranslate"><span class="pre">Problem</span></code>は、解の相対的な優劣を判断する処理を、差し替え可能なトップレベルコンポーネントである<code class="docutils literal notranslate"><span class="pre">Comparator</span></code>に委ねています。
-<code class="docutils literal notranslate"><span class="pre">Problem</span></code>の<code class="docutils literal notranslate"><span class="pre">comparator</span></code>引数で渡します。</p>
+<div class="layer-badges"><span class="layer-badge">Layer 2: Compose</span></div><p><code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>は、解の相対的な優劣を判断する処理を、差し替え可能なトップレベルコンポーネントである<code class="docutils literal notranslate"><span class="pre">Comparator</span></code>に委ねています。
+<code class="docutils literal notranslate"><span class="pre">Optimizer.set_comparator()</span></code>で渡します。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypervolumeComparator</span>
+
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">set_comparator</span><span class="p">(</span><span class="n">HypervolumeComparator</span><span class="p">())</span>
+<span class="n">ctx</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">comparator</span> <span class="ow">is</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">comparator</span><span class="p">)</span>  <span class="c1"># True</span>
+</pre></div>
+</div>
+<p>comparatorはProblemの一部ではなく、Optimizerの結びつけ枠です。
+comparatorを設定しない場合、<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>は目的数から既定（<code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">==</span> <span class="pre">1</span></code>なら<code class="docutils literal notranslate"><span class="pre">SingleObjectiveComparator</span></code>、<code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>なら<code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code>）を選び、その出どころをframework defaultとして記録します。明示的に設定したcomparatorは常に優先されます。
+comparator自身の<code class="docutils literal notranslate"><span class="pre">direction</span></code>が未設定であれば、枠に入る時点でProblemの<code class="docutils literal notranslate"><span class="pre">direction</span></code>を受け取ります。direction、目的ごとの重み、参照点がProblemの目的数と一致しないcomparatorは<code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code>が報告します。
+実行中、各コンポーネントは有効なcomparatorを<code class="docutils literal notranslate"><span class="pre">state.comparator</span></code>から読みます。そのため、制約ハンドラが毎世代書き込むεの閾値は、探索が解の順序付けに使うのと同じオブジェクトに届きます。</p>
+<p><code class="docutils literal notranslate"><span class="pre">Problem(comparator=...)</span></code>と<code class="docutils literal notranslate"><span class="pre">Problem(eps_obj=...)</span></code>は非推奨です。
+<code class="docutils literal notranslate"><span class="pre">Problem</span></code>に渡したcomparatorは<code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>を出したうえでOptimizerの明示的なcomparatorとして扱われ、<code class="docutils literal notranslate"><span class="pre">eps_obj</span></code>は既定のcomparatorの許容誤差を決めるだけです。
+<code class="docutils literal notranslate"><span class="pre">Problem</span></code>は目的数から導いた既定のcomparatorを引き続き公開しており、Optimizerを伴わずに状態を作成・読み込みした<code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code>はそれを使います。実行を再開するときは<code class="docutils literal notranslate"><span class="pre">Optimizer.run_from()</span></code>または<code class="docutils literal notranslate"><span class="pre">Optimizer.iterate_from()</span></code>を使うと、そのOptimizerのcomparatorが使われます。</p>
+<p>アイランドでは、既定のcomparatorは<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>ごとに作られるため、2つの島が1つを共有することはありません。<code class="docutils literal notranslate"><span class="pre">set_comparator()</span></code>に同じインスタンスを渡した場合は意図どおり共有されますが、ランタイムはそのインスタンスへハンドラの閾値を書き込むため、ハンドラの異なる島で1つを共有することは勧めません。</p>
 <section id="id1">
 <h2>Comparatorの役割<a class="headerlink" href="#id1" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">Comparator</span></code>には<code class="docutils literal notranslate"><span class="pre">__init__</span></code>自身を含め、4つの抽象メソッドがあります。</p>
@@ -657,11 +673,12 @@
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">SingleObjectiveComparator(direction=None,</span> <span class="pre">*,</span> <span class="pre">eps_cv=1e-6,</span> <span class="pre">eps_obj=1e-6)</span></code>は<code class="docutils literal notranslate"><span class="pre">direction</span></code>を省略でき、その場合は最小化として扱います。
-<code class="docutils literal notranslate"><span class="pre">WeightedSumComparator(direction,</span> <span class="pre">*,</span> <span class="pre">eps_cv=1e-6,</span> <span class="pre">eps_obj=1e-6)</span></code>は<code class="docutils literal notranslate"><span class="pre">direction</span></code>が必須で、省略すると<code class="docutils literal notranslate"><span class="pre">TypeError</span></code>になります。
+<p><code class="docutils literal notranslate"><span class="pre">SingleObjectiveComparator(direction=None,</span> <span class="pre">*,</span> <span class="pre">eps_cv=0.0,</span> <span class="pre">eps_obj=1e-6)</span></code>は<code class="docutils literal notranslate"><span class="pre">direction</span></code>を省略でき、その場合は最小化として扱います。
+<code class="docutils literal notranslate"><span class="pre">WeightedSumComparator(direction,</span> <span class="pre">*,</span> <span class="pre">eps_cv=0.0,</span> <span class="pre">eps_obj=1e-6)</span></code>は<code class="docutils literal notranslate"><span class="pre">direction</span></code>が必須で、省略すると<code class="docutils literal notranslate"><span class="pre">TypeError</span></code>になります。
 このクラスに限り、渡した<code class="docutils literal notranslate"><span class="pre">direction</span></code>がそのままスカラー化の重みとして使われます（<code class="docutils literal notranslate"><span class="pre">score</span> <span class="pre">=</span> <span class="pre">f</span> <span class="pre">&#64;</span> <span class="pre">direction</span></code>）。
 符号だけでなく大きさも重みとして機能するため、<a class="reference internal" href="problem.html"><span class="std std-doc">Problem</span></a>で述べた「<code class="docutils literal notranslate"><span class="pre">direction</span></code>は符号のみ、重みの大きさは別の概念」という一般的な役割分担とは異なる、このクラス固有の扱いです。
-<code class="docutils literal notranslate"><span class="pre">ParetoComparator(direction=None,</span> <span class="pre">*,</span> <span class="pre">eps_cv=1e-6,</span> <span class="pre">eps_obj=1e-6,</span> <span class="pre">sorter=non_dominated_sort,</span> <span class="pre">dominator=None)</span></code>は、支配関係のみで個体群をランク付けします。
+組み込みのcomparatorは<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>の既定値を<code class="docutils literal notranslate"><span class="pre">0.0</span></code>にしており、<code class="docutils literal notranslate"><span class="pre">Problem</span></code>と<code class="docutils literal notranslate"><span class="pre">ParetoArchive</span></code>と同じ既定です。そのため<code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">==</span> <span class="pre">0</span></code>が実行可能を表します。<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>の実行中は毎世代<code class="docutils literal notranslate"><span class="pre">handler.feasibility_threshold</span></code>が<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>に書き写され、<code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code>はこの経路で探索だけを緩和し、報告される実行可能性は変えません。</p>
+<p><code class="docutils literal notranslate"><span class="pre">ParetoComparator(direction=None,</span> <span class="pre">*,</span> <span class="pre">eps_cv=0.0,</span> <span class="pre">eps_obj=1e-6,</span> <span class="pre">sorter=non_dominated_sort,</span> <span class="pre">dominator=None)</span></code>は、支配関係のみで個体群をランク付けします。
 <code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code>/<code class="docutils literal notranslate"><span class="pre">HypervolumeComparator</span></code>/<code class="docutils literal notranslate"><span class="pre">NSGA3Comparator</span></code>/<code class="docutils literal notranslate"><span class="pre">RNSGA2Comparator</span></code>/<code class="docutils literal notranslate"><span class="pre">EpsilonDominanceComparator</span></code>の共通基底であり、具象クラスとして単独でも使えます。
 <code class="docutils literal notranslate"><span class="pre">dominator</span></code>引数は<a class="reference internal" href="dominance.html"><span class="std std-doc">Dominator</span></a>、<code class="docutils literal notranslate"><span class="pre">sorter</span></code>引数は<a class="reference internal" href="nondominated_sorting.html"><span class="std std-doc">NonDominatedSorter</span></a>を注入する差し替え点で、互いに独立した軸です。
 <code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code>は、<code class="docutils literal notranslate"><span class="pre">ParetoComparator</span></code>に混雑度距離による副次的な順位付けを加えます。
@@ -709,7 +726,7 @@ PSOのpbest更新や<code class="docutils literal notranslate"><span class="pre"
 <span class="k">class</span><span class="w"> </span><span class="nc">RandomComparator</span><span class="p">(</span><span class="n">Comparator</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;A simple example that always considers only feasibility.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">eps_cv</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">eps_obj</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">eps_cv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eps_obj</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">eps_cv</span><span class="p">,</span> <span class="n">eps_obj</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="n">direction</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">sort_population</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">population</span><span class="p">):</span>
@@ -737,7 +754,7 @@ PSOのpbest更新や<code class="docutils literal notranslate"><span class="pre"
 <li><p><a class="reference internal" href="dominance.html"><span class="std std-doc">Dominator</span></a>: <code class="docutils literal notranslate"><span class="pre">ParetoComparator</span></code>系の<code class="docutils literal notranslate"><span class="pre">dominator</span></code>引数</p></li>
 <li><p><a class="reference internal" href="nondominated_sorting.html"><span class="std std-doc">NonDominatedSorter</span></a>: <code class="docutils literal notranslate"><span class="pre">ParetoComparator</span></code>系の<code class="docutils literal notranslate"><span class="pre">sorter</span></code>引数</p></li>
 <li><p><a class="reference internal" href="decomposition.html"><span class="std std-doc">Decomposition</span></a>: <code class="docutils literal notranslate"><span class="pre">DecompositionComparator</span></code>が使うスカラー化関数</p></li>
-<li><p><a class="reference internal" href="problem.html"><span class="std std-doc">Problem</span></a>: <code class="docutils literal notranslate"><span class="pre">comparator</span></code>引数の渡し方と既定の選択ルール</p></li>
+<li><p><a class="reference internal" href="problem.html"><span class="std std-doc">Problem</span></a>: Problemが公開する既定のcomparatorと非推奨の<code class="docutils literal notranslate"><span class="pre">comparator</span></code>引数</p></li>
 <li><p><a class="reference internal" href="../search_algorithms/parent_selection.html"><span class="std std-doc">ParentSelection</span></a> / <a class="reference internal" href="../search_algorithms/survivor_selection.html"><span class="std std-doc">SurvivorSelection</span></a>: <code class="docutils literal notranslate"><span class="pre">Comparator</span></code>を使って個体を選択するオペレーター</p></li>
 <li><p><a class="reference internal" href="../observation_and_state/population.html"><span class="std std-doc">Population</span></a>: <code class="docutils literal notranslate"><span class="pre">get_required_attrs</span></code>が拡張する<code class="docutils literal notranslate"><span class="pre">PopulationAttribute</span></code>スキーマ</p></li>
 </ul>

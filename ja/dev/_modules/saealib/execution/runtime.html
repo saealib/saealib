@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev46+g2b77c1d2c ドキュメント</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev47+g599ac122b ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=6c6819ee"></script>
+    <script src="../../../_static/documentation_options.js?v=b32b1bb0"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -2303,6 +2303,32 @@ window.runMermaid = runMermaid;</script>
     <span class="n">snapshot</span><span class="p">:</span> <span class="n">_BindingSnapshot</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_capture_resolution_state</span><span class="p">(</span><span class="n">optimizer</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the resolution results execution preparation writes back.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_restore_resolution_state</span><span class="p">(</span><span class="n">optimizer</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Put back the resolution results captured before preparation ran.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+        <span class="p">(</span>
+            <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">state</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_iter_plan_components</span><span class="p">(</span>
     <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ComponentNode</span><span class="p">]:</span>
@@ -2397,6 +2423,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_reject_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_frames</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RegionFrame</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_recorded_bindings</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_last_published_bindings&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">resolution</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">values</span> <span class="o">=</span> <span class="p">(</span>
             <span class="nb">dict</span><span class="p">(</span><span class="n">resolution</span><span class="o">.</span><span class="n">bindings</span><span class="p">)</span>
@@ -2603,24 +2630,55 @@ window.runMermaid = runMermaid;</script>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_replacement_blocked</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adopt_published_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start a resumed run from the bindings the optimizer last published.</span>
+
+<span class="sd">        A state written under the recorded binding version belongs to those</span>
+<span class="sd">        bindings, whatever the live slots say; a state under any other version</span>
+<span class="sd">        starts from the live slots.  The record then follows this environment,</span>
+<span class="sd">        so an entry that publishes nothing still leaves the bindings it</span>
+<span class="sd">        resumed with.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recorded_bindings</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">_BindingSnapshot</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_binding_version&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">record</span><span class="o">.</span><span class="n">version</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_published</span> <span class="o">=</span> <span class="n">_PublishedPlan</span><span class="p">(</span>
+                <span class="n">plan</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_published</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span>
+                <span class="n">executable</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_published</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span>
+                <span class="n">snapshot</span><span class="o">=</span><span class="n">record</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remember_published_bindings</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_remember_published_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_last_published_bindings&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_published</span><span class="o">.</span><span class="n">snapshot</span>
+        <span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_publish</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">bindings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
         <span class="n">strategy_values</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">executable</span><span class="p">,</span> <span class="n">rebuilt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile_current_plan</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
-        <span class="n">resolution</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_gate</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="n">resolution</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_has_state_key</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span> <span class="n">RUNTIME_REGION_COUNTS</span>
-        <span class="p">):</span>
-            <span class="n">region_ids</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">_iteration_region_ids</span><span class="p">(</span><span class="n">rebuilt</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rebuilt</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">)</span>
-                <span class="k">else</span> <span class="p">()</span>
-            <span class="p">)</span>
-            <span class="n">_ensure_region_history</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span> <span class="n">region_ids</span><span class="p">)</span>
+        <span class="n">saved_resolution_state</span> <span class="o">=</span> <span class="n">_capture_resolution_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">executable</span><span class="p">,</span> <span class="n">rebuilt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile_current_plan</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
+            <span class="n">resolution</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_gate</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="n">resolution</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_has_state_key</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span> <span class="n">RUNTIME_REGION_COUNTS</span>
+            <span class="p">):</span>
+                <span class="n">region_ids</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">_iteration_region_ids</span><span class="p">(</span><span class="n">rebuilt</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rebuilt</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">)</span>
+                    <span class="k">else</span> <span class="p">()</span>
+                <span class="p">)</span>
+                <span class="n">_ensure_region_history</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span> <span class="n">region_ids</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+            <span class="n">_restore_resolution_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">saved_resolution_state</span><span class="p">)</span>
+            <span class="k">raise</span>
         <span class="n">consumes_feature_encoder</span> <span class="o">=</span> <span class="n">_executable_uses_service</span><span class="p">(</span>
             <span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span>
         <span class="p">)</span>
@@ -2676,6 +2734,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">),</span>
             <span class="p">),</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remember_published_bindings</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">current_services</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_compiled_services&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">consumes_feature_encoder</span> <span class="ow">and</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -3323,6 +3382,9 @@ window.runMermaid = runMermaid;</script>
             <span class="k">return</span> <span class="n">RuntimeSession</span><span class="p">(</span>
                 <span class="n">plan</span><span class="o">=</span><span class="n">selected_plan</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">observable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">generation_open</span><span class="o">=</span><span class="kc">False</span>
             <span class="p">)</span>
+        <span class="n">adopt</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_adopt_published_bindings&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">adopt</span><span class="p">):</span>
+            <span class="n">adopt</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">remember_state</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_remember_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">remember_state</span><span class="p">):</span>

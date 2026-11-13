@@ -1344,6 +1344,32 @@ class _PublishedPlan:
     snapshot: _BindingSnapshot
 
 
+def _capture_resolution_state(optimizer: object) -> tuple[object, ...]:
+    """Return the resolution results execution preparation writes back."""
+    return (
+        getattr(optimizer, "_component_resolution", None),
+        getattr(optimizer, "_executable_plan", None),
+        getattr(optimizer, "_component_origins", None),
+        getattr(optimizer, "_materialized_components", None),
+        getattr(optimizer, "_default_resolution", None),
+    )
+
+
+def _restore_resolution_state(optimizer: object, state: tuple[object, ...]) -> None:
+    """Put back the resolution results captured before preparation ran."""
+    for name, value in zip(
+        (
+            "_component_resolution",
+            "_executable_plan",
+            "_component_origins",
+            "_materialized_components",
+            "_default_resolution",
+        ),
+        state,
+    ):
+        object.__setattr__(optimizer, name, value)
+
+
 def _iter_plan_components(
     plan: SequentialPlan | StructuredPlan,
 ) -> Iterable[ComponentNode]:
@@ -1438,6 +1464,7 @@ class _OptimizerEnvironment:
         self._checkpoint_run_end_callback = False
         self._checkpoint_reject_run_end_callback = False
         self._checkpoint_frames: tuple[RegionFrame, ...] = ()
+        self._recorded_bindings = getattr(optimizer, "_last_published_bindings", None)
         resolution = getattr(optimizer, "_component_resolution", None)
         values = (
             dict(resolution.bindings)
@@ -1644,24 +1671,55 @@ class _OptimizerEnvironment:
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
         return _replacement_blocked(scheduler, self.plan, state)
 
+    def _adopt_published_bindings(self, state: OptimizationState) -> None:
+        """Start a resumed run from the bindings the optimizer last published.
+
+        A state written under the recorded binding version belongs to those
+        bindings, whatever the live slots say; a state under any other version
+        starts from the live slots.  The record then follows this environment,
+        so an entry that publishes nothing still leaves the bindings it
+        resumed with.
+        """
+        record = self._recorded_bindings
+        if (
+            isinstance(record, _BindingSnapshot)
+            and state.__dict__.get("_binding_version") == record.version
+        ):
+            self._published = _PublishedPlan(
+                plan=self._published.plan,
+                executable=self._published.executable,
+                snapshot=record,
+            )
+        self._remember_published_bindings()
+
+    def _remember_published_bindings(self) -> None:
+        object.__setattr__(
+            self.optimizer, "_last_published_bindings", self._published.snapshot
+        )
+
     def _publish(
         self,
         bindings: dict[str, object],
         strategy_values: tuple[tuple[str, str], ...],
     ) -> None:
         self._candidate_resolution = None
-        executable, rebuilt = self._compile_current_plan(bindings)
-        resolution = self._candidate_resolution
-        self._gate(executable, resolution)
-        if self._last_state is not None and _has_state_key(
-            self._last_state, RUNTIME_REGION_COUNTS
-        ):
-            region_ids = (
-                _iteration_region_ids(rebuilt.graph)
-                if isinstance(rebuilt, StructuredPlan)
-                else ()
-            )
-            _ensure_region_history(self._last_state, region_ids)
+        saved_resolution_state = _capture_resolution_state(self.optimizer)
+        try:
+            executable, rebuilt = self._compile_current_plan(bindings)
+            resolution = self._candidate_resolution
+            self._gate(executable, resolution)
+            if self._last_state is not None and _has_state_key(
+                self._last_state, RUNTIME_REGION_COUNTS
+            ):
+                region_ids = (
+                    _iteration_region_ids(rebuilt.graph)
+                    if isinstance(rebuilt, StructuredPlan)
+                    else ()
+                )
+                _ensure_region_history(self._last_state, region_ids)
+        except BaseException:
+            _restore_resolution_state(self.optimizer, saved_resolution_state)
+            raise
         consumes_feature_encoder = _executable_uses_service(
             executable, "FeatureEncoder"
         )
@@ -1717,6 +1775,7 @@ class _OptimizerEnvironment:
                 ),
             ),
         )
+        self._remember_published_bindings()
         if self._last_state is not None:
             current_services = self._last_state.__dict__.get("_compiled_services")
             if consumes_feature_encoder and resolution is not None:
@@ -2364,6 +2423,9 @@ class PipelineRuntime:
             return RuntimeSession(
                 plan=selected_plan, state=state, observable=True, generation_open=False
             )
+        adopt = getattr(self.environment, "_adopt_published_bindings", None)
+        if callable(adopt):
+            adopt(state)
         self._prepare_state(state)
         remember_state = getattr(self.environment, "_remember_state", None)
         if callable(remember_state):

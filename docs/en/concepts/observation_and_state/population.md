@@ -103,11 +103,13 @@ idx, dist = arc.get_knn(np.array([0.1, 0.2]), k=1)
 
 Every time a new solution is added, existing solutions it dominates are removed, and if the new solution is itself dominated by an existing one, the new solution is discarded.
 Dominance is judged using a feasibility-first scheme.
-A feasible solution (`cv <= eps_cv`) always dominates an infeasible one; [Dominator](../problem_and_ranking/dominance.md)'s `dominates` is used only when both are feasible.
+A feasible solution always dominates an infeasible one; [Dominator](../problem_and_ranking/dominance.md)'s `dominates` is used only when both are feasible.
+Feasibility comes from the problem's constraint definitions when the archive holds them in its `constraints` argument and the rows carry a `g` column: a row is feasible when every per-constraint violation is zero after its own tolerance, the same decision `Result` and the history use.
+`Optimizer` creates the archive through the algorithm with the problem's constraints, and a checkpoint restore passes them again.
 
 The `dominator` argument lets you swap out the definition of the dominance relation.
-`eps_cv`'s default is `0.0` (only strictly feasible solutions are considered acceptable), but during an `Optimizer` run, this value is overwritten every generation with `problem.handler.feasibility_threshold`.
-The `0.0` default only matters when using `ParetoArchive` standalone, detached from `Optimizer`.
+Without constraints, or without a `g` column, feasibility falls back to `cv <= eps_cv`, whose default is `0.0` and matches the constraint-based decision for an aggregation that reaches zero only for a feasible solution.
+A search-time ε relaxation stays on the comparator and is not written to the archive.
 
 ## Extending Population
 

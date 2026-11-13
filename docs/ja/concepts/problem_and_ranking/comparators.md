@@ -66,11 +66,13 @@ comparator自身の`direction`が未設定であれば、枠に入る時点でPr
 | `NSGA3Comparator` | 参照点によるニッチの維持 {cite}`deb2014nsga3` |
 | `RNSGA2Comparator` | ユーザー指定の参照点による選好誘導 {cite}`deb2006rnsga2` |
 
-`SingleObjectiveComparator(direction=None, *, eps_cv=1e-6, eps_obj=1e-6)`は`direction`を省略でき、その場合は最小化として扱います。
-`WeightedSumComparator(direction, *, eps_cv=1e-6, eps_obj=1e-6)`は`direction`が必須で、省略すると`TypeError`になります。
+`SingleObjectiveComparator(direction=None, *, eps_cv=0.0, eps_obj=1e-6)`は`direction`を省略でき、その場合は最小化として扱います。
+`WeightedSumComparator(direction, *, eps_cv=0.0, eps_obj=1e-6)`は`direction`が必須で、省略すると`TypeError`になります。
 このクラスに限り、渡した`direction`がそのままスカラー化の重みとして使われます（`score = f @ direction`）。
 符号だけでなく大きさも重みとして機能するため、[Problem](problem.md)で述べた「`direction`は符号のみ、重みの大きさは別の概念」という一般的な役割分担とは異なる、このクラス固有の扱いです。
-`ParetoComparator(direction=None, *, eps_cv=1e-6, eps_obj=1e-6, sorter=non_dominated_sort, dominator=None)`は、支配関係のみで個体群をランク付けします。
+組み込みのcomparatorは`eps_cv`の既定値を`0.0`にしており、`Problem`と`ParetoArchive`と同じ既定です。そのため`cv == 0`が実行可能を表します。`Optimizer`の実行中は毎世代`handler.feasibility_threshold`が`eps_cv`に書き写され、`EpsilonConstraintHandler`はこの経路で探索だけを緩和し、報告される実行可能性は変えません。
+
+`ParetoComparator(direction=None, *, eps_cv=0.0, eps_obj=1e-6, sorter=non_dominated_sort, dominator=None)`は、支配関係のみで個体群をランク付けします。
 `NSGA2Comparator`/`HypervolumeComparator`/`NSGA3Comparator`/`RNSGA2Comparator`/`EpsilonDominanceComparator`の共通基底であり、具象クラスとして単独でも使えます。
 `dominator`引数は[Dominator](dominance.md)、`sorter`引数は[NonDominatedSorter](nondominated_sorting.md)を注入する差し替え点で、互いに独立した軸です。
 `NSGA2Comparator`は、`ParetoComparator`に混雑度距離による副次的な順位付けを加えます。
@@ -120,7 +122,7 @@ from saealib import Comparator
 class RandomComparator(Comparator):
     """A simple example that always considers only feasibility."""
 
-    def __init__(self, direction=None, *, eps_cv=1e-6, eps_obj=1e-6):
+    def __init__(self, direction=None, *, eps_cv=0.0, eps_obj=1e-6):
         super().__init__(np.empty(0), eps_cv, eps_obj, direction=direction)
 
     def sort_population(self, population):

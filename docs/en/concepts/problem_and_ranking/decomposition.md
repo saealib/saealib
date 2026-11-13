@@ -36,7 +36,7 @@ A larger value applies a stronger penalty to solutions that deviate from the wei
 
 ## DecompositionComparator
 
-`DecompositionComparator(decomposition, weights, ideal_point=None, direction=None, *, eps_cv=1e-6, eps_obj=1e-6)` implements MOEA/D-style ranking as a subclass of [Comparator](comparators.md).
+`DecompositionComparator(decomposition, weights, ideal_point=None, direction=None, *, eps_cv=0.0, eps_obj=1e-6)` implements MOEA/D-style ranking as a subclass of [Comparator](comparators.md).
 
 The ordering rule prioritizes feasibility (feasibility-first {cite}`deb2000feasibility`), then sorts by ascending aggregated score.
 

@@ -52,6 +52,7 @@ from saealib.core.state import RUNTIME_RNG
 from saealib.exceptions import ValidationError
 from saealib.population.archive import Archive
 from saealib.population.genome import DenseVectorBatch
+from saealib.problem.constraint import _feasible_rows
 from saealib.registry import register
 from saealib.space.space import _encode_features, _encode_features_with_default
 
@@ -186,8 +187,9 @@ class TrainingSet(ABC):
         population:
             Current population. Not used by all implementations.
         ctx:
-            Optimization context. Provides ``comparator``, ``problem.eps_cv``,
-            etc. Required by ranking- and comparison-based implementations.
+            Optimization context. Provides ``comparator``,
+            ``problem.constraints``, etc. Required by ranking- and
+            comparison-based implementations.
         candidate_x:
             Centre point for k-NN queries (shape ``(dim,)``). Passed by
             ``LocalSurrogateManager`` for each candidate; ``None`` when called
@@ -344,8 +346,11 @@ class KNNConstraintObjectiveSet(TrainingSet):
 class FeasibilityClassificationSet(TrainingSet):
     """Binary labels derived from constraint violation: 1 if feasible, 0 otherwise.
 
-    A sample is feasible when ``cv <= eps_cv``, where ``eps_cv`` is taken from
-    ``ctx.problem.eps_cv`` (defaults to ``1e-6`` when ``ctx`` is ``None``).
+    A sample is feasible when every per-constraint violation in the ``g``
+    column is zero after its own tolerance, the same decision ``Result`` and
+    the summary history use. Without ``ctx`` the constraints are unknown, so a
+    sample is feasible when ``cv <= 0``, which the default aggregation makes
+    equivalent.
 
     This set is algo-agnostic and works with any surrogate that accepts binary
     classification targets (shape ``(n_train,)``).
@@ -383,9 +388,11 @@ class FeasibilityClassificationSet(TrainingSet):
             src = population
         else:
             src = archive
-        eps = ctx.problem.eps_cv if ctx is not None else 1e-6
-        labels = (src.get_array("cv") <= eps).astype(float)
-        return TrainingData(train_x=src.get_array("x"), train_y=labels)
+        if ctx is not None:
+            feasible = _feasible_rows(src, ctx.problem.constraints)
+        else:
+            feasible = np.asarray(src.get_array("cv"), dtype=float) <= 0.0
+        return TrainingData(train_x=src.get_array("x"), train_y=feasible.astype(float))
 
 
 class TopKBipartitionSet(TrainingSet):

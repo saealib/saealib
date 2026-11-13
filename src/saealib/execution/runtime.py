@@ -2128,9 +2128,7 @@ class _OptimizerEnvironment:
         _increment_step(state)
         handler = state.problem.handler
         handler.on_generation_end(state.gen, state.population)
-        threshold = state.problem.handler.feasibility_threshold
-        state.comparator.eps_cv = threshold
-        state.pareto_archive.eps_cv = threshold
+        state.comparator.eps_cv = state.problem.handler.feasibility_threshold
         manager = getattr(self.optimizer, "surrogate_manager", None)
         if manager is not None:
             manager.on_generation_end(state.gen, state.archive, state)
@@ -2734,7 +2732,6 @@ class PipelineRuntime:
     @staticmethod
     def _prepare_state(state: OptimizationState) -> None:
         prepare_state_comparator(state)
-        state.pareto_archive.eps_cv = state.problem.handler.feasibility_threshold
 
 
 class AsyncPipelineRuntime(PipelineRuntime):

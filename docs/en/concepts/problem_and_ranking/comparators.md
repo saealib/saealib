@@ -66,13 +66,15 @@ This covers every built-in comparator except `SPEA2Comparator`: even `NSGA2Compa
 | `NSGA3Comparator` | Niche preservation via reference points {cite}`deb2014nsga3` |
 | `RNSGA2Comparator` | Preference guidance via user-specified reference points {cite}`deb2006rnsga2` |
 
-`SingleObjectiveComparator(direction=None, *, eps_cv=1e-6, eps_obj=1e-6)` allows `direction` to be omitted, in which case it's treated as minimization.
+`SingleObjectiveComparator(direction=None, *, eps_cv=0.0, eps_obj=1e-6)` allows `direction` to be omitted, in which case it's treated as minimization.
 
-`WeightedSumComparator(direction, *, eps_cv=1e-6, eps_obj=1e-6)` requires `direction`; omitting it raises `TypeError`.
+`WeightedSumComparator(direction, *, eps_cv=0.0, eps_obj=1e-6)` requires `direction`; omitting it raises `TypeError`.
 This class is the sole exception where the passed `direction` is used directly as the scalarization weights (`score = f @ direction`).
 Not just the sign but also the magnitude functions as a weight, which is a treatment specific to this class, different from the general role split described in [Problem](problem.md) where "`direction` is sign only, and weight magnitude is a separate concept."
 
-`ParetoComparator(direction=None, *, eps_cv=1e-6, eps_obj=1e-6, sorter=non_dominated_sort, dominator=None)` ranks the population by dominance relation alone.
+All built-in comparators default `eps_cv` to `0.0`, the same default as `Problem` and `ParetoArchive`, so `cv == 0` marks a feasible solution. During an `Optimizer` run the runtime copies `handler.feasibility_threshold` onto `eps_cv` every generation, which is how `EpsilonConstraintHandler` relaxes the search without changing reported feasibility.
+
+`ParetoComparator(direction=None, *, eps_cv=0.0, eps_obj=1e-6, sorter=non_dominated_sort, dominator=None)` ranks the population by dominance relation alone.
 It's the common base of `NSGA2Comparator`/`HypervolumeComparator`/`NSGA3Comparator`/`RNSGA2Comparator`/`EpsilonDominanceComparator`, and can also be used standalone as a concrete class.
 The `dominator` argument injects a [Dominator](dominance.md) and the `sorter` argument injects a [NonDominatedSorter](nondominated_sorting.md) — independent swap points from each other.
 
@@ -129,7 +131,7 @@ from saealib import Comparator
 class RandomComparator(Comparator):
     """A simple example that always considers only feasibility."""
 
-    def __init__(self, direction=None, *, eps_cv=1e-6, eps_obj=1e-6):
+    def __init__(self, direction=None, *, eps_cv=0.0, eps_obj=1e-6):
         super().__init__(np.empty(0), eps_cv, eps_obj, direction=direction)
 
     def sort_population(self, population):

@@ -883,9 +883,14 @@ class ParetoMixin:
 
     Feasibility-first dominance is applied:
 
-    - A feasible solution (cv ≤ eps_cv) dominates every infeasible one.
+    - A feasible solution dominates every infeasible one.
     - Among two infeasible solutions the one with lower cv dominates.
     - Among two feasible solutions ``dominator.dominates`` is used.
+
+    Feasibility is decided from the problem's constraints when
+    ``constraints`` is given and the rows carry a ``g`` column: a row is
+    feasible when every per-constraint violation is zero after its own
+    tolerance. Otherwise a row is feasible when ``cv <= eps_cv``.
 
     Parameters
     ----------
@@ -899,12 +904,17 @@ class ParetoMixin:
     dominator : Dominator or None, optional
         Dominance predicate.  ``None`` defaults to ``ParetoDominator()``.
     eps_cv : float, optional
-        Feasibility threshold for constraint violation, by default 0.0.
-        Under ``Optimizer`` execution this value is overwritten every
-        generation from ``problem.handler.feasibility_threshold``; the
-        default of 0.0 (strictly feasible only) is only meaningful for
-        standalone (non-``Optimizer``) use of ``ParetoArchive``.
+        Fallback feasibility threshold on ``cv``, used only when the archive
+        cannot decide feasibility from the constraints. Default: 0.0, which
+        matches the constraint-based decision for an aggregation that is zero
+        exactly when every violation is zero.
+    constraints : list[InequalityConstraint] or None, optional
+        The problem's constraints. When given and the rows carry a ``g``
+        column, feasibility comes from the per-constraint violations instead
+        of ``eps_cv``. ``Algorithm.create_pareto_archive`` supplies them.
     """
+
+    constraints: list[Any] | None = None
 
     def __init__(
         self,
@@ -913,6 +923,7 @@ class ParetoMixin:
         direction: np.ndarray | None = None,
         dominator: Dominator | None = None,
         eps_cv: float = 0.0,
+        constraints: list[Any] | None = None,
         key_attr: str = "x",
         atol: float = 0.0,
         rtol: float = 0.0,
@@ -953,6 +964,7 @@ class ParetoMixin:
             dominator if dominator is not None else ParetoDominator()
         )
         self.eps_cv = eps_cv
+        self.constraints = list(constraints) if constraints else None
         self.key_attr = key_attr
         self.atol = atol
         self.rtol = rtol
@@ -996,15 +1008,95 @@ class ParetoMixin:
 
         return f, cv
 
+    def _rebind_constraints(self, constraints: list[Any] | None) -> None:
+        """Bind the problem's constraints and rebuild the stored rows under them.
+
+        Rows that the bound constraints reject, or that are dominated under
+        the feasibility-first rule, are removed; the remaining rows keep their
+        ids and values. A row is compared with the archive contract through
+        ``_new_dominates_existing``, so the rebuilt set matches what adding the
+        rows in stored order yields.
+        """
+        self.constraints = list(constraints) if constraints else None
+        archive = cast(Any, self)
+        if self.constraints is None or "g" not in archive.schema or len(archive) == 0:
+            return
+        f_arr = archive.get_array("f") if "f" in archive.schema else None
+        cv_arr = archive.get_array("cv") if "cv" in archive.schema else None
+        g_arr = archive.get_array("g")
+        size = len(archive)
+        kept: list[int] = []
+        for index in range(size):
+            f_new = f_arr[index] if f_arr is not None else None
+            cv_new = float(cv_arr[index]) if cv_arr is not None else 0.0
+            g_new = g_arr[index]
+            if any(
+                self._new_dominates_existing(
+                    f_arr[j] if f_arr is not None else None,
+                    float(cv_arr[j]) if cv_arr is not None else 0.0,
+                    f_new,
+                    cv_new,
+                    g_arr[j],
+                    g_new,
+                )
+                for j in kept
+            ):
+                continue
+            kept = [
+                j
+                for j in kept
+                if not self._new_dominates_existing(
+                    f_new,
+                    cv_new,
+                    f_arr[j] if f_arr is not None else None,
+                    float(cv_arr[j]) if cv_arr is not None else 0.0,
+                    g_new,
+                    g_arr[j],
+                )
+            ]
+            kept.append(index)
+        if len(kept) != size:
+            dropped = [index for index in range(size) if index not in set(kept)]
+            archive.delete(dropped)
+
+    def _extract_g(
+        self, element: Individual | dict[str, Any] | None, kwargs: dict[str, Any]
+    ) -> np.ndarray | None:
+        """Extract the raw constraint values of the new solution."""
+        g_val = kwargs.get("g")
+        if g_val is None:
+            if isinstance(element, dict):
+                g_val = element.get("g")
+            elif element is not None and hasattr(element, "g"):
+                g_val = getattr(element, "g")
+        if g_val is None:
+            return None
+        return np.asarray(g_val, dtype=float).ravel()
+
+    def _feasible_flags(self, cv: Any, g: Any) -> np.ndarray:
+        """Return the feasibility mask for rows with the given cv and g values."""
+        constraints = self.__dict__.get("constraints")
+        if constraints is not None and g is not None:
+            from saealib.problem.constraint import _feasible_mask
+
+            return _feasible_mask(constraints, np.asarray(g, dtype=float))
+        return np.asarray(cv, dtype=float) <= self.eps_cv
+
     def _new_dominates_existing(
         self,
         f_new: np.ndarray | None,
         cv_new: float,
         f_ex: np.ndarray | None,
         cv_ex: float,
+        g_new: np.ndarray | None = None,
+        g_ex: np.ndarray | None = None,
     ) -> bool:
-        new_feasible = cv_new <= self.eps_cv
-        ex_feasible = cv_ex <= self.eps_cv
+        new_feasible = bool(
+            self._feasible_flags([cv_new], None if g_new is None else [g_new])[0]
+        )
+        ex_feasible = bool(
+            self._feasible_flags([cv_ex], None if g_ex is None else [g_ex])[0]
+        )
 
         if new_feasible and not ex_feasible:
             return True
@@ -1027,8 +1119,10 @@ class ParetoMixin:
         cv_new: float,
         f_ex: np.ndarray | None,
         cv_ex: float,
+        g_new: np.ndarray | None = None,
+        g_ex: np.ndarray | None = None,
     ) -> bool:
-        return self._new_dominates_existing(f_ex, cv_ex, f_new, cv_new)
+        return self._new_dominates_existing(f_ex, cv_ex, f_new, cv_new, g_ex, g_new)
 
     def add(self, element: Individual | dict[str, Any] | None = None, **kwargs) -> int:
         """
@@ -1057,6 +1151,7 @@ class ParetoMixin:
         >>> archive.add(x=x_val, f=f_val)
         """
         f_new, cv_new = self._extract_fv(element, kwargs)
+        g_new = self._extract_g(element, kwargs)
 
         id_val = _extract_id_value(self.schema, element, kwargs)  # ty: ignore[unresolved-attribute]
         if id_val == -1:
@@ -1076,6 +1171,7 @@ class ParetoMixin:
         if self._size > 0:  # ty: ignore[unresolved-attribute]
             f_arr = self.get_array("f") if "f" in self._schema else None  # ty: ignore[unresolved-attribute]
             cv_arr = self.get_array("cv") if "cv" in self._schema else None  # ty: ignore[unresolved-attribute]
+            g_arr = self.get_array("g") if "g" in self._schema else None  # ty: ignore[unresolved-attribute]
             n = self._size  # ty: ignore[unresolved-attribute]
 
             has_nan = (f_new is not None and np.any(np.isnan(f_new))) or (
@@ -1090,10 +1186,18 @@ class ParetoMixin:
 
             if use_fast_path:
                 cv_ex_arr = cv_arr.astype(float) if cv_arr is not None else np.zeros(n)
-                # np.bool_ (not a plain Python bool) so that `~` below is a
-                # correct logical negation rather than a bitwise int inversion.
-                new_feasible = np.bool_(cv_new <= self.eps_cv)
-                ex_feasible = cv_ex_arr <= self.eps_cv
+                if self.__dict__.get("constraints") is not None and g_arr is not None:
+                    new_feasible = np.bool_(
+                        self._feasible_flags([cv_new], [g_new])[0]
+                        if g_new is not None
+                        else cv_new <= self.eps_cv
+                    )
+                    ex_feasible = self._feasible_flags(cv_ex_arr, g_arr)
+                else:
+                    # np.bool_ (not a plain Python bool) so that `~` below is a
+                    # correct logical negation rather than a bitwise int inversion.
+                    new_feasible = np.bool_(cv_new <= self.eps_cv)
+                    ex_feasible = cv_ex_arr <= self.eps_cv
 
                 existing_dominates_new |= (~new_feasible) & ex_feasible
                 new_dominates_existing |= new_feasible & (~ex_feasible)
@@ -1126,7 +1230,10 @@ class ParetoMixin:
                 for i in range(n):
                     f_ex = f_arr[i] if f_arr is not None else None
                     cv_ex = float(cv_arr[i]) if cv_arr is not None else 0.0
-                    if self._existing_dominates_new(f_new, cv_new, f_ex, cv_ex):
+                    g_ex = g_arr[i] if g_arr is not None else None
+                    if self._existing_dominates_new(
+                        f_new, cv_new, f_ex, cv_ex, g_new, g_ex
+                    ):
                         return -1
 
                 # Collect indices of existing solutions dominated by the new one.
@@ -1134,7 +1241,10 @@ class ParetoMixin:
                 for i in range(n):
                     f_ex = f_arr[i] if f_arr is not None else None
                     cv_ex = float(cv_arr[i]) if cv_arr is not None else 0.0
-                    if self._new_dominates_existing(f_new, cv_new, f_ex, cv_ex):
+                    g_ex = g_arr[i] if g_arr is not None else None
+                    if self._new_dominates_existing(
+                        f_new, cv_new, f_ex, cv_ex, g_new, g_ex
+                    ):
                         dominated_mask[i] = True
 
             # Remove dominated solutions in one pass using delete().

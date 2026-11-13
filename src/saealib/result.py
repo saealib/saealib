@@ -85,15 +85,20 @@ class Result:
     def from_state(cls, state: OptimizationState) -> Result:
         """Build a result from the final or currently observed state.
 
-        Result feasibility uses ``problem.eps_cv`` and intentionally differs
-        from ``problem.handler.feasibility_threshold``.
+        A solution is feasible when every per-constraint violation is zero
+        after its own tolerance, so the reported result does not depend on the
+        aggregation that produced ``cv`` or on a search-time epsilon
+        relaxation.
         """
+        from saealib.problem.constraint import _feasible_rows
+
         archive_f = state.archive.get_array("f")
         archive_cv = state.archive.get_array("cv")
         direction = state.problem.direction
-        eps = state.problem.eps_cv
 
-        feasible = np.where(archive_cv <= eps)[0]
+        feasible = np.flatnonzero(
+            _feasible_rows(state.archive, state.problem.constraints)
+        )
         if len(feasible):
             pool = feasible
         elif len(archive_cv):
@@ -207,18 +212,16 @@ class Result:
 
         Indicators read the ``front`` channel, a per-generation snapshot of the
         Pareto archive holding objective values alone, with no constraint
-        violation column. That archive judges feasibility by its own ``eps_cv``,
-        which the built-in algorithms leave at ``0.0``, so it admits a solution
-        as feasible only at exactly zero violation. While it holds no such
-        solution, constrained dominance reduces the front to the lowest-cv
-        solutions and an indicator over that generation describes an infeasible
-        front; ``front_size`` collapsing to a single point is the visible sign.
+        violation column. The archive decides feasibility from the problem's
+        constraints, so it admits a solution only when every per-constraint
+        violation is zero. While it holds no such solution, constrained
+        dominance reduces the front to the lowest-cv solutions and an indicator
+        over that generation describes an infeasible front; ``front_size``
+        collapsing to a single point is the visible sign.
 
-        Feasibility elsewhere in the series rests on different thresholds:
-        ``"best"`` selects from the archive under ``problem.eps_cv``, and
-        ``"feasible_ratio"`` counts the population under the running
-        ``problem.handler.feasibility_threshold``. The three are independent
-        and can disagree, most visibly while epsilon is relaxed.
+        ``"best"`` and ``"feasible_ratio"`` use the same constraint-based
+        decision, so relaxing the comparator during an epsilon-constrained run
+        changes neither; ``min_cv`` describes the population's raw violation.
         """
         if x not in _HISTORY_X:
             valid = ", ".join(f'"{name}"' for name in _HISTORY_X_NAMES)

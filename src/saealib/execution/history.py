@@ -13,6 +13,7 @@ import numpy as np
 
 from saealib.exceptions import ValidationError
 from saealib.execution.evaluator import EvaluationStatus, EvaluationUpdate
+from saealib.problem.constraint import _feasible_rows
 from saealib.space import DenseNumericView
 
 if TYPE_CHECKING:
@@ -1483,13 +1484,13 @@ def snapshot_generation_for_checkpoint(state: OptimizationState) -> Optimization
 def record_generation(state: OptimizationState) -> None:
     """Append enabled generation-channel rows for the current state.
 
-    ``best_f`` is the reported answer: it selects from ``state.archive`` using
-    the strict user-declared ``problem.eps_cv``, preserving reported solutions
-    and ``history_series("best")`` from relaxed ε values during exploration.
-    ``feasible_ratio`` is an exploration diagnostic from ``state.population``
-    using the running ``problem.handler.feasibility_threshold`` to expose ε's
-    effect. These are different questions despite sharing a summary row.
-    ``min_cv`` is the raw minimum cv in ``state.population`` and uses no threshold.
+    ``best_f`` and ``feasible_ratio`` use the constraint-based feasibility
+    decision: a row is feasible when every per-constraint violation is zero
+    after its own tolerance. Both are independent of the aggregation that
+    produced ``cv`` and of any search-time epsilon relaxation, so relaxing the
+    comparator never changes the reported solution or the ratio.
+    ``min_cv`` is the raw minimum cv in ``state.population`` and uses no
+    threshold.
 
     The ``front`` channel stores the Pareto archive's objective values alone and
     has no cv column, so a front recorded while that archive holds no feasible
@@ -1531,7 +1532,9 @@ def record_generation(state: OptimizationState) -> None:
         if n_obj == 1 and len(state.archive):
             archive_f = state.archive.get_array("f")
             cv = state.archive.get_array("cv")
-            feasible = np.where(cv <= state.problem.eps_cv)[0]
+            feasible = np.flatnonzero(
+                _feasible_rows(state.archive, state.problem.constraints)
+            )
             pool = feasible if len(feasible) else np.array([int(np.argmin(cv))])
             best = pool[np.argmax(archive_f[pool] @ state.direction)]
             columns["best_f"] = float(archive_f[best, 0])
@@ -1552,10 +1555,8 @@ def record_generation(state: OptimizationState) -> None:
         population = state.population
         if len(population):
             cv = population.cv
-            threshold = float(state.problem.handler.feasibility_threshold)
-            columns["feasible_ratio"] = float(
-                np.count_nonzero(cv <= threshold) / len(cv)
-            )
+            feasible = _feasible_rows(population, state.problem.constraints)
+            columns["feasible_ratio"] = float(np.count_nonzero(feasible) / len(cv))
             columns["min_cv"] = float(np.min(cv))
         else:
             columns["feasible_ratio"] = np.nan

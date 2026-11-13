@@ -245,10 +245,10 @@ class TestEqualityConstraint:
         assert c.violation(np.array([-0.3])) == pytest.approx(0.2)
 
     def test_default_tolerance(self):
-        """Default tolerance is 1e-6."""
+        """Default tolerance is 1e-4."""
         c = EqualityConstraint(lambda x: float(x[0]))
-        assert c.tolerance == pytest.approx(1e-6)
-        assert c.violation(np.array([1e-7])) == pytest.approx(0.0)
+        assert c.tolerance == pytest.approx(1e-4)
+        assert c.violation(np.array([1e-5])) == pytest.approx(0.0)
 
     def test_tolerance_zero_valid(self):
         """tolerance=0.0 is valid (threshold managed externally by a handler)."""

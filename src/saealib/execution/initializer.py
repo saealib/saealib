@@ -109,6 +109,23 @@ def _provider_comparator(provider: ComponentProvider) -> Comparator | None:
     return comparator if isinstance(comparator, Comparator) else None
 
 
+def _create_pareto_archive(
+    provider: ComponentProvider,
+    attrs: list[PopulationAttribute],
+    init_capacity: int,
+    problem: Problem,
+):
+    """Create the Pareto archive and bind the problem's constraints to it."""
+    pareto_archive = provider.algorithm.create_pareto_archive(
+        attrs=attrs, init_capacity=init_capacity, problem=problem
+    )
+    if pareto_archive.__dict__.get("constraints") is None:
+        pareto_archive.constraints = (
+            list(problem.constraints) if problem.constraints else None
+        )
+    return pareto_archive
+
+
 def _defaults_equal(a: object, b: object) -> bool:
     try:
         return bool(np.array_equal(np.asarray(a), np.asarray(b), equal_nan=True))
@@ -318,8 +335,8 @@ class GenomeInitializer(Initializer):
             problem,
             empty_genomes,
         )
-        pareto_archive = provider.algorithm.create_pareto_archive(
-            attrs=attrs, init_capacity=self.n_init_archive, problem=problem
+        pareto_archive = _create_pareto_archive(
+            provider, attrs, self.n_init_archive, problem
         )
         ctx = self._create_context(
             problem, provider, archive, pareto_archive, population, rng
@@ -458,8 +475,8 @@ class LHSInitializer(Initializer):
             self.n_init_archive,
             problem,
         )
-        pareto_archive = provider.algorithm.create_pareto_archive(
-            attrs=attrs, init_capacity=self.n_init_archive, problem=problem
+        pareto_archive = _create_pareto_archive(
+            provider, attrs, self.n_init_archive, problem
         )
         pareto_archive._dense_numeric_view = _resolved_dense_view(problem)
 
@@ -608,8 +625,8 @@ class RandomInitializer(Initializer):
             self.n_init_archive,
             problem,
         )
-        pareto_archive = provider.algorithm.create_pareto_archive(
-            attrs=attrs, init_capacity=self.n_init_archive, problem=problem
+        pareto_archive = _create_pareto_archive(
+            provider, attrs, self.n_init_archive, problem
         )
         pareto_archive._dense_numeric_view = _resolved_dense_view(problem)
 
@@ -755,8 +772,8 @@ class SobolInitializer(Initializer):
             self.n_init_archive,
             problem,
         )
-        pareto_archive = provider.algorithm.create_pareto_archive(
-            attrs=attrs, init_capacity=self.n_init_archive, problem=problem
+        pareto_archive = _create_pareto_archive(
+            provider, attrs, self.n_init_archive, problem
         )
         pareto_archive._dense_numeric_view = _resolved_dense_view(problem)
 

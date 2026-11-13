@@ -70,7 +70,7 @@ print(constraint.violation(result.x))  # 0.0 means the constraint is satisfied
 
 To impose a constraint of the form `g(x) >= threshold`, pass `func` with its sign flipped.
 
-For an equality constraint `h(x) = 0`, use `EqualityConstraint(func, tolerance=1e-6)` instead of combining two sign-flipped `InequalityConstraint`s.
+For an equality constraint `h(x) = 0`, use `EqualityConstraint(func, tolerance=1e-4)` instead of combining two sign-flipped `InequalityConstraint`s; 1e-4 is the default equality tolerance, matching CEC 2006 and pymoo.
 
 ```python
 from saealib import EqualityConstraint
@@ -81,34 +81,67 @@ def h1(x):
     return np.sum(x) - 1.0
 
 
-equality = EqualityConstraint(h1, tolerance=1e-6)
+equality = EqualityConstraint(h1, tolerance=1e-4)
 ```
 
 `EqualityConstraint` treats solutions satisfying `|h(x)| <= tolerance` as feasible.
 
 ## Check feasibility
 
-A solution is feasible if its constraint violation `cv` is at most `Problem`'s `eps_cv` (default `1e-6`).
+A solution is feasible when every constraint is satisfied after its own tolerance: `g(x) <= threshold` for an inequality and `|h(x)| <= tolerance` for an equality.
 
 ```python
-archive_cv = result.ctx.archive.get_array("cv")
-feasible = archive_cv <= problem.eps_cv
-print(f"feasible: {feasible.sum()} / {len(archive_cv)}")
+g = result.ctx.archive.get_array("g")
+feasible = np.array(
+    [
+        all(
+            c.violation_from_value(float(value)) == 0.0
+            for c, value in zip(problem.constraints, row)
+        )
+        for row in g
+    ]
+)
+print(f"feasible: {feasible.sum()} / {len(feasible)}")
 ```
+
+The same decision drives `result.x`/`result.f`, the history's `best_f` and `feasible_ratio`, training-set labels, and the Pareto archive, so it does not depend on how violations are aggregated into `cv` or on any ε relaxation used during search.
 
 ## Customize constraint handling with ConstraintHandler
 
-How `cv` is aggregated from multiple constraints, and how feasibility is judged from that value, is decided by `ConstraintHandler`.
+`ConstraintHandler` supplies `cv` when `Problem(cv_aggregator=...)` is not set, and holds the search-side relaxation the comparator uses.
 
-If `Problem`'s `handler` argument is omitted, `StaticToleranceHandler(eps_cv=problem.eps_cv)` is used, which judges feasibility by whether `cv <= eps_cv`.
+If `Problem`'s `handler` argument is omitted, `StaticToleranceHandler` is used; it aggregates `cv` as the sum of the per-constraint violations, the same as `sum_violation`.
+
+To change only the aggregation, pass `Problem(cv_aggregator=...)` instead of writing a handler. The aggregation contract is `cv == 0` if and only if every violation is zero, and its only role is ordering infeasible solutions; feasibility itself always comes from the constraints.
+
+```python
+from saealib.problem import sum_violation
+
+
+def squared_inequality(constraints, x, g):
+    return sum(
+        max(0.0, float(gi) - c.threshold) ** 2 for gi, c in zip(g, constraints)
+    )
+
+
+problem = Problem(
+    func=expensive_func,
+    dim=DIM,
+    n_obj=1,
+    direction=np.array([-1.0]),
+    constraints=constraints,
+    cv_aggregator=squared_inequality,
+)
+```
 
 | Class | Behavior |
 |--------|------|
-| `StaticToleranceHandler` | Judges feasibility with a fixed tolerance `eps_cv` (default) |
-| `EpsilonConstraintHandler` | Shrinks the tolerance toward 0 over generations, gradually driving solutions into the feasible region |
+| `StaticToleranceHandler` | Sums the per-constraint violations and keeps a fixed search-time relaxation (default) |
+| `EpsilonConstraintHandler` | Shrinks the search-time relaxation toward 0 over generations, gradually driving solutions into the feasible region |
 | `GradientRepairHandler` | Repairs infeasible solutions using the constraint gradient |
 
 `EpsilonConstraintHandler` takes a function that receives the generation number and returns the tolerance.
+Its relaxation applies to the comparator only; reported feasibility keeps using the constraint tolerances.
 
 ```python
 from saealib import EpsilonConstraintHandler

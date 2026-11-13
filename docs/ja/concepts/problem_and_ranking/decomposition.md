@@ -34,7 +34,7 @@ MOEA/D{cite}`zhang2007moead`のようにサブ問題ごとの重みベクトル�
 
 ## DecompositionComparator
 
-`DecompositionComparator(decomposition, weights, ideal_point=None, direction=None, *, eps_cv=1e-6, eps_obj=1e-6)`は、[Comparator](comparators.md)のサブクラスとしてMOEA/D風の順位付けを実装します。
+`DecompositionComparator(decomposition, weights, ideal_point=None, direction=None, *, eps_cv=0.0, eps_obj=1e-6)`は、[Comparator](comparators.md)のサブクラスとしてMOEA/D風の順位付けを実装します。
 
 順序付けの規則は、実行可能性を優先（実行可能性優先{cite}`deb2000feasibility`）した上で、集約スコアの昇順で並べます。
 

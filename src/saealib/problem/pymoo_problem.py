@@ -68,7 +68,7 @@ class PymooProblem(Problem):
     eq_tolerance : float, optional
         Feasibility tolerance forwarded to each :class:`EqualityConstraint`
         built from the pymoo problem's ``H`` (equality constraint) output.
-        Default: 1e-6.
+        Default: 1e-4, the equality tolerance pymoo uses.
     **problem_kwargs
         Forwarded to :class:`~saealib.problem.problem.Problem` (e.g.
         ``comparator``, ``handler``, ``eps_cv``, ``eps_obj``).
@@ -102,7 +102,7 @@ class PymooProblem(Problem):
         self,
         pymoo_problem: PymooCoreProblem,
         *,
-        eq_tolerance: float = 1e-6,
+        eq_tolerance: float = 1e-4,
         **problem_kwargs: Any,
     ) -> None:
         if pymoo_problem.xl is None or pymoo_problem.xu is None:

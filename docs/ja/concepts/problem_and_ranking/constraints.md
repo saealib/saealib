@@ -18,6 +18,8 @@ Ask            -> [repair(x, constraints, lb, ub)]
                -> [compute_cv(constraints, x, g)]        -> cv
                -> [augment_objective(f, constraints, x, g)] -> f'
 Tell           -> Comparator(f', cv) with eps_cv = feasibility_threshold
+                  （探索中の緩和であり、報告される実行可能性は
+                  制約ごとの違反量で決まる）
 Generation end -> [on_generation_end(gen, population)]
 ```
 
@@ -33,11 +35,25 @@ Generation end -> [on_generation_end(gen, population)]
 既定は恒等関数（変換しない）で、ペナルティ関数法やaugmented Lagrangian法を実装する際にオーバーライドする場所です。
 組み込み3種のハンドラはいずれもこのフックをオーバーライドしていないため、現状は将来の拡張点として空いています。
 
-**`feasibility_threshold`**（プロパティ）：既定`1e-6`。
-この値が`Comparator`の`eps_cv`として使われ、`Optimizer`実行中は毎世代同期されます。
+**`feasibility_threshold`**（プロパティ）：既定`0.0`。
+この値は探索中の緩和であり、`Optimizer`実行中は毎世代`Comparator`の`eps_cv`へ書き写されます。報告される実行可能性を決めることはありません。
 
 **`on_generation_end(gen, population)`**：世代の終わりに呼ばれます。
 既定はno-opで、`EpsilonConstraintHandler`のようにε値を世代ごとに更新する内部状態を持つハンドラが使います。
+
+## 制約違反と実行可能性
+
+実行可能性は集約後の`cv`ではなく制約定義から決まります。制約ごとに`violation_from_value`が許容幅の内側で0を返すとき、つまり不等式なら`g(x) <= threshold`、等式なら`|h(x)| <= tolerance`のとき、その解は実行可能です。
+`Result`、履歴の`best_f`と`feasible_ratio`、`FeasibilityClassificationSet`、Paretoアーカイブはすべてこの判定を使うため、探索中にcomparatorを緩和しても報告される実行可能性は変わりません。
+自分で行を分類する場合は、各行の`g`列に`violation_from_value`を適用します。すべての結果が0の行が実行可能です。
+
+集約後の`cv`の役割は1つで、実行不可能な解どうしの順位付けです。
+契約は「すべての制約違反が0のとき、かつそのときに限り`cv == 0`」と単調性です。
+既定の集約は制約ごとの違反量の和である`sum_violation`で、`StaticToleranceHandler`が計算する値と同じです。
+`Problem(cv_aggregator=...)`に`cv_aggregator(constraints, x, g) -> float`というcallable（通常の関数も可）を渡すと置き換えられます。`cv_aggregator`を渡さない場合、ハンドラの`compute_cv`が`cv`を供給します。
+
+`EpsilonConstraintHandler`は集約契約に対する探索側の例外です。その式（等式は`|h(x)|`、不等式は`max(0, g(x) - threshold) ** 2`）は、等式の残差が厳密に0のときだけ0になるため、制約の許容幅より厳しくなります。
+この式はε制約法のために維持され、その緩和は`feasibility_threshold`を通じてcomparatorに届きます。報告される実行可能性は常に上記の制約定義から決まります。
 
 ## 組み込みハンドラがオーバーライドするフック
 
@@ -92,7 +108,7 @@ class PenaltyHandler(ConstraintHandler):
 ## 関連コンポーネント
 
 - [制約付き最適化](../../tutorials/constraints.md)：制約の定義と組み込みハンドラの基本的な使い方
-- [Problem](problem.md)：`handler`引数の渡し方
+- [Problem](problem.md)：`handler`引数と`cv_aggregator`引数の渡し方
 - [Comparator](comparators.md)：`feasibility_threshold`が`eps_cv`として同期される先
 
 ## 参照
@@ -103,5 +119,6 @@ class PenaltyHandler(ConstraintHandler):
 - {py:class}`saealib.GradientRepairHandler`
 - {py:class}`saealib.InequalityConstraint`
 - {py:class}`saealib.EqualityConstraint`
+- {py:func}`saealib.problem.constraint.sum_violation`
 - {py:func}`saealib.linear_epsilon_schedule`
 - {py:func}`saealib.exponential_epsilon_schedule`

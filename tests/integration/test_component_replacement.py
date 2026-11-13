@@ -7,6 +7,7 @@ binding version together with it; nothing half-applies.
 
 from __future__ import annotations
 
+import pickle
 from typing import Any
 
 import numpy as np
@@ -21,11 +22,13 @@ from saealib import (
     SequentialSelection,
     Termination,
     TruncationSelection,
+    max_gen,
 )
 from saealib.algorithms import GA
 from saealib.callback import CallbackManager, GenerationEndEvent, PostAskEvent
 from saealib.core.compiler.strategy_requirements import resolve_requires_surrogate
-from saealib.core.runtime import NodeResult
+from saealib.core.graph_builder import build_component_graph
+from saealib.core.runtime import NodeResult, SequentialPlan
 from saealib.core.state import StatePatch
 from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.execution import (
@@ -52,9 +55,13 @@ from saealib.strategies import (
 )
 
 
+def _sphere(x: Any) -> np.ndarray:
+    return np.array([float(np.sum(np.asarray(x) ** 2))], dtype=np.float64)
+
+
 def _problem(dim: int = 2) -> Problem:
     return Problem(
-        func=lambda x: np.array([float(np.sum(np.asarray(x) ** 2))], dtype=np.float64),
+        func=_sphere,
         dim=dim,
         n_obj=1,
         direction=np.array([-1.0]),
@@ -391,6 +398,143 @@ def test_replacement_with_error_diagnostic_keeps_previous_plan_usable() -> None:
     assert states[-1].gen == 10
     assert ga.asks == [4] * 9
     assert len(ga.tell_ids) == 9
+
+
+def test_rejected_replacement_restores_the_resolution_results() -> None:
+    optimizer = _build_optimizer(_RecordingGA())
+    generator = Runner(optimizer).iterate()
+    next(generator)
+    next(generator)
+    resolution_before = optimizer._component_resolution
+    plan_before = optimizer._executable_plan
+    origins_before = optimizer._component_origins
+    materialized_before = optimizer._materialized_components
+    defaults_before = optimizer._default_resolution
+    rejected = object()
+    optimizer.evaluation_planner = rejected  # type: ignore[assignment]
+
+    with pytest.raises(ConfigurationError):
+        next(generator)
+    generator.close()
+
+    assert optimizer._component_resolution is resolution_before
+    assert optimizer._executable_plan is plan_before
+    assert optimizer._component_origins is origins_before
+    assert optimizer._materialized_components is materialized_before
+    assert optimizer._default_resolution is defaults_before
+    assert optimizer.evaluation_planner is rejected
+
+
+def _iterate_until_rejection(
+    runner: Runner, optimizer: Any, *, generation: int
+) -> list[Any]:
+    """Advance a run until the commit point after *generation* rejects a planner."""
+    states: list[Any] = []
+
+    def reject(event: Any) -> None:
+        if event.ctx.gen == generation:
+            optimizer.evaluation_planner = object()
+
+    cbm = CallbackManager()
+    cbm.register(GenerationEndEvent, reject)
+    optimizer.cbmanager = cbm
+    with pytest.raises(ConfigurationError):
+        for state in runner.iterate():
+            states.append(state)
+    return states
+
+
+def test_resumed_run_rejects_the_rejected_component_at_the_commit_point() -> None:
+    ga = _RecordingGA()
+    optimizer = _build_optimizer(ga)
+    states = _iterate_until_rejection(Runner(optimizer), optimizer, generation=2)
+    assert states[-1].gen == 2
+
+    with pytest.raises(ConfigurationError):
+        for _ in Runner(optimizer).iterate_from(states[-1]):
+            pass
+
+    optimizer.evaluation_planner = None
+    final = Runner(optimizer).run_from(states[-1])
+    assert final.gen == 10
+    assert ga.asks == [4] * 10
+    assert len(ga.tell_ids) == 10
+
+
+def test_async_resumed_run_rejects_the_rejected_component_at_the_commit_point() -> None:
+    ga = _RecordingGA()
+    evaluator = _DeterministicEvaluator(release_after_collects=1, max_collects=4000)
+    optimizer = _build_async_optimizer(
+        ga,
+        DirectStrategy(),
+        evaluator,
+        termination=Termination(max_gen(6)),
+    )
+    states = _iterate_until_rejection(Runner(optimizer), optimizer, generation=2)
+
+    with pytest.raises(ConfigurationError):
+        for _ in Runner(optimizer).iterate_from(states[-1]):
+            pass
+
+    optimizer.evaluation_planner = None
+    final = Runner(optimizer).run_from(states[-1])
+    assert final.gen == 6
+    assert not final.pending_evaluations
+    assert not final.evaluation_handles
+
+
+class _FlatDirect(DirectStrategy):
+    """Direct flow lowered to a flat component graph, so its plan is sequential."""
+
+    def build_graph(self, provider: Any) -> Any:
+        return build_component_graph(self.build_pipeline(provider))
+
+
+@pytest.mark.filterwarnings(
+    "ignore:Overriding build_graph\\(provider\\):DeprecationWarning"
+)
+def test_sequential_plan_resumed_run_rejects_the_rejected_component() -> None:
+    ga = _RecordingGA()
+    optimizer = (
+        Optimizer(_problem(), seed=7)
+        .set_initializer(LHSInitializer(6, 4, 7))
+        .set_algorithm(ga)
+        .set_strategy(_FlatDirect())
+        .set_termination(Termination(max_gen(10)))
+    )
+    runner, captured = _capturing_runner(optimizer)
+    states = _iterate_until_rejection(runner, optimizer, generation=2)
+    assert isinstance(captured["environment"].plan, SequentialPlan)
+
+    with pytest.raises(ConfigurationError):
+        for _ in Runner(optimizer).iterate_from(states[-1]):
+            pass
+
+    optimizer.evaluation_planner = None
+    final = Runner(optimizer).run_from(states[-1])
+    assert final.gen == 10
+
+
+def test_pickled_optimizer_keeps_the_rejection_of_a_rejected_replacement() -> None:
+    optimizer = _build_optimizer(_RecordingGA())
+    optimizer.set_termination(Termination(max_gen(10)))
+    generator = Runner(optimizer).iterate()
+    next(generator)
+    state = next(generator)
+    optimizer.evaluation_planner = object()  # type: ignore[assignment]
+    with pytest.raises(ConfigurationError):
+        next(generator)
+    generator.close()
+
+    restored = pickle.loads(pickle.dumps(optimizer))
+
+    with pytest.raises(ConfigurationError):
+        for _ in Runner(restored).iterate_from(state):
+            pass
+
+    restored.evaluation_planner = None
+    final = Runner(restored).run_from(state)
+    assert final.gen == 10
 
 
 def test_in_place_strategy_change_triggers_rebuild() -> None:

@@ -62,7 +62,7 @@ from saealib.execution.prepare import (
     _prepare_plan,
 )
 from saealib.execution.runner import Runner
-from saealib.execution.runtime import default_runtime_registry
+from saealib.execution.runtime import _BindingSnapshot, default_runtime_registry
 from saealib.execution.scheduler import AsyncEvaluationScheduler
 from saealib.policies.evaluation import EvaluationPlanner
 from saealib.policies.feedback import FeedbackBuilder
@@ -342,6 +342,7 @@ class Optimizer:
         self._configuration_version = 0
         self._last_contract_diagnostics: tuple[Diagnostic, ...] = ()
         self._executable_plan: ExecutablePlan | None = None
+        self._last_published_bindings: _BindingSnapshot | None = None
         self._prepared_diagnostic_cache: (
             tuple[tuple[object, ...], tuple[Diagnostic, ...]] | None
         ) = None
@@ -1395,6 +1396,7 @@ class Optimizer:
         """Restore an optimizer without a stale compiled execution plan."""
         self.__dict__.update(state)
         self.__dict__.setdefault("_executable_plan", None)
+        self.__dict__.setdefault("_last_published_bindings", None)
         self.__dict__.setdefault("_prepared_diagnostic_cache", None)
         self.__dict__.setdefault("_default_resolution", None)
         self.__dict__.setdefault("_verification_enabled", True)

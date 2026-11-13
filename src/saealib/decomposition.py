@@ -376,7 +376,7 @@ class DecompositionComparator(Comparator):
         ideal_point: np.ndarray | None = None,
         direction: np.ndarray | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
     ) -> None:
         weights_arr = np.asarray(weights, dtype=float)

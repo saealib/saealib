@@ -7,6 +7,7 @@ from saealib.problem.constraint import (
     StaticToleranceHandler,
     exponential_epsilon_schedule,
     linear_epsilon_schedule,
+    sum_violation,
 )
 from saealib.problem.problem import Problem
 from saealib.problem.pymoo_problem import PymooProblem
@@ -22,4 +23,5 @@ __all__ = [
     "StaticToleranceHandler",
     "exponential_epsilon_schedule",
     "linear_epsilon_schedule",
+    "sum_violation",
 ]

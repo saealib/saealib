@@ -33,11 +33,25 @@ The default is `np.clip(x, lb, ub)` — simply clipping to the bounds.
 The default is the identity function (no transformation) — this is where you'd override to implement a penalty-function method or the augmented Lagrangian method.
 None of the three built-in handlers override this hook, so it's currently left open as a future extension point.
 
-**`feasibility_threshold`** (property): Defaults to `1e-6`.
-This value is used as `Comparator`'s `eps_cv`, and is synchronized every generation during an `Optimizer` run.
+**`feasibility_threshold`** (property): Defaults to `0.0`.
+This value is a search-time relaxation: the runtime copies it onto the comparator's `eps_cv` every generation during an `Optimizer` run, and it never decides reported feasibility.
 
 **`on_generation_end(gen, population)`**: Called at the end of a generation.
 The default is a no-op; used by handlers with internal state that updates an ε value per generation, such as `EpsilonConstraintHandler`.
+
+## Constraint violation and feasibility
+
+Feasibility is decided from the constraint definitions, not from the aggregate `cv`: a solution is feasible when `violation_from_value` returns zero for every constraint after its own tolerance, that is `g(x) <= threshold` for an inequality and `|h(x)| <= tolerance` for an equality.
+`Result`, the history's `best_f` and `feasible_ratio`, the `FeasibilityClassificationSet` training set, and the Pareto archive all use this decision, so relaxing a comparator during search never changes what is reported as feasible.
+To classify rows yourself, apply `violation_from_value` to each row's `g` column: a row is feasible when every result is zero.
+
+The aggregate `cv` has one job: ordering infeasible solutions against each other.
+Its contract is `cv == 0` if and only if every per-constraint violation is zero, plus monotonicity.
+The default aggregation is `sum_violation`, the sum of the per-constraint violations, which is also what `StaticToleranceHandler` computes.
+`Problem(cv_aggregator=...)` replaces it with any callable `cv_aggregator(constraints, x, g) -> float`, including a plain function; without `cv_aggregator`, a handler's `compute_cv` supplies `cv`.
+
+`EpsilonConstraintHandler` is a search-side exception to the aggregation contract: its formula (`|h(x)|` for equalities, `max(0, g(x) - threshold) ** 2` for inequalities) reaches zero only when an equality residual is exactly zero, which is stricter than the constraint tolerance.
+That formula is kept for the ε-constrained method, and its relaxation reaches the comparator through `feasibility_threshold`; reported feasibility always comes from the constraint definitions above.
 
 ## Hooks overridden by the built-in handlers
 
@@ -92,7 +106,7 @@ While overriding `augment_objective` to add the penalty to the objective value, 
 ## Related components
 
 - [Constrained Optimization](../../tutorials/constraints.md): Defining constraints and basic usage of the built-in handlers
-- [Problem](problem.md): How to pass the `handler` argument
+- [Problem](problem.md): How to pass the `handler` and `cv_aggregator` arguments
 - [Comparator](comparators.md): Where `feasibility_threshold` is synchronized to, as `eps_cv`
 
 ## References
@@ -103,5 +117,6 @@ While overriding `augment_objective` to add the penalty to the objective value, 
 - {py:class}`saealib.GradientRepairHandler`
 - {py:class}`saealib.InequalityConstraint`
 - {py:class}`saealib.EqualityConstraint`
+- {py:func}`saealib.problem.constraint.sum_violation`
 - {py:func}`saealib.linear_epsilon_schedule`
 - {py:func}`saealib.exponential_epsilon_schedule`

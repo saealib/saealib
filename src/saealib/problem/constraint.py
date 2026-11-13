@@ -109,10 +109,11 @@ class EqualityConstraint(InequalityConstraint):
     func : callable
         Constraint function h(x). Should return a scalar float.
     tolerance : float, optional
-        Feasibility tolerance for ``|h(x)| <= tolerance``. Default: 1e-6.
-        Set ``tolerance=0.0`` to defer the feasibility threshold to a handler
-        such as ``EpsilonConstraintHandler``, where the threshold is managed
-        externally rather than baked into the constraint.
+        Feasibility tolerance for ``|h(x)| <= tolerance``. Default: 1e-4,
+        the equality tolerance used by CEC 2006 and pymoo. Set
+        ``tolerance=0.0`` to treat any non-zero residual as a violation, for
+        example when a handler such as ``EpsilonConstraintHandler`` supplies
+        the search-time threshold.
 
     Notes
     -----
@@ -120,13 +121,121 @@ class EqualityConstraint(InequalityConstraint):
     ``∇h(x)``; this enables gradient-based constraint handlers (e.g. repair).
     """
 
-    def __init__(self, func: Callable[..., Any], tolerance: float = 1e-6):
+    def __init__(self, func: Callable[..., Any], tolerance: float = 1e-4):
         super().__init__(func, threshold=0.0)
         self.tolerance = tolerance
 
     def violation_from_value(self, g: float) -> float:
         """Return equality violation: max(0, abs(h(x)) - tolerance)."""
         return max(0.0, abs(g) - self.tolerance)
+
+
+def sum_violation(
+    constraints: list[InequalityConstraint],
+    x: np.ndarray,
+    g: np.ndarray,
+) -> float:
+    """
+    Aggregate raw constraint values by summing the per-constraint violations.
+
+    This is the default constraint-violation aggregation and the aggregation
+    :class:`StaticToleranceHandler` uses: each constraint maps its own raw
+    value through :meth:`InequalityConstraint.violation_from_value`, so
+    inequality (``max(0, g - threshold)``) and equality
+    (``max(0, |h| - tolerance)``) constraints combine freely. The result is
+    zero exactly when every per-constraint violation is zero.
+
+    Pass it to ``Problem(cv_aggregator=...)`` to select it explicitly;
+    ``Problem`` uses it through the default handler otherwise.
+
+    Parameters
+    ----------
+    constraints : list[InequalityConstraint]
+        The problem's constraints, aligned with ``g``.
+    x : np.ndarray
+        The evaluated design vector. shape = (dim, )
+    g : np.ndarray
+        Raw constraint values g(x). shape = (n_constraints, )
+
+    Returns
+    -------
+    float
+        Sum of the per-constraint violations; ``0.0`` means feasible.
+    """
+    cv = 0.0
+    for gi, c in zip(g, constraints):
+        cv += c.violation_from_value(float(gi))
+    return cv
+
+
+def _feasible_mask(
+    constraints: list[InequalityConstraint],
+    g: np.ndarray,
+) -> np.ndarray:
+    """
+    Mark the rows whose every per-constraint violation is zero.
+
+    Feasibility is decided from the constraint definitions alone: a row is
+    feasible when :meth:`InequalityConstraint.violation_from_value` returns
+    zero for every constraint after its own tolerance. The decision does not
+    depend on how violations are aggregated into ``cv`` and does not use any
+    search-time epsilon relaxation.
+
+    Parameters
+    ----------
+    constraints : list[InequalityConstraint]
+        The problem's constraints, aligned with the columns of ``g``.
+    g : np.ndarray
+        Raw constraint values per row. shape = (n_rows, n_constraints)
+
+    Returns
+    -------
+    np.ndarray
+        Boolean mask of feasible rows. shape = (n_rows, )
+    """
+    values = np.asarray(g, dtype=float)
+    if values.ndim == 1:
+        values = values[np.newaxis, :]
+    feasible = np.ones(values.shape[0], dtype=bool)
+    for column, constraint in enumerate(constraints):
+        if column >= values.shape[1]:
+            break
+        for row in range(values.shape[0]):
+            if not feasible[row]:
+                continue
+            if constraint.violation_from_value(float(values[row, column])) != 0.0:
+                feasible[row] = False
+    return feasible
+
+
+def _feasible_rows(
+    collection: Any,
+    constraints: list[InequalityConstraint],
+) -> np.ndarray:
+    """
+    Mark the feasible rows of a population or archive.
+
+    Uses :func:`_feasible_mask` over the stored raw constraint values. A
+    collection without a ``g`` column falls back to ``cv <= 0``, which the
+    default aggregation makes equivalent.
+
+    Parameters
+    ----------
+    collection : Population or Archive
+        Rows to classify. The ``g`` column is read when present.
+    constraints : list[InequalityConstraint]
+        The problem's constraints, aligned with the ``g`` columns.
+
+    Returns
+    -------
+    np.ndarray
+        Boolean mask of feasible rows. shape = (len(collection), )
+    """
+    schema = getattr(collection, "schema", {})
+    if "g" in schema:
+        return _feasible_mask(constraints, collection.get_array("g"))
+    cv = np.asarray(collection.get_array("cv"), dtype=float)
+    return cv <= 0.0
 
 
 class ConstraintHandler(ABC):
@@ -146,6 +255,8 @@ class ConstraintHandler(ABC):
                        -> [compute_cv(constraints, x, g)]        -> cv
                        -> [augment_objective(f, constraints, x, g)] -> f'
         Tell           -> Comparator(f', cv) with eps_cv = feasibility_threshold
+                       (a search-time relaxation; reported feasibility uses
+                       the per-constraint violations)
         Generation end -> [on_generation_end(gen, population)]
 
     Only :meth:`compute_cv` is abstract; the remaining hooks have sensible
@@ -251,8 +362,8 @@ class ConstraintHandler(ABC):
 
     @property
     def feasibility_threshold(self) -> float:
-        """Constraint-violation threshold below which a solution is feasible."""
-        return 1e-6
+        """Search-time threshold the comparator copies onto its ``eps_cv``."""
+        return 0.0
 
     def on_generation_end(self, gen: int, population: Population) -> None:
         """
@@ -284,11 +395,14 @@ class StaticToleranceHandler(ConstraintHandler):
     Parameters
     ----------
     eps_cv : float, optional
-        Feasibility threshold returned by :attr:`feasibility_threshold`.
-        Default: 1e-6.
+        Search-time feasibility relaxation returned by
+        :attr:`feasibility_threshold` and copied onto the comparator. The
+        default of 0.0 treats a solution as feasible only when
+        :func:`sum_violation` is zero, which matches the per-constraint
+        feasibility decision.
     """
 
-    def __init__(self, eps_cv: float = 1e-6):
+    def __init__(self, eps_cv: float = 0.0):
         self._eps_cv = eps_cv
 
     def compute_cv(
@@ -297,15 +411,12 @@ class StaticToleranceHandler(ConstraintHandler):
         x: np.ndarray,
         g: np.ndarray,
     ) -> float:
-        """Return the sum of per-constraint ``c_i.violation_from_value(g_i)``."""
-        cv = 0.0
-        for gi, c in zip(g, constraints):
-            cv += c.violation_from_value(float(gi))
-        return cv
+        """Return :func:`sum_violation` of the raw constraint values."""
+        return sum_violation(constraints, x, g)
 
     @property
     def feasibility_threshold(self) -> float:
-        """Fixed feasibility threshold ``eps_cv``."""
+        """Fixed search-time feasibility relaxation ``eps_cv``."""
         return self._eps_cv
 
 
@@ -515,11 +626,8 @@ class GradientRepairHandler(ConstraintHandler):
         x: np.ndarray,
         g: np.ndarray,
     ) -> float:
-        """Return sum of per-constraint violations (same as StaticToleranceHandler)."""
-        cv = 0.0
-        for gi, c in zip(g, constraints):
-            cv += c.violation_from_value(float(gi))
-        return cv
+        """Return :func:`sum_violation` of the raw constraint values."""
+        return sum_violation(constraints, x, g)
 
 
 def linear_epsilon_schedule(eps0: float, n_gen: int) -> Callable[[int], float]:

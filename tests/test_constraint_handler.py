@@ -86,7 +86,7 @@ class TestStaticToleranceHandler:
         assert cv == pytest.approx(0.1)
 
     def test_feasibility_threshold_default(self):
-        assert StaticToleranceHandler().feasibility_threshold == pytest.approx(1e-6)
+        assert StaticToleranceHandler().feasibility_threshold == pytest.approx(0.0)
 
     def test_feasibility_threshold_custom(self):
         assert StaticToleranceHandler(
@@ -155,16 +155,17 @@ class TestProblemHandlerIntegration:
 
     def test_default_handler_eps_cv_matches(self):
         p = _make_problem()
-        p2 = Problem(
-            func=lambda x: float(x[0]),
-            dim=1,
-            n_obj=1,
-            direction=np.array([1.0]),
-            lb=[0.0],
-            ub=[1.0],
-            eps_cv=1e-3,
-        )
-        assert p.handler.feasibility_threshold == pytest.approx(1e-6)
+        with pytest.warns(DeprecationWarning, match=r"Problem\(eps_cv=\.\.\.\)"):
+            p2 = Problem(
+                func=lambda x: float(x[0]),
+                dim=1,
+                n_obj=1,
+                direction=np.array([1.0]),
+                lb=[0.0],
+                ub=[1.0],
+                eps_cv=1e-3,
+            )
+        assert p.handler.feasibility_threshold == pytest.approx(0.0)
         assert p2.handler.feasibility_threshold == pytest.approx(1e-3)
 
     def test_evaluate_constraints_delegates_cv(self):

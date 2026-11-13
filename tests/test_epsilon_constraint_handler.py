@@ -266,22 +266,26 @@ def test_comparator_eps_cv_decreases_each_generation():
     assert eps_history[-1] == pytest.approx(0.0)
 
 
-def test_pareto_archive_eps_cv_synced_each_generation():
+def test_epsilon_relaxation_reaches_the_comparator_only():
     from saealib import GenerationEndEvent
 
     n_gen = 5
     h = EpsilonConstraintHandler(linear_epsilon_schedule(eps0=1.0, n_gen=n_gen))
     prob = _make_constrained_problem(h)
     opt = _make_optimizer(prob, n_gen=n_gen)
+    archive_eps = []
 
     def _check(e):
-        assert e.ctx.pareto_archive.eps_cv == pytest.approx(
+        assert e.ctx.comparator.eps_cv == pytest.approx(
             e.ctx.problem.handler.feasibility_threshold
         )
-        assert e.ctx.pareto_archive.eps_cv == pytest.approx(e.ctx.comparator.eps_cv)
+        archive_eps.append(e.ctx.pareto_archive.eps_cv)
 
     opt.cbmanager.register(GenerationEndEvent, _check)
     opt.run()
+
+    assert archive_eps
+    assert all(value == pytest.approx(0.0) for value in archive_eps)
 
 
 def test_standalone_pareto_archive_eps_cv_default_unaffected():

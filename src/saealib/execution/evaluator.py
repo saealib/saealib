@@ -644,9 +644,7 @@ class SerialEvaluator(Evaluator):
             f_raw, g_raw = raw
             for i in range(n):
                 xi = cast(np.ndarray, _payload_value(payload, i))
-                cv[i] = float(
-                    problem.handler.compute_cv(problem.constraints, xi, g_raw[i])
-                )
+                cv[i] = problem._aggregate_cv(xi, g_raw[i])
                 f[i] = problem.handler.augment_objective(
                     f_raw[i], problem.constraints, xi, g_raw[i]
                 )

@@ -103,11 +103,13 @@ idx, dist = arc.get_knn(np.array([0.1, 0.2]), k=1)
 
 新規解を追加するたびに、その解に支配される既存解を削除し、新規解自体が既存解に支配されている場合はその新規解を破棄します。
 支配関係の判定は実行可能性優先方式で行われます。
-実行可能解（`cv <= eps_cv`）は常に実行不可能解を支配し、両方が実行可能な場合にのみ[Dominator](../problem_and_ranking/dominance.md)の`dominates`が使われます。
+実行可能解は常に実行不可能解を支配し、両方が実行可能な場合にのみ[Dominator](../problem_and_ranking/dominance.md)の`dominates`が使われます。
+アーカイブがProblemの制約を`constraints`引数で受け取り、行が`g`列を持つ場合、実行可能性は制約定義から決まります。制約ごとの違反量が許容幅の内側ですべて0の行が実行可能であり、`Result`や履歴と同じ判定です。
+`Optimizer`はアルゴリズム経由でProblemの制約を渡してアーカイブを作り、checkpointからの復元でも同じ制約を渡します。
 
 `dominator`引数で支配関係の定義を差し替えられます。
-`eps_cv`の既定値は`0.0`（厳密に実行可能な解のみを許容可能とみなす）ですが、`Optimizer`実行中はこの値が毎世代`problem.handler.feasibility_threshold`で上書きされます。
-`0.0`という既定値は、`ParetoArchive`を`Optimizer`から切り離して単体で使う場合にのみ意味を持ちます。
+制約または`g`列が無い場合、実行可能性は`cv <= eps_cv`にフォールバックします。`eps_cv`の既定値は`0.0`で、実行可能な解だけが0になる集約に対しては制約による判定と一致します。
+探索中のε緩和はcomparatorが持ち、アーカイブには書き込まれません。
 
 ## Populationの拡張
 

@@ -21,8 +21,8 @@ The `Problem` constructor accepts the following arguments.
 Problem(
     func, dim, n_obj, direction, lb=None, ub=None,
     comparator=None, constraints=None, *,
-    eps_cv=1e-6, eps_obj=None, handler=None, variables=None,
-    space=None, evaluation_adapter=None,
+    eps_cv=None, eps_obj=None, handler=None, cv_aggregator=None,
+    variables=None, space=None, evaluation_adapter=None,
 )
 ```
 
@@ -49,13 +49,18 @@ A comparator with an unset (`None`) `direction` receives this problem's `directi
 **`constraints`**: A list of inequality constraints (`InequalityConstraint`).
 How to define them is covered in [Constrained Optimization](../../tutorials/constraints.md).
 
-**`eps_cv`**/**`eps_obj`**: The tolerance for feasibility judgment and the tolerance for objective-value equality judgment, respectively.
-`eps_cv` is only carried over to the default `handler`/`comparator` at constructor time — directly rewriting `problem.eps_cv` after construction has no effect on runtime behavior.
-The threshold actually used is `handler.feasibility_threshold`, which is synchronized to `state.comparator`/`pareto_archive` every generation during an `Optimizer` run.
-`eps_obj` is deprecated: it only seeds the default comparator, and a value passed here emits a `DeprecationWarning`. Pass the tolerance to the comparator you configure with `Optimizer.set_comparator()` instead.
+**`eps_cv`**/**`eps_obj`**: Deprecated search-side tolerances.
+Feasibility is decided by the constraint definitions, not by `eps_cv`: a solution is feasible when every per-constraint violation is zero after its own tolerance, and `Result`, the history's `best_f` and `feasible_ratio`, training-set labels, and the Pareto archive all use that decision.
+A value passed as `eps_cv` emits a `DeprecationWarning` and sets the search-time relaxation of the default handler, which the runtime copies onto the comparator's `eps_cv` every generation; it widens what the search treats as feasible and never changes reported feasibility.
+Without it the default is `0.0`, which matches the constraint-based decision. Its concrete running value is `handler.feasibility_threshold`.
+`eps_obj` likewise only seeds the default comparator; pass the tolerance to the comparator you configure with `Optimizer.set_comparator()` instead.
 
 **`handler`**: The [ConstraintHandler](constraints.md) responsible for aggregating constraint violations and correcting the objective function.
-If omitted, `StaticToleranceHandler(eps_cv=eps_cv)` is used.
+If omitted, `StaticToleranceHandler` is used.
+
+**`cv_aggregator`**: A callable `cv_aggregator(constraints, x, g) -> float` that computes `cv`, replacing `handler.compute_cv`; a plain function works.
+The default aggregation is `sum_violation`, the sum of the per-constraint violations, so `cv` is zero exactly when every violation is zero.
+See [ConstraintHandler](constraints.md) for the aggregation contract.
 
 **`variables`**: Specifies each design variable's type as a list of `Variable`.
 This can be omitted for problems with only continuous variables, in which case every dimension is treated as `ContinuousVariable`.
@@ -74,6 +79,9 @@ Passing `weight=` raises `TypeError`.
 ```
 
 ## What Problem holds
+
+`constraints` decides feasibility through `violation_from_value`: `g(x) <= threshold` for an inequality and `|h(x)| <= tolerance` for an equality, with defaults of `0` and `1e-4`.
+This decision is independent of the `cv` aggregation, and `Result`, the history's `best_f` and `feasible_ratio`, training-set labels, and the Pareto archive all apply it.
 
 `direction` is a `±1` array, unified across all of saealib, representing sign only.
 By contrast, the `weights` received by `WeightedSumComparator` or `DecompositionComparator` are non-negative weights for aggregating multiple objectives into a scalar value — a separate concept, independent of direction.
@@ -125,7 +133,7 @@ For a variable type that needs a correspondence between category values and an i
 
 ## External library adapters
 
-`PymooProblem(pymoo_problem, *, eq_tolerance=1e-6, **problem_kwargs)` wraps an already-constructed [pymoo](https://pymoo.org/) problem instance (a built-in benchmark, or existing research code) as a `Problem`, forwarding `problem_kwargs` (`comparator`, `handler`, `eps_cv`, `eps_obj`) to `Problem.__init__`; the forwarded `comparator` and `eps_obj` keep the deprecation described above.
+`PymooProblem(pymoo_problem, *, eq_tolerance=1e-4, **problem_kwargs)` wraps an already-constructed [pymoo](https://pymoo.org/) problem instance (a built-in benchmark, or existing research code) as a `Problem`, forwarding `problem_kwargs` (`comparator`, `handler`, `eps_cv`, `eps_obj`) to `Problem.__init__`; its `eq_tolerance` default is the equality tolerance `1e-4`, and the forwarded `comparator`, `eps_cv`, and `eps_obj` keep the deprecation described above.
 `direction` is always all `-1`, since pymoo problems are unconditionally minimization; pymoo's inequality constraints (`G`) map to `InequalityConstraint` and equality constraints (`H`) to `EqualityConstraint`, both verbatim (no sign flip).
 
 pymoo problems batch-evaluate (`_evaluate(X, out)`), and `PymooProblem.evaluate_batch` exploits this directly by calling the wrapped problem's own `evaluate(X, return_as_dictionary=True)` once for the whole batch; `SerialEvaluator` uses this automatically whenever it's available.
@@ -136,6 +144,7 @@ See [Installation](../../getting_started/installation.md) for the `pymoo` extra.
 ## Related components
 
 - [Comparator](comparators.md): Swaps out how solutions are compared, via `Optimizer.set_comparator()`
+- [ConstraintHandler](constraints.md): The `handler` and `cv_aggregator` arguments, and the feasibility decision
 - [ConstraintHandler](constraints.md): Swaps out how constraint violations are handled, via the `handler` argument
 - [Crossover](../search_algorithms/crossover.md) / [Mutation](../search_algorithms/mutation.md): Operators applied per variable type as defined in `variables`
 - [Constrained Optimization](../../tutorials/constraints.md): How to define constraints and choose a built-in `ConstraintHandler`

@@ -58,6 +58,7 @@ from saealib.problem import (
     InequalityConstraint,
     linear_epsilon_schedule,
 )
+from saealib.problem.constraint import _feasible_mask
 from saealib.result import Result
 from saealib.space import ObjectSpace
 from saealib.stages import AsyncEvaluationSubmitStage, EvaluationPlanStage
@@ -305,8 +306,8 @@ def _rewrite_npz(src: Path, dst: Path, **overrides: np.ndarray | None) -> None:
     np.savez(dst, **rebuilt)
 
 
-def _empty_state(n_obj: int = 1) -> OptimizationState:
-    problem = _problem(n_obj)
+def _empty_state(n_obj: int = 1, problem: Problem | None = None) -> OptimizationState:
+    problem = _problem(n_obj) if problem is None else problem
     attrs = [
         PopulationAttribute("x", np.float64, (2,), np.nan),
         PopulationAttribute("f", np.float64, (n_obj,), np.nan),
@@ -940,25 +941,57 @@ def test_empty_archive_and_population_record_nan_summary_values() -> None:
     assert np.isnan(summary["min_cv"][0])
 
 
-def test_feasible_ratio_uses_constraint_handler_threshold() -> None:
-    state = _empty_state()
+def test_feasible_ratio_uses_the_constraint_definition() -> None:
+    from saealib import EqualityConstraint
+
+    problem = Problem(
+        func=lambda x: np.array([np.sum(np.asarray(x) ** 2)]),
+        dim=2,
+        n_obj=2,
+        direction=np.full(2, -1.0),
+        lb=[-1.0, -1.0],
+        ub=[1.0, 1.0],
+        constraints=[
+            InequalityConstraint(lambda x: float(x[0]) - 0.5),
+            EqualityConstraint(lambda x: float(x[1]), tolerance=1e-4),
+        ],
+    )
+    attrs = [
+        PopulationAttribute("x", np.float64, (2,), np.nan),
+        PopulationAttribute("f", np.float64, (2,), np.nan),
+        PopulationAttribute("g", np.float64, (2,), 0.0),
+        PopulationAttribute("cv", np.float64, (), 0.0),
+        PopulationAttribute("id", np.int64, (), -1),
+    ]
+    state = OptimizationState(
+        problem=problem,
+        population=Population(attrs, 1),
+        archive=Archive(attrs, 1),
+        pareto_archive=ParetoArchive(attrs, 1, direction=problem.direction),
+        rng=np.random.default_rng(0),
+        history=History(),
+    )
     state.population.extend(
         {
             "x": np.zeros((4, 2)),
-            "f": np.zeros((4, 1)),
-            "g": np.zeros((4, 0)),
-            "cv": np.array([0.0, 5e-7, 1e-7, 1.0]),
+            "f": np.zeros((4, 2)),
+            "g": np.array(
+                [
+                    [0.0, 0.0],
+                    [0.1, 1e-4],
+                    [-0.2, 9e-5],
+                    [-0.2, 2e-4],
+                ]
+            ),
+            "cv": np.array([0.0, 0.0, 0.5, 0.0]),
             "id": np.array([-1, -1, -1, -1]),
         }
     )
     record_generation(state)
     assert state.history is not None
     summary = state.history.channel("summary")
-    threshold = state.problem.handler.feasibility_threshold
-    cv = np.array([0.0, 5e-7, 1e-7, 1.0])
-    expected = float(np.count_nonzero(cv <= threshold) / len(cv))
-    assert summary["feasible_ratio"][0] == pytest.approx(expected)
-    assert summary["feasible_ratio"][0] == pytest.approx(0.75)
+
+    assert summary["feasible_ratio"][0] == pytest.approx(0.5)
 
 
 def test_epsilon_summary_channels_keep_reporting_and_diagnostics_distinct() -> None:
@@ -1016,16 +1049,22 @@ def test_epsilon_summary_channels_keep_reporting_and_diagnostics_distinct() -> N
         ),
     )
     optimizer = make_optimizer(problem.handler)
-    archive_snapshots: dict[int, tuple[np.ndarray, np.ndarray, float]] = {}
-    population_snapshots: dict[int, np.ndarray] = {}
+    archive_snapshots: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+    population_snapshots: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+    thresholds: dict[int, float] = {}
 
     def capture_archive(event: GenerationEndEvent) -> None:
         archive_snapshots[event.ctx.gen] = (
             event.ctx.archive.get_array("f").copy(),
-            event.ctx.archive.get_array("cv").copy(),
-            float(event.ctx.problem.handler.feasibility_threshold),
+            event.ctx.archive.get_array("g").copy(),
         )
-        population_snapshots[event.ctx.gen] = event.ctx.population.cv.copy()
+        population_snapshots[event.ctx.gen] = (
+            event.ctx.population.cv.copy(),
+            event.ctx.population.get_array("g").copy(),
+        )
+        thresholds[event.ctx.gen] = float(
+            event.ctx.problem.handler.feasibility_threshold
+        )
 
     optimizer.cbmanager.register(GenerationEndEvent, capture_archive)
     state = optimizer.run()
@@ -1039,19 +1078,25 @@ def test_epsilon_summary_channels_keep_reporting_and_diagnostics_distinct() -> N
     score = best * problem.direction[0]
     assert np.all(np.diff(score) >= 0.0)
     assert np.ptp(best) > 0.0
-    assert any(
-        np.any(
-            (cv > problem.eps_cv)
-            & (cv <= threshold)
-            & (f[:, 0] < best[int(np.flatnonzero(summary["gen"] == gen)[0])])
-        )
-        for gen, (f, cv, threshold) in archive_snapshots.items()
-    )
-    assert feasible_ratio[0] > feasible_ratio[-1]
     assert set(archive_snapshots) == set(summary["gen"][1:])
-    for gen, cv in population_snapshots.items():
+
+    forced = False
+    for gen, (archive_f, archive_g) in archive_snapshots.items():
         row = int(np.flatnonzero(summary["gen"] == gen)[0])
-        assert min_cv[row] == pytest.approx(float(np.min(cv)))
+        feasible = _feasible_mask(problem.constraints, archive_g)
+        pool = archive_f[feasible] if np.any(feasible) else archive_f
+        expected = float(pool[int(np.argmax(pool @ problem.direction)), 0])
+        assert best[row] == pytest.approx(expected)
+        population_cv, population_g = population_snapshots[gen]
+        ratio = float(
+            np.count_nonzero(_feasible_mask(problem.constraints, population_g))
+        )
+        ratio /= len(population_g)
+        assert feasible_ratio[row] == pytest.approx(ratio)
+        assert min_cv[row] == pytest.approx(float(np.min(population_cv)))
+        relaxed = float(np.count_nonzero(population_cv <= thresholds[gen]))
+        forced = forced or relaxed / len(population_cv) > ratio
+    assert forced
 
 
 def test_multiobjective_summary_has_each_objective_column() -> None:

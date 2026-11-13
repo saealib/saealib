@@ -52,16 +52,17 @@ class Problem:
         ``Optimizer`` comparator slot instead; this value is adopted as an
         explicit ``Optimizer`` setting.
     eps_cv : float
-        Epsilon for constraint violation feasibility threshold. Only used to
-        seed the default ``handler``/``comparator`` at construction time;
-        mutating this attribute afterwards has no runtime effect. The actual
-        running threshold is ``handler.feasibility_threshold``, which the
-        ``Runner`` syncs into ``comparator``/``pareto_archive`` every
-        generation. Explicit handlers may therefore use a running threshold
-        intentionally different from this value. This value remains the
-        feasibility basis for ``Result`` and summary ``best_f``; an explicit
-        handler with a different running threshold can therefore make reported
-        solutions disagree with the comparator's criterion.
+        Deprecated search-time feasibility relaxation for the default
+        ``handler``/``comparator``. A run treats ``cv <= eps_cv`` as feasible
+        when it ranks solutions, and reported feasibility never uses this
+        value. Mutating this attribute afterwards has no runtime effect; the
+        running relaxation is ``handler.feasibility_threshold``, which the
+        ``Runner`` syncs into ``comparator`` every generation. Default: 0.0.
+    cv_aggregator : callable or None
+        Aggregation that turns raw constraint values into ``cv``. When set,
+        it replaces ``handler.compute_cv``. The default is
+        :func:`~saealib.problem.constraint.sum_violation` through the default
+        handler.
     eps_obj : float
         Deprecated epsilon for objective value equality comparison. It seeds
         the ``eps_obj`` of the default comparator; configure the comparator
@@ -75,6 +76,11 @@ class Problem:
         objectives.
     """
 
+    cv_aggregator: (
+        Callable[[list[InequalityConstraint], np.ndarray, np.ndarray], float] | None
+    ) = None
+    _comparator_explicit: bool = False
+
     def __init__(
         self,
         func: Callable[..., Any],
@@ -86,9 +92,13 @@ class Problem:
         comparator: Comparator | None = None,
         constraints: list[InequalityConstraint] | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float | None = None,
         eps_obj: float | None = None,
         handler: ConstraintHandler | None = None,
+        cv_aggregator: Callable[
+            [list[InequalityConstraint], np.ndarray, np.ndarray], float
+        ]
+        | None = None,
         variables: list[Variable] | None = None,
         space: SearchSpace | None = None,
         evaluation_adapter: EvaluationAdapter | None = None,
@@ -127,7 +137,9 @@ class Problem:
         constraints : list[InequalityConstraint], optional
             List of inequality constraint definitions. Default: empty list.
         eps_cv : float, optional
-            Epsilon for constraint violation feasibility threshold. Default: 1e-6.
+            Deprecated. Search-time feasibility relaxation for the default
+            handler and comparator; a run ranks ``cv <= eps_cv`` solutions as
+            feasible, and reported feasibility ignores it. Default: 0.0.
         eps_obj : float, optional
             Deprecated. Configure the tolerance on the comparator with
             :meth:`saealib.Optimizer.set_comparator` instead. A value passed
@@ -135,8 +147,14 @@ class Problem:
             ``eps_obj`` of the default comparator. Default: 1e-6.
         handler : ConstraintHandler, optional
             Constraint-handling strategy. If None, a StaticToleranceHandler
-            (sum-of-violations, fixed eps_cv) is used, reproducing the default
-            behavior.
+            (sum-of-violations, fixed eps_cv) is used.
+        cv_aggregator : callable, optional
+            Aggregates raw constraint values into ``cv`` as
+            ``cv_aggregator(constraints, x, g) -> float``. It replaces
+            ``handler.compute_cv`` when given, and a plain function works. The
+            default handler aggregates with
+            :func:`~saealib.problem.constraint.sum_violation`, so the default
+            ``cv`` is the sum of the per-constraint violations.
         variables : list[Variable], optional
             Per-dimension variable definitions.  When provided, *lb* and *ub*
             are derived from the variable bounds.  ``len(variables)`` must equal
@@ -223,6 +241,14 @@ class Problem:
 
         self.n_obj = n_obj
         self.direction = direction
+        if eps_cv is None:
+            eps_cv = 0.0
+        else:
+            warn_deprecated(
+                "Problem(eps_cv=...)",
+                since="0.2.0",
+                replacement="the constraint tolerances or EpsilonConstraintHandler",
+            )
         self.eps_cv = eps_cv
         if eps_obj is None:
             eps_obj = 1e-6
@@ -239,6 +265,7 @@ class Problem:
         self.handler = (
             handler if handler is not None else StaticToleranceHandler(eps_cv=eps_cv)
         )
+        self.cv_aggregator = cv_aggregator
 
         self._comparator_explicit = comparator is not None
         if comparator is not None:
@@ -347,7 +374,8 @@ class Problem:
             Raw constraint values. shape = (n_constraints, )
             Empty array when no constraints are defined.
         cv : float
-            Aggregate constraint violation as computed by ``handler.compute_cv``.
+            Aggregate constraint violation, computed by ``cv_aggregator``
+            when one is configured and by ``handler.compute_cv`` otherwise.
             0.0 when no constraints are defined.
         """
         if not self.constraints:
@@ -355,8 +383,14 @@ class Problem:
         g = np.empty(len(self.constraints), dtype=float)
         for i, c in enumerate(self.constraints):
             g[i] = c.evaluate(x)
-        cv = self.handler.compute_cv(self.constraints, x, g)
+        cv = self._aggregate_cv(x, g)
         return g, float(cv)
+
+    def _aggregate_cv(self, x: np.ndarray, g: np.ndarray) -> float:
+        """Aggregate raw constraint values with the configured aggregator."""
+        if self.cv_aggregator is not None:
+            return float(self.cv_aggregator(self.constraints, x, g))
+        return float(self.handler.compute_cv(self.constraints, x, g))
 
     def evaluate_batch(self, x: Any) -> tuple[np.ndarray, np.ndarray] | None:
         """

@@ -39,7 +39,7 @@ page_type: concept
 | `KNNObjectiveSet` | `n_neighbors=50` | `candidate_x`に最も近いアーカイブ上のk点。`LocalSurrogateManager`の既定値。 |
 | `ConstraintObjectiveSet` | なし | アーカイブ全体を生の制約値とともに使います `g`。 |
 | `KNNConstraintObjectiveSet` | `n_neighbors=50` | `ConstraintObjectiveSet`のk-NN版 |
-| `FeasibilityClassificationSet` | `source="archive"` | による二値分類ラベル `cv <= eps_cv`。 |
+| `FeasibilityClassificationSet` | `source="archive"` | 制約ごとの実行可能性判定による二値分類ラベル。 |
 | `TopKBipartitionSet` | `source="archive", top_ratio=0.5` | ソート後、上位`floor(n * top_ratio)`件にlabel=1、残りにlabel=0を付けます。 |
 | `LevelBasedSet` | `source="population", n_levels=5` | ソート後、`n_levels`個の等分されたグループに複数レベルのラベルを割り当てます。 |
 | `PairwiseComparisonSet` | `source="archive", n_pairs=None, rng=None` | 2点をペアにし、比較の勝敗をラベル付けします |
@@ -47,7 +47,7 @@ page_type: concept
 
 `ConstraintObjectiveSet`/`KNNConstraintObjectiveSet`は、問題に制約がない場合（`archive.g`の列数が0）に`ValueError`を送出します。
 
-`FeasibilityClassificationSet`の実行可能性判定に使う`eps_cv`は`ctx.problem.eps_cv`から取得し、`ctx=None`の場合は`1e-6`にフォールバックします。
+`FeasibilityClassificationSet`は、`g`の制約ごとの違反量が許容幅の内側ですべて0のサンプルを実行可能とラベル付けします。`Result`とsummary履歴が使うのと同じ判定です。`ctx`が無い場合は制約が分からないため`cv <= 0`にフォールバックします。
 
 `source`引数を持つクラス（`FeasibilityClassificationSet`/`TopKBipartitionSet`/`LevelBasedSet`/`PairwiseComparisonSet`）は、`source="population"`を指定したときに`population=None`であれば、いずれも`ValueError`を送出します。
 

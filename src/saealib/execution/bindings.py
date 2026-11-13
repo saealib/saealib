@@ -107,7 +107,7 @@ def _default_comparator(problem: object) -> object:
     return default_comparator(
         int(getattr(problem, "n_obj")),
         getattr(problem, "direction", None),
-        eps_cv=float(getattr(problem, "eps_cv", 1e-6)),
+        eps_cv=float(getattr(problem, "eps_cv", 0.0)),
         eps_obj=float(getattr(problem, "eps_obj", 1e-6)),
     )
 

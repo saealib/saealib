@@ -861,7 +861,7 @@ class OptimizationState:
             else default_comparator(
                 problem.n_obj,
                 getattr(problem, "direction", None),
-                eps_cv=float(getattr(problem, "eps_cv", 1e-6)),
+                eps_cv=float(getattr(problem, "eps_cv", 0.0)),
                 eps_obj=float(getattr(problem, "eps_obj", 1e-6)),
             )
         )
@@ -1722,6 +1722,7 @@ def _decode_state_value(
     genome_codec: Any = None,
     dense_numeric_view: Any = None,
     space: Any = None,
+    constraints: Any = None,
     objective_source_targets: list[Any] | None = None,
 ) -> Any:
     if not isinstance(encoded, dict) or not isinstance(encoded.get("codec"), str):
@@ -1743,6 +1744,7 @@ def _decode_state_value(
             dense_numeric_view=dense_numeric_view,
             genome_payload=genome_payload,
             space=space,
+            constraints=constraints,
             objective_source_targets=objective_source_targets,
         )
     if codec == "json":
@@ -1814,6 +1816,7 @@ def _decode_state_value(
                     genome_codec=genome_codec,
                     dense_numeric_view=dense_numeric_view,
                     space=space,
+                    constraints=constraints,
                     objective_source_targets=objective_source_targets,
                 )
         return result
@@ -2399,6 +2402,7 @@ def _restore_collection(
     dense_numeric_view: Any = None,
     genome_payload: Any = None,
     space: Any = None,
+    constraints: Any = None,
     objective_source_targets: list[Any] | None = None,
 ) -> Any:
     """Rebuild one population or archive from its checkpoint descriptor.
@@ -2520,6 +2524,7 @@ def _restore_collection(
                     else np.asarray(direction_value, dtype=np.float64)
                 ),
                 eps_cv=float(descriptor.get("eps_cv", 0.0)),
+                constraints=list(constraints) if constraints else None,
                 **params,
                 **archive_kwargs,
             )
@@ -2590,6 +2595,9 @@ def _restore_collection(
                 getattr(collection, "duplicate_policy", None) == "append"
             ),
         )
+        rebind = getattr(collection, "_rebind_constraints", None)
+        if callable(rebind):
+            rebind(constraints)
     if add_objective_source and objective_source_targets is not None:
         objective_source_targets.append(collection)
     return collection
@@ -2674,6 +2682,7 @@ def _load_checkpoint(
             genome_codec=genome_codec,
             dense_numeric_view=dense_numeric_view,
             space=problem.space,
+            constraints=problem.constraints,
             objective_source_targets=objective_source_targets,
         )
         if key == _ACQUISITION_RESULT_V1:

@@ -61,7 +61,8 @@ def _state(f, cv, direction, pareto=None):
         problem=SimpleNamespace(
             n_obj=len(direction),
             direction=np.asarray(direction, dtype=float),
-            eps_cv=1e-6,
+            eps_cv=0.0,
+            constraints=[],
         ),
         archive=archive,
         pareto_archive=pareto_archive,

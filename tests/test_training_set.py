@@ -52,7 +52,7 @@ _ATTRS_G = [
 ]
 
 
-def _make_problem(eps_cv: float = 1e-6) -> Problem:
+def _make_problem(eps_cv: float | None = None, constraints=None) -> Problem:
     return Problem(
         func=lambda x: np.array([np.sum(x**2)]),
         dim=DIM,
@@ -61,6 +61,7 @@ def _make_problem(eps_cv: float = 1e-6) -> Problem:
         lb=[-5.0] * DIM,
         ub=[5.0] * DIM,
         eps_cv=eps_cv,
+        constraints=constraints,
         comparator=SingleObjectiveComparator(),
     )
 
@@ -112,9 +113,10 @@ def _make_population_with_cv(cvs: list[float]) -> Population:
 def _make_ctx(
     archive: Archive | None = None,
     population: Population | None = None,
-    eps_cv: float = 1e-6,
+    eps_cv: float | None = None,
+    constraints=None,
 ) -> OptimizationState:
-    problem = _make_problem(eps_cv=eps_cv)
+    problem = _make_problem(eps_cv=eps_cv, constraints=constraints)
     arc = archive if archive is not None else _make_archive()
     pop = population if population is not None else _make_population_with_cv([0.0] * 5)
     pareto_arc = ParetoArchive(_ATTRS, init_capacity=20, direction=np.array([-1.0]))
@@ -527,20 +529,37 @@ class TestFeasibilityClassificationSet:
         data = ts.build(arc, None, ctx=None)
         np.testing.assert_array_equal(data.train_y, [1.0, 0.0, 1.0, 0.0])
 
-    def test_eps_from_ctx(self) -> None:
-        arc = _make_archive_with_cv([0.1, 0.2, 0.3])
-        ctx = _make_ctx(archive=arc, eps_cv=0.15)
-        ts = FeasibilityClassificationSet(source="archive")
-        data = ts.build(arc, None, ctx=ctx)
-        # cv=0.1 <= 0.15 → 1, cv=0.2 > 0.15 → 0, cv=0.3 > 0.15 → 0
-        np.testing.assert_array_equal(data.train_y, [1.0, 0.0, 0.0])
+    def test_constraint_tolerances_decide_labels(self) -> None:
+        from saealib import EqualityConstraint, InequalityConstraint
 
-    def test_eps_default_when_ctx_none(self) -> None:
+        arc = Archive(_ATTRS_G, init_capacity=10)
+        rows = np.array(
+            [
+                [0.0, 0.0],
+                [0.0, 1e-4],
+                [0.0, 2e-4],
+                [1e-5, 0.0],
+            ]
+        )
+        for index, row in enumerate(rows):
+            arc.add(x=np.full(DIM, float(index)), f=np.zeros(N_OBJ), g=row, cv=0.5)
+        constraints = [
+            InequalityConstraint(lambda x: float(x[0])),
+            EqualityConstraint(lambda x: float(x[1])),
+        ]
+        ctx = _make_ctx(archive=arc, constraints=constraints)
+        ts = FeasibilityClassificationSet(source="archive")
+
+        data = ts.build(arc, None, ctx=ctx)
+
+        np.testing.assert_array_equal(data.train_y, [1.0, 1.0, 0.0, 0.0])
+
+    def test_cv_zero_decides_labels_without_ctx(self) -> None:
         arc = _make_archive_with_cv([0.0, 1e-7, 1e-5])
         ts = FeasibilityClassificationSet(source="archive")
         data = ts.build(arc, None, ctx=None)
-        # 0.0 <= 1e-6 → 1, 1e-7 <= 1e-6 → 1, 1e-5 > 1e-6 → 0
-        np.testing.assert_array_equal(data.train_y, [1.0, 1.0, 0.0])
+        # Only cv == 0 is feasible without the constraint definitions.
+        np.testing.assert_array_equal(data.train_y, [1.0, 0.0, 0.0])
 
     def test_source_population(self) -> None:
         pop = _make_population_with_cv([0.0, 0.5, 0.0])

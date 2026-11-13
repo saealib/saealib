@@ -234,7 +234,7 @@ class SingleObjectiveComparator(Comparator):
         self,
         direction: float | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
     ):
         direction_arr = np.array([direction]) if direction is not None else None
@@ -338,7 +338,7 @@ class WeightedSumComparator(Comparator):
         self,
         direction: np.ndarray | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
     ):
         if direction is None:
@@ -419,7 +419,7 @@ class ParetoComparator(Comparator):
         self,
         direction: np.ndarray | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
         sorter: NonDominatedSorter = non_dominated_sort,
         dominator: Dominator | None = None,
@@ -527,7 +527,7 @@ class NSGA2Comparator(ParetoComparator):
         self,
         direction: np.ndarray | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
         sorter: NonDominatedSorter = non_dominated_sort,
         dominator: Dominator | None = None,
@@ -685,7 +685,7 @@ class SPEA2Comparator(Comparator):
         self,
         direction: np.ndarray | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
         dominator: Dominator | None = None,
     ):
@@ -1024,7 +1024,7 @@ class HypervolumeComparator(ParetoComparator):
         self,
         direction: np.ndarray | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
         reference_point: np.ndarray | None = None,
         margin: float = 0.1,
@@ -1290,7 +1290,7 @@ class EpsilonDominanceComparator(ParetoComparator):
         mode: str = "additive",
         direction: np.ndarray | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
         sorter: NonDominatedSorter = non_dominated_sort,
     ):
@@ -1527,7 +1527,7 @@ class NSGA3Comparator(ParetoComparator):
         reference_points: np.ndarray,
         direction: np.ndarray | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
         sorter: NonDominatedSorter = non_dominated_sort,
         dominator: Dominator | None = None,
@@ -1709,7 +1709,7 @@ class RNSGA2Comparator(ParetoComparator):
         epsilon: float = 0.001,
         direction: np.ndarray | None = None,
         *,
-        eps_cv: float = 1e-6,
+        eps_cv: float = 0.0,
         eps_obj: float = 1e-6,
         sorter: NonDominatedSorter = non_dominated_sort,
         dominator: Dominator | None = None,
@@ -1896,7 +1896,7 @@ def default_comparator(
     n_obj: int,
     direction: np.ndarray | None,
     *,
-    eps_cv: float = 1e-6,
+    eps_cv: float = 0.0,
     eps_obj: float = 1e-6,
 ) -> Comparator:
     """

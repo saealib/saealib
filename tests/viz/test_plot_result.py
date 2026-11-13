@@ -144,6 +144,7 @@ def test_state_is_accepted() -> None:
             n_obj=2,
             direction=np.array([-1.0, -1.0]),
             eps_cv=0.0,
+            constraints=[],
         ),
         fe=1,
         gen=1,

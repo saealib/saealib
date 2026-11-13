@@ -147,9 +147,17 @@ class Algorithm(ABC):
                     ),
                 }
             )
-        return self.pareto_archive_class(
+        archive = self.pareto_archive_class(
             **kwargs,
         )
+        bind = getattr(archive, "_rebind_constraints", None)
+        if callable(bind):
+            bind(problem.constraints)
+        else:
+            archive.constraints = (
+                list(problem.constraints) if problem.constraints else None
+            )
+        return archive
 
     @property
     def ask_notation(self) -> list[str] | None:

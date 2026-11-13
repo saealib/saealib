@@ -50,6 +50,16 @@ class Runner:
         comparator = getattr(self.optimizer, "comparator", None)
         if comparator is not None and state.comparator is not comparator:
             state.comparator = comparator
+        pareto_archive = getattr(state, "pareto_archive", None)
+        if pareto_archive is not None and (
+            pareto_archive.__dict__.get("constraints") is None
+        ):
+            constraints = getattr(state.problem, "constraints", None)
+            rebind = getattr(pareto_archive, "_rebind_constraints", None)
+            if callable(rebind):
+                rebind(constraints)
+            else:
+                pareto_archive.constraints = list(constraints) if constraints else None
         configured_channels = tuple(
             getattr(self.optimizer, "history_channels", ("summary",))
         )

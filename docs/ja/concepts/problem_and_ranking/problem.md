@@ -18,8 +18,8 @@ page_type: concept
 Problem(
     func, dim, n_obj, direction, lb=None, ub=None,
     comparator=None, constraints=None, *,
-    eps_cv=1e-6, eps_obj=None, handler=None, variables=None,
-    space=None, evaluation_adapter=None,
+    eps_cv=None, eps_obj=None, handler=None, cv_aggregator=None,
+    variables=None, space=None, evaluation_adapter=None,
 )
 ```
 
@@ -33,9 +33,17 @@ Problem(
 
 **`constraints`**：不等式制約（`InequalityConstraint`）のリストです。定義方法は[制約付き最適化](../../tutorials/constraints.md)で説明します。
 
-**`eps_cv`**/**`eps_obj`**：それぞれ実行可能性判定の許容誤差、目的関数値の同値判定の許容誤差を表します。 `eps_cv`はコンストラクタ実行時に既定の`handler`/`comparator`へ引き継がれるだけで、構築後に`problem.eps_cv`を直接書き換えても実行時の挙動には反映されません。 実際に使われる閾値は`handler.feasibility_threshold`であり、`Optimizer`の実行中は毎世代`state.comparator`/`pareto_archive`へ同期されます。 `eps_obj`は非推奨です。既定のcomparatorの許容誤差を決めるだけで、ここに値を渡すと`DeprecationWarning`が出ます。許容誤差は`Optimizer.set_comparator()`で設定するcomparatorに渡してください。
+**`eps_cv`**/**`eps_obj`**：いずれも非推奨の探索側の許容誤差です。
+実行可能性は`eps_cv`ではなく制約定義で決まります。制約ごとの違反量が許容幅の内側ですべて0の解が実行可能であり、`Result`、履歴の`best_f`と`feasible_ratio`、学習データのラベル、Paretoアーカイブはすべてこの判定を使います。
+`eps_cv`に値を渡すと`DeprecationWarning`が出て、既定のハンドラの探索側の緩和として設定されます。ランタイムはその値を毎世代comparatorの`eps_cv`へ書き写すため、探索が実行可能とみなす範囲が広がりますが、報告される実行可能性は変わりません。
+省略時の既定は`0.0`で、制約による判定と一致します。実際に使われる緩和値は`handler.feasibility_threshold`です。
+`eps_obj`も既定のcomparatorの許容誤差を決めるだけで、ここに値を渡すと`DeprecationWarning`が出ます。許容誤差は`Optimizer.set_comparator()`で設定するcomparatorに渡してください。
 
-**`handler`**：制約違反の集約や目的関数の補正を担う[ConstraintHandler](constraints.md)。 省略時は`StaticToleranceHandler(eps_cv=eps_cv)`が使われます。
+**`cv_aggregator`**：`cv_aggregator(constraints, x, g) -> float`というcallableで、`cv`を計算して`handler.compute_cv`を置き換えます。通常の関数も使えます。
+既定の集約は制約ごとの違反量の和である`sum_violation`で、すべての違反が0のとき、かつそのときに限り`cv`が0になります。
+集約の契約は[ConstraintHandler](constraints.md)を参照してください。
+
+**`handler`**：制約違反の集約や目的関数の補正を担う[ConstraintHandler](constraints.md)。 省略時は`StaticToleranceHandler`が使われます。
 
 **`variables`**：各設計変数の型を`Variable`のリストで指定します。連続変数だけの問題では省略でき、その場合は各次元が`ContinuousVariable`として扱われます。整数変数とカテゴリ変数を混在させる場合、ここに`IntegerVariable`/`CategoricalVariable`を含めると、[Crossover](../search_algorithms/crossover.md)/[Mutation](../search_algorithms/mutation.md)が変数型ごとに異なる演算子を自動的に割り当てます。
 
@@ -56,6 +64,11 @@ Problem(
 ## 不変条件
 
 `direction` は目的ごとに `+1` または `-1` でなければならず、`dim`、変数、探索空間の表現は互いに整合していなければなりません。これらが一致しないと、構築時の検証や評価時の候補処理が失敗します。
+
+## Problemが持つもの
+
+`constraints`は`violation_from_value`を通じて実行可能性を決めます。不等式は`g(x) <= threshold`、等式は`|h(x)| <= tolerance`で、既定はそれぞれ`0`と`1e-4`です。
+この判定は`cv`の集約方法から独立しており、`Result`、履歴の`best_f`と`feasible_ratio`、学習データのラベル、Paretoアーカイブがすべて適用します。
 
 ## Problemの拡張
 
@@ -92,7 +105,7 @@ class PeriodicVariable(Variable):
 
 ## 外部ライブラリアダプタ
 
-`PymooProblem(pymoo_problem, *, eq_tolerance=1e-6, **problem_kwargs)`は、構築済みの[pymoo](https://pymoo.org/)問題インスタンス（組み込みベンチマークや既存の研究コード）を`Problem`としてラップし、`problem_kwargs`（`comparator`、`handler`、`eps_cv`、`eps_obj`）は`Problem.__init__`へそのまま渡されます。転送した`comparator`と`eps_obj`には上記の非推奨がそのまま当てはまります。 pymooの問題は常に最小化なので`direction`は常に全て`-1`になり、pymooの不等式制約（`G`）は`InequalityConstraint`へ、等式制約（`H`）は`EqualityConstraint`へ、いずれも符号を変えずにそのままマッピングされます。
+`PymooProblem(pymoo_problem, *, eq_tolerance=1e-4, **problem_kwargs)`は、構築済みの[pymoo](https://pymoo.org/)問題インスタンス（組み込みベンチマークや既存の研究コード）を`Problem`としてラップし、`problem_kwargs`（`comparator`、`handler`、`eps_cv`、`eps_obj`）は`Problem.__init__`へそのまま渡されます。`eq_tolerance`の既定は等式の許容幅`1e-4`であり、転送した`comparator`・`eps_cv`・`eps_obj`には上記の非推奨がそのまま当てはまります。 pymooの問題は常に最小化なので`direction`は常に全て`-1`になり、pymooの不等式制約（`G`）は`InequalityConstraint`へ、等式制約（`H`）は`EqualityConstraint`へ、いずれも符号を変えずにそのままマッピングされます。
 
 pymooの問題はバッチ評価（`_evaluate(X, out)`）を前提としており、`PymooProblem.evaluate_batch`はラップした問題自身の`evaluate(X, return_as_dictionary=True)`をバッチ全体に対して1回だけ呼び出すことで、これを直接活用します。 `SerialEvaluator`は利用可能な場合これを自動的に使用します。 一方、`SerialEvaluator`を介さず`Problem.evaluate`/`evaluate_constraints`を直接呼んで個体単位で評価する呼び出し元に対しては、`x`をキーとする1スロットのキャッシュにより、候補ごとにpymoo呼び出しは正確に1回で済みます。`evaluate_constraints()`と`evaluate()`は同じ`x`に対して連続して呼ばれるため、キャッシュがなければ制約の数だけpymoo呼び出しが発生し、さらに目的関数の分も加わってしまいます。
 

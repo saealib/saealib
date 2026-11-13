@@ -52,6 +52,10 @@ print(result.f.shape)  # (n_pareto, n_obj)
 ```
 
 Where `result.x`/`result.f` were a single point in the single-objective case, in the multi-objective case they become multiple solutions forming the Pareto front.
+`x` and `f` hold the non-dominated solutions under the default criterion, recomputed from the truly evaluated rows of the main archive.
+`result.best()` returns one solution and `result.front()` returns the non-dominated set.
+Both accept a `Comparator` as `criterion` and use the default criterion when it is omitted: feasibility first, decided by the per-constraint violations (an inequality is satisfied at `0.0` and an equality at its `tolerance`), then Pareto dominance.
+When no solution is feasible, the non-dominated solutions among the minimum-`cv` rows are used.
 
 ## Configure an Optimizer
 
@@ -103,11 +107,24 @@ ctx = optimizer.run()
 
 ## Extract the Pareto front
 
-After running, `result.ctx.pareto_archive` holds the final Pareto front.
+After running, `result.x` and `result.f` hold the non-dominated solutions under the default criterion.
 
 ```python
-pareto_x = result.ctx.pareto_archive.get_array("x")
-pareto_f = result.ctx.pareto_archive.get_array("f")
+front_x = result.x
+front_f = result.f
+```
+
+The search-side `result.ctx.pareto_archive` is a separate, incrementally pruned archive.
+Its contents follow the search settings, so compare or plot final results with `result.x`/`result.f` or `result.front()` rather than reading the Pareto archive directly.
+For a multi-objective problem, the recomputation from the main archive can produce a different set than the Pareto archive, for example in a run that uses ε relaxation.
+
+```python
+from saealib.comparators import ParetoComparator
+
+front_x, front_f = result.front()
+relaxed_x, relaxed_f = result.front(
+    ParetoComparator(direction=problem.direction, eps_cv=1e-3)
+)
 ```
 
 To compute the Pareto front from an arbitrary array of objective values, you can use `non_dominated_sort` directly.

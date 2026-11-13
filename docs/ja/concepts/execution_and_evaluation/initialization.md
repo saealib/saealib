@@ -35,10 +35,11 @@ page_type: concept
 Sample (n_init_archive points)
   -> Evaluate via provider.evaluator.evaluate_batch
   -> add to archive / pareto_archive
-  -> Rank via problem.comparator.rank_population
+  -> Rank via state.comparator.rank_population
   -> Feed the top n_init_population into population
 ```
 
+ここで使うcomparatorはOptimizerに対して解決されたものであり、既定の個体数と初期ランク付けの両方がそれに依存するため、Initializerより先に作られます。実行中に`state.comparator`として公開されるのと同じオブジェクトです。
 これは、前回の選択の状態を再利用するのではなく新しく組み立てたArchiveをランク付けするため、`sort_population`を直接ではなく`rank_population`を呼び出します——両者の違いは[Comparator](../problem_and_ranking/comparators.md)を参照してください。
 `SPEA2Comparator`のようなComparatorにとっては、これが初期Populationにその永続化されたランキング状態（`spea2_fitness`）を最初に書き込む場所でもあります。
 

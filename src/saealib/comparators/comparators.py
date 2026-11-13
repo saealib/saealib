@@ -1890,3 +1890,39 @@ class RNSGA2Comparator(ParetoComparator):
             _array_key(self._reference_points),
             float(self._epsilon),
         )
+
+
+def default_comparator(
+    n_obj: int,
+    direction: np.ndarray | None,
+    *,
+    eps_cv: float = 1e-6,
+    eps_obj: float = 1e-6,
+) -> Comparator:
+    """
+    Return the comparator selected for a problem with this objective count.
+
+    Parameters
+    ----------
+    n_obj : int
+        Number of objectives of the problem.
+    direction : np.ndarray or None
+        Per-objective optimization directions. shape = (n_obj, )
+    eps_cv : float, optional
+        Constraint-violation tolerance of the returned comparator.
+    eps_obj : float, optional
+        Objective-value tolerance of the returned comparator.
+
+    Returns
+    -------
+    Comparator
+        ``SingleObjectiveComparator`` when ``n_obj == 1``, otherwise
+        ``NSGA2Comparator``.
+    """
+    if n_obj == 1:
+        return SingleObjectiveComparator(
+            direction=None if direction is None else direction[0],
+            eps_cv=eps_cv,
+            eps_obj=eps_obj,
+        )
+    return NSGA2Comparator(direction=direction, eps_cv=eps_cv, eps_obj=eps_obj)

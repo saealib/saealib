@@ -109,7 +109,6 @@ def _selection_state(pool: Population, comp: SPEA2Comparator) -> OptimizationSta
         direction=np.full(n_obj, -1.0),
         lb=[0.0, 0.0],
         ub=[1.0, 1.0],
-        comparator=comp,
     )
     # The archives stay empty; "x" keeps the schema-backed identity path
     # usable without fingerprint services.
@@ -122,6 +121,7 @@ def _selection_state(pool: Population, comp: SPEA2Comparator) -> OptimizationSta
             "pareto": ParetoArchive(attrs, direction=problem.direction),
         },
         rng=np.random.default_rng(0),
+        comparator=comp,
     )
 
 

@@ -47,6 +47,9 @@ class Runner:
         self, state: OptimizationState
     ) -> Generator[OptimizationState, None, None]:
         """Drive runtime steps from an initial or checkpoint state."""
+        comparator = getattr(self.optimizer, "comparator", None)
+        if comparator is not None and state.comparator is not comparator:
+            state.comparator = comparator
         configured_channels = tuple(
             getattr(self.optimizer, "history_channels", ("summary",))
         )

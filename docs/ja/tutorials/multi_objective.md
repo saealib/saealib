@@ -73,7 +73,7 @@ pareto_f = ctx.pareto_archive.get_array("f")
 
 多目的最適化では、`Comparator` が候補解同士の相対的な優劣を決めます。
 
-`Problem` の `comparator` 引数を省略すると、目的数に基づいて自動選択されます（`n_obj == 1` では `SingleObjectiveComparator`、`n_obj > 1` では `NSGA2Comparator`）。
+comparatorを設定しない場合、目的数に基づいて自動選択されます（`n_obj == 1` では `SingleObjectiveComparator`、`n_obj > 1` では `NSGA2Comparator`）。
 
 | クラス | 動作 |
 |--------|------|
@@ -84,14 +84,22 @@ pareto_f = ctx.pareto_archive.get_array("f")
 | `NSGA3Comparator` | 参照点による多様性維持。`reference_points` が必要です |
 | `RNSGA2Comparator` | 指定した参照点の近くに解を集中させます。`reference_points` が必要です |
 
-`Problem` インスタンスの属性として `comparator` を交換できます。
+comparatorは `Optimizer.set_comparator()` で設定します。
+明示的に設定したcomparatorは既定より優先され、実行状態には `ctx.comparator` として現れます。
 
 ```python
+from saealib import Optimizer, Termination, max_fe
 from saealib.comparators import HypervolumeComparator
 
-problem.comparator = HypervolumeComparator()
-result = minimize(problem, max_fe=2000, seed=0)
+optimizer = (
+    Optimizer(problem, seed=0)
+    .set_comparator(HypervolumeComparator())
+    .set_termination(Termination(max_fe(2000)))
+)
+ctx = optimizer.run()
 ```
+
+`Problem(comparator=...)` も動作しますが非推奨です。`DeprecationWarning` が出て、その値はOptimizerの明示的なcomparatorとして扱われます。
 
 ## パレートフロントを抽出する
 

@@ -459,6 +459,11 @@ def _prepare_graph_and_context(
     return graph, CompileContext(
         space=getattr(problem, "space", None),
         problem=problem,
+        comparator=(
+            None
+            if _component_resolution is None
+            else _component_resolution.components.get("comparator")
+        ),
         offered_runtime_capabilities=offered_runtime_capabilities,
         initial_state_keys=initial_state_keys,
         _verification_enabled=_verification_enabled,

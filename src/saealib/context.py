@@ -15,6 +15,7 @@ from urllib.parse import quote
 
 import numpy as np
 
+from saealib.comparators import default_comparator
 from saealib.core.state import (
     ACQUISITION_RESULT,
     EVALUATIONS_COUNT,
@@ -505,6 +506,10 @@ class OptimizationState:
         Pareto archive instance.
     rng : np.random.Generator
         Random number generator.  Advances its state as a side effect.
+    comparator : Comparator
+        Comparator that orders solutions during this run. It comes from the
+        ``Optimizer`` comparator slot; a state created without one uses the
+        default comparator for the problem's objective count.
     candidate_id_allocator : IDAllocator
         Allocates stable, unique int64 candidate IDs.  Advances its state as
         a side effect.
@@ -568,6 +573,7 @@ class OptimizationState:
     populations: dict[str, Population]
     archives: dict[str, Archive | ParetoArchive]
     rng: np.random.Generator
+    comparator: Comparator
     candidate_id_allocator: IDAllocator = field(default_factory=IDAllocator)
     proposal_id_allocator: IDAllocator = field(default_factory=IDAllocator)
     request_id_allocator: IDAllocator = field(default_factory=IDAllocator)
@@ -786,6 +792,7 @@ class OptimizationState:
         pareto_archive: ParetoArchive | None = None,
         rng: np.random.Generator | None = None,
         *,
+        comparator: Comparator | None = None,
         populations: dict[str, Population] | None = None,
         archives: dict[str, Archive | ParetoArchive] | None = None,
         candidate_id_allocator: IDAllocator | None = None,
@@ -848,6 +855,16 @@ class OptimizationState:
             raise ValidationError("archives must contain 'main' and 'pareto'")
         self.problem = problem
         self.rng = rng if rng is not None else np.random.default_rng()
+        self.comparator = (
+            comparator
+            if comparator is not None
+            else default_comparator(
+                problem.n_obj,
+                getattr(problem, "direction", None),
+                eps_cv=float(getattr(problem, "eps_cv", 1e-6)),
+                eps_obj=float(getattr(problem, "eps_obj", 1e-6)),
+            )
+        )
         self.candidate_id_allocator = (
             candidate_id_allocator
             if candidate_id_allocator is not None
@@ -1278,11 +1295,6 @@ class OptimizationState:
     def direction(self) -> np.ndarray:
         """Return the optimization direction of the problem."""
         return self.problem.direction
-
-    @property
-    def comparator(self) -> Comparator:
-        """Return the comparator of the problem."""
-        return self.problem.comparator
 
     def count_fe(self, count: int = 1) -> None:
         """

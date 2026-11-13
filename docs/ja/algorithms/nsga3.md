@@ -80,7 +80,6 @@ from saealib.termination import Termination, max_fe
 
 problem = dtlz2(n_obj=3)
 reference_points = uniform_weight_vectors(n_obj=3, n_divisions=8)
-problem.comparator = NSGA3Comparator(reference_points)
 
 algorithm = GA(
     CrossoverSBX(prob=1.0, eta=30.0),
@@ -91,6 +90,7 @@ algorithm = GA(
 
 opt = (
     Optimizer(problem)
+    .set_comparator(NSGA3Comparator(reference_points))
     .set_algorithm(algorithm)
     .set_strategy(DirectStrategy())
     .set_termination(Termination(max_fe(3000)))
@@ -99,7 +99,7 @@ ctx = opt.run()
 pareto_f = ctx.pareto_archive.get_array("f")
 ```
 
-`problem.comparator = NSGA3Comparator(reference_points)`の行は省略できません。 NSGA-IIでは`NSGA2Comparator`が`n_obj > 1`のときの既定値なので同じ行を省略できましたが、NSGA-IIIではSPEA2と同様に明示的な代入が必要になります。
+`set_comparator(NSGA3Comparator(reference_points))`の呼び出しは省略できません。 NSGA-IIでは`NSGA2Comparator`が`n_obj > 1`のときの既定値なので同じ呼び出しを省略できましたが、NSGA-IIIではSPEA2と同様に明示的なcomparatorの設定が必要になります。
 
 2目的のZDTベンチマークではなく3目的のDTLZ2を使うのは、NSGA-IIIが多数目的最適化を主対象としつつ、3目的でも参照方向によるニッチ保持の挙動を観察できるためです。
 

@@ -88,7 +88,6 @@ from saealib.termination import Termination, max_fe
 
 
 problem = zdt1(n_var=10)
-problem.comparator = HypervolumeComparator()
 
 algorithm = GA(
     CrossoverSBX(prob=0.9, eta=20.0),
@@ -100,6 +99,7 @@ evaluator = SerialEvaluator()
 
 opt = (
     Optimizer(problem)
+    .set_comparator(HypervolumeComparator())
     .set_algorithm(algorithm)
     .set_strategy(SteadyStateStrategy())
     .set_evaluator(evaluator)
@@ -109,7 +109,7 @@ ctx = opt.run()
 pareto_f = ctx.pareto_archive.get_array("f")
 ```
 
-The `problem.comparator = HypervolumeComparator()` line cannot be omitted.
+The `set_comparator(HypervolumeComparator())` call cannot be omitted.
 In NSGA-II, `NSGA2Comparator` is the default for `n_obj > 1`, so the same line could be omitted, but as with SPEA2 and NSGA-III, SMS-EMOA also requires an explicit assignment.
 
 **Asynchronous extension**: When evaluation times vary, combine `SteadyStateStrategy` with `AsyncEvaluator` and `AsyncEvaluationScheduler` (for example, `max_workers=2`, `max_pending=2`). This extension has a different evaluation order from the sequential configuration above.
@@ -121,6 +121,7 @@ async_evaluator = AsyncEvaluator(SerialEvaluator(), max_workers=2)
 async_schedule = AsyncEvaluationScheduler(async_evaluator, max_pending=2)
 async_opt = (
     Optimizer(problem)
+    .set_comparator(HypervolumeComparator())
     .set_algorithm(algorithm)
     .set_strategy(SteadyStateStrategy())
     .set_evaluator(async_evaluator)

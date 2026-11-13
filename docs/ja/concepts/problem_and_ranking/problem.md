@@ -18,7 +18,7 @@ page_type: concept
 Problem(
     func, dim, n_obj, direction, lb=None, ub=None,
     comparator=None, constraints=None, *,
-    eps_cv=1e-6, eps_obj=1e-6, handler=None, variables=None,
+    eps_cv=1e-6, eps_obj=None, handler=None, variables=None,
     space=None, evaluation_adapter=None,
 )
 ```
@@ -29,11 +29,11 @@ Problem(
 
 **`lb`**/**`ub`**：ベクトル設計空間の下限と上限です。`variables`も`space`も表現を提供しない場合に必要です。`variables`が指定されると、境界は各変数の範囲から導出されます。
 
-**`comparator`**：解を比較する[Comparator](comparators.md)。 省略した場合、`n_obj == 1`なら`SingleObjectiveComparator`、`n_obj > 1`なら`NSGA2Comparator`が自動的に選ばれます。 渡した`Comparator`の`direction`が未設定（`None`）であれば、`Problem`の`direction`がそのまま注入されます。
+**`comparator`**：非推奨です。 解を比較する[Comparator](comparators.md)は`Optimizer.set_comparator()`で設定してください。comparatorはProblemではなくOptimizerが持ちます。 ここに値を渡すと`DeprecationWarning`が出て、このProblemから作られる`Optimizer`の明示的なcomparatorとして扱われます。`set_comparator()`で設定したcomparatorが優先されます。 明示的なcomparatorがない場合、`Optimizer`は目的数から既定（`n_obj == 1`なら`SingleObjectiveComparator`、`n_obj > 1`なら`NSGA2Comparator`）を選び、その選択をframework defaultとして記録します。 `Problem`自身の`comparator`属性は、このProblemから導かれる既定として残ります。`OptimizationState.load()`を単体で使うときに使われる値であり、実行中に比較に使われるオブジェクトではありません。 `direction`が未設定（`None`）のcomparatorは、Optimizerの枠に入る時点でProblemの`direction`を受け取ります。
 
 **`constraints`**：不等式制約（`InequalityConstraint`）のリストです。定義方法は[制約付き最適化](../../tutorials/constraints.md)で説明します。
 
-**`eps_cv`**/**`eps_obj`**：それぞれ実行可能性判定の許容誤差、目的関数値の同値判定の許容誤差を表します。 `eps_cv`はコンストラクタ実行時に既定の`handler`/`comparator`へ引き継がれるだけで、構築後に`problem.eps_cv`を直接書き換えても実行時の挙動には反映されません。 実際に使われる閾値は`handler.feasibility_threshold`であり、`Optimizer`の実行中は毎世代`comparator`/`pareto_archive`へ同期されます。
+**`eps_cv`**/**`eps_obj`**：それぞれ実行可能性判定の許容誤差、目的関数値の同値判定の許容誤差を表します。 `eps_cv`はコンストラクタ実行時に既定の`handler`/`comparator`へ引き継がれるだけで、構築後に`problem.eps_cv`を直接書き換えても実行時の挙動には反映されません。 実際に使われる閾値は`handler.feasibility_threshold`であり、`Optimizer`の実行中は毎世代`state.comparator`/`pareto_archive`へ同期されます。 `eps_obj`は非推奨です。既定のcomparatorの許容誤差を決めるだけで、ここに値を渡すと`DeprecationWarning`が出ます。許容誤差は`Optimizer.set_comparator()`で設定するcomparatorに渡してください。
 
 **`handler`**：制約違反の集約や目的関数の補正を担う[ConstraintHandler](constraints.md)。 省略時は`StaticToleranceHandler(eps_cv=eps_cv)`が使われます。
 
@@ -92,7 +92,7 @@ class PeriodicVariable(Variable):
 
 ## 外部ライブラリアダプタ
 
-`PymooProblem(pymoo_problem, *, eq_tolerance=1e-6, **problem_kwargs)`は、構築済みの[pymoo](https://pymoo.org/)問題インスタンス（組み込みベンチマークや既存の研究コード）を`Problem`としてラップし、`problem_kwargs`（`comparator`、`handler`、`eps_cv`、`eps_obj`）は`Problem.__init__`へそのまま渡されます。 pymooの問題は常に最小化なので`direction`は常に全て`-1`になり、pymooの不等式制約（`G`）は`InequalityConstraint`へ、等式制約（`H`）は`EqualityConstraint`へ、いずれも符号を変えずにそのままマッピングされます。
+`PymooProblem(pymoo_problem, *, eq_tolerance=1e-6, **problem_kwargs)`は、構築済みの[pymoo](https://pymoo.org/)問題インスタンス（組み込みベンチマークや既存の研究コード）を`Problem`としてラップし、`problem_kwargs`（`comparator`、`handler`、`eps_cv`、`eps_obj`）は`Problem.__init__`へそのまま渡されます。転送した`comparator`と`eps_obj`には上記の非推奨がそのまま当てはまります。 pymooの問題は常に最小化なので`direction`は常に全て`-1`になり、pymooの不等式制約（`G`）は`InequalityConstraint`へ、等式制約（`H`）は`EqualityConstraint`へ、いずれも符号を変えずにそのままマッピングされます。
 
 pymooの問題はバッチ評価（`_evaluate(X, out)`）を前提としており、`PymooProblem.evaluate_batch`はラップした問題自身の`evaluate(X, return_as_dictionary=True)`をバッチ全体に対して1回だけ呼び出すことで、これを直接活用します。 `SerialEvaluator`は利用可能な場合これを自動的に使用します。 一方、`SerialEvaluator`を介さず`Problem.evaluate`/`evaluate_constraints`を直接呼んで個体単位で評価する呼び出し元に対しては、`x`をキーとする1スロットのキャッシュにより、候補ごとにpymoo呼び出しは正確に1回で済みます。`evaluate_constraints()`と`evaluate()`は同じ`x`に対して連続して呼ばれるため、キャッシュがなければ制約の数だけpymoo呼び出しが発生し、さらに目的関数の分も加わってしまいます。
 
@@ -100,7 +100,7 @@ pymooの問題はバッチ評価（`_evaluate(X, out)`）を前提としてお�
 
 ## 関連コンポーネント
 
-- [Comparator](comparators.md)：`comparator`引数で解の比較方法を差し替える
+- [Comparator](comparators.md)：`Optimizer.set_comparator()`で解の比較方法を差し替える
 - [ConstraintHandler](constraints.md)：`handler`引数で制約違反の扱い方を差し替える
 - [Crossover](../search_algorithms/crossover.md) / [Mutation](../search_algorithms/mutation.md)：`variables`で定義した変数型ごとに適用される演算子
 - [制約付き最適化](../../tutorials/constraints.md)：制約の定義方法と組み込みの`ConstraintHandler`の選び方

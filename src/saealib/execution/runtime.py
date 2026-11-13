@@ -1730,6 +1730,10 @@ class _OptimizerEnvironment:
             elif isinstance(current_services, dict):
                 current_services.pop("FeatureEncoder", None)
             self._last_state.__dict__["_binding_version"] = version
+            comparator = cast(Any, self._active_snapshot.values.get("comparator"))
+            if comparator is not None and self._last_state.comparator is not comparator:
+                self._last_state.comparator = comparator
+                prepare_state_comparator(self._last_state)
         self._candidate_resolution = None
         self._publish_scheduler(executable)
 
@@ -2266,6 +2270,16 @@ def _execute_strategy_step(
     return environment.execute_async(sequential, state)
 
 
+def prepare_state_comparator(state: OptimizationState) -> None:
+    """Bind the run state's comparator to the search criteria of this run."""
+    comparator = state.comparator
+    if getattr(comparator, "direction", None) is None:
+        comparator.direction = state.problem.direction
+    comparator.eps_cv = state.problem.handler.feasibility_threshold
+    if isinstance(comparator, NSGA3Comparator) and comparator._rng is None:
+        comparator.rng = state.rng.spawn(1)[0]
+
+
 class PipelineRuntime:
     """Drive synchronous lifecycle and expose one observable step per generation."""
 
@@ -2719,14 +2733,8 @@ class PipelineRuntime:
 
     @staticmethod
     def _prepare_state(state: OptimizationState) -> None:
-        threshold = state.problem.handler.feasibility_threshold
-        state.comparator.eps_cv = threshold
-        state.pareto_archive.eps_cv = threshold
-        if (
-            isinstance(state.comparator, NSGA3Comparator)
-            and state.comparator._rng is None
-        ):
-            state.comparator.rng = state.rng.spawn(1)[0]
+        prepare_state_comparator(state)
+        state.pareto_archive.eps_cv = state.problem.handler.feasibility_threshold
 
 
 class AsyncPipelineRuntime(PipelineRuntime):

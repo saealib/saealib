@@ -64,6 +64,7 @@ class CompileContext:
     enabled_rule_namespaces: frozenset[str] = frozenset()
     space: object | None = None
     problem: object | None = None
+    comparator: object | None = None
     offered_runtime_capabilities: frozenset[RuntimeCapability] | None = None
     portability_required: bool = False
     adapter_registry: object | None = None
@@ -364,10 +365,13 @@ def _lookup_service(
         service = getter(service_name)
         if service is not None:
             return service
-    # Problem owns ComparisonService.  Problem currently exposes
-    # its comparator directly; the compiler keeps that object as the bound
-    # direct reference and does not add a runtime registry lookup.
+    # ComparisonService is bound to the comparator resolved for this plan. A
+    # compile without an optimizer falls back to the comparator the problem
+    # derives from its objective count.
     if provider_name == "problem" and service_name == "ComparisonService":
+        comparator = getattr(compile_context, "comparator", None)
+        if comparator is not None:
+            return comparator
         return getattr(provider, "comparator", None)
     return None
 

@@ -17,7 +17,7 @@ from saealib import (
     TruncationSelection,
     max_gen,
 )
-from saealib.comparators import Comparator, SingleObjectiveComparator, SPEA2Comparator
+from saealib.comparators import Comparator, SPEA2Comparator
 from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.execution.evaluator import SerialEvaluator
 from saealib.execution.initializer import (
@@ -40,7 +40,7 @@ LB = [-2.0] * DIM
 UB = [3.0] * DIM
 
 
-def _make_problem(comparator: Comparator | None = None) -> Problem:
+def _make_problem() -> Problem:
     return Problem(
         func=lambda x: np.array([np.sum(x**2)]),
         dim=DIM,
@@ -48,9 +48,6 @@ def _make_problem(comparator: Comparator | None = None) -> Problem:
         direction=np.array([-1.0]),
         lb=LB,
         ub=UB,
-        comparator=(
-            comparator if comparator is not None else SingleObjectiveComparator()
-        ),
     )
 
 
@@ -96,9 +93,10 @@ class _MockProvider:
     strategy: OptimizationStrategy = DirectStrategy()
     termination: Termination = Termination(max_gen(100_000))
 
-    def __init__(self):
+    def __init__(self, comparator: Comparator | None = None):
         from saealib.callback import CallbackManager
 
+        self.comparator = comparator
         self.algorithm = GA(
             crossover=CrossoverBLXAlpha(prob=0.9, alpha=0.4),
             mutation=MutationUniform(prob_var=0.1),
@@ -125,8 +123,9 @@ def provider():
 
 def _make_required_attrs_provider(
     required_attrs: list[PopulationAttribute],
+    comparator: Comparator | None = None,
 ) -> _MockProvider:
-    provider = _MockProvider()
+    provider = _MockProvider(comparator)
     provider.algorithm = _RequiredAttrsGA(required_attrs)
     return provider
 
@@ -252,8 +251,8 @@ def test_sobol_initializer_same_seed_reproducible(problem, provider):
 
 def test_comparator_required_attrs_are_added_to_population_and_archive():
     marker = PopulationAttribute("marker", np.float64, (), default=np.nan)
-    problem = _make_problem(_RequiredAttrsComparator([marker]))
-    provider = _make_required_attrs_provider([])
+    problem = _make_problem()
+    provider = _make_required_attrs_provider([], _RequiredAttrsComparator([marker]))
 
     ctx = LHSInitializer(N_ARCHIVE, N_POP, seed=0).initialize(
         cast(Any, provider), problem
@@ -265,8 +264,8 @@ def test_comparator_required_attrs_are_added_to_population_and_archive():
 
 def test_genome_initializer_merges_comparator_required_attrs():
     marker = PopulationAttribute("marker", np.float64, (), default=np.nan)
-    problem = _make_problem(_RequiredAttrsComparator([marker]))
-    provider = _make_required_attrs_provider([])
+    problem = _make_problem()
+    provider = _make_required_attrs_provider([], _RequiredAttrsComparator([marker]))
 
     attrs = GenomeInitializer(N_ARCHIVE, N_POP, seed=0)._create_attrs(
         problem, cast(Any, provider)
@@ -290,8 +289,10 @@ def test_genome_initializer_resolves_dense_numeric_view_on_pareto_archive(
 def test_compatible_algorithm_and_comparator_attrs_are_deduplicated():
     algorithm_attr = PopulationAttribute("marker", np.float64, (), default=np.nan)
     comparator_attr = PopulationAttribute("marker", float, (), default=np.nan)
-    problem = _make_problem(_RequiredAttrsComparator([comparator_attr]))
-    provider = _make_required_attrs_provider([algorithm_attr])
+    problem = _make_problem()
+    provider = _make_required_attrs_provider(
+        [algorithm_attr], _RequiredAttrsComparator([comparator_attr])
+    )
 
     ctx = LHSInitializer(N_ARCHIVE, N_POP, seed=0).initialize(
         cast(Any, provider), problem
@@ -304,8 +305,10 @@ def test_compatible_algorithm_and_comparator_attrs_are_deduplicated():
 def test_conflicting_algorithm_and_comparator_attrs_raise_configuration_error():
     algorithm_attr = PopulationAttribute("marker", np.float64, (), default=np.nan)
     comparator_attr = PopulationAttribute("marker", np.int64, (), default=0)
-    problem = _make_problem(_RequiredAttrsComparator([comparator_attr]))
-    provider = _make_required_attrs_provider([algorithm_attr])
+    problem = _make_problem()
+    provider = _make_required_attrs_provider(
+        [algorithm_attr], _RequiredAttrsComparator([comparator_attr])
+    )
 
     with pytest.raises(ConfigurationError, match="marker"):
         LHSInitializer(N_ARCHIVE, N_POP, seed=0).initialize(
@@ -316,8 +319,10 @@ def test_conflicting_algorithm_and_comparator_attrs_raise_configuration_error():
 def test_conflicting_default_raises_configuration_error():
     algorithm_attr = PopulationAttribute("marker", np.float64, (), default=np.nan)
     comparator_attr = PopulationAttribute("marker", np.float64, (), default=0.0)
-    problem = _make_problem(_RequiredAttrsComparator([comparator_attr]))
-    provider = _make_required_attrs_provider([algorithm_attr])
+    problem = _make_problem()
+    provider = _make_required_attrs_provider(
+        [algorithm_attr], _RequiredAttrsComparator([comparator_attr])
+    )
 
     with pytest.raises(ConfigurationError, match="marker"):
         LHSInitializer(N_ARCHIVE, N_POP, seed=0).initialize(
@@ -344,10 +349,10 @@ def test_lhs_initializer_populates_spea2_fitness_before_return():
         direction=direction,
         lb=LB,
         ub=UB,
-        comparator=SPEA2Comparator(direction=direction),
     )
+    provider = _MockProvider(SPEA2Comparator(direction=direction))
     ctx = LHSInitializer(N_ARCHIVE, N_POP, seed=0).initialize(
-        cast(Any, _MockProvider()), problem
+        cast(Any, provider), problem
     )
 
     assert np.all(np.isfinite(ctx.population.get_array("spea2_fitness")))
@@ -355,9 +360,9 @@ def test_lhs_initializer_populates_spea2_fitness_before_return():
 
 def test_spea2_fitness_is_nan_on_new_population_rows_until_prepared():
     comparator = SPEA2Comparator()
-    problem = _make_problem(comparator)
+    problem = _make_problem()
     ctx = LHSInitializer(N_ARCHIVE, N_POP, seed=0).initialize(
-        cast(Any, _MockProvider()), problem
+        cast(Any, _MockProvider(comparator)), problem
     )
 
     ctx.population.append(x=np.zeros(DIM), f=np.array([1.0]), cv=0.0)

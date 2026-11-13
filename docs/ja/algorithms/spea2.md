@@ -89,7 +89,6 @@ N = 30  # offspring per generation, and the initial candidate pool size
 N_BAR = 20  # SPEA2 external archive size
 
 problem = zdt1(n_var=10)
-problem.comparator = SPEA2Comparator()
 
 algorithm = GA(
     CrossoverSBX(prob=0.9, eta=20.0),
@@ -100,6 +99,7 @@ algorithm = GA(
 
 opt = (
     Optimizer(problem)
+    .set_comparator(SPEA2Comparator())
     .set_initializer(LHSInitializer(n_init_archive=N, n_init_population=N_BAR))
     .set_algorithm(algorithm)
     .set_strategy(DirectStrategy(n_offspring=N))
@@ -109,7 +109,7 @@ ctx = opt.run()
 pareto_f = ctx.pareto_archive.get_array("f")
 ```
 
-`problem.comparator = SPEA2Comparator()`の行は省略できません。
+`set_comparator(SPEA2Comparator())`の呼び出しは省略できません。
 NSGA-IIでは`NSGA2Comparator`が`n_obj > 1`のときの既定値なので同じ行を省略できましたが、SPEA2ではそうではありません。
 
 `ctx.pareto_archive`はsaealib独自の累積非劣解アーカイブであり、特定のアルゴリズムとは独立に実行全体を通じて追跡されます。
@@ -134,7 +134,7 @@ saealibの`LHSInitializer`は、この最初の適応度割り当てと環境選
 適応度計算($S(i)$/$R(i)$/$D(i)$)は$O(M^2)$（$M=N+\bar N$）で、密度推定のための距離ソートを含めると$O(M^2\log M)$になります。
 打ち切り演算子は最悪$O(M^3)$、平均では$O(M^2\log M)$です{cite}`zitzler2001spea2`。
 
-**$N$と$\bar N$の独立設定**：`ctx.population`はSPEA2のアーカイブ$\bar P$の役割を担います——`GA.tell()`がこれを子個体群と統合し、`TruncationSelection`（`problem.comparator`で設定された`SPEA2Comparator`を利用）がその結果に対して環境選択を行います——そのため`LHSInitializer(n_init_population=...)`が$\bar N$を、`DirectStrategy(n_offspring=...)`が各世代で生成（かつ真の評価が行われる）子個体数$N$を設定します。
+**$N$と$\bar N$の独立設定**：`ctx.population`はSPEA2のアーカイブ$\bar P$の役割を担います——`GA.tell()`がこれを子個体群と統合し、`TruncationSelection`（`set_comparator()`で設定した`SPEA2Comparator`を利用）がその結果に対して環境選択を行います——そのため`LHSInitializer(n_init_population=...)`が$\bar N$を、`DirectStrategy(n_offspring=...)`が各世代で生成（かつ真の評価が行われる）子個体数$N$を設定します。
 `LHSInitializer`のもう一方のサイズパラメータ`n_init_archive`は、saealib自身の累積`Archive`（`ctx.archive`）——SPEA2の外部アーカイブとは異なり、以降の各世代の評価によって増え続ける、より長命なコンテナ——に最初に評価されるエントリ数を設定します。
 $t=0$時点に限っては、これは最初の適応度割り当てと環境選択の対象となる候補プールのサイズも兼ねるため（前述の*Differences from the source*参照）、文献に忠実な初期化では`n_init_archive=N`とします。
 組み込みのInitializerは`n_init_population <= n_init_archive`を前提とするため、$\bar N > N$という初期状態を直接構成することはできません。

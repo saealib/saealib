@@ -47,6 +47,7 @@ from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.exceptions import CheckpointError, ConfigurationError, ValidationError
 from saealib.execution.bindings import (
     BINDING_SLOTS,
+    _comparator_signature,
     _ComponentOrigin,
     _ComponentResolution,
     _feature_encoder_signature,
@@ -77,6 +78,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from saealib.algorithms.base import Algorithm
+    from saealib.comparators import Comparator
     from saealib.defaults.model import DefaultResolution
     from saealib.execution.initializer import Initializer
     from saealib.problem import Problem
@@ -99,6 +101,36 @@ def _default_acquisition_spec(manager_type: str | type | None, direction) -> dic
     ):
         return {"type": "WinRateAcquisition", "params": {}}
     return {"type": "MeanPrediction", "params": {"direction": direction}}
+
+
+def _restored_problem_comparator(problem: object) -> object | None:
+    """Return the comparator a restored Problem kept as an explicit setting.
+
+    A restored Problem without a ``_comparator_explicit`` attribute carries no
+    record of the source of its comparator, so the stored comparator is
+    compared with the one this Problem builds by default: a different
+    specification marks an explicit comparator that belongs in the optimizer
+    slot.
+    """
+    if problem is None or "_comparator_explicit" in vars(problem):
+        return None
+    stored = getattr(problem, "comparator", None)
+    if stored is None:
+        return None
+    from saealib.comparators import default_comparator
+
+    try:
+        expected = default_comparator(
+            int(getattr(problem, "n_obj")),
+            getattr(problem, "direction", None),
+            eps_cv=float(getattr(problem, "eps_cv", 0.0)),
+            eps_obj=float(getattr(problem, "eps_obj", 1e-6)),
+        )
+    except Exception:
+        return stored
+    if _signature(stored) == _signature(expected):
+        return None
+    return stored
 
 
 class Dispatchable(Protocol):
@@ -326,6 +358,16 @@ class Optimizer:
             "Uses the optimizer callback manager.",
             _signature(self.cbmanager),
         )
+        self.comparator: Comparator | None = None
+        self._comparator_default: tuple[Problem, object] | None = None
+        if getattr(problem, "_comparator_explicit", False):
+            self.comparator = problem.comparator
+            self._component_origins["comparator"] = _ComponentOrigin(
+                self.comparator,
+                "deprecated Problem argument",
+                "Adopted from the deprecated Problem(comparator=...) argument.",
+                _comparator_signature(self.comparator),
+            )
         self._track_component_assignments = True
 
     # --- setters (all return self for chaining) ---
@@ -582,7 +624,12 @@ class Optimizer:
         return (
             self._configuration_version,
             tuple(
-                (name, _signature(value))
+                (
+                    name,
+                    _comparator_signature(value)
+                    if name == "comparator"
+                    else _signature(value),
+                )
                 for name, value in resolution.components.items()
             ),
             tuple(
@@ -598,7 +645,6 @@ class Optimizer:
                     resolution.feature_encoder_origin.signature,
                 )
             ),
-            _signature(self.problem.comparator),
             repr(self.problem.direction),
             self._verification_enabled,
             require_initializer,
@@ -690,6 +736,13 @@ class Optimizer:
             raise ValidationError(f"Unknown history channel(s): {', '.join(unknown)}")
         self.history_channels = requested
         self.history_channels_explicit = True
+        return self
+
+    def set_comparator(self, comparator: Comparator) -> Self:
+        """Set the comparator that orders solutions. Returns self."""
+        self._set_component(
+            "comparator", comparator, "Configured with set_comparator()."
+        )
         return self
 
     def set_initializer(self, initializer: Initializer) -> Self:
@@ -948,6 +1001,17 @@ class Optimizer:
                 self._materialized_components[name] = value
         self._component_resolution = resolution
         self._default_resolution = resolution.defaults
+        comparator_origin = resolution.origins.get("comparator")
+        if (
+            comparator_origin is not None
+            and comparator_origin.source == "framework default"
+        ):
+            self._comparator_default = (
+                self.problem,
+                resolution.components.get("comparator"),
+            )
+        elif comparator_origin is not None:
+            self._comparator_default = None
         if (
             resolution.feature_encoder_origin is not None
             and resolution.feature_encoder_origin.source == "framework default"
@@ -1338,8 +1402,16 @@ class Optimizer:
         self.__dict__.setdefault("_component_origins", {})
         self.__dict__.setdefault("_materialized_components", {})
         self.__dict__.setdefault("_feature_encoder_default", None)
+        self.__dict__.setdefault("comparator", None)
+        self.__dict__.setdefault("_comparator_default", None)
         self.__dict__.setdefault("_configuration_version", 0)
         self.__dict__.setdefault("_track_component_assignments", True)
+        if self.__dict__.get("comparator") is None:
+            stored_comparator = _restored_problem_comparator(
+                self.__dict__.get("problem")
+            )
+            if stored_comparator is not None:
+                object.__setattr__(self, "comparator", stored_comparator)
         if "_component_origins" not in state:
             source = (
                 "persisted"
@@ -1355,6 +1427,14 @@ class Optimizer:
                         "Retained the component stored in optimizer state.",
                         _signature(value),
                     )
+        comparator = self.__dict__.get("comparator")
+        if comparator is not None and "comparator" not in self._component_origins:
+            self._component_origins["comparator"] = _ComponentOrigin(
+                comparator,
+                "persisted",
+                "Adopted from the comparator stored on the restored problem.",
+                _comparator_signature(comparator),
+            )
         space = getattr(getattr(self, "problem", None), "space", None)
         services = getattr(space, "services", None)
         getter = getattr(services, "get", None)

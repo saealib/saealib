@@ -81,7 +81,6 @@ from saealib.termination import Termination, max_fe
 
 
 problem = zdt1(n_var=10)
-problem.comparator = HypervolumeComparator()
 
 algorithm = GA(
     CrossoverSBX(prob=0.9, eta=20.0),
@@ -93,6 +92,7 @@ evaluator = SerialEvaluator()
 
 opt = (
     Optimizer(problem)
+    .set_comparator(HypervolumeComparator())
     .set_algorithm(algorithm)
     .set_strategy(SteadyStateStrategy())
     .set_evaluator(evaluator)
@@ -102,7 +102,7 @@ ctx = opt.run()
 pareto_f = ctx.pareto_archive.get_array("f")
 ```
 
-`problem.comparator = HypervolumeComparator()`の行は省略できません。 NSGA-IIでは`NSGA2Comparator`が`n_obj > 1`のときの既定値なので同じ行を省略できましたが、SPEA2やNSGA-IIIと同様、SMS-EMOAでも明示的な代入が必要になります。
+`set_comparator(HypervolumeComparator())`の呼び出しは省略できません。 NSGA-IIでは`NSGA2Comparator`が`n_obj > 1`のときの既定値なので同じ呼び出しを省略できましたが、SPEA2やNSGA-IIIと同様、SMS-EMOAでも明示的なcomparatorの設定が必要になります。
 
 **非同期拡張**：評価時間が異なる場合は、`SteadyStateStrategy`を`AsyncEvaluator`と`AsyncEvaluationScheduler`（例：`max_workers=2`、`max_pending=2`）と組み合わせられます。ただし、これは上の逐次構成とは評価順序が異なる拡張です。
 
@@ -113,6 +113,7 @@ async_evaluator = AsyncEvaluator(SerialEvaluator(), max_workers=2)
 async_schedule = AsyncEvaluationScheduler(async_evaluator, max_pending=2)
 async_opt = (
     Optimizer(problem)
+    .set_comparator(HypervolumeComparator())
     .set_algorithm(algorithm)
     .set_strategy(SteadyStateStrategy())
     .set_evaluator(async_evaluator)

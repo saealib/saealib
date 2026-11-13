@@ -5,7 +5,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from saealib.comparators import SingleObjectiveComparator
+from saealib.comparators import ParetoComparator, SingleObjectiveComparator
 from saealib.core.compiler import ContractPath, Severity
 from saealib.core.compiler.contract_diagnostics import (
     _optimizer_configuration_diagnostics,
@@ -36,7 +36,6 @@ def _problem(n_obj: int = 1, func=None) -> Problem:
         direction=np.array([-1.0] * n_obj),
         lb=[-1.0, -1.0],
         ub=[1.0, 1.0],
-        comparator=SingleObjectiveComparator(),
     )
 
 
@@ -51,6 +50,7 @@ class _Directional:
 
 def _bindings() -> dict[str, object]:
     return {
+        "comparator": SingleObjectiveComparator(direction=-1.0),
         "algorithm": object(),
         "strategy": _Strategy(),
         "initializer": object(),
@@ -245,10 +245,13 @@ def test_direction_length_defects_identify_comparator_and_selected_acquisition()
     None
 ):
     problem = _problem()
-    problem.comparator.direction = np.array([1.0, 1.0])
     bindings = _bindings()
+    bindings["comparator"] = ParetoComparator(direction=np.array([1.0, 1.0]))
     bindings["acquisition"] = _Directional(np.array([1.0, 1.0]))
-    provenance = {"acquisition": ("setter", "Configured with set_acquisition().")}
+    provenance = {
+        "comparator": ("setter", "Configured with set_comparator()."),
+        "acquisition": ("setter", "Configured with set_acquisition()."),
+    }
 
     findings = [
         item
@@ -259,14 +262,14 @@ def test_direction_length_defects_identify_comparator_and_selected_acquisition()
     assert len(findings) == 2
     assert {item.severity for item in findings} == {Severity.ERROR}
     comparator = next(
-        item for item in findings if item.path.components == ("problem", "comparator")
+        item for item in findings if item.path.components == ("optimizer", "comparator")
     )
     acquisition = next(
         item
         for item in findings
         if item.path.components == ("optimizer", "acquisition")
     )
-    assert comparator.path == ContractPath(components=("problem", "comparator"))
+    assert comparator.path == ContractPath(components=("optimizer", "comparator"))
     assert acquisition.path == ContractPath(
         components=("optimizer", "acquisition"), role="acquisition"
     )
@@ -431,8 +434,9 @@ def test_configuration_error_precedes_initial_objective_evaluation() -> None:
         calls.append(x)
         return float(np.sum(np.asarray(x) ** 2))
 
-    optimizer = Optimizer(_problem(func=objective))
-    optimizer.problem.comparator.direction = np.array([1.0, 1.0])
+    optimizer = Optimizer(_problem(func=objective)).set_comparator(
+        ParetoComparator(direction=np.array([1.0, 1.0]))
+    )
 
     with pytest.raises(ConfigurationError, match="direction_length_mismatch"):
         optimizer.run()

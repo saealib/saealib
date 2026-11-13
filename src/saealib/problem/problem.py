@@ -12,11 +12,8 @@ if TYPE_CHECKING:
     from saealib.execution.evaluator import EvaluationAdapter
     from saealib.space import SearchSpace
 
-from saealib.comparators import (
-    Comparator,
-    NSGA2Comparator,
-    SingleObjectiveComparator,
-)
+from saealib._deprecation import warn_deprecated
+from saealib.comparators import Comparator, default_comparator
 from saealib.exceptions import ValidationError
 from saealib.problem.constraint import (
     ConstraintHandler,
@@ -51,7 +48,9 @@ class Problem:
     variables : list[Variable]
         Per-dimension variable definitions.
     comparator : Comparator
-        Comparator instance to compare solutions.
+        Deprecated comparator instance of this problem. A run uses the
+        ``Optimizer`` comparator slot instead; this value is adopted as an
+        explicit ``Optimizer`` setting.
     eps_cv : float
         Epsilon for constraint violation feasibility threshold. Only used to
         seed the default ``handler``/``comparator`` at construction time;
@@ -64,7 +63,9 @@ class Problem:
         handler with a different running threshold can therefore make reported
         solutions disagree with the comparator's criterion.
     eps_obj : float
-        Epsilon for objective value equality comparison.
+        Deprecated epsilon for objective value equality comparison. It seeds
+        the ``eps_obj`` of the default comparator; configure the comparator
+        with ``Optimizer.set_comparator()`` instead.
     func : callable -> float
         Objective function to evaluate solutions.
     constraints : list[InequalityConstraint]
@@ -86,7 +87,7 @@ class Problem:
         constraints: list[InequalityConstraint] | None = None,
         *,
         eps_cv: float = 1e-6,
-        eps_obj: float = 1e-6,
+        eps_obj: float | None = None,
         handler: ConstraintHandler | None = None,
         variables: list[Variable] | None = None,
         space: SearchSpace | None = None,
@@ -115,15 +116,23 @@ class Problem:
             dimensions; otherwise, the array must have length dim.
             Required when *variables* is not provided.
         comparator : Comparator, optional
-            Comparator instance to use. If None, auto-selected based on n_obj:
-            n_obj == 1 -> SingleObjectiveComparator,
-            n_obj >  1 -> NSGA2Comparator.
+            Deprecated. Configure the comparator with
+            :meth:`saealib.Optimizer.set_comparator` instead. A value passed
+            here emits a ``DeprecationWarning`` and is adopted as an explicit
+            ``Optimizer`` comparator setting. If omitted, the default
+            comparator follows ``n_obj``: ``n_obj == 1`` uses
+            ``SingleObjectiveComparator`` and ``n_obj > 1`` uses
+            ``NSGA2Comparator``. If the passed comparator's ``direction`` is
+            unset, this problem's ``direction`` is injected.
         constraints : list[InequalityConstraint], optional
             List of inequality constraint definitions. Default: empty list.
         eps_cv : float, optional
             Epsilon for constraint violation feasibility threshold. Default: 1e-6.
         eps_obj : float, optional
-            Epsilon for objective value equality comparison. Default: 1e-6.
+            Deprecated. Configure the tolerance on the comparator with
+            :meth:`saealib.Optimizer.set_comparator` instead. A value passed
+            here emits a ``DeprecationWarning`` and is used as the
+            ``eps_obj`` of the default comparator. Default: 1e-6.
         handler : ConstraintHandler, optional
             Constraint-handling strategy. If None, a StaticToleranceHandler
             (sum-of-violations, fixed eps_cv) is used, reproducing the default
@@ -215,6 +224,14 @@ class Problem:
         self.n_obj = n_obj
         self.direction = direction
         self.eps_cv = eps_cv
+        if eps_obj is None:
+            eps_obj = 1e-6
+        else:
+            warn_deprecated(
+                "Problem(eps_obj=...)",
+                since="0.2.0",
+                replacement="Optimizer.set_comparator()",
+            )
         self.eps_obj = eps_obj
         self.func = func
         self.constraints = constraints if constraints is not None else []
@@ -223,17 +240,19 @@ class Problem:
             handler if handler is not None else StaticToleranceHandler(eps_cv=eps_cv)
         )
 
+        self._comparator_explicit = comparator is not None
         if comparator is not None:
+            warn_deprecated(
+                "Problem(comparator=...)",
+                since="0.2.0",
+                replacement="Optimizer.set_comparator()",
+            )
             if comparator.direction is None:
                 comparator.direction = direction
             self.comparator = comparator
-        elif n_obj == 1:
-            self.comparator = SingleObjectiveComparator(
-                direction=direction[0], eps_cv=eps_cv, eps_obj=eps_obj
-            )
         else:
-            self.comparator = NSGA2Comparator(
-                direction=direction, eps_cv=eps_cv, eps_obj=eps_obj
+            self.comparator = default_comparator(
+                n_obj, direction, eps_cv=eps_cv, eps_obj=eps_obj
             )
 
     @property

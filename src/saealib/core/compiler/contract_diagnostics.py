@@ -232,14 +232,13 @@ def _optimizer_configuration_diagnostics(
             )
         )
 
-    comparator = _safe_attribute(problem, "comparator")
-    if comparator is not _MISSING:
+    comparator = bindings.get("comparator")
+    if comparator is not None:
         findings.extend(
-            _direction_length_diagnostics(
+            _comparator_shape_diagnostics(
                 comparator,
-                slot="comparator",
                 n_obj=_safe_attribute(problem, "n_obj"),
-                provenance={},
+                provenance=provenance,
             )
         )
 
@@ -330,6 +329,97 @@ def _acquisition_components(
     return tuple(found)
 
 
+def _comparator_shape_diagnostics(
+    comparator: object,
+    *,
+    n_obj: object,
+    provenance: Mapping[str, tuple[str, str]],
+) -> tuple[Diagnostic, ...]:
+    """Check that a comparator agrees with the problem's objective shape."""
+    path = ContractPath(components=("optimizer", "comparator"))
+    findings = list(
+        _direction_length_diagnostics(
+            comparator,
+            slot="comparator",
+            n_obj=n_obj,
+            provenance=provenance,
+            path=path,
+        )
+    )
+    weights = _safe_attribute(comparator, "weights")
+    if weights is not _MISSING and weights is not None:
+        findings.extend(
+            _length_diagnostics(
+                _known_length(weights),
+                comparator=comparator,
+                attribute="weights",
+                code="objective_count_mismatch",
+                path=path,
+                n_obj=n_obj,
+                provenance=provenance,
+            )
+        )
+    reference_points = _safe_attribute(comparator, "reference_points")
+    if reference_points is not _MISSING and reference_points is not None:
+        shape = _safe_attribute(reference_points, "shape")
+        dimensions = shape if isinstance(shape, tuple) else ()
+        if len(dimensions) == 2:
+            findings.extend(
+                _length_diagnostics(
+                    dimensions[1],
+                    comparator=comparator,
+                    attribute="reference point dimension",
+                    code="reference_points_dimension_mismatch",
+                    path=path,
+                    n_obj=n_obj,
+                    provenance=provenance,
+                )
+            )
+    return tuple(findings)
+
+
+def _known_length(value: object) -> object:
+    try:
+        return len(cast(Sized, value))
+    except Exception:
+        return _MISSING
+
+
+def _length_diagnostics(
+    length: object,
+    *,
+    comparator: object,
+    attribute: str,
+    code: str,
+    path: ContractPath,
+    n_obj: object,
+    provenance: Mapping[str, tuple[str, str]],
+) -> tuple[Diagnostic, ...]:
+    """Report a comparator vector whose length differs from the objective count."""
+    if length is _MISSING or length is None:
+        return ()
+    if not isinstance(length, int) or length == 0:
+        return ()
+    if not isinstance(n_obj, int) or length == n_obj:
+        return ()
+    return (
+        Diagnostic(
+            severity=Severity.ERROR,
+            code=code,
+            message=(
+                f"{type(comparator).__name__} {attribute} ({length}) does not "
+                f"match problem.n_obj ({n_obj})."
+                f"{_selection_note('comparator', comparator, provenance)}"
+            ),
+            path=path,
+            resolutions=(
+                f"Provide {attribute} with {n_obj} entries, or configure the "
+                "comparator for the problem's objective count.",
+            ),
+        ),
+    )
+
+
 def _direction_length_diagnostics(
     component: object,
     *,
@@ -337,19 +427,17 @@ def _direction_length_diagnostics(
     n_obj: object,
     provenance: Mapping[str, tuple[str, str]],
     channel: str | None = None,
+    path: ContractPath | None = None,
 ) -> tuple[Diagnostic, ...]:
     direction = _safe_attribute(component, "direction")
     if direction is _MISSING or direction is None:
         return ()
-    path = (
-        ContractPath(components=("problem", "comparator"))
-        if slot == "comparator"
-        else ContractPath(
+    if path is None:
+        path = ContractPath(
             components=("optimizer", "acquisition"),
             role="acquisition",
             port=channel,
         )
-    )
     if not isinstance(direction, Sized):
         return (
             Diagnostic(

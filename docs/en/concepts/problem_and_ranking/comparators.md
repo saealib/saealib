@@ -6,8 +6,28 @@ page_type: concept
 
 # Comparator
 
-`Problem` delegates deciding the relative superiority of solutions to `Comparator`, a swappable top-level component.
-Pass it via `Problem`'s `comparator` argument.
+`Optimizer` delegates deciding the relative superiority of solutions to `Comparator`, a swappable top-level component.
+Pass it with `Optimizer.set_comparator()`.
+
+```python
+from saealib import Optimizer
+from saealib.comparators import HypervolumeComparator
+
+optimizer = Optimizer(problem, seed=0).set_comparator(HypervolumeComparator())
+ctx = optimizer.run()
+print(ctx.comparator is optimizer.comparator)  # True
+```
+
+The comparator is an optimizer binding slot, not part of the problem.
+When no comparator is set, `Optimizer` selects one from the number of objectives (`SingleObjectiveComparator` when `n_obj == 1`, `NSGA2Comparator` when `n_obj > 1`) and records that origin as a framework default; a comparator set explicitly always wins.
+The comparator receives the problem's `direction` when it enters the slot if its own `direction` is unset, and `Optimizer.validate()` reports a comparator whose direction, per-objective weights, or reference points do not match the problem's objective count.
+During a run every component reads the active comparator through `state.comparator`, so the epsilon threshold a constraint handler writes each generation reaches the same object the search orders solutions with.
+
+`Problem(comparator=...)` and `Problem(eps_obj=...)` are deprecated.
+A comparator passed to `Problem` emits a `DeprecationWarning` and is adopted as an explicit optimizer comparator; `eps_obj` only seeds the default comparator's tolerance.
+A `Problem` still exposes the default comparator it derives from its objective count, and `OptimizationState` uses it when a state is created or loaded without an optimizer; resume a run with `Optimizer.run_from()` or `Optimizer.iterate_from()` to keep using that optimizer's comparator.
+
+Islands each keep their own comparator: the default is created per `Optimizer`, so two islands do not share one. A comparator instance passed to `set_comparator()` on several islands stays shared deliberately, and because the runtime writes the handler threshold into that instance, sharing one across islands with different handlers is not recommended.
 
 ## Comparator's role
 
@@ -136,7 +156,7 @@ Separately, if that metric also needs to survive being carried into a smaller po
 - [Dominator](dominance.md): The `dominator` argument of the `ParetoComparator` family
 - [NonDominatedSorter](nondominated_sorting.md): The `sorter` argument of the `ParetoComparator` family
 - [Decomposition](decomposition.md): The scalarization functions used by `DecompositionComparator`
-- [Problem](problem.md): How to pass the `comparator` argument, and the default-selection rules
+- [Problem](problem.md): The default comparator a `Problem` exposes, and the deprecated `comparator` argument
 - [ParentSelection](../search_algorithms/parent_selection.md) / [SurvivorSelection](../search_algorithms/survivor_selection.md): Operators that use `Comparator` to select individuals
 - [Population](../observation_and_state/population.md): The `PopulationAttribute` schema that `get_required_attrs` extends
 

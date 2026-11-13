@@ -11,7 +11,7 @@ import numpy as np
 import scipy.stats
 
 from saealib.callback import InitialEvaluationEndEvent, InitialEvaluationStartEvent
-from saealib.comparators import NSGA3Comparator
+from saealib.comparators import Comparator, NSGA3Comparator
 from saealib.context import OptimizationState
 from saealib.core.contracts import (
     MANY,
@@ -103,6 +103,12 @@ def _resolved_dense_view(problem: Problem) -> DenseNumericView | None:
     )
 
 
+def _provider_comparator(provider: ComponentProvider) -> Comparator | None:
+    """Return the comparator the provider resolved for this plan."""
+    comparator = getattr(provider, "comparator", None)
+    return comparator if isinstance(comparator, Comparator) else None
+
+
 def _defaults_equal(a: object, b: object) -> bool:
     try:
         return bool(np.array_equal(np.asarray(a), np.asarray(b), equal_nan=True))
@@ -126,7 +132,7 @@ def _merge_required_attrs(
     sources: list[PopulationAttribute] = []
     if provider.algorithm is not None:
         sources.extend(provider.algorithm.get_required_attrs(problem))
-    comparator = problem.comparator
+    comparator = _provider_comparator(provider)
     if comparator is not None:
         sources.extend(comparator.get_required_attrs(problem))
     for attr in sources:
@@ -221,11 +227,9 @@ class Initializer(ABC):
         population: Population,
         rng: np.random.Generator,
     ) -> OptimizationState:
-        if (
-            isinstance(problem.comparator, NSGA3Comparator)
-            and problem.comparator._rng is None
-        ):
-            problem.comparator.rng = rng.spawn(1)[0]
+        comparator = _provider_comparator(provider)
+        if isinstance(comparator, NSGA3Comparator) and comparator._rng is None:
+            comparator.rng = rng.spawn(1)[0]
 
         return OptimizationState(
             problem=problem,
@@ -233,6 +237,7 @@ class Initializer(ABC):
             archive=archive,
             pareto_archive=pareto_archive,
             rng=rng,
+            comparator=comparator,
             fe=len(archive),
             gen=0,
             history=History(
@@ -346,7 +351,7 @@ class GenomeInitializer(Initializer):
         ctx.count_fe(self.n_init_archive)
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
-        sorted_idx = problem.comparator.rank_population(archive)
+        sorted_idx = ctx.comparator.rank_population(archive)
         archive_sorted = archive.extract(sorted_idx)
         archive.clear()
         archive._extend_internal(archive_sorted, preserve_ids=True)
@@ -494,7 +499,7 @@ class LHSInitializer(Initializer):
 
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
-        sorted_idx = problem.comparator.rank_population(archive)
+        sorted_idx = ctx.comparator.rank_population(archive)
         archive_sorted = archive.extract(sorted_idx)
         archive.clear()
         archive._extend_internal(archive_sorted, preserve_ids=True)
@@ -641,7 +646,7 @@ class RandomInitializer(Initializer):
 
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
-        sorted_idx = problem.comparator.rank_population(archive)
+        sorted_idx = ctx.comparator.rank_population(archive)
         archive_sorted = archive.extract(sorted_idx)
         archive.clear()
         archive._extend_internal(archive_sorted, preserve_ids=True)
@@ -791,7 +796,7 @@ class SobolInitializer(Initializer):
 
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
-        sorted_idx = problem.comparator.rank_population(archive)
+        sorted_idx = ctx.comparator.rank_population(archive)
         archive_sorted = archive.extract(sorted_idx)
         archive.clear()
         archive._extend_internal(archive_sorted, preserve_ids=True)

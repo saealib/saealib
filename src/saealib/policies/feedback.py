@@ -1101,7 +1101,7 @@ class ComparatorWorstFallback(FeedbackBuilder):
         )
         if len(missing) == 0:
             return result
-        order = ctx.problem.comparator.sort_population(ctx.population)
+        order = ctx.comparator.sort_population(ctx.population)
         fallback = np.array(
             ctx.population.get_array("f")[order[-1]], dtype=np.float64, copy=True
         )

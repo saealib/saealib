@@ -202,6 +202,15 @@ for _name, _description in (
         "An objective direction vector does not match the problem objective count.",
     ),
     (
+        "objective_count_mismatch",
+        "A comparator's per-objective vector does not match the problem "
+        "objective count.",
+    ),
+    (
+        "reference_points_dimension_mismatch",
+        "A comparator's reference points do not match the problem objective count.",
+    ),
+    (
         "cannot_verify_direction_length",
         "An objective direction length cannot be determined.",
     ),

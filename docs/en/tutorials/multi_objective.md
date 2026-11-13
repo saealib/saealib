@@ -73,7 +73,7 @@ Set multi-objective ranking by choosing one of the following Comparators.
 
 In multi-objective optimization, `Comparator` decides the relative superiority between candidate solutions.
 
-If `Problem`'s `comparator` argument is omitted, one is auto-selected based on the number of objectives (`SingleObjectiveComparator` when `n_obj == 1`, `NSGA2Comparator` when `n_obj > 1`).
+If no comparator is set, one is auto-selected based on the number of objectives (`SingleObjectiveComparator` when `n_obj == 1`, `NSGA2Comparator` when `n_obj > 1`).
 
 | Class | Behavior |
 |--------|------|
@@ -84,14 +84,22 @@ If `Problem`'s `comparator` argument is omitted, one is auto-selected based on t
 | `NSGA3Comparator` | Diversity maintenance via reference points. Requires `reference_points` |
 | `RNSGA2Comparator` | Concentrates solutions near specified reference points. Requires `reference_points` |
 
-`comparator` can be swapped as an attribute of the `Problem` instance.
+Set the comparator on the `Optimizer` with `Optimizer.set_comparator()`.
+An explicitly set comparator takes precedence over the default, and the comparator is recorded on the run state as `ctx.comparator`.
 
 ```python
+from saealib import Optimizer, Termination, max_fe
 from saealib.comparators import HypervolumeComparator
 
-problem.comparator = HypervolumeComparator()
-result = minimize(problem, max_fe=2000, seed=0)
+optimizer = (
+    Optimizer(problem, seed=0)
+    .set_comparator(HypervolumeComparator())
+    .set_termination(Termination(max_fe(2000)))
+)
+ctx = optimizer.run()
 ```
+
+`Problem(comparator=...)` still works but is deprecated; it emits a `DeprecationWarning` and the value is adopted as the optimizer's explicit comparator.
 
 ## Extract the Pareto front
 

@@ -43,6 +43,9 @@ The default is a no-op; used by handlers with internal state that updates an ε 
 
 Feasibility is decided from the constraint definitions, not from the aggregate `cv`: a solution is feasible when `violation_from_value` returns zero for every constraint after its own tolerance, that is `g(x) <= threshold` for an inequality and `|h(x)| <= tolerance` for an equality.
 `Result`, the history's `best_f` and `feasible_ratio`, the `FeasibilityClassificationSet` training set, and the Pareto archive all use this decision, so relaxing a comparator during search never changes what is reported as feasible.
+With `GenerationBasedStrategy` and `gen_ctrl > 0`, the final population may contain predicted rows with placeholder `g=0`, depending on the algorithm's `tell()` implementation; for example, GA can retain them.
+The `feasible_ratio` in History's `summary` classifies each generation's `state.population` against the constraint definitions, so these rows may be counted as feasible.
+True evaluation values remain in the archive.
 To classify rows yourself, apply `violation_from_value` to each row's `g` column: a row is feasible when every result is zero.
 
 The aggregate `cv` has one job: ordering infeasible solutions against each other.

@@ -51,7 +51,9 @@ How to define them is covered in [Constrained Optimization](../../tutorials/cons
 
 **`eps_cv`**/**`eps_obj`**: Deprecated search-side tolerances.
 Feasibility is decided by the constraint definitions, not by `eps_cv`: a solution is feasible when every per-constraint violation is zero after its own tolerance, and `Result`, the history's `best_f` and `feasible_ratio`, training-set labels, and the Pareto archive all use that decision.
-A value passed as `eps_cv` emits a `DeprecationWarning` and sets the search-time relaxation of the default handler, which the runtime copies onto the comparator's `eps_cv` every generation; it widens what the search treats as feasible and never changes reported feasibility.
+Passing a value as `eps_cv` emits a `DeprecationWarning` recommending constraint tolerances or `EpsilonConstraintHandler`.
+The value is set as the default handler's search-time relaxation, and the runtime copies it to the comparator's `eps_cv` each generation.
+This widens the region the search treats as feasible, but does not change reported feasibility.
 Without it the default is `0.0`, which matches the constraint-based decision. Its concrete running value is `handler.feasibility_threshold`.
 `eps_obj` likewise only seeds the default comparator; pass the tolerance to the comparator you configure with `Optimizer.set_comparator()` instead.
 
@@ -84,11 +86,12 @@ Passing `weight=` raises `TypeError`.
 This decision is independent of the `cv` aggregation, and `Result`, the history's `best_f` and `feasible_ratio`, training-set labels, and the Pareto archive all apply it.
 
 `direction` is a `±1` array, unified across all of saealib, representing sign only.
-By contrast, the `weights` received by `WeightedSumComparator` or `DecompositionComparator` are non-negative weights for aggregating multiple objectives into a scalar value — a separate concept, independent of direction.
+`DecompositionComparator` accepts `weights`, non-negative weights for aggregating multiple objectives into a scalar value, independent of direction.
+`WeightedSumComparator` has no `weights` parameter and uses `direction` as a signed weight vector.
 
-Under this role split, `weights` cannot express the importance (scaling) of an objective itself.
-If you want to adjust the magnitude of an objective value, scale it inside `func`.
-This is organized into two axes: `direction` expresses sign only, and `weights` expresses only the aggregation weighting.
+With `DecompositionComparator`, `weights` represents the allocation used for aggregation.
+To adjust the scale of objective values, scale them inside `func`.
+`direction` represents sign, and `DecompositionComparator`'s `weights` represents aggregation weights.
 
 ## Invariants
 

@@ -14,10 +14,14 @@ page_type: concept
 
 | 境界 | 受け取る値 | 返す値 | 主な利用者 |
 |---|---|---|---|
-| graph-native境界 | `GenomeBatch → EvaluationAdapter → EvaluationPayload`、候補ID、提案関係、メタデータ | 部分的・順不同・反復を含む `ObservationBatch` | Evaluator、非同期Scheduler、構造化ランタイム |
+| graph-native境界 | 評価プランナーの`EvaluationRequestBatch`で選ばれた`GenomeBatch`、候補ID、提案関係、メタデータ | 部分的・順不同・反復を含む `ObservationBatch` | Evaluator、非同期Scheduler、構造化ランタイム |
 | Stage互換境界 | `x`、`Problem`、`EvaluationRequest` | `EvaluationResult`（`f`、`g`、`cv`、任意の `candidate_ids`） | 互換Stage、sequential compatibility ランタイム |
 
-Evaluatorまたは非同期Schedulerへ渡されるRequestは、候補IDと評価対象を識別する情報を持ちます。評価が同期か非同期かは、パイプライン側の候補生成契約を変えずにEvaluatorとランタイムプロバイダーで切り替えられます。`EvaluationAdapter`は`GenomeBatch`をEvaluatorが受け取る`EvaluationPayload`へ変換します。Evaluatorはペイロードを評価し、観測の対応付けを候補ID、提案関係、順序、状態、出所、完了の意味論で行い、行位置を前提にしません。
+Evaluatorまたは非同期Schedulerへ渡されるRequestは、候補IDと評価対象を識別する情報を持ちます。
+評価が同期か非同期かは、パイプライン側の候補生成契約を変えずにEvaluatorとランタイムプロバイダーで切り替えられます。
+`EvaluationRequestBatch`は、評価プランナーの出力ポートに宣言された`DataSpec`のkindです。
+Evaluatorは選択された`GenomeBatch`を受け取ります。`Problem.evaluation_adapter`が設定されている場合は`EvaluationAdapter.transform()`の戻り値を`Problem.evaluate_batch()`に渡し、未設定で入力が`DenseVectorBatch`の場合は`SerialEvaluator`が`DenseVectorBatch.array`をpayloadとして使います。
+Evaluatorの出力は`ObservationBatch`で、候補ID、提案関係、順序、状態、出所、完了の意味論で観測を対応付け、行位置を前提にしません。
 
 Stage互換経路では`Evaluator.evaluate_batch(...) -> EvaluationResult`を使います。`EvaluationRequest`はRequest ID、候補ID、GenomeBatch、メタデータを保持します。互換性境界でのみ、`EvaluationResult`は`f`、`g`、`cv`の形状と行数の規則を満たす必要があります。`candidate_ids`を指定した場合は一意で、結果の行数と一致しなければなりません。`Evaluator.submit`が`candidate_ids`を返す場合、それらはリクエストの候補IDと完全に一致しなければなりません。外部の`ObservationBatch`に行順を使わせる必要はありません。
 

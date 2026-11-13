@@ -7,12 +7,16 @@ page_type: concept
 # OptimizationStrategy
 
 `saealib` delegates the selection of candidates sent for expensive true evaluation to `OptimizationStrategy`.
-The Strategy describes candidate generation, prediction, evaluation planning, Feedback, and Population updates as one graph.
 
 ## OptimizationStrategy's role
 
 A strategy describes candidate generation, prediction, evaluation planning, Feedback, and Population updates as one declared flow.
-The canonical way to write one is `TemplateStrategy` with a `Pipeline` declaration whose Stages reference components by `(slot, role)`; before execution, Optimizer lowers this declaration to a `ComponentGraph` and passes it to the Compiler to create an `ExecutablePlan`.
+The canonical way to write one is `TemplateStrategy` with a `Pipeline` declaration whose Stages reference components by `(slot, role)`.
+
+A strategy holds a declaration (`declaration`), and `build_pipeline(provider)` resolves it and builds `strategy.pipeline` during execution preparation.
+Until preparation is complete, `strategy.pipeline` is `None`.
+Optimizer lowers this resolved Pipeline to a `ComponentGraph` with `build_graph` and passes it to the Compiler to create an `ExecutablePlan`.
+Generation processing at runtime is driven by `strategy.step()` or Runtime; the Pipeline object itself does not execute it directly.
 
 `build_graph(provider) -> ComponentGraph` remains as the lowering boundary of the declaration, and overriding it in a custom strategy is deprecated: it emits a `DeprecationWarning`, and the replacement is a `TemplateStrategy` with a declared Pipeline.
 A strategy whose flow cannot be inspected this way keeps declaring `requires_surrogate: bool` by hand.
@@ -39,8 +43,8 @@ It never affects a component set explicitly; that component keeps its own config
 
 | Class | Parameters | Approach |
 |---|---|---|
-| `DirectStrategy` | None | Uses no surrogate; truly evaluates every generated candidate |
-| `SteadyStateStrategy` | None | Generates one candidate per step and supports asynchronous refill |
+| `DirectStrategy` | `n_offspring: int \| None = None` | Uses no surrogate; truly evaluates every generated candidate |
+| `SteadyStateStrategy` | None | Generates one candidate per step as `DirectStrategy(n_offspring=1)` and supports asynchronous refill |
 | `IndividualBasedStrategy` | `evaluation_ratio: float = 0.1` | Scores every candidate with the surrogate, and truly evaluates only the top `evaluation_ratio` fraction |
 | `PreSelectionStrategy` | `n_candidates: int, n_select: int` (both required) | Generates `n_candidates`, scores them, and truly evaluates only the top `n_select` |
 | `GenerationBasedStrategy` | `gen_ctrl: int` (required) | Advances `gen_ctrl` generations using only the surrogate, then truly evaluates a single generation |
@@ -57,14 +61,18 @@ blocking, and commits each completed update in the lifecycle order.
 
 | Class | Pipeline |
 |---|---|
-| `DirectStrategy` | CountGeneration → Ask → TrueEvaluation → ArchiveUpdate → Tell |
-| `IndividualBasedStrategy` | CountGeneration → Ask → SurrogatePredictStage → AcquisitionStage → SortByScore → TrueEvaluation (ratio-based) → ArchiveUpdate → Tell |
-| `PreSelectionStrategy` | CountGeneration → Ask (n_candidates) → SurrogatePredictStage → AcquisitionStage → TopKSelection(k=n_select) → TrueEvaluation → ArchiveUpdate → Tell |
-| `GenerationBasedStrategy` | SurrogateOnlyLoop (gen_ctrl times) → CountGeneration → Ask → TrueEvaluation → ArchiveUpdate → Tell |
+| `DirectStrategy` | CountGeneration → Ask → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge |
+| `IndividualBasedStrategy` | CountGeneration → Ask → SurrogatePredict → Acquisition → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge |
+| `PreSelectionStrategy` | CountGeneration → Ask (n_candidates) → SurrogatePredict → Acquisition → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge |
+| `GenerationBasedStrategy` | SurrogateFit → Repeat(surrogate_generation: CountGeneration → Ask → SurrogatePredict → Acquisition → Feedback(PredictedFeedback) → Tell, count=gen_ctrl) → true_generation(CountGeneration → Ask → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge) |
+
+`SurrogateFit` and `Repeat` appear in this row only when `gen_ctrl` is nonzero; at `gen_ctrl=0`, the flow contains only `true_generation`.
 
 Each Strategy's components include the `EvaluationPlan`, asynchronous evaluation submission and collection, Feedback, and Tell.
+`SortByScoreStage` and `TopKSelectionStage` are compatibility Stages and are not used by built-in templates.
+`EvaluationPlanner` (`RatioEvaluation` or `TopKEvaluation`) handles evaluation-candidate selection by ratio or count.
 A Stage is a compatibility execution unit for part of that work, not the same execution contract as the entire structured Pipeline.
-See [Stage](../observation_and_state/stage.md) and [Framework](../../framework/index.md) for details.
+See {py:class}`saealib.Stage` and [Framework](../../framework/index.md) for details.
 
 ## Which Strategy to choose
 

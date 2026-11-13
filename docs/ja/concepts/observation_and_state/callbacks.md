@@ -58,14 +58,25 @@ Eventの`ctx`は、`archive`、`comparator`、`n_obj`、`gen`、`fe`などの値
 収束履歴を記録するには、クロージャで蓄積するリストを保持するハンドラを登録します。
 
 ```python
-from saealib import GenerationEndEvent
+import numpy as np
+from saealib import GenerationEndEvent, Optimizer, Problem, Termination, max_fe
+
+problem = Problem(
+    lambda x: np.array([x[0], 1.0 - x[0]]),
+    dim=2,
+    n_obj=2,
+    direction=np.array([-1.0, -1.0]),
+    lb=[0.0, 0.0],
+    ub=[1.0, 1.0],
+)
+optimizer = Optimizer(problem, seed=0).set_termination(Termination(max_fe(20)))
 
 history = []
 
 
 def record_best(event):
     f = event.ctx.archive.get_array("f")
-    history.append(float(f.min()))
+    history.append(float(f[:, 0].min()))
 
 
 optimizer.cbmanager.register(GenerationEndEvent, record_best)
@@ -78,7 +89,25 @@ print(history)
 `logging_generation_hv(reference_point)`は、指定したreference pointに対する第一フロントのhypervolumeを世代ごとにログへ出力するハンドラを返します。
 
 ```python
-from saealib import GenerationStartEvent, logging_generation_hv
+import numpy as np
+from saealib import (
+    GenerationStartEvent,
+    Optimizer,
+    Problem,
+    Termination,
+    logging_generation_hv,
+    max_fe,
+)
+
+problem = Problem(
+    lambda x: np.array([x[0], 1.0 - x[0]]),
+    dim=1,
+    n_obj=2,
+    direction=np.array([-1.0, -1.0]),
+    lb=[0.0],
+    ub=[1.0],
+)
+optimizer = Optimizer(problem, seed=0).set_termination(Termination(max_fe(20)))
 
 optimizer.cbmanager.register(
     GenerationStartEvent,
@@ -91,7 +120,25 @@ optimizer.cbmanager.register(
 自動登録された`logging_generation`は`unregister(event_type, func)`で削除でき、`replace(event_type, old, new)`で別のハンドラに置き換えられます。
 
 ```python
-from saealib import GenerationStartEvent, logging_generation
+import numpy as np
+from saealib import (
+    GenerationStartEvent,
+    Optimizer,
+    Problem,
+    Termination,
+    logging_generation,
+    max_fe,
+)
+
+problem = Problem(
+    lambda x: np.array([x[0], 1.0 - x[0]]),
+    dim=1,
+    n_obj=2,
+    direction=np.array([-1.0, -1.0]),
+    lb=[0.0],
+    ub=[1.0],
+)
+optimizer = Optimizer(problem, seed=0).set_termination(Termination(max_fe(20)))
 
 optimizer.cbmanager.unregister(GenerationStartEvent, logging_generation)
 ```
@@ -114,6 +161,7 @@ Event発火後も`GA`は自身のローカルな配列参照を使い続ける�
 Componentが要求する再コンパイル経路については、[OptimizationStrategy](../execution_and_evaluation/strategies.md)の「実行時の差し替えの動作」を参照してください。
 Callbackハンドラは`RuntimeCommand`を返せません。
 Callbackクロージャで`optimizer.set_*()`を呼び出した変更は上述の経路で適用されますが、構成変更は`iterate()`側の手順として文書化されています。
+コールバック内でセッターを呼ぶ場合は、`Optimizer`をキャプチャしたクロージャをハンドラとして登録します。
 
 ## CallbackManagerとiterate()の使い分け
 

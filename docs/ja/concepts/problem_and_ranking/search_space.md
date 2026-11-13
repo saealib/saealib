@@ -12,7 +12,13 @@ page_type: concept
 
 `SearchSpace` は `representation`、`services`、`sample()`、`validate()` を提供します。 `GenomeBatch` は候補を行方向にまとめた値であり、候補IDや目的値を直接所有するデータ構造ではありません。 `validate()` は各行の妥当性とバッチ全体のエラーを `ValidationResult` で返します。
 
-`ServiceRegistry` は空間が提供するサービスを名前で登録します。 サンプリング、検証、複製、同値性、距離、ゲノムのシリアライズなどはSearchSpace servicesとして、必要な空間が公開します。 `EvaluationAdapter` は`GenomeBatch`を評価Payloadへ変換する評価境界のAdapterです。 `FeatureEncoder` は `GenomeBatch → FeatureEncoder → FeatureBatch → Surrogate` の意味変換を担うAdapter subtypeです。`SamplingService`などの空間の能力とは性格が異なり、代理モデルが学習できる特徴を決めます。 公開importは `from saealib.space import FeatureEncoder` です。
+`ServiceRegistry` は空間が提供するサービスを名前で登録します。
+サンプリング、検証、複製、同値性、距離、ゲノムのシリアライズなどはSearchSpace servicesとして、必要な空間が公開します。
+`EvaluationAdapter` は評価境界で`GenomeBatch`を評価要求のデータへ変換するAdapterです。
+`FeatureEncoder` は `saealib.space.services` で定義する `Protocol` で、`saealib.space.FeatureEncoder` として公開されます。
+`FeatureEncoder` は `SearchSpace.services` にサービスとして登録・解決され、代理モデルが学習できる特徴を決めます。
+`FeatureEncoder` はAdapterインスタンスではありません。
+公開importは `from saealib.space import FeatureEncoder` です。
 
 ## SearchSpaceが保持するもの
 
@@ -29,8 +35,12 @@ page_type: concept
 
 `RepresentationSpec` はパラメータの種類、形状、表現種別を記述します。 表現の記述は、候補をどのように保存するかを示すものであり、サンプリングや特徴量化の実装そのものではありません。
 
-`FeatureEncoder`を使う戦略では、実行準備時に明示設定の有無を確認してエンコーダを選びます。`VectorSpace`は恒等エンコーディングを既定にし、選択元と理由をINFOで報告します。`PermutationSpace`と`SequenceSpace`は組み込みの既定エンコーダを使い、エンコーディングがサロゲートの学習対象を決めることを示して、明示選択を勧めるWARNINGを報告します。このWARNINGは実行を妨げません。
-`SearchSpace.services`に明示されたエンコーダは既定より優先され、既定選択の診断は出ません。`ObjectSpace`と独自の空間にはエンコーダを推測して割り当てないため、選択した戦略が必要とする場合は空間が提供します。
+`FeatureEncoder`を使う戦略では、実行準備時に明示設定の有無を確認してエンコーダを選びます。
+`SearchSpace.services`に明示登録されたエンコーダは常に既定値より優先されます。
+`VectorSpace`は恒等エンコーディングを既定にし、選択元と理由をINFOで報告します。
+`PermutationSpace`と`SequenceSpace`は組み込みの既定エンコーダを使い、エンコーディングがサロゲートの学習対象を決めることを示して、明示選択を勧めるWARNINGを報告します。
+このWARNINGは実行を妨げません。
+`ObjectSpace`と独自の空間にはエンコーダを推測して割り当てないため、選択した戦略が必要とする場合は空間が提供します。
 `encode_features()`を直接呼ぶ場合も、組み込み空間では同じ既定値を使い、その選択をPythonの`UserWarning`で知らせます。対応する既定値がない独自空間では、引き続き明示エンコーダが必要です。
 構造化診断は`optimizer.contract_diagnostics()`で確認できます。`optimizer.validate()`を呼んだ後は`optimizer.last_contract_diagnostics`からも確認できます。`Optimizer.validate()`はERRORだけを返すため、INFOとWARNINGは診断ストリームで確認します。
 

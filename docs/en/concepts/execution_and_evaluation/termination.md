@@ -37,6 +37,7 @@ Each condition passed to `Termination` is a thin wrapper called `TerminationCond
 |---|---|
 | `max_fe(value)` | The evaluation count reaches `value` (`ctx.fe >= value`) |
 | `max_gen(value)` | The generation count reaches `value` (`ctx.gen >= value`) |
+| `max_steps(value)` | The number of completed flow executions reaches `value` (`ctx.step >= value`) |
 | `f_target(value)` | The archive's best objective value reaches `value`. For single-objective use; automatically determines minimize/maximize from `ctx.direction`. Doesn't trigger while the archive is empty |
 | `stalled(window, tol=1e-8)` | Stops if no improvement exceeding `tol` occurs for `window` consecutive generations |
 
@@ -89,3 +90,4 @@ The `spec` argument on `TerminationCondition`'s constructor is an internal field
 - {py:func}`saealib.max_gen`
 - {py:func}`saealib.f_target`
 - {py:func}`saealib.stalled`
+- {py:func}`saealib.max_steps`

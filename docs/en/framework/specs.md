@@ -32,8 +32,11 @@ DataSpec kind compatibility, schema unification, and service resolution are sepa
 
 `ServiceRequirement` declares a named service required by a port or Component.
 SearchSpace services such as `SamplingService` and `ValidationService` are matched as space capabilities.
-`EvaluationAdapter` is an adapter at the evaluation boundary, while `FeatureEncoder` is an adapter subtype exposed as `saealib.space.FeatureEncoder`.
-`FeatureEncoder` converts a `GenomeBatch` to a `FeatureBatch` and provides the semantic transformation that determines features a surrogate model can learn. It differs in nature from space capabilities such as `SamplingService`.
+`EvaluationAdapter` is an adapter at the evaluation boundary.
+`FeatureEncoder` is a `Protocol` defined in `saealib.space.services` and exposed as `saealib.space.FeatureEncoder`.
+`FeatureEncoder` is registered and resolved as a service in `SearchSpace.services`.
+`FeatureEncoder` converts a `GenomeBatch` to a `FeatureBatch` and determines the features a surrogate model can learn.
+`FeatureEncoder` is not an Adapter instance.
 During execution preparation, a strategy that consumes `FeatureEncoder` receives a visible default when its space has no explicit encoder. `VectorSpace` uses identity encoding and reports the choice, source, and reason at INFO; `PermutationSpace` and `SequenceSpace` retain their built-in encodings and report a non-blocking WARNING recommending an explicit choice because encoding affects what the surrogate learns.
 An encoder explicitly provided through `SearchSpace.services` takes priority over these defaults and is used without a default-selection diagnostic. `ObjectSpace` and custom spaces receive no inferred encoder; a strategy that consumes one must have the space provide it.
 Inspect the structured stream with `optimizer.contract_diagnostics()`, or read `optimizer.last_contract_diagnostics` after `optimizer.validate()`. `Optimizer.validate()` returns ERROR findings only, so the structured stream is where INFO and WARNING selections are visible.
@@ -42,7 +45,7 @@ Inspect the structured stream with `optimizer.contract_diagnostics()`, or read `
 
 `RepresentationSpec` is the candidate-representation specification on the SearchSpace side.
 It describes candidate type, shape, and representation, but is not part of a ComponentContract's ports, state, or execution.
-Therefore, SearchSpace services, `EvaluationAdapter`, `FeatureEncoder`, and the RepresentationSpec held by the space are separate boundaries that the Compiler connects.
+`FeatureEncoder` is registered and resolved as a SearchSpace service, and `RepresentationSpec` is the candidate-representation specification held by the space.
 
 | Declarative value | Owner | Boundary using it |
 |---|---|---|

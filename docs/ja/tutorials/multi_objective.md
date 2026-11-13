@@ -113,7 +113,9 @@ front_x = result.x
 front_f = result.f
 ```
 
-探索側の`result.ctx.pareto_archive`は別の、逐次に刈り込まれるアーカイブです。内容は探索の設定に従うため、最終結果の比較や描画には`result.x`/`result.f`または`result.front()`を使い、Paretoアーカイブを直接読まないでください。多目的問題では、main archiveからの計算し直しがParetoアーカイブと異なる集合になることがあり、例えばε緩和を使う実行で起こります。
+探索側の`result.ctx.pareto_archive`は独立したアーカイブで、行の追加ごとに設定済みの支配判定で刈り込みます。
+`result.front()`は選択した基準でmain archiveから非劣解集合を再計算するため、Paretoアーカイブに`EpsilonDominator`など別の支配判定を設定すると、集合が異なる場合があります。
+最終結果にはParetoアーカイブを直接読まず、`result.x`/`result.f`または`result.front()`を使ってください。
 
 ```python
 from saealib.comparators import ParetoComparator

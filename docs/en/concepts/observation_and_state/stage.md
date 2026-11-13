@@ -23,11 +23,12 @@ The boundary implemented by `Stage` is `execute(state: OptimizationState) -> Opt
 Stage receives an `OptimizationState`, performs one operation, and returns the updated State.
 This boundary differs from a graph-native component's `execute(StateView) -> StatePatch`.
 
-There are three class attributes.
+There are four class attributes.
 
 - **`name`**: A machine-readable identifier used for lookup via `pipeline["name"]`
 - **`label`**: A human-readable description
 - **`notation`**: The LaTeX notation used by `to_pseudocode()`
+- **`execution_boundary`**: The execution boundary (`"transaction"` by default, or `"state"` for the entire execution state). Any other value raises `ValidationError` during plan preparation.
 
 ## Pipeline
 
@@ -41,6 +42,12 @@ resumable at runtime.
 | `pipeline["name"]` | Looks up a structural entry by `name` |
 | `pipeline.replace(name, entry)` | Replaces a top-level structural entry |
 | `pipeline.find(name, *, recursive=False)` | With `recursive=True`, searches nested pipelines and control bodies |
+
+`replace` changes only the top-level structural sequence.
+To replace an entry in a nested Pipeline, use `find(name, recursive=True)` to get the nested Pipeline, then replace the entry there.
+A replacement in a prepared run takes effect at the next commit point.
+`to_spec` serializes constructor arguments, so it does not retain replacements made to a built-in strategy.
+Use the declaration or constructor arguments to persist a replacement.
 
 ## Built-in Stages
 

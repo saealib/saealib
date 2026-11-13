@@ -16,7 +16,9 @@ page_type: concept
 
 `Population`は、Genome、目的値、制約値、制約違反、Algorithm固有の補助属性を保持します。
 Genomeは、`DenseVectorBatch`、`ObjectBatch`、`PermutationBatch`などの`GenomeBatch`実装で表現できます。
-値を安全に数値ベクトルとして取得できる場合だけ、`x`または密な数値ビューを使います。
+値を安全に数値ベクトルとして取得できるGenomeでは、`x`から数値ビューの値を参照できます。
+`Population`のコンストラクタでは、数値ビューサービスを`dense_numeric_view`引数に指定します。
+`dense_view`は`dense_numeric_view`の非推奨エイリアスであり、指定すると`DeprecationWarning`が出力されます。
 
 `Population.genomes`は、実行中のPopulationのGenome格納領域から借用する読み取り専用ビューであり、不変スナップショットではありません。
 `update_array`など後続のPopulation操作はその格納領域をインプレースで更新できるため、既存の`genomes`ビューから観測される内容も変化する場合があります。

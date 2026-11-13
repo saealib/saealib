@@ -17,7 +17,8 @@ page_type: concept
 
 **`tell(feedback, state) -> StatePatch`**：`FeedbackBatch` を消費し、適用すべき状態変更を `StatePatch` として返します。 `tell()` は `OptimizationState` や `Population` を直接変更しません。
 
-この分離によって、どの候補を高コストな真の評価へ送るかを `Algorithm` の外側に置けます。 その判断は [OptimizationStrategy](../execution_and_evaluation/strategies.md) と評価計画、`FeedbackPolicy`の組み合わせが担います。
+この分離によって、どの候補を高コストな真の評価へ送るかを `Algorithm` の外側に置けます。
+その候補は評価プランナーが評価計画に基づいて選びます。`FeedbackRequirement`は`ProposalBatch.requirements`に含まれ、proposerが提案に対して動作する前に必要とするフィードバックを指定します。
 
 ## 組み込みAlgorithm
 
@@ -171,7 +172,9 @@ optimizer = (
 result = optimizer.run()
 ```
 
-`tell()` が受け取るFeedbackは、どの評価経路から届いたかと、候補IDとの対応を保持します。 真の評価だけを必要とするか、予測値を受け入れるかは、Algorithmの契約と`FeedbackPolicy`で宣言します。 PSOのpbestのような永続的な補助情報は、Population属性または宣言済みの`StateKey`として扱います。
+`tell()` が受け取るFeedbackは、どの評価経路から届いたかと、候補IDとの対応を保持します。
+各提案で必要なフィードバックは、Algorithmの契約と`FeedbackRequirement`（`ProposalBatch.requirements`に保持され、Feedback契約との適合確認と必要なフィードバックの完了判定に使われます）で示します。
+PSOのpbestのような永続的な補助情報は、Population属性または宣言済みの`StateKey`として扱います。
 
 ## 関連コンポーネント
 

@@ -16,7 +16,9 @@
 
 
    ~Result.__init__
+   ~Result.best
    ~Result.from_state
+   ~Result.front
    ~Result.history_series
 
 
@@ -30,7 +32,13 @@
 .. automethod:: saealib.Result.__init__
 
 
+.. automethod:: saealib.Result.best
+
+
 .. automethod:: saealib.Result.from_state
+
+
+.. automethod:: saealib.Result.front
 
 
 .. automethod:: saealib.Result.history_series

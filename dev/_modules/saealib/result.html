@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.result &#8212; saealib 0.1.1.dev47+g599ac122b documentation</title>
+    <title>saealib.result &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=2a31a01e"></script>
+    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -969,6 +969,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">Comparator</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.history</span><span class="w"> </span><span class="kn">import</span> <span class="n">History</span>
 
@@ -1022,8 +1023,9 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        spaces; use ``problem.space.services`` to convert</span>
 <span class="sd">        ``result.ctx.archive.genomes`` when dense design variables are needed.</span>
 <span class="sd">    f : np.ndarray</span>
-<span class="sd">        Best objective values. Shape ``(n_obj,)`` for single-objective,</span>
-<span class="sd">        ``(n_pareto, n_obj)`` for multi-objective.</span>
+<span class="sd">        Best objective values under the default criterion. Shape ``(n_obj,)``</span>
+<span class="sd">        for single-objective, ``(n_pareto, n_obj)`` for multi-objective. Use</span>
+<span class="sd">        :meth:`best` or :meth:`front` to select a different criterion.</span>
 <span class="sd">    fe : int</span>
 <span class="sd">        Total number of true function evaluations used.</span>
 <span class="sd">    gen : int</span>
@@ -1047,65 +1049,198 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">from_state</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Result</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a result from the final or currently observed state.</span>
 
-<span class="sd">        A solution is feasible when every per-constraint violation is zero</span>
-<span class="sd">        after its own tolerance, so the reported result does not depend on the</span>
-<span class="sd">        aggregation that produced ``cv`` or on a search-time epsilon</span>
-<span class="sd">        relaxation.</span>
+<span class="sd">        ``x`` and ``f`` are the default-criterion view: the best solution for a</span>
+<span class="sd">        single-objective problem and the non-dominated set of the truly</span>
+<span class="sd">        evaluated main-archive rows for a multi-objective problem. The</span>
+<span class="sd">        default criterion is feasibility first, then Pareto dominance; see</span>
+<span class="sd">        :meth:`best` and :meth:`front`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem.constraint</span><span class="w"> </span><span class="kn">import</span> <span class="n">_feasible_rows</span>
-
-        <span class="n">archive_f</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
-        <span class="n">archive_cv</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">)</span>
-        <span class="n">direction</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span>
-
-        <span class="n">feasible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span>
-            <span class="n">_feasible_rows</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">constraints</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">feasible</span><span class="p">):</span>
-            <span class="n">pool</span> <span class="o">=</span> <span class="n">feasible</span>
-        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive_cv</span><span class="p">):</span>
-            <span class="n">pool</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">archive_cv</span><span class="p">))])</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot build a result from a state whose archive is empty. &quot;</span>
                 <span class="s2">&quot;Evaluate at least one candidate before requesting a result.&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">scores</span> <span class="o">=</span> <span class="n">archive_f</span><span class="p">[</span><span class="n">pool</span><span class="p">]</span> <span class="o">@</span> <span class="n">direction</span>
-            <span class="n">best_idx</span> <span class="o">=</span> <span class="n">pool</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">scores</span><span class="p">))]</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">best_x</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)[</span><span class="n">best_idx</span><span class="p">]</span>
-            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
-                <span class="n">best_x</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">best_f</span> <span class="o">=</span> <span class="n">archive_f</span><span class="p">[</span><span class="n">best_idx</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pareto_archive</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">best_x</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
-                    <span class="n">best_x</span> <span class="o">=</span> <span class="kc">None</span>
-                <span class="n">best_f</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">non_dominated_sort</span>
-
-                <span class="n">_</span><span class="p">,</span> <span class="n">fronts</span> <span class="o">=</span> <span class="n">non_dominated_sort</span><span class="p">(</span><span class="n">archive_f</span><span class="p">[</span><span class="n">pool</span><span class="p">],</span> <span class="n">direction</span><span class="o">=</span><span class="n">direction</span><span class="p">)</span>
-                <span class="n">pareto_idx</span> <span class="o">=</span> <span class="n">pool</span><span class="p">[</span><span class="n">fronts</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">best_x</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)[</span><span class="n">pareto_idx</span><span class="p">]</span>
-                <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
-                    <span class="n">best_x</span> <span class="o">=</span> <span class="kc">None</span>
-                <span class="n">best_f</span> <span class="o">=</span> <span class="n">archive_f</span><span class="p">[</span><span class="n">pareto_idx</span><span class="p">]</span>
-
-        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
-            <span class="n">x</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">best_x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">best_x</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-            <span class="n">f</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">best_f</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">f</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
             <span class="n">fe</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">fe</span><span class="p">),</span>
             <span class="n">gen</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">gen</span><span class="p">),</span>
             <span class="n">history</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">history</span><span class="p">,</span>
             <span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">best</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">front</span><span class="p">()</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">f</span> <span class="o">=</span> <span class="n">f</span>
+        <span class="k">return</span> <span class="n">result</span></div>
 
+
+<div class="viewcode-block" id="Result.best">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.Result.html#saealib.Result.best">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">best</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">Comparator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the best solution under *criterion*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        criterion : Comparator, optional</span>
+<span class="sd">            Comparison criterion. When omitted, the default criterion is used:</span>
+<span class="sd">            a solution is feasible when every per-constraint violation is zero</span>
+<span class="sd">            after its own tolerance, feasible solutions rank before infeasible</span>
+<span class="sd">            ones, and feasible solutions are ranked by Pareto dominance. When</span>
+<span class="sd">            no solution is feasible, the default criterion uses the first row</span>
+<span class="sd">            with the minimum ``cv`` for a single-objective problem and the</span>
+<span class="sd">            non-dominated rows among the minimum ``cv`` rows for a</span>
+<span class="sd">            multi-objective problem. A supplied criterion keeps its own</span>
+<span class="sd">            ``direction`` and ``eps_cv`` and ranks every row with the minimum</span>
+<span class="sd">            ``cv`` when no row is feasible.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of (np.ndarray or None, np.ndarray)</span>
+<span class="sd">            Design variables with shape ``(dim,)`` and objective values with</span>
+<span class="sd">            shape ``(n_obj,)``. The design variables are ``None`` for a</span>
+<span class="sd">            non-dense search space.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValidationError</span>
+<span class="sd">            If *criterion* is not a :class:`~saealib.Comparator` or the</span>
+<span class="sd">            main archive is empty.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">is_default</span> <span class="o">=</span> <span class="n">criterion</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="n">criterion</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_criterion</span><span class="p">(</span><span class="n">criterion</span><span class="p">)</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_values</span><span class="p">()</span>
+        <span class="n">pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_selection_pool</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="n">is_default</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">is_default</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">scores</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="n">pool</span><span class="p">]</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pool</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">scores</span><span class="p">))])</span>
+        <span class="k">elif</span> <span class="n">is_default</span><span class="p">:</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_first_front</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">pool</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">order</span> <span class="o">=</span> <span class="n">criterion</span><span class="o">.</span><span class="n">sort_population</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">pool</span><span class="p">))</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pool</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">order</span><span class="p">[</span><span class="mi">0</span><span class="p">])])</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_row</span><span class="p">(</span><span class="n">index</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Result.front">
+<a class="viewcode-back" href="../../api/_autosummary/saealib.Result.html#saealib.Result.front">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">front</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">Comparator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the non-dominated solutions under *criterion*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        criterion : Comparator, optional</span>
+<span class="sd">            Comparison criterion. When omitted, the default criterion is used:</span>
+<span class="sd">            a solution is feasible when every per-constraint violation is zero</span>
+<span class="sd">            after its own tolerance, and the feasible solutions are filtered by</span>
+<span class="sd">            Pareto dominance with the criterion&#39;s own sorter. When no solution</span>
+<span class="sd">            is feasible, the default criterion returns the first row with the</span>
+<span class="sd">            minimum ``cv`` for a single-objective problem and the non-dominated</span>
+<span class="sd">            rows among the minimum ``cv`` rows for a multi-objective problem.</span>
+<span class="sd">            A supplied criterion keeps its own ``direction`` and ``eps_cv`` and</span>
+<span class="sd">            ranks every row with the minimum ``cv`` when no row is feasible.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of (np.ndarray or None, np.ndarray)</span>
+<span class="sd">            Design variables with shape ``(n_front, dim)`` and objective values</span>
+<span class="sd">            with shape ``(n_front, n_obj)``. The design variables are ``None``</span>
+<span class="sd">            for a non-dense search space.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValidationError</span>
+<span class="sd">            If *criterion* is not a :class:`~saealib.Comparator` or the</span>
+<span class="sd">            main archive is empty.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">is_default</span> <span class="o">=</span> <span class="n">criterion</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="n">criterion</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_criterion</span><span class="p">(</span><span class="n">criterion</span><span class="p">)</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_values</span><span class="p">()</span>
+        <span class="n">pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_selection_pool</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="n">is_default</span><span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_front</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">pool</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_rows</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_criterion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">Comparator</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Comparator</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">Comparator</span><span class="p">,</span> <span class="n">ParetoComparator</span>
+
+        <span class="k">if</span> <span class="n">criterion</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ParetoComparator</span><span class="p">(</span>
+                <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+                <span class="n">eps_cv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="n">Comparator</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;criterion must be a Comparator instance or None.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">criterion</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="n">archive</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot select solutions from a result whose archive is empty.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">f</span><span class="p">,</span> <span class="n">cv</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_selection_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">Comparator</span><span class="p">,</span> <span class="n">is_default</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">cv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_values</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">is_default</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem.constraint</span><span class="w"> </span><span class="kn">import</span> <span class="n">_feasible_rows</span>
+
+            <span class="n">feasible</span> <span class="o">=</span> <span class="n">_feasible_rows</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">constraints</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">feasible</span> <span class="o">=</span> <span class="n">cv</span> <span class="o">&lt;=</span> <span class="nb">float</span><span class="p">(</span><span class="n">criterion</span><span class="o">.</span><span class="n">eps_cv</span><span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">feasible</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">indices</span>
+        <span class="k">if</span> <span class="n">is_default</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">cv</span><span class="p">))])</span>
+        <span class="n">minimum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">cv</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">cv</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">minimum</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">minimum</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cv</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_first_front</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">Comparator</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pool</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dominator</span><span class="p">,</span> <span class="n">non_dominated_sort</span>
+
+        <span class="n">dominator</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="s2">&quot;dominator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dominator</span><span class="p">,</span> <span class="n">Dominator</span><span class="p">):</span>
+            <span class="n">sorter</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="s2">&quot;sorter&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">sorter</span><span class="p">):</span>
+                <span class="n">sorter</span> <span class="o">=</span> <span class="n">non_dominated_sort</span>
+            <span class="n">ranks</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sorter</span><span class="p">(</span>
+                <span class="n">f</span><span class="p">[</span><span class="n">pool</span><span class="p">],</span>
+                <span class="n">direction</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="s2">&quot;direction&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">dominator</span><span class="o">=</span><span class="n">dominator</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">ranks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ranks</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">pool</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">ranks</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">ranks</span><span class="p">))]</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">criterion</span><span class="o">.</span><span class="n">sort_population</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">pool</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">pool</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">order</span><span class="p">[:</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_row</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_rows</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">index</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">))</span>
+        <span class="k">return</span> <span class="p">(</span><span class="kc">None</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_rows</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="n">archive</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)[</span><span class="n">indices</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)[</span><span class="n">indices</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">f</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">problem</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

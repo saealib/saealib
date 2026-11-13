@@ -105,6 +105,8 @@ print(f"feasible: {feasible.sum()} / {len(feasible)}")
 ```
 
 The same decision drives `result.x`/`result.f`, the history's `best_f` and `feasible_ratio`, training-set labels, and the Pareto archive, so it does not depend on how violations are aggregated into `cv` or on any ε relaxation used during search.
+The default criterion of `result.best()` and `result.front()` uses that decision as well: feasible solutions come first and are then filtered by Pareto dominance.
+When no solution is feasible, the default criterion uses the first row with the minimum `cv` for a single-objective problem, and `result.front()` for a multi-objective problem returns the non-dominated solutions among the rows with the minimum `cv`; a supplied criterion ranks every row with the minimum `cv`.
 
 ## Customize constraint handling with ConstraintHandler
 

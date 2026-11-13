@@ -102,7 +102,7 @@ feasible = np.array(
 print(f"feasible: {feasible.sum()} / {len(feasible)}")
 ```
 
-同じ判定が`result.x`/`result.f`、履歴の`best_f`と`feasible_ratio`、学習データのラベル、Paretoアーカイブを駆動します。そのため、`cv`の集約方法や探索中のε緩和には左右されません。
+同じ判定が`result.x`/`result.f`、履歴の`best_f`と`feasible_ratio`、学習データのラベル、Paretoアーカイブを駆動します。そのため、`cv`の集約方法や探索中のε緩和には左右されません。`result.best()`と`result.front()`の既定の基準もこの判定を使い、実行可能解を優先したうえでPareto支配で絞り込みます。実行可能な解が1つもない場合、既定の基準では単目的は`cv`が最小の最初の行を使い、多目的問題の`result.front()`は`cv`が最小の行のうち非劣な解を返します。明示した基準では、`cv`が最小のすべての行をその基準で順位付けします。
 
 ## ConstraintHandlerで制約処理をカスタマイズする
 

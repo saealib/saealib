@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>高レベルAPIで最適化を実行する &#8212; saealib 0.1.1.dev47+g599ac122b ドキュメント</title>
+    <title>高レベルAPIで最適化を実行する &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=b32b1bb0"></script>
+    <script src="../_static/documentation_options.js?v=64c304f5"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -631,13 +631,23 @@
 </section>
 <section id="result">
 <h2>Resultを読む<a class="headerlink" href="#result" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">minimize()</span></code> と <code class="docutils literal notranslate"><span class="pre">maximize()</span></code> は <code class="docutils literal notranslate"><span class="pre">Result</span></code> を返します。 単目的では <code class="docutils literal notranslate"><span class="pre">result.x</span></code> が最良設計変数、<code class="docutils literal notranslate"><span class="pre">result.f</span></code> が要素数1の配列として対応する目的値を保持します。 <code class="docutils literal notranslate"><span class="pre">result.fe</span></code> は真の評価回数、<code class="docutils literal notranslate"><span class="pre">result.gen</span></code> は完了した世代数です。 多目的では <code class="docutils literal notranslate"><span class="pre">x</span></code> と <code class="docutils literal notranslate"><span class="pre">f</span></code> がPareto解の行列になります。</p>
+<p><code class="docutils literal notranslate"><span class="pre">minimize()</span></code> と <code class="docutils literal notranslate"><span class="pre">maximize()</span></code> は <code class="docutils literal notranslate"><span class="pre">Result</span></code> を返します。 単目的では <code class="docutils literal notranslate"><span class="pre">result.x</span></code> が最良設計変数、<code class="docutils literal notranslate"><span class="pre">result.f</span></code> が要素数1の配列として対応する目的値を保持します。 <code class="docutils literal notranslate"><span class="pre">result.fe</span></code> は真の評価回数、<code class="docutils literal notranslate"><span class="pre">result.gen</span></code> は完了した世代数です。 多目的では <code class="docutils literal notranslate"><span class="pre">x</span></code> と <code class="docutils literal notranslate"><span class="pre">f</span></code> が、既定の基準で選んだ非劣解の行列になります。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">f</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">fe</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">gen</span><span class="p">)</span>
 
 <span class="n">archive</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">result.best()</span></code> は1つの解を、<code class="docutils literal notranslate"><span class="pre">result.front()</span></code> は非劣解の集合を返します。どちらも <code class="docutils literal notranslate"><span class="pre">criterion</span></code> に <code class="docutils literal notranslate"><span class="pre">Comparator</span></code> を受け取り、省略時は既定の基準を使います。既定の基準は実行可能解を優先し、実行可能性は制約ごとの違反量（不等式は<code class="docutils literal notranslate"><span class="pre">0.0</span></code>、等式はその<code class="docutils literal notranslate"><span class="pre">tolerance</span></code>）で判定したうえでPareto支配を使います。実行可能な解が1つもない場合、既定の基準では単目的は<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小の最初の行を、多目的は<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小の行のうち非劣な解を使います。明示した基準では、<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小のすべての行をその基準で順位付けします。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParetoComparator</span>
+
+<span class="n">best_x</span><span class="p">,</span> <span class="n">best_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">best</span><span class="p">()</span>
+<span class="n">front_x</span><span class="p">,</span> <span class="n">front_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">front</span><span class="p">()</span>
+<span class="n">custom_x</span><span class="p">,</span> <span class="n">custom_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">best</span><span class="p">(</span>
+    <span class="n">ParetoComparator</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">)</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">result.ctx</span></code> は完全な <code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code> です。 世代ごとの状態取得、途中の停止、コンポーネントの組み立てが必要になったら <a class="reference internal" href="lowlevel_api.html"><span class="std std-doc">低レベルAPI</span></a> に進みます。</p>

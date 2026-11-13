@@ -52,6 +52,9 @@ print(result.f.shape)  # (n_pareto, n_obj)
 ```
 
 単目的の場合に1点だった `result.x`/`result.f` は、多目的の場合にはParetoフロントを形成する複数の解になります。
+`x`と`f`は既定の基準で選んだ非劣解で、main archiveの真評価された行から計算し直しています。
+`result.best()`は1つの解を、`result.front()`は非劣解の集合を返します。
+どちらも`criterion`に`Comparator`を受け取り、省略時は既定の基準を使います。既定の基準は実行可能解を優先し、実行可能性は制約ごとの違反量（不等式は`0.0`、等式はその`tolerance`）で判定したうえでPareto支配を使います。実行可能な解が1つもない場合は、`cv`が最小の行のうち非劣な解を使います。
 
 ## Optimizerを構成する
 
@@ -103,11 +106,22 @@ ctx = optimizer.run()
 
 ## パレートフロントを抽出する
 
-実行後、最終的なParetoフロントは `result.ctx.pareto_archive` に保持されます。
+実行後、`result.x`と`result.f`は既定の基準で選んだ非劣解を保持します。
 
 ```python
-pareto_x = result.ctx.pareto_archive.get_array("x")
-pareto_f = result.ctx.pareto_archive.get_array("f")
+front_x = result.x
+front_f = result.f
+```
+
+探索側の`result.ctx.pareto_archive`は別の、逐次に刈り込まれるアーカイブです。内容は探索の設定に従うため、最終結果の比較や描画には`result.x`/`result.f`または`result.front()`を使い、Paretoアーカイブを直接読まないでください。多目的問題では、main archiveからの計算し直しがParetoアーカイブと異なる集合になることがあり、例えばε緩和を使う実行で起こります。
+
+```python
+from saealib.comparators import ParetoComparator
+
+front_x, front_f = result.front()
+relaxed_x, relaxed_f = result.front(
+    ParetoComparator(direction=problem.direction, eps_cv=1e-3)
+)
 ```
 
 任意の目的値配列からParetoフロントを計算するには、`non_dominated_sort` を直接使えます。

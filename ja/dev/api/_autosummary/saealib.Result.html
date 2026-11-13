@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Result &#8212; saealib 0.1.1.dev47+g599ac122b ドキュメント</title>
+    <title>saealib.Result &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=b32b1bb0"></script>
+    <script src="../../_static/documentation_options.js?v=64c304f5"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -941,8 +941,9 @@ spaces; use <code class="docutils literal notranslate"><span class="pre">problem
 <dl class="py attribute">
 <dt class="sig sig-object py" id="saealib.Result.f">
 <span class="sig-name descname"><span class="pre">f</span></span><a class="headerlink" href="#saealib.Result.f" title="Link to this definition">#</a></dt>
-<dd><p>Best objective values. Shape <code class="docutils literal notranslate"><span class="pre">(n_obj,)</span></code> for single-objective,
-<code class="docutils literal notranslate"><span class="pre">(n_pareto,</span> <span class="pre">n_obj)</span></code> for multi-objective.</p>
+<dd><p>Best objective values under the default criterion. Shape <code class="docutils literal notranslate"><span class="pre">(n_obj,)</span></code>
+for single-objective, <code class="docutils literal notranslate"><span class="pre">(n_pareto,</span> <span class="pre">n_obj)</span></code> for multi-objective. Use
+<a class="reference internal" href="#saealib.Result.best" title="saealib.Result.best"><code class="xref py py-meth docutils literal notranslate"><span class="pre">best()</span></code></a> or <a class="reference internal" href="#saealib.Result.front" title="saealib.Result.front"><code class="xref py py-meth docutils literal notranslate"><span class="pre">front()</span></code></a> to select a different criterion.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray</p>
@@ -1002,8 +1003,14 @@ spaces; use <code class="docutils literal notranslate"><span class="pre">problem
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Result.__init__" title="saealib.Result.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Result.from_state" title="saealib.Result.from_state"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_state</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Result.best" title="saealib.Result.best"><code class="xref py py-obj docutils literal notranslate"><span class="pre">best</span></code></a></p></td>
+<td><p>Return the best solution under <em>criterion</em>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Result.from_state" title="saealib.Result.from_state"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_state</span></code></a></p></td>
 <td><p>Build a result from the final or currently observed state.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Result.front" title="saealib.Result.front"><code class="xref py py-obj docutils literal notranslate"><span class="pre">front</span></code></a></p></td>
+<td><p>Return the non-dominated solutions under <em>criterion</em>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Result.history_series" title="saealib.Result.history_series"><code class="xref py py-obj docutils literal notranslate"><span class="pre">history_series</span></code></a></p></td>
 <td><p>Return one scalar value per recorded history generation.</p></td>
@@ -1033,19 +1040,83 @@ spaces; use <code class="docutils literal notranslate"><span class="pre">problem
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="saealib.Result.best">
+<span class="sig-prename descclassname"><span class="pre">Result.</span></span><span class="sig-name descname"><span class="pre">best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">criterion</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/result.html#Result.best"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Result.best" title="Link to this definition">#</a></dt>
+<dd><p>Return the best solution under <em>criterion</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>criterion</strong> (<a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><em>Comparator</em></a><em>, </em><em>optional</em>) -- Comparison criterion. When omitted, the default criterion is used:
+a solution is feasible when every per-constraint violation is zero
+after its own tolerance, feasible solutions rank before infeasible
+ones, and feasible solutions are ranked by Pareto dominance. When
+no solution is feasible, the default criterion uses the first row
+with the minimum <code class="docutils literal notranslate"><span class="pre">cv</span></code> for a single-objective problem and the
+non-dominated rows among the minimum <code class="docutils literal notranslate"><span class="pre">cv</span></code> rows for a
+multi-objective problem. A supplied criterion keeps its own
+<code class="docutils literal notranslate"><span class="pre">direction</span></code> and <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> and ranks every row with the minimum
+<code class="docutils literal notranslate"><span class="pre">cv</span></code> when no row is feasible.</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>Design variables with shape <code class="docutils literal notranslate"><span class="pre">(dim,)</span></code> and objective values with
+shape <code class="docutils literal notranslate"><span class="pre">(n_obj,)</span></code>. The design variables are <code class="docutils literal notranslate"><span class="pre">None</span></code> for a
+non-dense search space.</p>
+</dd>
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple of (np.ndarray or None, np.ndarray)</p>
+</dd>
+<dt class="field-even">例外<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="saealib.ValidationError.html#saealib.ValidationError" title="saealib.ValidationError"><strong>ValidationError</strong></a> -- If <em>criterion</em> is not a <a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Comparator</span></code></a> or the
+    main archive is empty.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="saealib.Result.from_state">
 <em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">Result.</span></span><span class="sig-name descname"><span class="pre">from_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/result.html#Result.from_state"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Result.from_state" title="Link to this definition">#</a></dt>
 <dd><p>Build a result from the final or currently observed state.</p>
-<p>A solution is feasible when every per-constraint violation is zero
-after its own tolerance, so the reported result does not depend on the
-aggregation that produced <code class="docutils literal notranslate"><span class="pre">cv</span></code> or on a search-time epsilon
-relaxation.</p>
+<p><code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">f</span></code> are the default-criterion view: the best solution for a
+single-objective problem and the non-dominated set of the truly
+evaluated main-archive rows for a multi-objective problem. The
+default criterion is feasibility first, then Pareto dominance; see
+<a class="reference internal" href="#saealib.Result.best" title="saealib.Result.best"><code class="xref py py-meth docutils literal notranslate"><span class="pre">best()</span></code></a> and <a class="reference internal" href="#saealib.Result.front" title="saealib.Result.front"><code class="xref py py-meth docutils literal notranslate"><span class="pre">front()</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>state</strong> (<em>OptimizationState</em>)</p>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="#saealib.Result" title="saealib.Result">Result</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="saealib.Result.front">
+<span class="sig-prename descclassname"><span class="pre">Result.</span></span><span class="sig-name descname"><span class="pre">front</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">criterion</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/result.html#Result.front"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Result.front" title="Link to this definition">#</a></dt>
+<dd><p>Return the non-dominated solutions under <em>criterion</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>criterion</strong> (<a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><em>Comparator</em></a><em>, </em><em>optional</em>) -- Comparison criterion. When omitted, the default criterion is used:
+a solution is feasible when every per-constraint violation is zero
+after its own tolerance, and the feasible solutions are filtered by
+Pareto dominance with the criterion's own sorter. When no solution
+is feasible, the default criterion returns the first row with the
+minimum <code class="docutils literal notranslate"><span class="pre">cv</span></code> for a single-objective problem and the non-dominated
+rows among the minimum <code class="docutils literal notranslate"><span class="pre">cv</span></code> rows for a multi-objective problem.
+A supplied criterion keeps its own <code class="docutils literal notranslate"><span class="pre">direction</span></code> and <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> and
+ranks every row with the minimum <code class="docutils literal notranslate"><span class="pre">cv</span></code> when no row is feasible.</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>Design variables with shape <code class="docutils literal notranslate"><span class="pre">(n_front,</span> <span class="pre">dim)</span></code> and objective values
+with shape <code class="docutils literal notranslate"><span class="pre">(n_front,</span> <span class="pre">n_obj)</span></code>. The design variables are <code class="docutils literal notranslate"><span class="pre">None</span></code>
+for a non-dense search space.</p>
+</dd>
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple of (np.ndarray or None, np.ndarray)</p>
+</dd>
+<dt class="field-even">例外<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="saealib.ValidationError.html#saealib.ValidationError" title="saealib.ValidationError"><strong>ValidationError</strong></a> -- If <em>criterion</em> is not a <a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Comparator</span></code></a> or the
+    main archive is empty.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1154,7 +1225,9 @@ changes neither; <code class="docutils literal notranslate"><span class="pre">mi
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Result.__init__"><code class="docutils literal notranslate"><span class="pre">Result.__init__()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Result.best"><code class="docutils literal notranslate"><span class="pre">Result.best()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Result.from_state"><code class="docutils literal notranslate"><span class="pre">Result.from_state()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Result.front"><code class="docutils literal notranslate"><span class="pre">Result.front()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Result.history_series"><code class="docutils literal notranslate"><span class="pre">Result.history_series()</span></code></a></li>
 </ul>
   </nav></div>

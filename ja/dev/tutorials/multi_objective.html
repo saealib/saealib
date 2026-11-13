@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>多目的最適化 &#8212; saealib 0.1.1.dev47+g599ac122b ドキュメント</title>
+    <title>多目的最適化 &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=b32b1bb0"></script>
+    <script src="../_static/documentation_options.js?v=64c304f5"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -594,7 +594,10 @@
 <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">f</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (n_pareto, n_obj)</span>
 </pre></div>
 </div>
-<p>単目的の場合に1点だった <code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code> は、多目的の場合にはParetoフロントを形成する複数の解になります。</p>
+<p>単目的の場合に1点だった <code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code> は、多目的の場合にはParetoフロントを形成する複数の解になります。
+<code class="docutils literal notranslate"><span class="pre">x</span></code>と<code class="docutils literal notranslate"><span class="pre">f</span></code>は既定の基準で選んだ非劣解で、main archiveの真評価された行から計算し直しています。
+<code class="docutils literal notranslate"><span class="pre">result.best()</span></code>は1つの解を、<code class="docutils literal notranslate"><span class="pre">result.front()</span></code>は非劣解の集合を返します。
+どちらも<code class="docutils literal notranslate"><span class="pre">criterion</span></code>に<code class="docutils literal notranslate"><span class="pre">Comparator</span></code>を受け取り、省略時は既定の基準を使います。既定の基準は実行可能解を優先し、実行可能性は制約ごとの違反量（不等式は<code class="docutils literal notranslate"><span class="pre">0.0</span></code>、等式はその<code class="docutils literal notranslate"><span class="pre">tolerance</span></code>）で判定したうえでPareto支配を使います。実行可能な解が1つもない場合は、<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小の行のうち非劣な解を使います。</p>
 </section>
 <section id="optimizer">
 <h2>Optimizerを構成する<a class="headerlink" href="#optimizer" title="Link to this heading">#</a></h2>
@@ -659,9 +662,18 @@
 </section>
 <section id="id3">
 <h2>パレートフロントを抽出する<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>
-<p>実行後、最終的なParetoフロントは <code class="docutils literal notranslate"><span class="pre">result.ctx.pareto_archive</span></code> に保持されます。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pareto_x</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
-<span class="n">pareto_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">pareto_archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
+<p>実行後、<code class="docutils literal notranslate"><span class="pre">result.x</span></code>と<code class="docutils literal notranslate"><span class="pre">result.f</span></code>は既定の基準で選んだ非劣解を保持します。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">front_x</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">x</span>
+<span class="n">front_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">f</span>
+</pre></div>
+</div>
+<p>探索側の<code class="docutils literal notranslate"><span class="pre">result.ctx.pareto_archive</span></code>は別の、逐次に刈り込まれるアーカイブです。内容は探索の設定に従うため、最終結果の比較や描画には<code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code>または<code class="docutils literal notranslate"><span class="pre">result.front()</span></code>を使い、Paretoアーカイブを直接読まないでください。多目的問題では、main archiveからの計算し直しがParetoアーカイブと異なる集合になることがあり、例えばε緩和を使う実行で起こります。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParetoComparator</span>
+
+<span class="n">front_x</span><span class="p">,</span> <span class="n">front_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">front</span><span class="p">()</span>
+<span class="n">relaxed_x</span><span class="p">,</span> <span class="n">relaxed_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">front</span><span class="p">(</span>
+    <span class="n">ParetoComparator</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">,</span> <span class="n">eps_cv</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 <p>任意の目的値配列からParetoフロントを計算するには、<code class="docutils literal notranslate"><span class="pre">non_dominated_sort</span></code> を直接使えます。</p>

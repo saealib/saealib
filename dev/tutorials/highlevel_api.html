@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Run an optimization with the high-level API &#8212; saealib 0.1.1.dev47+g599ac122b documentation</title>
+    <title>Run an optimization with the high-level API &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=2a31a01e"></script>
+    <script src="../_static/documentation_options.js?v=fdd9bf5b"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -644,13 +644,25 @@ Both behaviors are correct, and the choice is yours based on the configuration y
 <p><code class="docutils literal notranslate"><span class="pre">minimize()</span></code> and <code class="docutils literal notranslate"><span class="pre">maximize()</span></code> return a <code class="docutils literal notranslate"><span class="pre">Result</span></code>.
 For a single objective, <code class="docutils literal notranslate"><span class="pre">result.x</span></code> holds the best design variables and <code class="docutils literal notranslate"><span class="pre">result.f</span></code> holds the corresponding objective value as a one-element array.
 <code class="docutils literal notranslate"><span class="pre">result.fe</span></code> is the number of true evaluations, and <code class="docutils literal notranslate"><span class="pre">result.gen</span></code> is the number of completed generations.
-For multiple objectives, <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">f</span></code> are matrices of Pareto solutions.</p>
+For multiple objectives, <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">f</span></code> are matrices of the non-dominated solutions under the default criterion, recomputed from the truly evaluated rows of the main archive.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">f</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">fe</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">gen</span><span class="p">)</span>
 
 <span class="n">archive</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">result.best()</span></code> returns one solution and <code class="docutils literal notranslate"><span class="pre">result.front()</span></code> returns the non-dominated set.
+Both accept a <code class="docutils literal notranslate"><span class="pre">Comparator</span></code> as <code class="docutils literal notranslate"><span class="pre">criterion</span></code> and use the default criterion when it is omitted: feasibility first, decided by the per-constraint violations (an inequality is satisfied at <code class="docutils literal notranslate"><span class="pre">0.0</span></code> and an equality at its <code class="docutils literal notranslate"><span class="pre">tolerance</span></code>), then Pareto dominance among the feasible solutions.
+When no solution is feasible, the default criterion uses the first row with the minimum <code class="docutils literal notranslate"><span class="pre">cv</span></code> for a single-objective problem and the non-dominated solutions among the minimum-<code class="docutils literal notranslate"><span class="pre">cv</span></code> rows for a multi-objective problem; a supplied criterion ranks every row with the minimum <code class="docutils literal notranslate"><span class="pre">cv</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParetoComparator</span>
+
+<span class="n">best_x</span><span class="p">,</span> <span class="n">best_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">best</span><span class="p">()</span>
+<span class="n">front_x</span><span class="p">,</span> <span class="n">front_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">front</span><span class="p">()</span>
+<span class="n">custom_x</span><span class="p">,</span> <span class="n">custom_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">best</span><span class="p">(</span>
+    <span class="n">ParetoComparator</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span><span class="p">)</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">result.ctx</span></code> is the complete <code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code>.

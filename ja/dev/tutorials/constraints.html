@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>制約付き最適化 &#8212; saealib 0.1.1.dev47+g599ac122b ドキュメント</title>
+    <title>制約付き最適化 &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=b32b1bb0"></script>
+    <script src="../_static/documentation_options.js?v=64c304f5"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -643,7 +643,7 @@
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;feasible: </span><span class="si">{</span><span class="n">feasible</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">feasible</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>同じ判定が<code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code>、履歴の<code class="docutils literal notranslate"><span class="pre">best_f</span></code>と<code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>、学習データのラベル、Paretoアーカイブを駆動します。そのため、<code class="docutils literal notranslate"><span class="pre">cv</span></code>の集約方法や探索中のε緩和には左右されません。</p>
+<p>同じ判定が<code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code>、履歴の<code class="docutils literal notranslate"><span class="pre">best_f</span></code>と<code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>、学習データのラベル、Paretoアーカイブを駆動します。そのため、<code class="docutils literal notranslate"><span class="pre">cv</span></code>の集約方法や探索中のε緩和には左右されません。<code class="docutils literal notranslate"><span class="pre">result.best()</span></code>と<code class="docutils literal notranslate"><span class="pre">result.front()</span></code>の既定の基準もこの判定を使い、実行可能解を優先したうえでPareto支配で絞り込みます。実行可能な解が1つもない場合、既定の基準では単目的は<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小の最初の行を使い、多目的問題の<code class="docutils literal notranslate"><span class="pre">result.front()</span></code>は<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小の行のうち非劣な解を返します。明示した基準では、<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小のすべての行をその基準で順位付けします。</p>
 </section>
 <section id="constrainthandler">
 <h2>ConstraintHandlerで制約処理をカスタマイズする<a class="headerlink" href="#constrainthandler" title="Link to this heading">#</a></h2>

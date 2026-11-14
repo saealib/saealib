@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Multi-Objective Optimization &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Multi-Objective Optimization &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -667,9 +667,9 @@ An explicitly set comparator takes precedence over the default, and the comparat
 <span class="n">front_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">f</span>
 </pre></div>
 </div>
-<p>The search-side <code class="docutils literal notranslate"><span class="pre">result.ctx.pareto_archive</span></code> is a separate, incrementally pruned archive.
-Its contents follow the search settings, so compare or plot final results with <code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code> or <code class="docutils literal notranslate"><span class="pre">result.front()</span></code> rather than reading the Pareto archive directly.
-For a multi-objective problem, the recomputation from the main archive can produce a different set than the Pareto archive, for example in a run that uses ε relaxation.</p>
+<p>The search-side <code class="docutils literal notranslate"><span class="pre">result.ctx.pareto_archive</span></code> is a separate archive, pruned as rows are added with its configured dominator.
+<code class="docutils literal notranslate"><span class="pre">result.front()</span></code> recomputes the non-dominated set from the main archive with the selected criterion, so the sets can differ when the Pareto archive uses a different dominance rule, such as an <code class="docutils literal notranslate"><span class="pre">EpsilonDominator</span></code>.
+Use <code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code> or <code class="docutils literal notranslate"><span class="pre">result.front()</span></code> for final results rather than reading the Pareto archive directly.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParetoComparator</span>
 
 <span class="n">front_x</span><span class="p">,</span> <span class="n">front_f</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">front</span><span class="p">()</span>

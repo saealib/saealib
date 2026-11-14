@@ -27,7 +27,7 @@ When you need new search, prediction, evaluation, or generation logic, choose th
 | Generate candidates and consume evaluation results | `Algorithm` | `ask()` and `tell()`, plus the required attributes and contract |
 | Prediction model | `Surrogate` | `fit()` and `predict()` |
 | Turn predictions into candidate scores | `AcquisitionFunction` | `evaluate()`, or the corresponding Pointwise `compute_reference()` and `score()` |
-| Extend the evaluation backend on the graph-native path | `EvaluationAdapter` / `Evaluator` | `GenomeBatch → EvaluationAdapter → EvaluationPayload → Evaluator → ObservationBatch` |
+| Extend the evaluation backend on the graph-native path | `EvaluationAdapter` / `Evaluator` | `EvaluationRequestBatch` kind on `EvaluationPlanner`'s output port → candidate selection → `GenomeBatch` → `Evaluator` (`Problem.evaluation_adapter` set: `EvaluationAdapter.transform()` return value; unset with a `DenseVectorBatch`: `DenseVectorBatch.array` payload) → `Problem.evaluate_batch()` → `ObservationBatch` |
 | Swap a synchronous Evaluator on the Stage compatibility path | `Evaluator` | `evaluate_batch()` and `EvaluationResult` |
 | Generation execution policy | `Strategy` | `TemplateStrategy` with a declared `Pipeline` |
 | Compatibility execution unit | `Stage` | `execute(state) -> state` |
@@ -45,7 +45,7 @@ Before implementing the component, inspect the abstract methods on the existing 
 ## Extend a component on the graph-native path
 
 Extend graph-native components such as `Algorithm` at the `ask(...) -> ProposalBatch` and `tell(FeedbackBatch, StateView) -> StatePatch` boundaries.
-When adding evaluation, connect it to the `GenomeBatch → EvaluationAdapter → EvaluationPayload → Evaluator → ObservationBatch` path.
+To add evaluation, declare `EvaluationRequestBatch` as the data kind on the `EvaluationPlanner` output port and pass the `GenomeBatch` selected by candidate selection to the Evaluator. When `Problem.evaluation_adapter` is set, pass the return value of `EvaluationAdapter.transform()` as the payload to `Problem.evaluate_batch()`; when it is unset and the input is a `DenseVectorBatch`, pass `DenseVectorBatch.array` as the payload.
 
 ## Extend a synchronous Evaluator on the Stage compatibility path
 

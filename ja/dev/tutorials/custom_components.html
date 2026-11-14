@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>既存の契約に独自Componentを追加する &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>既存の契約に独自Componentを追加する &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -593,7 +593,7 @@
 </tr>
 <tr class="row-odd"><td><p>graph-native経路で評価バックエンドを拡張する</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code> / <code class="docutils literal notranslate"><span class="pre">Evaluator</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">EvaluationAdapter</span> <span class="pre">→</span> <span class="pre">EvaluationPayload</span> <span class="pre">→</span> <span class="pre">Evaluator</span> <span class="pre">→</span> <span class="pre">ObservationBatch</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">EvaluationPlanner</span></code>の出力ポートのkind <code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code> → 候補選択、<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">Evaluator（Problem.evaluation_adapter設定時はtransform()の戻り値、未設定時にDenseVectorBatchならarrayをpayloadに使用）→</span> <span class="pre">Problem.evaluate_batch()</span> <span class="pre">→</span> <span class="pre">ObservationBatch</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Stage互換経路で同期Evaluatorを差し替える</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Evaluator</span></code></p></td>
@@ -618,7 +618,8 @@
 </section>
 <section id="graph-nativecomponent">
 <h2>graph-native経路のComponent拡張<a class="headerlink" href="#graph-nativecomponent" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">Algorithm</span></code>などのgraph-nativeコンポーネントは、<code class="docutils literal notranslate"><span class="pre">ask(...)</span> <span class="pre">-&gt;</span> <span class="pre">ProposalBatch</span></code>と<code class="docutils literal notranslate"><span class="pre">tell(FeedbackBatch,</span> <span class="pre">StateView)</span> <span class="pre">-&gt;</span> <span class="pre">StatePatch</span></code>の境界で拡張します。評価を追加する場合は、<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">EvaluationAdapter</span> <span class="pre">→</span> <span class="pre">EvaluationPayload</span> <span class="pre">→</span> <span class="pre">Evaluator</span> <span class="pre">→</span> <span class="pre">ObservationBatch</span></code>の経路に接続します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">Algorithm</span></code>などのgraph-nativeコンポーネントは、<code class="docutils literal notranslate"><span class="pre">ask(...)</span> <span class="pre">-&gt;</span> <span class="pre">ProposalBatch</span></code>と<code class="docutils literal notranslate"><span class="pre">tell(FeedbackBatch,</span> <span class="pre">StateView)</span> <span class="pre">-&gt;</span> <span class="pre">StatePatch</span></code>の境界で拡張します。
+評価を追加する場合は、<code class="docutils literal notranslate"><span class="pre">EvaluationPlanner</span></code>の出力ポートにデータ種別<code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code>を宣言し、候補選択で得た<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>をEvaluatorへ渡します。<code class="docutils literal notranslate"><span class="pre">Problem.evaluation_adapter</span></code>を設定した場合は<code class="docutils literal notranslate"><span class="pre">EvaluationAdapter.transform()</span></code>の戻り値を、未設定で入力が<code class="docutils literal notranslate"><span class="pre">DenseVectorBatch</span></code>の場合は<code class="docutils literal notranslate"><span class="pre">DenseVectorBatch.array</span></code>をpayloadとして<code class="docutils literal notranslate"><span class="pre">Problem.evaluate_batch()</span></code>に渡します。</p>
 </section>
 <section id="stageevaluator">
 <h2>Stage互換経路の同期Evaluator拡張<a class="headerlink" href="#stageevaluator" title="Link to this heading">#</a></h2>

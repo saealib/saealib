@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Evaluation &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Evaluation &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -901,7 +901,7 @@
 <h1>Evaluation<a class="headerlink" href="#evaluation" title="Link to this heading">#</a></h1>
 <div class="layer-badges"><span class="layer-badge">Layer 2: Compose</span></div><section id="evaluator-and-graph-native-contracts">
 <h2>Evaluator and graph-native contracts<a class="headerlink" href="#evaluator-and-graph-native-contracts" title="Link to this heading">#</a></h2>
-<p>The graph-native path is <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">EvaluationAdapter</span> <span class="pre">→</span> <span class="pre">EvaluationPayload</span> <span class="pre">→</span> <span class="pre">Evaluator</span> <span class="pre">→</span> <span class="pre">ObservationBatch</span></code>.</p>
+<p>On the graph-native path, the evaluation planner’s output port declares <code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code> as the <code class="docutils literal notranslate"><span class="pre">DataSpec</span></code> kind used for candidate selection. The Evaluator receives the selected <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>. When <code class="docutils literal notranslate"><span class="pre">Problem.evaluation_adapter</span></code> is set, <code class="docutils literal notranslate"><span class="pre">Problem.evaluate_batch()</span></code> receives the return value of <code class="docutils literal notranslate"><span class="pre">EvaluationAdapter.transform()</span></code>. When it is unset and the input is a <code class="docutils literal notranslate"><span class="pre">DenseVectorBatch</span></code>, <code class="docutils literal notranslate"><span class="pre">SerialEvaluator</span></code> uses <code class="docutils literal notranslate"><span class="pre">DenseVectorBatch.array</span></code> as the payload. The Evaluator returns an <code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code>.</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/saealib.Evaluator.html#saealib.Evaluator" title="saealib.Evaluator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.Evaluator</span></code></a></p></td>

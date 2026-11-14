@@ -104,9 +104,14 @@ feasible = np.array(
 print(f"feasible: {feasible.sum()} / {len(feasible)}")
 ```
 
-The same decision drives `result.x`/`result.f`, the history's `best_f` and `feasible_ratio`, training-set labels, and the Pareto archive, so it does not depend on how violations are aggregated into `cv` or on any ε relaxation used during search.
+The same decision drives `result.x`/`result.f`, the history's `best_f` and `feasible_ratio`, training-set labels, and the Pareto archive.
+It therefore does not depend on how violations are aggregated into `cv` or on any ε relaxation used during search.
+With `GenerationBasedStrategy` and `gen_ctrl > 0`, the final population may contain predicted rows with placeholder `g=0`, depending on the algorithm's `tell()` implementation; for example, GA can retain them.
+The `feasible_ratio` in History's `summary` classifies each generation's `state.population` against the constraint definitions, so these rows may be counted as feasible.
+True evaluation values remain in the archive.
 The default criterion of `result.best()` and `result.front()` uses that decision as well: feasible solutions come first and are then filtered by Pareto dominance.
-When no solution is feasible, the default criterion uses the first row with the minimum `cv` for a single-objective problem, and `result.front()` for a multi-objective problem returns the non-dominated solutions among the rows with the minimum `cv`; a supplied criterion ranks every row with the minimum `cv`.
+When no solution is feasible, the default criterion uses the first row with the minimum `cv` for a single-objective problem, and `result.front()` for a multi-objective problem returns the non-dominated solutions among the rows with the minimum `cv`.
+A supplied criterion ranks every row with the minimum `cv`.
 
 ## Customize constraint handling with ConstraintHandler
 
@@ -117,7 +122,19 @@ If `Problem`'s `handler` argument is omitted, `StaticToleranceHandler` is used; 
 To change only the aggregation, pass `Problem(cv_aggregator=...)` instead of writing a handler. The aggregation contract is `cv == 0` if and only if every violation is zero, and its only role is ordering infeasible solutions; feasibility itself always comes from the constraints.
 
 ```python
-from saealib.problem import sum_violation
+import numpy as np
+from saealib import InequalityConstraint, Problem
+
+DIM = 5
+LB = [-5.0] * DIM
+UB = [5.0] * DIM
+
+
+def expensive_func(x):
+    return np.sum(x**2)
+
+
+constraint = InequalityConstraint(lambda x: 1.0 - np.sum(x), threshold=0.0)
 
 
 def squared_inequality(constraints, x, g):
@@ -131,7 +148,9 @@ problem = Problem(
     dim=DIM,
     n_obj=1,
     direction=np.array([-1.0]),
-    constraints=constraints,
+    lb=LB,
+    ub=UB,
+    constraints=[constraint],
     cv_aggregator=squared_inequality,
 )
 ```

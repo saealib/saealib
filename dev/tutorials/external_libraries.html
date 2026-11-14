@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Integrating External Libraries &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Integrating External Libraries &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -562,7 +562,9 @@
 <h1>Integrating External Libraries<a class="headerlink" href="#integrating-external-libraries" title="Link to this heading">#</a></h1>
 <div class="layer-badges"><span class="layer-badge">Layer 3: Extend Components</span></div><p><code class="docutils literal notranslate"><span class="pre">saealib</span></code> provides adapters that thinly wrap external machine learning and evolutionary-computation libraries behind its own abstract base classes.</p>
 <p>The adapter only translates <code class="docutils literal notranslate"><span class="pre">saealib</span></code>-side data representations such as <code class="docutils literal notranslate"><span class="pre">Problem</span></code>/<code class="docutils literal notranslate"><span class="pre">Population</span></code>/<code class="docutils literal notranslate"><span class="pre">ctx</span></code>; the learning algorithm or search operator itself uses the external library’s implementation as-is.</p>
-<p>Currently, surrogate model adapters (scikit-learn, XGBoost, LightGBM, PyTorch) and pymoo adapters (<code class="docutils literal notranslate"><span class="pre">Crossover</span></code>/<code class="docutils literal notranslate"><span class="pre">Mutation</span></code>/<code class="docutils literal notranslate"><span class="pre">Algorithm</span></code>/<code class="docutils literal notranslate"><span class="pre">Problem</span></code>) are implemented. For users who would rather remove the runtime dependency on an external evolutionary-computation library, <a class="reference internal" href="custom_components.html#port-operators-to-native-saealib-code"><span class="std std-ref">Porting operators to native saealib code</span></a> covers rewriting a pymoo- or DEAP-style operator as a native <code class="docutils literal notranslate"><span class="pre">Crossover</span></code>/<code class="docutils literal notranslate"><span class="pre">Mutation</span></code> subclass instead.</p>
+<p>Adapters for scikit-learn, XGBoost, LightGBM, and PyTorch surrogate models, and for the evolutionary-computation libraries pymoo and DEAP, are implemented.
+The DEAP adapters are <code class="docutils literal notranslate"><span class="pre">DeapCrossover</span></code>, <code class="docutils literal notranslate"><span class="pre">DeapMutation</span></code>, and <code class="docutils literal notranslate"><span class="pre">DeapGenerateUpdateAlgorithm</span></code>, and are included in the <code class="docutils literal notranslate"><span class="pre">deap</span></code> extra.
+For users who want to remove the runtime dependency on an external evolutionary-computation library, <a class="reference internal" href="custom_components.html#port-operators-to-native-saealib-code"><span class="std std-ref">Porting operators to native saealib code</span></a> covers rewriting a pymoo- or DEAP-style operator as a native <code class="docutils literal notranslate"><span class="pre">Crossover</span></code>/<code class="docutils literal notranslate"><span class="pre">Mutation</span></code> subclass.</p>
 <div class="tip admonition">
 <p class="admonition-title">What you’ll be able to do</p>
 <p>By the end of this page, you’ll be able to install external-library dependencies and use models or operators through saealib adapters.</p>
@@ -723,6 +725,13 @@ This page covers installing extras and integrating Surrogate and pymoo adapters 
 <p><code class="docutils literal notranslate"><span class="pre">PymooAlgorithm</span></code> runs in “engine mode”: the wrapped pymoo algorithm owns its own population and internal survival state, and <code class="docutils literal notranslate"><span class="pre">ctx.population</span></code> is refreshed from it after every generation rather than being the source of truth.
 See <a class="reference internal" href="../concepts/search_algorithms/algorithm.html"><span class="std std-doc">Algorithm</span></a> for what this means in practice (no checkpoint/resume, <code class="docutils literal notranslate"><span class="pre">n_offspring</span></code> is ignored, and <code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy</span></code>’s partial <code class="docutils literal notranslate"><span class="pre">tell()</span></code> needs an explicit opt-in).</p>
 </section>
+<section id="use-deap-adapters">
+<h2>Use DEAP adapters<a class="headerlink" href="#use-deap-adapters" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">DeapCrossover</span></code> and <code class="docutils literal notranslate"><span class="pre">DeapMutation</span></code> use DEAP crossover and mutation functions as <code class="docutils literal notranslate"><span class="pre">Crossover</span></code> and <code class="docutils literal notranslate"><span class="pre">Mutation</span></code> components.
+<code class="docutils literal notranslate"><span class="pre">DeapGenerateUpdateAlgorithm</span></code> uses a DEAP Strategy with <code class="docutils literal notranslate"><span class="pre">generate</span></code> and <code class="docutils literal notranslate"><span class="pre">update</span></code> methods, such as <code class="docutils literal notranslate"><span class="pre">deap.cma.Strategy</span></code>, as an algorithm.
+<code class="docutils literal notranslate"><span class="pre">DeapGenerateUpdateAlgorithm</span></code> supports unconstrained single-objective problems only; <code class="docutils literal notranslate"><span class="pre">DeapCrossover</span></code> and <code class="docutils literal notranslate"><span class="pre">DeapMutation</span></code> support fixed-length numeric sequences.
+These adapters require the <code class="docutils literal notranslate"><span class="pre">deap</span></code> extra.</p>
+</section>
 <section id="related-concepts-and-reference">
 <h2>Related concepts and reference<a class="headerlink" href="#related-concepts-and-reference" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -733,6 +742,8 @@ See <a class="reference internal" href="../concepts/search_algorithms/algorithm.
 <li><p><a class="reference internal" href="../api/_autosummary/saealib.PymooCrossover.html#saealib.PymooCrossover" title="saealib.PymooCrossover"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.PymooCrossover</span></code></a> / <a class="reference internal" href="../api/_autosummary/saealib.PymooMutation.html#saealib.PymooMutation" title="saealib.PymooMutation"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.PymooMutation</span></code></a></p></li>
 <li><p><a class="reference internal" href="../api/_autosummary/saealib.PymooAlgorithm.html#saealib.PymooAlgorithm" title="saealib.PymooAlgorithm"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.PymooAlgorithm</span></code></a></p></li>
 <li><p><a class="reference internal" href="../api/_autosummary/saealib.PymooProblem.html#saealib.PymooProblem" title="saealib.PymooProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.PymooProblem</span></code></a></p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.operators.DeapCrossover</span></code> / <code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.operators.DeapMutation</span></code></p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.algorithms.DeapGenerateUpdateAlgorithm</span></code></p></li>
 <li><p><a class="reference internal" href="../api/highlevel.html#saealib.minimize" title="saealib.minimize"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.minimize()</span></code></a></p></li>
 </ul>
 </section>
@@ -788,6 +799,7 @@ See <a class="reference internal" href="../concepts/search_algorithms/algorithm.
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-the-adapter-extras">Install the adapter extras</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#use-surrogate-adapters">Use surrogate adapters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#use-pymoo-adapters">Use pymoo adapters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#use-deap-adapters">Use DEAP adapters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#related-concepts-and-reference">Related concepts and reference</a></li>
 </ul>
   </nav></div>

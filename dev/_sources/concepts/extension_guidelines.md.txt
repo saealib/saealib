@@ -97,7 +97,12 @@ When placing a Stage in a structured Pipeline, make the compatibility boundary e
 Optimizer lowers this DSL to a Graph internally and converts it into a plan executable by the structured Runtime.
 Ordinary users do not need to call the Compiler directly.
 
-`pipeline.replace("name", entry)` replaces a structural entry, and `pipeline.find("name", recursive=False)` searches for an entry by name.
+`pipeline.replace("name", entry)` replaces only a top-level structural entry.
+To replace a nested entry, use `find(name, recursive=True)` to get the nested Pipeline, then call `replace` on it.
+In a prepared run, a replacement takes effect at the next commit point.
+`to_spec` serializes constructor arguments, so it does not retain replacements made to a built-in strategy.
+Use the declaration or constructor arguments to persist a replacement.
+`pipeline.find("name", recursive=False)` searches for an entry by name.
 
 ```python
 from saealib import Pipeline, Stage

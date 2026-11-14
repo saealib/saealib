@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>CallbackManager &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>CallbackManager &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -701,14 +701,25 @@ Configuring the standard library’s <code class="docutils literal notranslate">
 <h2>Registering custom handlers and recording convergence history<a class="headerlink" href="#registering-custom-handlers-and-recording-convergence-history" title="Link to this heading">#</a></h2>
 <p>Register any handler with <code class="docutils literal notranslate"><span class="pre">cbmanager.register(EventType,</span> <span class="pre">handler)</span></code>.
 To record convergence history, register a handler holding a list accumulated via closure.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenerationEndEvent</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenerationEndEvent</span><span class="p">,</span> <span class="n">Optimizer</span><span class="p">,</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">Termination</span><span class="p">,</span> <span class="n">max_fe</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">20</span><span class="p">)))</span>
 
 <span class="n">history</span> <span class="o">=</span> <span class="p">[]</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">record_best</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
     <span class="n">f</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
-    <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">min</span><span class="p">()))</span>
+    <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()))</span>
 
 
 <span class="n">optimizer</span><span class="o">.</span><span class="n">cbmanager</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">GenerationEndEvent</span><span class="p">,</span> <span class="n">record_best</span><span class="p">)</span>
@@ -720,7 +731,25 @@ To record convergence history, register a handler holding a list accumulated via
 <section id="tracking-hypervolume">
 <h2>Tracking hypervolume<a class="headerlink" href="#tracking-hypervolume" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">logging_generation_hv(reference_point)</span></code> returns a handler that logs the first front’s hypervolume relative to the specified reference point, every generation.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenerationStartEvent</span><span class="p">,</span> <span class="n">logging_generation_hv</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GenerationStartEvent</span><span class="p">,</span>
+    <span class="n">Optimizer</span><span class="p">,</span>
+    <span class="n">Problem</span><span class="p">,</span>
+    <span class="n">Termination</span><span class="p">,</span>
+    <span class="n">logging_generation_hv</span><span class="p">,</span>
+    <span class="n">max_fe</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">20</span><span class="p">)))</span>
 
 <span class="n">optimizer</span><span class="o">.</span><span class="n">cbmanager</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
     <span class="n">GenerationStartEvent</span><span class="p">,</span>
@@ -732,7 +761,25 @@ To record convergence history, register a handler holding a list accumulated via
 <section id="replacing-the-default-handler">
 <h2>Replacing the default handler<a class="headerlink" href="#replacing-the-default-handler" title="Link to this heading">#</a></h2>
 <p>You can remove the auto-registered <code class="docutils literal notranslate"><span class="pre">logging_generation</span></code> with <code class="docutils literal notranslate"><span class="pre">unregister(event_type,</span> <span class="pre">func)</span></code>, or replace it with a different handler via <code class="docutils literal notranslate"><span class="pre">replace(event_type,</span> <span class="pre">old,</span> <span class="pre">new)</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenerationStartEvent</span><span class="p">,</span> <span class="n">logging_generation</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GenerationStartEvent</span><span class="p">,</span>
+    <span class="n">Optimizer</span><span class="p">,</span>
+    <span class="n">Problem</span><span class="p">,</span>
+    <span class="n">Termination</span><span class="p">,</span>
+    <span class="n">logging_generation</span><span class="p">,</span>
+    <span class="n">max_fe</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">20</span><span class="p">)))</span>
 
 <span class="n">optimizer</span><span class="o">.</span><span class="n">cbmanager</span><span class="o">.</span><span class="n">unregister</span><span class="p">(</span><span class="n">GenerationStartEvent</span><span class="p">,</span> <span class="n">logging_generation</span><span class="p">)</span>
 </pre></div>
@@ -754,7 +801,8 @@ Use <code class="docutils literal notranslate"><span class="pre">with_post()</sp
 This procedure works on both the Stage compatibility path and the graph-native path.
 For a Component-requested recompilation path, see <a class="reference internal" href="../execution_and_evaluation/strategies.html"><span class="std std-doc">OptimizationStrategy</span></a>’s “Behavior of runtime swapping”.
 A Callback handler cannot return a <code class="docutils literal notranslate"><span class="pre">RuntimeCommand</span></code>.
-A change made by calling <code class="docutils literal notranslate"><span class="pre">optimizer.set_*()</span></code> in a Callback closure is applied through the path above, but configuration changes are documented as a procedure on the <code class="docutils literal notranslate"><span class="pre">iterate()</span></code> side.</p>
+A change made by calling <code class="docutils literal notranslate"><span class="pre">optimizer.set_*()</span></code> in a Callback closure is applied through the path above, but configuration changes are documented as a procedure on the <code class="docutils literal notranslate"><span class="pre">iterate()</span></code> side.
+When calling a setter inside a callback, register a handler closure that captures the <code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>.</p>
 </section>
 <section id="when-to-use-callbackmanager-vs-iterate">
 <h2>When to use CallbackManager vs. iterate()<a class="headerlink" href="#when-to-use-callbackmanager-vs-iterate" title="Link to this heading">#</a></h2>

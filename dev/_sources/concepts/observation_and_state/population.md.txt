@@ -16,7 +16,9 @@ Therefore, not every Problem can be converted into a floating-point `x` array.
 
 `Population` holds Genomes, objective values, constraint values, constraint violations, and Algorithm-specific auxiliary attributes.
 A Genome can be represented by a `GenomeBatch` implementation such as `DenseVectorBatch`, `ObjectBatch`, or `PermutationBatch`.
-Use `x` or a dense numeric view only when the values can be safely obtained as numeric vectors.
+For Genomes whose values can be safely obtained as numeric vectors, `x` exposes the numeric view values.
+Pass the numeric view service to the `Population` constructor with the `dense_numeric_view` argument.
+`dense_view` is a deprecated alias for `dense_numeric_view`; using it emits a `DeprecationWarning`.
 
 `Population.genomes` is a read-only view borrowed from the live Population's genome storage, not an immutable snapshot.
 Subsequent Population operations such as `update_array` may update that storage in place, so the contents observed through an existing `genomes` view can change.

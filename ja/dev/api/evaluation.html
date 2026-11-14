@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>評価 &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>評価 &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -902,7 +902,7 @@
 <h1>評価<a class="headerlink" href="#id1" title="Link to this heading">#</a></h1>
 <div class="layer-badges"><span class="layer-badge">Layer 2: Compose</span></div><section id="evaluator">
 <h2>Evaluatorとグラフネイティブ契約<a class="headerlink" href="#evaluator" title="Link to this heading">#</a></h2>
-<p>graph-native経路は <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">EvaluationAdapter</span> <span class="pre">→</span> <span class="pre">EvaluationPayload</span> <span class="pre">→</span> <span class="pre">Evaluator</span> <span class="pre">→</span> <span class="pre">ObservationBatch</span></code> です。</p>
+<p>graph-native経路では、評価プランナーの出力ポートに、候補選択用のデータ種別として <code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code> という <code class="docutils literal notranslate"><span class="pre">DataSpec</span></code> のkindが宣言されています。Evaluatorは選択された <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code> を受け取ります。<code class="docutils literal notranslate"><span class="pre">Problem.evaluation_adapter</span></code>が設定されている場合、<code class="docutils literal notranslate"><span class="pre">EvaluationAdapter.transform()</span></code>の戻り値を<code class="docutils literal notranslate"><span class="pre">Problem.evaluate_batch()</span></code>に渡します。未設定時に<code class="docutils literal notranslate"><span class="pre">DenseVectorBatch</span></code>を受けた<code class="docutils literal notranslate"><span class="pre">SerialEvaluator</span></code>は、<code class="docutils literal notranslate"><span class="pre">DenseVectorBatch.array</span></code>をpayloadとして使います。Evaluatorは<code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code>を出力します。</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/saealib.Evaluator.html#saealib.Evaluator" title="saealib.Evaluator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">saealib.Evaluator</span></code></a></p></td>

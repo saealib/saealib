@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Evaluator &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Evaluator &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -605,7 +605,7 @@
 </thead>
 <tbody>
 <tr class="row-even"><td><p>graph-native boundary</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">EvaluationAdapter</span> <span class="pre">→</span> <span class="pre">EvaluationPayload</span></code>, candidate IDs, proposal relations, and metadata</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code> selected by the evaluation planner’s <code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code>, candidate IDs, proposal relations, and metadata</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code>, including partial, out-of-order, and repeated observations</p></td>
 <td><p>Evaluator, asynchronous Scheduler, and structured runtime</p></td>
 </tr>
@@ -619,8 +619,9 @@
 </div>
 <p>Requests passed to the Evaluator or asynchronous Scheduler identify candidate IDs and the items to evaluate.
 The Evaluator and Runtime provider can switch between synchronous and asynchronous evaluation without changing the Pipeline’s candidate-generation contract.
-<code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code> converts a <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code> into the <code class="docutils literal notranslate"><span class="pre">EvaluationPayload</span></code> accepted by the Evaluator.
-The Evaluator evaluates the payload and matches observations by candidate ID, proposal relation, sequence, status, source, and completion semantics rather than by row position.</p>
+<code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code> is the <code class="docutils literal notranslate"><span class="pre">DataSpec</span></code> kind declared on the evaluation planner’s output port.
+The Evaluator receives the selected <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>. When <code class="docutils literal notranslate"><span class="pre">Problem.evaluation_adapter</span></code> is set, it passes the return value of <code class="docutils literal notranslate"><span class="pre">EvaluationAdapter.transform()</span></code> to <code class="docutils literal notranslate"><span class="pre">Problem.evaluate_batch()</span></code>; when it is unset and the input is a <code class="docutils literal notranslate"><span class="pre">DenseVectorBatch</span></code>, <code class="docutils literal notranslate"><span class="pre">SerialEvaluator</span></code> uses <code class="docutils literal notranslate"><span class="pre">DenseVectorBatch.array</span></code> as the payload.
+The Evaluator returns an <code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code> and matches observations by candidate ID, proposal relation, sequence, status, source, and completion semantics rather than by row position.</p>
 <p>On the Stage compatibility path, use <code class="docutils literal notranslate"><span class="pre">Evaluator.evaluate_batch(...)</span> <span class="pre">-&gt;</span> <span class="pre">EvaluationResult</span></code>.
 <code class="docutils literal notranslate"><span class="pre">EvaluationRequest</span></code> holds a Request ID, candidate IDs, a GenomeBatch, and metadata.
 Only at the compatibility boundary, <code class="docutils literal notranslate"><span class="pre">EvaluationResult</span></code> must satisfy the shape and row-count rules for <code class="docutils literal notranslate"><span class="pre">f</span></code>, <code class="docutils literal notranslate"><span class="pre">g</span></code>, and <code class="docutils literal notranslate"><span class="pre">cv</span></code>; when <code class="docutils literal notranslate"><span class="pre">candidate_ids</span></code> is provided, it must be unique and match the result row count.

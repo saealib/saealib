@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Add a custom component to an existing contract &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Add a custom component to an existing contract &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -593,7 +593,7 @@ When you need new search, prediction, evaluation, or generation logic, choose th
 </tr>
 <tr class="row-odd"><td><p>Extend the evaluation backend on the graph-native path</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code> / <code class="docutils literal notranslate"><span class="pre">Evaluator</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">EvaluationAdapter</span> <span class="pre">→</span> <span class="pre">EvaluationPayload</span> <span class="pre">→</span> <span class="pre">Evaluator</span> <span class="pre">→</span> <span class="pre">ObservationBatch</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code> kind on <code class="docutils literal notranslate"><span class="pre">EvaluationPlanner</span></code>’s output port → candidate selection → <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code> → <code class="docutils literal notranslate"><span class="pre">Evaluator</span></code> (<code class="docutils literal notranslate"><span class="pre">Problem.evaluation_adapter</span></code> set: <code class="docutils literal notranslate"><span class="pre">EvaluationAdapter.transform()</span></code> return value; unset with a <code class="docutils literal notranslate"><span class="pre">DenseVectorBatch</span></code>: <code class="docutils literal notranslate"><span class="pre">DenseVectorBatch.array</span></code> payload) → <code class="docutils literal notranslate"><span class="pre">Problem.evaluate_batch()</span></code> → <code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Swap a synchronous Evaluator on the Stage compatibility path</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Evaluator</span></code></p></td>
@@ -623,7 +623,7 @@ Similar names do not imply identical contracts, so a method from another compone
 <section id="extend-a-component-on-the-graph-native-path">
 <h2>Extend a component on the graph-native path<a class="headerlink" href="#extend-a-component-on-the-graph-native-path" title="Link to this heading">#</a></h2>
 <p>Extend graph-native components such as <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> at the <code class="docutils literal notranslate"><span class="pre">ask(...)</span> <span class="pre">-&gt;</span> <span class="pre">ProposalBatch</span></code> and <code class="docutils literal notranslate"><span class="pre">tell(FeedbackBatch,</span> <span class="pre">StateView)</span> <span class="pre">-&gt;</span> <span class="pre">StatePatch</span></code> boundaries.
-When adding evaluation, connect it to the <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">EvaluationAdapter</span> <span class="pre">→</span> <span class="pre">EvaluationPayload</span> <span class="pre">→</span> <span class="pre">Evaluator</span> <span class="pre">→</span> <span class="pre">ObservationBatch</span></code> path.</p>
+To add evaluation, declare <code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code> as the data kind on the <code class="docutils literal notranslate"><span class="pre">EvaluationPlanner</span></code> output port and pass the <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code> selected by candidate selection to the Evaluator. When <code class="docutils literal notranslate"><span class="pre">Problem.evaluation_adapter</span></code> is set, pass the return value of <code class="docutils literal notranslate"><span class="pre">EvaluationAdapter.transform()</span></code> as the payload to <code class="docutils literal notranslate"><span class="pre">Problem.evaluate_batch()</span></code>; when it is unset and the input is a <code class="docutils literal notranslate"><span class="pre">DenseVectorBatch</span></code>, pass <code class="docutils literal notranslate"><span class="pre">DenseVectorBatch.array</span></code> as the payload.</p>
 </section>
 <section id="extend-a-synchronous-evaluator-on-the-stage-compatibility-path">
 <h2>Extend a synchronous Evaluator on the Stage compatibility path<a class="headerlink" href="#extend-a-synchronous-evaluator-on-the-stage-compatibility-path" title="Link to this heading">#</a></h2>

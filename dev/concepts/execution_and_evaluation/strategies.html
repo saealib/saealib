@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>OptimizationStrategy &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>OptimizationStrategy &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -591,12 +591,15 @@
                   
   <section class="tex2jax_ignore mathjax_ignore" id="optimizationstrategy">
 <h1>OptimizationStrategy<a class="headerlink" href="#optimizationstrategy" title="Link to this heading">#</a></h1>
-<div class="layer-badges"><span class="layer-badge">Layer 3: Extend Components</span></div><p><code class="docutils literal notranslate"><span class="pre">saealib</span></code> delegates the selection of candidates sent for expensive true evaluation to <code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code>.
-The Strategy describes candidate generation, prediction, evaluation planning, Feedback, and Population updates as one graph.</p>
+<div class="layer-badges"><span class="layer-badge">Layer 3: Extend Components</span></div><p><code class="docutils literal notranslate"><span class="pre">saealib</span></code> delegates the selection of candidates sent for expensive true evaluation to <code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code>.</p>
 <section id="optimizationstrategy-s-role">
 <h2>OptimizationStrategy’s role<a class="headerlink" href="#optimizationstrategy-s-role" title="Link to this heading">#</a></h2>
 <p>A strategy describes candidate generation, prediction, evaluation planning, Feedback, and Population updates as one declared flow.
-The canonical way to write one is <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> with a <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> declaration whose Stages reference components by <code class="docutils literal notranslate"><span class="pre">(slot,</span> <span class="pre">role)</span></code>; before execution, Optimizer lowers this declaration to a <code class="docutils literal notranslate"><span class="pre">ComponentGraph</span></code> and passes it to the Compiler to create an <code class="docutils literal notranslate"><span class="pre">ExecutablePlan</span></code>.</p>
+The canonical way to write one is <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> with a <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> declaration whose Stages reference components by <code class="docutils literal notranslate"><span class="pre">(slot,</span> <span class="pre">role)</span></code>.</p>
+<p>A strategy holds a declaration (<code class="docutils literal notranslate"><span class="pre">declaration</span></code>), and <code class="docutils literal notranslate"><span class="pre">build_pipeline(provider)</span></code> resolves it and builds <code class="docutils literal notranslate"><span class="pre">strategy.pipeline</span></code> during execution preparation.
+Until preparation is complete, <code class="docutils literal notranslate"><span class="pre">strategy.pipeline</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>.
+Optimizer lowers this resolved Pipeline to a <code class="docutils literal notranslate"><span class="pre">ComponentGraph</span></code> with <code class="docutils literal notranslate"><span class="pre">build_graph</span></code> and passes it to the Compiler to create an <code class="docutils literal notranslate"><span class="pre">ExecutablePlan</span></code>.
+Generation processing at runtime is driven by <code class="docutils literal notranslate"><span class="pre">strategy.step()</span></code> or Runtime; the Pipeline object itself does not execute it directly.</p>
 <p><code class="docutils literal notranslate"><span class="pre">build_graph(provider)</span> <span class="pre">-&gt;</span> <span class="pre">ComponentGraph</span></code> remains as the lowering boundary of the declaration, and overriding it in a custom strategy is deprecated: it emits a <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>, and the replacement is a <code class="docutils literal notranslate"><span class="pre">TemplateStrategy</span></code> with a declared Pipeline.
 A strategy whose flow cannot be inspected this way keeps declaring <code class="docutils literal notranslate"><span class="pre">requires_surrogate:</span> <span class="pre">bool</span></code> by hand.</p>
 <p><code class="docutils literal notranslate"><span class="pre">requires_surrogate</span></code> is the plain attribute holding the requirement a strategy declares for a <code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code>.
@@ -626,12 +629,12 @@ It never affects a component set explicitly; that component keeps its own config
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code></p></td>
-<td><p>None</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">n_offspring:</span> <span class="pre">int</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></code></p></td>
 <td><p>Uses no surrogate; truly evaluates every generated candidate</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SteadyStateStrategy</span></code></p></td>
 <td><p>None</p></td>
-<td><p>Generates one candidate per step and supports asynchronous refill</p></td>
+<td><p>Generates one candidate per step as <code class="docutils literal notranslate"><span class="pre">DirectStrategy(n_offspring=1)</span></code> and supports asynchronous refill</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">evaluation_ratio:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></code></p></td>
@@ -664,23 +667,26 @@ blocking, and commits each completed update in the lifecycle order.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DirectStrategy</span></code></p></td>
-<td><p>CountGeneration → Ask → TrueEvaluation → ArchiveUpdate → Tell</p></td>
+<td><p>CountGeneration → Ask → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">IndividualBasedStrategy</span></code></p></td>
-<td><p>CountGeneration → Ask → SurrogatePredictStage → AcquisitionStage → SortByScore → TrueEvaluation (ratio-based) → ArchiveUpdate → Tell</p></td>
+<td><p>CountGeneration → Ask → SurrogatePredict → Acquisition → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy</span></code></p></td>
-<td><p>CountGeneration → Ask (n_candidates) → SurrogatePredictStage → AcquisitionStage → TopKSelection(k=n_select) → TrueEvaluation → ArchiveUpdate → Tell</p></td>
+<td><p>CountGeneration → Ask (n_candidates) → SurrogatePredict → Acquisition → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code></p></td>
-<td><p>SurrogateOnlyLoop (gen_ctrl times) → CountGeneration → Ask → TrueEvaluation → ArchiveUpdate → Tell</p></td>
+<td><p>SurrogateFit → Repeat(surrogate_generation: CountGeneration → Ask → SurrogatePredict → Acquisition → Feedback(PredictedFeedback) → Tell, count=gen_ctrl) → true_generation(CountGeneration → Ask → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge)</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">SurrogateFit</span></code> and <code class="docutils literal notranslate"><span class="pre">Repeat</span></code> appear in this row only when <code class="docutils literal notranslate"><span class="pre">gen_ctrl</span></code> is nonzero; at <code class="docutils literal notranslate"><span class="pre">gen_ctrl=0</span></code>, the flow contains only <code class="docutils literal notranslate"><span class="pre">true_generation</span></code>.</p>
 <p>Each Strategy’s components include the <code class="docutils literal notranslate"><span class="pre">EvaluationPlan</span></code>, asynchronous evaluation submission and collection, Feedback, and Tell.
+<code class="docutils literal notranslate"><span class="pre">SortByScoreStage</span></code> and <code class="docutils literal notranslate"><span class="pre">TopKSelectionStage</span></code> are compatibility Stages and are not used by built-in templates.
+<code class="docutils literal notranslate"><span class="pre">EvaluationPlanner</span></code> (<code class="docutils literal notranslate"><span class="pre">RatioEvaluation</span></code> or <code class="docutils literal notranslate"><span class="pre">TopKEvaluation</span></code>) handles evaluation-candidate selection by ratio or count.
 A Stage is a compatibility execution unit for part of that work, not the same execution contract as the entire structured Pipeline.
-See <a class="reference internal" href="../observation_and_state/stage.html"><span class="std std-doc">Stage</span></a> and <a class="reference internal" href="../../framework/index.html"><span class="std std-doc">Framework</span></a> for details.</p>
+See <a class="reference internal" href="../../api/_autosummary/saealib.Stage.html#saealib.Stage" title="saealib.Stage"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.Stage</span></code></a> and <a class="reference internal" href="../../framework/index.html"><span class="std std-doc">Framework</span></a> for details.</p>
 </section>
 </section>
 <section id="which-strategy-to-choose">

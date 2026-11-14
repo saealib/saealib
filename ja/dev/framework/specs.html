@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Specs &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>Specs &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -576,8 +576,11 @@ Componentの実行状態は保持せず、<code class="docutils literal notransl
 DataSpecのkind互換性、schemaのunification、サービス解決は別々の検査です。</p>
 <p><code class="docutils literal notranslate"><span class="pre">ServiceRequirement</span></code>はポートまたはComponentが必要とする名前付きサービスを宣言します。
 SearchSpaceの<code class="docutils literal notranslate"><span class="pre">SamplingService</span></code>や<code class="docutils literal notranslate"><span class="pre">ValidationService</span></code>などは空間の能力として照合されます。
-<code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code>は評価境界のアダプターで、<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>は<code class="docutils literal notranslate"><span class="pre">saealib.space.FeatureEncoder</span></code>として公開されるアダプターのサブタイプです。
-<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>は<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>を<code class="docutils literal notranslate"><span class="pre">FeatureBatch</span></code>へ変換し、サロゲートモデルが学習できる特徴を決める意味変換を提供します。
+<code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code>は評価境界のアダプターです。
+<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>は<code class="docutils literal notranslate"><span class="pre">saealib.space.services</span></code>で定義される<code class="docutils literal notranslate"><span class="pre">Protocol</span></code>で、<code class="docutils literal notranslate"><span class="pre">saealib.space.FeatureEncoder</span></code>として公開されます。
+<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>は<code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code>へサービスとして登録・解決されます。
+<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>は<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>を<code class="docutils literal notranslate"><span class="pre">FeatureBatch</span></code>へ変換し、サロゲートモデルが学習できる特徴を決めます。
+<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>はAdapterインスタンスではありません。
 <code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>を使う戦略は、実行準備時に空間の明示設定を優先してエンコーダを選びます。明示設定がない場合、<code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code>は恒等エンコーディングを選び、選択元と理由をINFOで報告します。<code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code>と<code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code>は組み込みの既定エンコーダを使い、エンコーディングがサロゲートの学習対象を決めるため、明示選択を勧めるWARNINGを報告します。このWARNINGは実行を妨げません。
 <code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code>に明示されたエンコーダは常に既定より優先され、既定を使ったという診断は出ません。<code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code>と独自の空間にはエンコーダを推測して割り当てないため、利用する戦略が<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>を必要とする場合は空間が明示的に提供します。
 診断ストリームは<code class="docutils literal notranslate"><span class="pre">optimizer.contract_diagnostics()</span></code>で確認できます。<code class="docutils literal notranslate"><span class="pre">optimizer.validate()</span></code>を呼んだ後は<code class="docutils literal notranslate"><span class="pre">optimizer.last_contract_diagnostics</span></code>にも診断が残ります。<code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code>が返すのはERRORだけなので、INFOとWARNINGの選択理由は診断ストリームで確認します。</p>
@@ -586,7 +589,7 @@ SearchSpaceの<code class="docutils literal notranslate"><span class="pre">Sampl
 <h2>RepresentationSpecの境界<a class="headerlink" href="#representationspec" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">RepresentationSpec</span></code>はSearchSpace側の候補表現仕様です。
 候補の型、形状、表現を記述しますが、ComponentContractのポート、状態、実行の一部ではありません。
-したがって、SearchSpaceサービス、<code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code>、<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>、空間が保持するRepresentationSpecは、Compilerが接続する別々の境界です。</p>
+<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code>はSearchSpaceサービスとして登録・解決され、<code class="docutils literal notranslate"><span class="pre">RepresentationSpec</span></code>は空間が保持する候補表現仕様です。</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>宣言値</p></th>

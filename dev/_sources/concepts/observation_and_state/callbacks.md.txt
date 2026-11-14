@@ -58,14 +58,25 @@ Register any handler with `cbmanager.register(EventType, handler)`.
 To record convergence history, register a handler holding a list accumulated via closure.
 
 ```python
-from saealib import GenerationEndEvent
+import numpy as np
+from saealib import GenerationEndEvent, Optimizer, Problem, Termination, max_fe
+
+problem = Problem(
+    lambda x: np.array([x[0], 1.0 - x[0]]),
+    dim=2,
+    n_obj=2,
+    direction=np.array([-1.0, -1.0]),
+    lb=[0.0, 0.0],
+    ub=[1.0, 1.0],
+)
+optimizer = Optimizer(problem, seed=0).set_termination(Termination(max_fe(20)))
 
 history = []
 
 
 def record_best(event):
     f = event.ctx.archive.get_array("f")
-    history.append(float(f.min()))
+    history.append(float(f[:, 0].min()))
 
 
 optimizer.cbmanager.register(GenerationEndEvent, record_best)
@@ -78,7 +89,25 @@ print(history)
 `logging_generation_hv(reference_point)` returns a handler that logs the first front's hypervolume relative to the specified reference point, every generation.
 
 ```python
-from saealib import GenerationStartEvent, logging_generation_hv
+import numpy as np
+from saealib import (
+    GenerationStartEvent,
+    Optimizer,
+    Problem,
+    Termination,
+    logging_generation_hv,
+    max_fe,
+)
+
+problem = Problem(
+    lambda x: np.array([x[0], 1.0 - x[0]]),
+    dim=1,
+    n_obj=2,
+    direction=np.array([-1.0, -1.0]),
+    lb=[0.0],
+    ub=[1.0],
+)
+optimizer = Optimizer(problem, seed=0).set_termination(Termination(max_fe(20)))
 
 optimizer.cbmanager.register(
     GenerationStartEvent,
@@ -91,7 +120,25 @@ optimizer.cbmanager.register(
 You can remove the auto-registered `logging_generation` with `unregister(event_type, func)`, or replace it with a different handler via `replace(event_type, old, new)`.
 
 ```python
-from saealib import GenerationStartEvent, logging_generation
+import numpy as np
+from saealib import (
+    GenerationStartEvent,
+    Optimizer,
+    Problem,
+    Termination,
+    logging_generation,
+    max_fe,
+)
+
+problem = Problem(
+    lambda x: np.array([x[0], 1.0 - x[0]]),
+    dim=1,
+    n_obj=2,
+    direction=np.array([-1.0, -1.0]),
+    lb=[0.0],
+    ub=[1.0],
+)
+optimizer = Optimizer(problem, seed=0).set_termination(Termination(max_fe(20)))
 
 optimizer.cbmanager.unregister(GenerationStartEvent, logging_generation)
 ```
@@ -115,6 +162,7 @@ This procedure works on both the Stage compatibility path and the graph-native p
 For a Component-requested recompilation path, see [OptimizationStrategy](../execution_and_evaluation/strategies.md)'s "Behavior of runtime swapping".
 A Callback handler cannot return a `RuntimeCommand`.
 A change made by calling `optimizer.set_*()` in a Callback closure is applied through the path above, but configuration changes are documented as a procedure on the `iterate()` side.
+When calling a setter inside a callback, register a handler closure that captures the `Optimizer`.
 
 ## When to use CallbackManager vs. iterate()
 

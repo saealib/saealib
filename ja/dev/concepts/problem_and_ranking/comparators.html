@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Comparator &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>Comparator &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -596,9 +596,18 @@
 <h1>Comparator<a class="headerlink" href="#comparator" title="Link to this heading">#</a></h1>
 <div class="layer-badges"><span class="layer-badge">Layer 2: Compose</span></div><p><code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>は、解の相対的な優劣を判断する処理を、差し替え可能なトップレベルコンポーネントである<code class="docutils literal notranslate"><span class="pre">Comparator</span></code>に委ねています。
 <code class="docutils literal notranslate"><span class="pre">Optimizer.set_comparator()</span></code>で渡します。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimizer</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimizer</span><span class="p">,</span> <span class="n">Problem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypervolumeComparator</span>
 
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+<span class="p">)</span>
 <span class="n">optimizer</span> <span class="o">=</span> <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">set_comparator</span><span class="p">(</span><span class="n">HypervolumeComparator</span><span class="p">())</span>
 <span class="n">ctx</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">comparator</span> <span class="ow">is</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">comparator</span><span class="p">)</span>  <span class="c1"># True</span>
@@ -606,7 +615,8 @@
 </div>
 <p>comparatorはProblemの一部ではなく、Optimizerの結びつけ枠です。
 comparatorを設定しない場合、<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>は目的数から既定（<code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">==</span> <span class="pre">1</span></code>なら<code class="docutils literal notranslate"><span class="pre">SingleObjectiveComparator</span></code>、<code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>なら<code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code>）を選び、その出どころをframework defaultとして記録します。明示的に設定したcomparatorは常に優先されます。
-comparator自身の<code class="docutils literal notranslate"><span class="pre">direction</span></code>が未設定であれば、枠に入る時点でProblemの<code class="docutils literal notranslate"><span class="pre">direction</span></code>を受け取ります。direction、目的ごとの重み、参照点がProblemの目的数と一致しないcomparatorは<code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code>が報告します。
+comparator自身の<code class="docutils literal notranslate"><span class="pre">direction</span></code>が未設定であれば、枠に入る時点でProblemの<code class="docutils literal notranslate"><span class="pre">direction</span></code>を受け取ります。
+direction、目的ごとの重み、参照点がProblemの目的数と一致しないcomparatorは、<code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> や <code class="docutils literal notranslate"><span class="pre">contract_diagnostics()</span></code> によって診断コード <code class="docutils literal notranslate"><span class="pre">direction_length_mismatch</span></code>、<code class="docutils literal notranslate"><span class="pre">objective_count_mismatch</span></code>、<code class="docutils literal notranslate"><span class="pre">reference_points_dimension_mismatch</span></code> として報告されます。
 実行中、各コンポーネントは有効なcomparatorを<code class="docutils literal notranslate"><span class="pre">state.comparator</span></code>から読みます。そのため、制約ハンドラが毎世代書き込むεの閾値は、探索が解の順序付けに使うのと同じオブジェクトに届きます。</p>
 <p><code class="docutils literal notranslate"><span class="pre">Problem(comparator=...)</span></code>と<code class="docutils literal notranslate"><span class="pre">Problem(eps_obj=...)</span></code>は非推奨です。
 <code class="docutils literal notranslate"><span class="pre">Problem</span></code>に渡したcomparatorは<code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>を出したうえでOptimizerの明示的なcomparatorとして扱われ、<code class="docutils literal notranslate"><span class="pre">eps_obj</span></code>は既定のcomparatorの許容誤差を決めるだけです。
@@ -677,7 +687,11 @@ comparator自身の<code class="docutils literal notranslate"><span class="pre">
 <code class="docutils literal notranslate"><span class="pre">WeightedSumComparator(direction,</span> <span class="pre">*,</span> <span class="pre">eps_cv=0.0,</span> <span class="pre">eps_obj=1e-6)</span></code>は<code class="docutils literal notranslate"><span class="pre">direction</span></code>が必須で、省略すると<code class="docutils literal notranslate"><span class="pre">TypeError</span></code>になります。
 このクラスに限り、渡した<code class="docutils literal notranslate"><span class="pre">direction</span></code>がそのままスカラー化の重みとして使われます（<code class="docutils literal notranslate"><span class="pre">score</span> <span class="pre">=</span> <span class="pre">f</span> <span class="pre">&#64;</span> <span class="pre">direction</span></code>）。
 符号だけでなく大きさも重みとして機能するため、<a class="reference internal" href="problem.html"><span class="std std-doc">Problem</span></a>で述べた「<code class="docutils literal notranslate"><span class="pre">direction</span></code>は符号のみ、重みの大きさは別の概念」という一般的な役割分担とは異なる、このクラス固有の扱いです。
-組み込みのcomparatorは<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>の既定値を<code class="docutils literal notranslate"><span class="pre">0.0</span></code>にしており、<code class="docutils literal notranslate"><span class="pre">Problem</span></code>と<code class="docutils literal notranslate"><span class="pre">ParetoArchive</span></code>と同じ既定です。そのため<code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">==</span> <span class="pre">0</span></code>が実行可能を表します。<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>の実行中は毎世代<code class="docutils literal notranslate"><span class="pre">handler.feasibility_threshold</span></code>が<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>に書き写され、<code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code>はこの経路で探索だけを緩和し、報告される実行可能性は変えません。</p>
+組み込みのcomparatorは<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>の既定値を<code class="docutils literal notranslate"><span class="pre">0.0</span></code>にしており、<code class="docutils literal notranslate"><span class="pre">Problem</span></code>と<code class="docutils literal notranslate"><span class="pre">ParetoArchive</span></code>と同じ既定です。
+そのため<code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">==</span> <span class="pre">0</span></code>が実行可能を表します。
+<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>の実行中は毎世代<code class="docutils literal notranslate"><span class="pre">handler.feasibility_threshold</span></code>が<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>に書き写されます。
+<code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code>はこの仕組みで探索だけを緩和し、報告される実行可能性は変えません。
+comparatorのコンストラクタで指定した<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>は実行準備時と各世代終了時に上書きされるため、実行中の比較には使われません。</p>
 <p><code class="docutils literal notranslate"><span class="pre">ParetoComparator(direction=None,</span> <span class="pre">*,</span> <span class="pre">eps_cv=0.0,</span> <span class="pre">eps_obj=1e-6,</span> <span class="pre">sorter=non_dominated_sort,</span> <span class="pre">dominator=None)</span></code>は、支配関係のみで個体群をランク付けします。
 <code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code>/<code class="docutils literal notranslate"><span class="pre">HypervolumeComparator</span></code>/<code class="docutils literal notranslate"><span class="pre">NSGA3Comparator</span></code>/<code class="docutils literal notranslate"><span class="pre">RNSGA2Comparator</span></code>/<code class="docutils literal notranslate"><span class="pre">EpsilonDominanceComparator</span></code>の共通基底であり、具象クラスとして単独でも使えます。
 <code class="docutils literal notranslate"><span class="pre">dominator</span></code>引数は<a class="reference internal" href="dominance.html"><span class="std std-doc">Dominator</span></a>、<code class="docutils literal notranslate"><span class="pre">sorter</span></code>引数は<a class="reference internal" href="nondominated_sorting.html"><span class="std std-doc">NonDominatedSorter</span></a>を注入する差し替え点で、互いに独立した軸です。
@@ -773,6 +787,7 @@ PSOのpbest更新や<code class="docutils literal notranslate"><span class="pre"
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.NSGA3Comparator.html#saealib.NSGA3Comparator" title="saealib.NSGA3Comparator"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.NSGA3Comparator</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/_autosummary/saealib.RNSGA2Comparator.html#saealib.RNSGA2Comparator" title="saealib.RNSGA2Comparator"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.RNSGA2Comparator</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/utils.html#saealib.hypervolume" title="saealib.hypervolume"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.hypervolume()</span></code></a></p></li>
+<li><p><a class="reference internal" href="../../api/comparators.html#saealib.comparators.default_comparator" title="saealib.comparators.default_comparator"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.comparators.default_comparator()</span></code></a></p></li>
 </ul>
 </section>
 </section>

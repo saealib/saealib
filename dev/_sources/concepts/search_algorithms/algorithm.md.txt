@@ -23,7 +23,7 @@ When `request.n_offspring` is `None`, the algorithm determines the candidate cou
 `tell()` does not modify `OptimizationState` or `Population` directly.
 
 This separation leaves the decision about which candidates receive expensive true evaluations outside `Algorithm`.
-That decision belongs to the combination of [OptimizationStrategy](../execution_and_evaluation/strategies.md), the evaluation plan, and `FeedbackPolicy`.
+The evaluation planner selects those candidates based on the evaluation plan. `FeedbackRequirement`, included in `ProposalBatch.requirements`, specifies the feedback a proposer needs before acting on a proposal.
 
 ## Built-in Algorithms
 
@@ -200,7 +200,7 @@ result = optimizer.run()
 ```
 
 The Feedback received by `tell()` preserves its evaluation path and its mapping to candidate IDs.
-Whether the algorithm requires only true evaluations or accepts predictions is declared by its contract and `FeedbackPolicy`.
+The feedback each proposal requires is specified by the Algorithm contract and `FeedbackRequirement`, which is held in `ProposalBatch.requirements` and is used to check compatibility with the Feedback contract and determine when required feedback is complete.
 Persistent auxiliary information such as PSO's pbest is handled as a Population attribute or a declared `StateKey`.
 
 ## Related components

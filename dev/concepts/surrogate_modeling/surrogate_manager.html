@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>SurrogateManager &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>SurrogateManager &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -630,7 +630,8 @@ Also extensible via the same copy-and-chain approach.</p>
 <p>The current vector-form Manager API on the Stage compatibility path uses <code class="docutils literal notranslate"><span class="pre">fit(archive,</span> <span class="pre">*,</span> <span class="pre">ctx)</span></code> and <code class="docutils literal notranslate"><span class="pre">predict(candidates_x:</span> <span class="pre">np.ndarray,</span> <span class="pre">archive,</span> <span class="pre">*,</span> <span class="pre">refit=True,</span> <span class="pre">ctx)</span> <span class="pre">-&gt;</span> <span class="pre">SurrogatePrediction</span></code>.
 The current API also includes constructors such as <code class="docutils literal notranslate"><span class="pre">GlobalSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">accuracy_evaluator=None)</span></code>, <code class="docutils literal notranslate"><span class="pre">LocalSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">accuracy_evaluator=None)</span></code>, and <code class="docutils literal notranslate"><span class="pre">PairwiseSurrogateManager(surrogate,</span> <span class="pre">training_set=None,</span> <span class="pre">n_ref=10)</span></code>.
 In the structured runtime, the Surrogate input boundary is <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">FeatureEncoder</span> <span class="pre">→</span> <span class="pre">FeatureBatch</span> <span class="pre">→</span> <span class="pre">Surrogate</span></code>.
-<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code> performs semantic conversion and determines the features the surrogate can learn. It differs from a space capability such as <code class="docutils literal notranslate"><span class="pre">SamplingService</span></code>.
+<code class="docutils literal notranslate"><span class="pre">FeatureEncoder</span></code> is a <code class="docutils literal notranslate"><span class="pre">Protocol</span></code> defined in <code class="docutils literal notranslate"><span class="pre">saealib.space.services</span></code> and is resolved as a service in <code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code>.
+This encoder performs semantic conversion and determines the features the surrogate can learn.
 Execution preparation selects an encoder only when the prepared strategy consumes it. <code class="docutils literal notranslate"><span class="pre">VectorSpace</span></code> defaults to identity encoding and reports INFO with the selection source and reason; <code class="docutils literal notranslate"><span class="pre">PermutationSpace</span></code> and <code class="docutils literal notranslate"><span class="pre">SequenceSpace</span></code> retain their built-in encodings and report a non-blocking WARNING recommending an explicit choice because encoding affects what the surrogate learns.
 An encoder explicitly provided through <code class="docutils literal notranslate"><span class="pre">SearchSpace.services</span></code> takes priority and does not produce a default-selection diagnostic. <code class="docutils literal notranslate"><span class="pre">ObjectSpace</span></code> and custom spaces need to provide an encoder when the selected strategy consumes one.
 Inspect the structured diagnostics with <code class="docutils literal notranslate"><span class="pre">optimizer.contract_diagnostics()</span></code>, or read <code class="docutils literal notranslate"><span class="pre">optimizer.last_contract_diagnostics</span></code> after <code class="docutils literal notranslate"><span class="pre">optimizer.validate()</span></code>. <code class="docutils literal notranslate"><span class="pre">Optimizer.validate()</span></code> returns ERROR findings only; INFO and WARNING remain available in the diagnostic stream.</p>

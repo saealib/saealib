@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Algorithm &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Algorithm &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -606,7 +606,7 @@ When <code class="docutils literal notranslate"><span class="pre">request.n_offs
 <p><strong><code class="docutils literal notranslate"><span class="pre">tell(feedback,</span> <span class="pre">state)</span> <span class="pre">-&gt;</span> <span class="pre">StatePatch</span></code></strong>: Consumes a <code class="docutils literal notranslate"><span class="pre">FeedbackBatch</span></code> and returns the state changes to apply as a <code class="docutils literal notranslate"><span class="pre">StatePatch</span></code>.
 <code class="docutils literal notranslate"><span class="pre">tell()</span></code> does not modify <code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code> or <code class="docutils literal notranslate"><span class="pre">Population</span></code> directly.</p>
 <p>This separation leaves the decision about which candidates receive expensive true evaluations outside <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code>.
-That decision belongs to the combination of <a class="reference internal" href="../execution_and_evaluation/strategies.html"><span class="std std-doc">OptimizationStrategy</span></a>, the evaluation plan, and <code class="docutils literal notranslate"><span class="pre">FeedbackPolicy</span></code>.</p>
+The evaluation planner selects those candidates based on the evaluation plan. <code class="docutils literal notranslate"><span class="pre">FeedbackRequirement</span></code>, included in <code class="docutils literal notranslate"><span class="pre">ProposalBatch.requirements</span></code>, specifies the feedback a proposer needs before acting on a proposal.</p>
 </section>
 <section id="built-in-algorithms">
 <h2>Built-in Algorithms<a class="headerlink" href="#built-in-algorithms" title="Link to this heading">#</a></h2>
@@ -781,7 +781,7 @@ Candidate counts, candidate IDs, and the mapping to evaluation results follow th
 </pre></div>
 </div>
 <p>The Feedback received by <code class="docutils literal notranslate"><span class="pre">tell()</span></code> preserves its evaluation path and its mapping to candidate IDs.
-Whether the algorithm requires only true evaluations or accepts predictions is declared by its contract and <code class="docutils literal notranslate"><span class="pre">FeedbackPolicy</span></code>.
+The feedback each proposal requires is specified by the Algorithm contract and <code class="docutils literal notranslate"><span class="pre">FeedbackRequirement</span></code>, which is held in <code class="docutils literal notranslate"><span class="pre">ProposalBatch.requirements</span></code> and is used to check compatibility with the Feedback contract and determine when required feedback is complete.
 Persistent auxiliary information such as PSO’s pbest is handled as a Population attribute or a declared <code class="docutils literal notranslate"><span class="pre">StateKey</span></code>.</p>
 </section>
 <section id="related-components">

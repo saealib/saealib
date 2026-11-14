@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>AcquisitionFunction &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>AcquisitionFunction &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -680,7 +680,41 @@ See the uncertainty-support table in <a class="reference internal" href="surroga
 This is because the magnitude of uncertainty or a feasibility probability has no notion of maximizing vs. minimizing direction.</p>
 <p><code class="docutils literal notranslate"><span class="pre">ProbabilityOfFeasibility</span></code>/<code class="docutils literal notranslate"><span class="pre">ProductOfFeasibility</span></code> are used paired with a classification or regression surrogate that predicts a constraint value <code class="docutils literal notranslate"><span class="pre">g</span></code>.
 The typical usage is to extract training data with <a class="reference internal" href="training_set.html"><span class="std std-doc">TrainingSet</span></a>’s <code class="docutils literal notranslate"><span class="pre">ConstraintObjectiveSet</span></code>, and combine it with the objective-side acquisition function (e.g. EI) via <code class="docutils literal notranslate"><span class="pre">CompositeAcquisition</span></code>’s <code class="docutils literal notranslate"><span class="pre">product_combine</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ei_manager</span> <span class="o">=</span> <span class="n">GlobalSurrogateManager</span><span class="p">(</span><span class="n">gp_surrogate</span><span class="p">,</span> <span class="n">ArchiveObjectiveSet</span><span class="p">())</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">InequalityConstraint</span><span class="p">,</span> <span class="n">Optimizer</span><span class="p">,</span> <span class="n">Problem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.acquisition</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CompositeAcquisition</span><span class="p">,</span>
+    <span class="n">ExpectedImprovement</span><span class="p">,</span>
+    <span class="n">ProductOfFeasibility</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.surrogate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ArchiveObjectiveSet</span><span class="p">,</span>
+    <span class="n">CompositeSurrogateManager</span><span class="p">,</span>
+    <span class="n">ConstraintObjectiveSet</span><span class="p">,</span>
+    <span class="n">GlobalSurrogateManager</span><span class="p">,</span>
+    <span class="n">PerObjectiveSurrogate</span><span class="p">,</span>
+    <span class="n">SklearnGPRSurrogate</span><span class="p">,</span>
+    <span class="n">product_combine</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">5.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">],</span>
+    <span class="n">constraints</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">InequalityConstraint</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">),</span>
+        <span class="n">InequalityConstraint</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+<span class="n">gp_surrogate</span> <span class="o">=</span> <span class="n">SklearnGPRSurrogate</span><span class="p">()</span>
+<span class="n">gp_g1</span> <span class="o">=</span> <span class="n">SklearnGPRSurrogate</span><span class="p">()</span>
+<span class="n">gp_g2</span> <span class="o">=</span> <span class="n">SklearnGPRSurrogate</span><span class="p">()</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">ei_manager</span> <span class="o">=</span> <span class="n">GlobalSurrogateManager</span><span class="p">(</span><span class="n">gp_surrogate</span><span class="p">,</span> <span class="n">ArchiveObjectiveSet</span><span class="p">())</span>
 <span class="n">pof_manager</span> <span class="o">=</span> <span class="n">GlobalSurrogateManager</span><span class="p">(</span>
     <span class="n">PerObjectiveSurrogate</span><span class="p">([</span><span class="n">gp_g1</span><span class="p">,</span> <span class="n">gp_g2</span><span class="p">]),</span>
     <span class="n">ConstraintObjectiveSet</span><span class="p">(),</span>

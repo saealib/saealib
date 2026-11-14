@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>AccuracyBasedSurrogateSwitcher &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>AccuracyBasedSurrogateSwitcher &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -667,7 +667,36 @@ Because the high-level API (<code class="docutils literal notranslate"><span cla
 It chooses the next component or parameter from the accuracy result. Applying that choice to the Runtime plan is a separate operation.</p>
 <p>The following example changes the configuration with <code class="docutils literal notranslate"><span class="pre">iterate()</span></code> and <code class="docutils literal notranslate"><span class="pre">optimizer.set_*()</span></code>. The execution environment detects the change, recompiles the plan, and applies it from the next generation.
 This procedure works on both the Stage compatibility path and the graph-native path.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">switcher</span> <span class="o">=</span> <span class="n">ManagerSwitcher</span><span class="p">(</span><span class="n">primary</span><span class="p">,</span> <span class="n">fallback</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimizer</span><span class="p">,</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">Termination</span><span class="p">,</span> <span class="n">max_fe</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.surrogate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ArchiveObjectiveSet</span><span class="p">,</span>
+    <span class="n">GlobalSurrogateManager</span><span class="p">,</span>
+    <span class="n">KFoldAccuracyEvaluator</span><span class="p">,</span>
+    <span class="n">ManagerSwitcher</span><span class="p">,</span>
+    <span class="n">SklearnGPRSurrogate</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">5.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">evaluator</span> <span class="o">=</span> <span class="n">KFoldAccuracyEvaluator</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">primary</span> <span class="o">=</span> <span class="n">GlobalSurrogateManager</span><span class="p">(</span>
+    <span class="n">SklearnGPRSurrogate</span><span class="p">(),</span> <span class="n">ArchiveObjectiveSet</span><span class="p">(),</span> <span class="n">accuracy_evaluator</span><span class="o">=</span><span class="n">evaluator</span>
+<span class="p">)</span>
+<span class="n">fallback</span> <span class="o">=</span> <span class="n">GlobalSurrogateManager</span><span class="p">(</span><span class="n">SklearnGPRSurrogate</span><span class="p">(),</span> <span class="n">ArchiveObjectiveSet</span><span class="p">())</span>
+<span class="n">switcher</span> <span class="o">=</span> <span class="n">ManagerSwitcher</span><span class="p">(</span><span class="n">primary</span><span class="p">,</span> <span class="n">fallback</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_surrogate_manager</span><span class="p">(</span><span class="n">primary</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">30</span><span class="p">)))</span>
+<span class="p">)</span>
+
 <span class="k">for</span> <span class="n">ctx</span> <span class="ow">in</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">iterate</span><span class="p">():</span>
     <span class="n">optimizer</span><span class="o">.</span><span class="n">set_surrogate_manager</span><span class="p">(</span>
         <span class="n">switcher</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">optimizer</span><span class="o">.</span><span class="n">surrogate_manager</span><span class="o">.</span><span class="n">last_accuracy</span><span class="p">)</span>
@@ -687,7 +716,7 @@ This procedure works on both the Stage compatibility path and the graph-native p
 <td><p><code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">StrategySwitcher</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">primary,</span> <span class="pre">fallback,</span> <span class="pre">*,</span> <span class="pre">metric=&quot;spearman&quot;,</span> <span class="pre">threshold=0.56</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">primary,</span> <span class="pre">fallback,</span> <span class="pre">*,</span> <span class="pre">metric=&quot;spearman&quot;,</span> <span class="pre">threshold=0.56,</span> <span class="pre">mid=None,</span> <span class="pre">mid_threshold=None</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GenCtrlSwitcher</span></code></p></td>
@@ -697,7 +726,8 @@ This procedure works on both the Stage compatibility path and the graph-native p
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">ManagerSwitcher</span></code>/<code class="docutils literal notranslate"><span class="pre">StrategySwitcher</span></code> are simple binary switches, returning <code class="docutils literal notranslate"><span class="pre">primary</span></code> if the specified metric is at or above the threshold, and <code class="docutils literal notranslate"><span class="pre">fallback</span></code> otherwise.
+<p><code class="docutils literal notranslate"><span class="pre">ManagerSwitcher</span></code> returns <code class="docutils literal notranslate"><span class="pre">primary</span></code> when the specified metric is at or above the threshold, and <code class="docutils literal notranslate"><span class="pre">fallback</span></code> otherwise. <code class="docutils literal notranslate"><span class="pre">StrategySwitcher</span></code> also uses this binary split; when both <code class="docutils literal notranslate"><span class="pre">mid</span></code> and <code class="docutils literal notranslate"><span class="pre">mid_threshold</span></code> are specified, it returns <code class="docutils literal notranslate"><span class="pre">fallback</span></code> below <code class="docutils literal notranslate"><span class="pre">threshold</span></code>, <code class="docutils literal notranslate"><span class="pre">mid</span></code> from <code class="docutils literal notranslate"><span class="pre">threshold</span></code> up to but not including <code class="docutils literal notranslate"><span class="pre">mid_threshold</span></code>, and <code class="docutils literal notranslate"><span class="pre">primary</span></code> at or above <code class="docutils literal notranslate"><span class="pre">mid_threshold</span></code>.
+To use three branches, specify both <code class="docutils literal notranslate"><span class="pre">mid</span></code> and <code class="docutils literal notranslate"><span class="pre">mid_threshold</span></code>; specifying only one raises <code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>.
 <code class="docutils literal notranslate"><span class="pre">StrategySwitcher</span></code>’s default threshold <code class="docutils literal notranslate"><span class="pre">0.56</span></code> is based on the PS/IB-GB switching setting from <span class="bibtex-citation" id="id3">[<a class="reference internal" href="../../references.html#id54" title="Yuki Hanawa, Tomohiro Harada, and Yukiya Miura. Impact of surrogate model accuracy on performance and model management strategy in surrogate-assisted evolutionary algorithms. Array, 27:100461, 2025. doi:10.1016/j.array.2025.100461.">34</a>]</span>.</p>
 <p>Rather than a binary switch, <code class="docutils literal notranslate"><span class="pre">GenCtrlSwitcher</span></code> continuously adjusts <code class="docutils literal notranslate"><span class="pre">gen_ctrl</span></code> via exponential smoothing <span class="bibtex-citation" id="id4">[<a class="reference internal" href="../../references.html#id55" title="Jiří Repický, Lukas Bajer, Zbyněk Pitra, and Martin Holeňa. Adaptive generation-based evolution control for gaussian process surrogate models. In Proceedings of the 17th Conference on Information Technologies – Applications and Theory (ITAT 2017), volume 1885 of CEUR Workshop Proceedings, 136–143. 2017.">35</a>]</span>.
 Because it holds state — a smoothed error estimate in the public attribute <code class="docutils literal notranslate"><span class="pre">smoothed_error</span></code> — use one instance per <code class="docutils literal notranslate"><span class="pre">run</span></code>.

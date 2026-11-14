@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Population &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>Population &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -601,7 +601,9 @@
 <h2>Populationの役割<a class="headerlink" href="#id1" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">Population</span></code>は、Genome、目的値、制約値、制約違反、Algorithm固有の補助属性を保持します。
 Genomeは、<code class="docutils literal notranslate"><span class="pre">DenseVectorBatch</span></code>、<code class="docutils literal notranslate"><span class="pre">ObjectBatch</span></code>、<code class="docutils literal notranslate"><span class="pre">PermutationBatch</span></code>などの<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>実装で表現できます。
-値を安全に数値ベクトルとして取得できる場合だけ、<code class="docutils literal notranslate"><span class="pre">x</span></code>または密な数値ビューを使います。</p>
+値を安全に数値ベクトルとして取得できるGenomeでは、<code class="docutils literal notranslate"><span class="pre">x</span></code>から数値ビューの値を参照できます。
+<code class="docutils literal notranslate"><span class="pre">Population</span></code>のコンストラクタでは、数値ビューサービスを<code class="docutils literal notranslate"><span class="pre">dense_numeric_view</span></code>引数に指定します。
+<code class="docutils literal notranslate"><span class="pre">dense_view</span></code>は<code class="docutils literal notranslate"><span class="pre">dense_numeric_view</span></code>の非推奨エイリアスであり、指定すると<code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>が出力されます。</p>
 <p><code class="docutils literal notranslate"><span class="pre">Population.genomes</span></code>は、実行中のPopulationのGenome格納領域から借用する読み取り専用ビューであり、不変スナップショットではありません。
 <code class="docutils literal notranslate"><span class="pre">update_array</span></code>など後続のPopulation操作はその格納領域をインプレースで更新できるため、既存の<code class="docutils literal notranslate"><span class="pre">genomes</span></code>ビューから観測される内容も変化する場合があります。</p>
 <p><code class="docutils literal notranslate"><span class="pre">Population</span></code> は通常インスタンスとして使い、独自の個体管理が必要な場合だけサブクラス化します。</p>

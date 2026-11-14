@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Problem &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Problem &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -627,7 +627,9 @@ A comparator with an unset (<code class="docutils literal notranslate"><span cla
 How to define them is covered in <a class="reference internal" href="../../tutorials/constraints.html"><span class="std std-doc">Constrained Optimization</span></a>.</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">eps_cv</span></code></strong>/<strong><code class="docutils literal notranslate"><span class="pre">eps_obj</span></code></strong>: Deprecated search-side tolerances.
 Feasibility is decided by the constraint definitions, not by <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>: a solution is feasible when every per-constraint violation is zero after its own tolerance, and <code class="docutils literal notranslate"><span class="pre">Result</span></code>, the history’s <code class="docutils literal notranslate"><span class="pre">best_f</span></code> and <code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>, training-set labels, and the Pareto archive all use that decision.
-A value passed as <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> emits a <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code> and sets the search-time relaxation of the default handler, which the runtime copies onto the comparator’s <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> every generation; it widens what the search treats as feasible and never changes reported feasibility.
+Passing a value as <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> emits a <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code> recommending constraint tolerances or <code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code>.
+The value is set as the default handler’s search-time relaxation, and the runtime copies it to the comparator’s <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code> each generation.
+This widens the region the search treats as feasible, but does not change reported feasibility.
 Without it the default is <code class="docutils literal notranslate"><span class="pre">0.0</span></code>, which matches the constraint-based decision. Its concrete running value is <code class="docutils literal notranslate"><span class="pre">handler.feasibility_threshold</span></code>.
 <code class="docutils literal notranslate"><span class="pre">eps_obj</span></code> likewise only seeds the default comparator; pass the tolerance to the comparator you configure with <code class="docutils literal notranslate"><span class="pre">Optimizer.set_comparator()</span></code> instead.</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">handler</span></code></strong>: The <a class="reference internal" href="constraints.html"><span class="std std-doc">ConstraintHandler</span></a> responsible for aggregating constraint violations and correcting the objective function.
@@ -654,10 +656,11 @@ Passing <code class="docutils literal notranslate"><span class="pre">weight=</sp
 <p><code class="docutils literal notranslate"><span class="pre">constraints</span></code> decides feasibility through <code class="docutils literal notranslate"><span class="pre">violation_from_value</span></code>: <code class="docutils literal notranslate"><span class="pre">g(x)</span> <span class="pre">&lt;=</span> <span class="pre">threshold</span></code> for an inequality and <code class="docutils literal notranslate"><span class="pre">|h(x)|</span> <span class="pre">&lt;=</span> <span class="pre">tolerance</span></code> for an equality, with defaults of <code class="docutils literal notranslate"><span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">1e-4</span></code>.
 This decision is independent of the <code class="docutils literal notranslate"><span class="pre">cv</span></code> aggregation, and <code class="docutils literal notranslate"><span class="pre">Result</span></code>, the history’s <code class="docutils literal notranslate"><span class="pre">best_f</span></code> and <code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>, training-set labels, and the Pareto archive all apply it.</p>
 <p><code class="docutils literal notranslate"><span class="pre">direction</span></code> is a <code class="docutils literal notranslate"><span class="pre">±1</span></code> array, unified across all of saealib, representing sign only.
-By contrast, the <code class="docutils literal notranslate"><span class="pre">weights</span></code> received by <code class="docutils literal notranslate"><span class="pre">WeightedSumComparator</span></code> or <code class="docutils literal notranslate"><span class="pre">DecompositionComparator</span></code> are non-negative weights for aggregating multiple objectives into a scalar value — a separate concept, independent of direction.</p>
-<p>Under this role split, <code class="docutils literal notranslate"><span class="pre">weights</span></code> cannot express the importance (scaling) of an objective itself.
-If you want to adjust the magnitude of an objective value, scale it inside <code class="docutils literal notranslate"><span class="pre">func</span></code>.
-This is organized into two axes: <code class="docutils literal notranslate"><span class="pre">direction</span></code> expresses sign only, and <code class="docutils literal notranslate"><span class="pre">weights</span></code> expresses only the aggregation weighting.</p>
+<code class="docutils literal notranslate"><span class="pre">DecompositionComparator</span></code> accepts <code class="docutils literal notranslate"><span class="pre">weights</span></code>, non-negative weights for aggregating multiple objectives into a scalar value, independent of direction.
+<code class="docutils literal notranslate"><span class="pre">WeightedSumComparator</span></code> has no <code class="docutils literal notranslate"><span class="pre">weights</span></code> parameter and uses <code class="docutils literal notranslate"><span class="pre">direction</span></code> as a signed weight vector.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">DecompositionComparator</span></code>, <code class="docutils literal notranslate"><span class="pre">weights</span></code> represents the allocation used for aggregation.
+To adjust the scale of objective values, scale them inside <code class="docutils literal notranslate"><span class="pre">func</span></code>.
+<code class="docutils literal notranslate"><span class="pre">direction</span></code> represents sign, and <code class="docutils literal notranslate"><span class="pre">DecompositionComparator</span></code>’s <code class="docutils literal notranslate"><span class="pre">weights</span></code> represents aggregation weights.</p>
 </section>
 <section id="invariants">
 <h2>Invariants<a class="headerlink" href="#invariants" title="Link to this heading">#</a></h2>

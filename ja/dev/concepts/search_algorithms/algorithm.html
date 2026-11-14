@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>探索アルゴリズム &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>探索アルゴリズム &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -601,7 +601,8 @@
 <p><code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> は、読み取り専用の <code class="docutils literal notranslate"><span class="pre">StateView</span></code> を受け取り、状態を直接変更せずに結果を返します。</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">ask(request,</span> <span class="pre">state)</span> <span class="pre">-&gt;</span> <span class="pre">ProposalBatch</span></code></strong>：<code class="docutils literal notranslate"><span class="pre">ProposalRequest</span></code> と <code class="docutils literal notranslate"><span class="pre">StateView</span></code> から候補のバッチを生成します。 <code class="docutils literal notranslate"><span class="pre">request.n_offspring</span></code> が <code class="docutils literal notranslate"><span class="pre">None</span></code> の場合の候補数は、アルゴリズムが現在のPopulationから決定します。</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">tell(feedback,</span> <span class="pre">state)</span> <span class="pre">-&gt;</span> <span class="pre">StatePatch</span></code></strong>：<code class="docutils literal notranslate"><span class="pre">FeedbackBatch</span></code> を消費し、適用すべき状態変更を <code class="docutils literal notranslate"><span class="pre">StatePatch</span></code> として返します。 <code class="docutils literal notranslate"><span class="pre">tell()</span></code> は <code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code> や <code class="docutils literal notranslate"><span class="pre">Population</span></code> を直接変更しません。</p>
-<p>この分離によって、どの候補を高コストな真の評価へ送るかを <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> の外側に置けます。 その判断は <a class="reference internal" href="../execution_and_evaluation/strategies.html"><span class="std std-doc">OptimizationStrategy</span></a> と評価計画、<code class="docutils literal notranslate"><span class="pre">FeedbackPolicy</span></code>の組み合わせが担います。</p>
+<p>この分離によって、どの候補を高コストな真の評価へ送るかを <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> の外側に置けます。
+その候補は評価プランナーが評価計画に基づいて選びます。<code class="docutils literal notranslate"><span class="pre">FeedbackRequirement</span></code>は<code class="docutils literal notranslate"><span class="pre">ProposalBatch.requirements</span></code>に含まれ、proposerが提案に対して動作する前に必要とするフィードバックを指定します。</p>
 </section>
 <section id="id2">
 <h2>組み込みAlgorithm<a class="headerlink" href="#id2" title="Link to this heading">#</a></h2>
@@ -753,7 +754,9 @@
 <span class="n">result</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">tell()</span></code> が受け取るFeedbackは、どの評価経路から届いたかと、候補IDとの対応を保持します。 真の評価だけを必要とするか、予測値を受け入れるかは、Algorithmの契約と<code class="docutils literal notranslate"><span class="pre">FeedbackPolicy</span></code>で宣言します。 PSOのpbestのような永続的な補助情報は、Population属性または宣言済みの<code class="docutils literal notranslate"><span class="pre">StateKey</span></code>として扱います。</p>
+<p><code class="docutils literal notranslate"><span class="pre">tell()</span></code> が受け取るFeedbackは、どの評価経路から届いたかと、候補IDとの対応を保持します。
+各提案で必要なフィードバックは、Algorithmの契約と<code class="docutils literal notranslate"><span class="pre">FeedbackRequirement</span></code>（<code class="docutils literal notranslate"><span class="pre">ProposalBatch.requirements</span></code>に保持され、Feedback契約との適合確認と必要なフィードバックの完了判定に使われます）で示します。
+PSOのpbestのような永続的な補助情報は、Population属性または宣言済みの<code class="docutils literal notranslate"><span class="pre">StateKey</span></code>として扱います。</p>
 </section>
 <section id="id7">
 <h2>関連コンポーネント<a class="headerlink" href="#id7" title="Link to this heading">#</a></h2>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>制約付き最適化 &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>制約付き最適化 &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -643,14 +643,33 @@
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;feasible: </span><span class="si">{</span><span class="n">feasible</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">feasible</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>同じ判定が<code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code>、履歴の<code class="docutils literal notranslate"><span class="pre">best_f</span></code>と<code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>、学習データのラベル、Paretoアーカイブを駆動します。そのため、<code class="docutils literal notranslate"><span class="pre">cv</span></code>の集約方法や探索中のε緩和には左右されません。<code class="docutils literal notranslate"><span class="pre">result.best()</span></code>と<code class="docutils literal notranslate"><span class="pre">result.front()</span></code>の既定の基準もこの判定を使い、実行可能解を優先したうえでPareto支配で絞り込みます。実行可能な解が1つもない場合、既定の基準では単目的は<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小の最初の行を使い、多目的問題の<code class="docutils literal notranslate"><span class="pre">result.front()</span></code>は<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小の行のうち非劣な解を返します。明示した基準では、<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小のすべての行をその基準で順位付けします。</p>
+<p>同じ判定が<code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code>、履歴の<code class="docutils literal notranslate"><span class="pre">best_f</span></code>と<code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>、学習データのラベル、Paretoアーカイブを駆動します。
+そのため、<code class="docutils literal notranslate"><span class="pre">cv</span></code>の集約方法や探索中のε緩和には左右されません。
+<code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code>で<code class="docutils literal notranslate"><span class="pre">gen_ctrl</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>の場合、アルゴリズムの<code class="docutils literal notranslate"><span class="pre">tell()</span></code>の実装によっては、最終個体群にプレースホルダー<code class="docutils literal notranslate"><span class="pre">g=0</span></code>を持つ予測行が含まれることがあります。たとえばGAでは予測行を保持できます。
+Historyの<code class="docutils literal notranslate"><span class="pre">summary</span></code>にある<code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>は各世代の<code class="docutils literal notranslate"><span class="pre">state.population</span></code>を制約定義に従って分類するため、これらの行が実行可能として数えられる場合があります。
+真の評価値はアーカイブに保持されます。
+<code class="docutils literal notranslate"><span class="pre">result.best()</span></code>と<code class="docutils literal notranslate"><span class="pre">result.front()</span></code>の既定の基準もこの判定を使い、実行可能解を優先したうえでPareto支配で絞り込みます。
+実行可能な解が1つもない場合、既定の基準では単目的は<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小の最初の行を使い、多目的問題の<code class="docutils literal notranslate"><span class="pre">result.front()</span></code>は<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小の行のうち非劣な解を返します。
+明示した基準では、<code class="docutils literal notranslate"><span class="pre">cv</span></code>が最小のすべての行をその基準で順位付けします。</p>
 </section>
 <section id="constrainthandler">
 <h2>ConstraintHandlerで制約処理をカスタマイズする<a class="headerlink" href="#constrainthandler" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">ConstraintHandler</span></code>は、<code class="docutils literal notranslate"><span class="pre">Problem(cv_aggregator=...)</span></code>が設定されていないときに<code class="docutils literal notranslate"><span class="pre">cv</span></code>を供給し、comparatorが使う探索側の緩和を保持します。</p>
 <p><code class="docutils literal notranslate"><span class="pre">Problem</span></code>の<code class="docutils literal notranslate"><span class="pre">handler</span></code>引数を省略すると<code class="docutils literal notranslate"><span class="pre">StaticToleranceHandler</span></code>が使われ、<code class="docutils literal notranslate"><span class="pre">sum_violation</span></code>と同じく制約ごとの違反量の和を<code class="docutils literal notranslate"><span class="pre">cv</span></code>として集約します。</p>
 <p>集約だけを変えたい場合は、ハンドラを書く代わりに<code class="docutils literal notranslate"><span class="pre">Problem(cv_aggregator=...)</span></code>を渡します。集約の契約は「すべての違反が0のとき、かつそのときに限り<code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">==</span> <span class="pre">0</span></code>」で、役割は実行不可能な解どうしの順位付けだけです。実行可能性は常に制約定義から決まります。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">sum_violation</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">InequalityConstraint</span><span class="p">,</span> <span class="n">Problem</span>
+
+<span class="n">DIM</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">LB</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">5.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">DIM</span>
+<span class="n">UB</span> <span class="o">=</span> <span class="p">[</span><span class="mf">5.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">DIM</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">expensive_func</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+
+<span class="n">constraint</span> <span class="o">=</span> <span class="n">InequalityConstraint</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">squared_inequality</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">):</span>
@@ -664,7 +683,9 @@
     <span class="n">dim</span><span class="o">=</span><span class="n">DIM</span><span class="p">,</span>
     <span class="n">n_obj</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
     <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
-    <span class="n">constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">,</span>
+    <span class="n">lb</span><span class="o">=</span><span class="n">LB</span><span class="p">,</span>
+    <span class="n">ub</span><span class="o">=</span><span class="n">UB</span><span class="p">,</span>
+    <span class="n">constraints</span><span class="o">=</span><span class="p">[</span><span class="n">constraint</span><span class="p">],</span>
     <span class="n">cv_aggregator</span><span class="o">=</span><span class="n">squared_inequality</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>

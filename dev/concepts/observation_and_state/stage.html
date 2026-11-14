@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Stage &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Stage &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -606,11 +606,12 @@ See <a class="reference internal" href="../../framework/index.html"><span class=
 <p>The boundary implemented by <code class="docutils literal notranslate"><span class="pre">Stage</span></code> is <code class="docutils literal notranslate"><span class="pre">execute(state:</span> <span class="pre">OptimizationState)</span> <span class="pre">-&gt;</span> <span class="pre">OptimizationState</span></code>.
 Stage receives an <code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code>, performs one operation, and returns the updated State.
 This boundary differs from a graph-native component’s <code class="docutils literal notranslate"><span class="pre">execute(StateView)</span> <span class="pre">-&gt;</span> <span class="pre">StatePatch</span></code>.</p>
-<p>There are three class attributes.</p>
+<p>There are four class attributes.</p>
 <ul class="simple">
 <li><p><strong><code class="docutils literal notranslate"><span class="pre">name</span></code></strong>: A machine-readable identifier used for lookup via <code class="docutils literal notranslate"><span class="pre">pipeline[&quot;name&quot;]</span></code></p></li>
 <li><p><strong><code class="docutils literal notranslate"><span class="pre">label</span></code></strong>: A human-readable description</p></li>
 <li><p><strong><code class="docutils literal notranslate"><span class="pre">notation</span></code></strong>: The LaTeX notation used by <code class="docutils literal notranslate"><span class="pre">to_pseudocode()</span></code></p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">execution_boundary</span></code></strong>: The execution boundary (<code class="docutils literal notranslate"><span class="pre">&quot;transaction&quot;</span></code> by default, or <code class="docutils literal notranslate"><span class="pre">&quot;state&quot;</span></code> for the entire execution state). Any other value raises <code class="docutils literal notranslate"><span class="pre">ValidationError</span></code> during plan preparation.</p></li>
 </ul>
 </section>
 <section id="pipeline">
@@ -638,6 +639,11 @@ resumable at runtime.</p>
 </tbody>
 </table>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">replace</span></code> changes only the top-level structural sequence.
+To replace an entry in a nested Pipeline, use <code class="docutils literal notranslate"><span class="pre">find(name,</span> <span class="pre">recursive=True)</span></code> to get the nested Pipeline, then replace the entry there.
+A replacement in a prepared run takes effect at the next commit point.
+<code class="docutils literal notranslate"><span class="pre">to_spec</span></code> serializes constructor arguments, so it does not retain replacements made to a built-in strategy.
+Use the declaration or constructor arguments to persist a replacement.</p>
 </section>
 <section id="built-in-stages">
 <h2>Built-in Stages<a class="headerlink" href="#built-in-stages" title="Link to this heading">#</a></h2>

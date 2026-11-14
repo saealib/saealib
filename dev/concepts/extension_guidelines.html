@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Extension guidelines &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Extension guidelines &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -716,7 +716,12 @@ A structured Pipeline instead holds graph-native components, nested Pipelines, <
 <p>When placing a Stage in a structured Pipeline, make the compatibility boundary explicit with <code class="docutils literal notranslate"><span class="pre">stage_component(stage)</span></code>.
 Optimizer lowers this DSL to a Graph internally and converts it into a plan executable by the structured Runtime.
 Ordinary users do not need to call the Compiler directly.</p>
-<p><code class="docutils literal notranslate"><span class="pre">pipeline.replace(&quot;name&quot;,</span> <span class="pre">entry)</span></code> replaces a structural entry, and <code class="docutils literal notranslate"><span class="pre">pipeline.find(&quot;name&quot;,</span> <span class="pre">recursive=False)</span></code> searches for an entry by name.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pipeline.replace(&quot;name&quot;,</span> <span class="pre">entry)</span></code> replaces only a top-level structural entry.
+To replace a nested entry, use <code class="docutils literal notranslate"><span class="pre">find(name,</span> <span class="pre">recursive=True)</span></code> to get the nested Pipeline, then call <code class="docutils literal notranslate"><span class="pre">replace</span></code> on it.
+In a prepared run, a replacement takes effect at the next commit point.
+<code class="docutils literal notranslate"><span class="pre">to_spec</span></code> serializes constructor arguments, so it does not retain replacements made to a built-in strategy.
+Use the declaration or constructor arguments to persist a replacement.
+<code class="docutils literal notranslate"><span class="pre">pipeline.find(&quot;name&quot;,</span> <span class="pre">recursive=False)</span></code> searches for an entry by name.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Stage</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">stage_component</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">CountGenerationStage</span>

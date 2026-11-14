@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>外部ライブラリの統合 &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>外部ライブラリの統合 &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -563,7 +563,9 @@
 <h1>外部ライブラリの統合<a class="headerlink" href="#id1" title="Link to this heading">#</a></h1>
 <div class="layer-badges"><span class="layer-badge">Layer 3: Extend Components</span></div><p><code class="docutils literal notranslate"><span class="pre">saealib</span></code>は、外部の機械学習ライブラリおよび進化計算ライブラリを、独自の抽象基底クラスの背後に薄くラップしたアダプタを提供します。</p>
 <p>アダプタが翻訳するのは<code class="docutils literal notranslate"><span class="pre">Problem</span></code>/<code class="docutils literal notranslate"><span class="pre">Population</span></code>/<code class="docutils literal notranslate"><span class="pre">ctx</span></code>といった<code class="docutils literal notranslate"><span class="pre">saealib</span></code>側のデータ表現だけで、学習アルゴリズムや探索演算子そのものは外部ライブラリの実装をそのまま使います。</p>
-<p>現時点では、サロゲートモデルのアダプター（scikit-learn、XGBoost、LightGBM、PyTorch）と、pymooアダプター（<code class="docutils literal notranslate"><span class="pre">Crossover</span></code>/<code class="docutils literal notranslate"><span class="pre">Mutation</span></code>/<code class="docutils literal notranslate"><span class="pre">Algorithm</span></code>/<code class="docutils literal notranslate"><span class="pre">Problem</span></code>）を実装しています。外部の進化計算ライブラリへのランタイム依存を取り除きたい場合は、<a class="reference internal" href="custom_components.html#port-operators-to-native-saealib-code"><span class="std std-ref">saealibネイティブなコードへの演算子の移植</span></a>で、pymooやDEAP風の演算子をネイティブな<code class="docutils literal notranslate"><span class="pre">Crossover</span></code>/<code class="docutils literal notranslate"><span class="pre">Mutation</span></code>サブクラスとして書き直す方法を扱います。</p>
+<p>サロゲートモデル用にscikit-learn、XGBoost、LightGBM、PyTorchのアダプターを、進化計算ライブラリ用にpymooとDEAPのアダプターを実装しています。
+DEAPアダプターは<code class="docutils literal notranslate"><span class="pre">DeapCrossover</span></code>、<code class="docutils literal notranslate"><span class="pre">DeapMutation</span></code>、<code class="docutils literal notranslate"><span class="pre">DeapGenerateUpdateAlgorithm</span></code>で、<code class="docutils literal notranslate"><span class="pre">deap</span></code> extraに含まれます。
+外部の進化計算ライブラリへのランタイム依存を取り除きたい場合は、<a class="reference internal" href="custom_components.html#port-operators-to-native-saealib-code"><span class="std std-ref">saealibネイティブなコードへの演算子の移植</span></a>で、pymooやDEAP風の演算子をネイティブな<code class="docutils literal notranslate"><span class="pre">Crossover</span></code>/<code class="docutils literal notranslate"><span class="pre">Mutation</span></code>サブクラスとして書き直す方法を扱います。</p>
 <div class="tip admonition">
 <p class="admonition-title">このページでできるようになること</p>
 <p>このページを終えると、外部ライブラリの依存関係を導入し、saealibのアダプター経由でモデルや演算子を利用できます。</p>
@@ -723,6 +725,13 @@
 <p><code class="docutils literal notranslate"><span class="pre">PymooAlgorithm</span></code>は「エンジンモード」で動作します。
 ラップしたpymooアルゴリズムが自身の個体群と内部の生存選択状態を保持し、<code class="docutils literal notranslate"><span class="pre">ctx.population</span></code>は基準となるデータではなく、各世代後にそこから更新されます。実際の意味（チェックポイントと再開には非対応、<code class="docutils literal notranslate"><span class="pre">n_offspring</span></code>は無視される、<code class="docutils literal notranslate"><span class="pre">PreSelectionStrategy</span></code>の部分的な<code class="docutils literal notranslate"><span class="pre">tell()</span></code>には明示的なオプトインが必要）については<a class="reference internal" href="../concepts/search_algorithms/algorithm.html"><span class="std std-doc">Algorithm</span></a>を参照してください。</p>
 </section>
+<section id="deap">
+<h2>DEAPアダプターを使う<a class="headerlink" href="#deap" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">DeapCrossover</span></code>と<code class="docutils literal notranslate"><span class="pre">DeapMutation</span></code>は、DEAPの交叉関数と突然変異関数を<code class="docutils literal notranslate"><span class="pre">Crossover</span></code>と<code class="docutils literal notranslate"><span class="pre">Mutation</span></code>として利用します。
+<code class="docutils literal notranslate"><span class="pre">DeapGenerateUpdateAlgorithm</span></code>は、<code class="docutils literal notranslate"><span class="pre">generate</span></code>と<code class="docutils literal notranslate"><span class="pre">update</span></code>を持つDEAPのStrategy（<code class="docutils literal notranslate"><span class="pre">deap.cma.Strategy</span></code>など）をアルゴリズムとして利用します。
+<code class="docutils literal notranslate"><span class="pre">DeapGenerateUpdateAlgorithm</span></code>は制約なしの単目的問題のみをサポートし、<code class="docutils literal notranslate"><span class="pre">DeapCrossover</span></code>と<code class="docutils literal notranslate"><span class="pre">DeapMutation</span></code>は固定長の数値列に対応します。
+これらのアダプターには<code class="docutils literal notranslate"><span class="pre">deap</span></code> extraが必要です。</p>
+</section>
 <section id="id4">
 <h2>関連コンセプトと参考情報<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -733,6 +742,8 @@
 <li><p><a class="reference internal" href="../api/_autosummary/saealib.PymooCrossover.html#saealib.PymooCrossover" title="saealib.PymooCrossover"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.PymooCrossover</span></code></a> / <a class="reference internal" href="../api/_autosummary/saealib.PymooMutation.html#saealib.PymooMutation" title="saealib.PymooMutation"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.PymooMutation</span></code></a></p></li>
 <li><p><a class="reference internal" href="../api/_autosummary/saealib.PymooAlgorithm.html#saealib.PymooAlgorithm" title="saealib.PymooAlgorithm"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.PymooAlgorithm</span></code></a></p></li>
 <li><p><a class="reference internal" href="../api/_autosummary/saealib.PymooProblem.html#saealib.PymooProblem" title="saealib.PymooProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.PymooProblem</span></code></a></p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.operators.DeapCrossover</span></code> / <code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.operators.DeapMutation</span></code></p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">saealib.algorithms.DeapGenerateUpdateAlgorithm</span></code></p></li>
 <li><p><a class="reference internal" href="../api/highlevel.html#saealib.minimize" title="saealib.minimize"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.minimize()</span></code></a></p></li>
 </ul>
 </section>
@@ -788,6 +799,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">アダプター追加機能のインストール</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">サロゲートアダプターを使う</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pymoo">pymooアダプターを使う</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deap">DEAPアダプターを使う</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">関連コンセプトと参考情報</a></li>
 </ul>
   </nav></div>

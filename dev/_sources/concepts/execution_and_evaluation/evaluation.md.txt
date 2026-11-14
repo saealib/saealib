@@ -14,13 +14,14 @@ The two synchronous and asynchronous evaluation boundaries receive and return th
 
 | Boundary | Receives | Returns | Main users |
 |---|---|---|---|
-| graph-native boundary | `GenomeBatch → EvaluationAdapter → EvaluationPayload`, candidate IDs, proposal relations, and metadata | `ObservationBatch`, including partial, out-of-order, and repeated observations | Evaluator, asynchronous Scheduler, and structured runtime |
+| graph-native boundary | `GenomeBatch` selected by the evaluation planner's `EvaluationRequestBatch`, candidate IDs, proposal relations, and metadata | `ObservationBatch`, including partial, out-of-order, and repeated observations | Evaluator, asynchronous Scheduler, and structured runtime |
 | Stage compatibility boundary | `x`, `Problem`, and `EvaluationRequest` | `EvaluationResult` (`f`, `g`, `cv`, and optional `candidate_ids`) | Compatibility Stages and sequential compatibility runtime |
 
 Requests passed to the Evaluator or asynchronous Scheduler identify candidate IDs and the items to evaluate.
 The Evaluator and Runtime provider can switch between synchronous and asynchronous evaluation without changing the Pipeline's candidate-generation contract.
-`EvaluationAdapter` converts a `GenomeBatch` into the `EvaluationPayload` accepted by the Evaluator.
-The Evaluator evaluates the payload and matches observations by candidate ID, proposal relation, sequence, status, source, and completion semantics rather than by row position.
+`EvaluationRequestBatch` is the `DataSpec` kind declared on the evaluation planner's output port.
+The Evaluator receives the selected `GenomeBatch`. When `Problem.evaluation_adapter` is set, it passes the return value of `EvaluationAdapter.transform()` to `Problem.evaluate_batch()`; when it is unset and the input is a `DenseVectorBatch`, `SerialEvaluator` uses `DenseVectorBatch.array` as the payload.
+The Evaluator returns an `ObservationBatch` and matches observations by candidate ID, proposal relation, sequence, status, source, and completion semantics rather than by row position.
 
 On the Stage compatibility path, use `Evaluator.evaluate_batch(...) -> EvaluationResult`.
 `EvaluationRequest` holds a Request ID, candidate IDs, a GenomeBatch, and metadata.

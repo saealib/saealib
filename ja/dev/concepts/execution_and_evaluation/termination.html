@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Termination &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>Termination &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -638,10 +638,13 @@
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_gen(value)</span></code></p></td>
 <td><p>世代数が<code class="docutils literal notranslate"><span class="pre">value</span></code>に到達（<code class="docutils literal notranslate"><span class="pre">ctx.gen</span> <span class="pre">&gt;=</span> <span class="pre">value</span></code>）</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">f_target(value)</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_steps(value)</span></code></p></td>
+<td><p>完了したフロー実行数が<code class="docutils literal notranslate"><span class="pre">value</span></code>に到達（<code class="docutils literal notranslate"><span class="pre">ctx.step</span> <span class="pre">&gt;=</span> <span class="pre">value</span></code>）</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">f_target(value)</span></code></p></td>
 <td><p>アーカイブの最良目的値が<code class="docutils literal notranslate"><span class="pre">value</span></code>に到達。単目的向けで、<code class="docutils literal notranslate"><span class="pre">ctx.direction</span></code>から最小化/最大化を自動判定する。アーカイブが空の間は終了しない</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stalled(window,</span> <span class="pre">tol=1e-8)</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stalled(window,</span> <span class="pre">tol=1e-8)</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">window</span></code>世代連続で改善が<code class="docutils literal notranslate"><span class="pre">tol</span></code>を超えなければ終了</p></td>
 </tr>
 </tbody>
@@ -693,6 +696,7 @@
 <li><p><a class="reference internal" href="../../api/termination.html#saealib.max_gen" title="saealib.max_gen"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.max_gen()</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/termination.html#saealib.f_target" title="saealib.f_target"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.f_target()</span></code></a></p></li>
 <li><p><a class="reference internal" href="../../api/termination.html#saealib.stalled" title="saealib.stalled"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.stalled()</span></code></a></p></li>
+<li><p><a class="reference internal" href="../../api/termination.html#saealib.max_steps" title="saealib.max_steps"><code class="xref py py-func docutils literal notranslate"><span class="pre">saealib.max_steps()</span></code></a></p></li>
 </ul>
 </section>
 </section>

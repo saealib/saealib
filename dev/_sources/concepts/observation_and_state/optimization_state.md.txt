@@ -47,6 +47,10 @@ In a structured pipeline, `ComponentContract` declares which `StateKey`s are rea
 | `rng` | the random number generator |
 | `fe` | the number of true evaluations |
 | `gen` | the generation count |
+| `step` | The number of completed flow executions (count, initial value: 0) |
+| `decision_count` | The number of confirmed evaluation plans (infill decisions, initial value: 0) |
+| `region_counts` | Cumulative iteration counts for named Repeat and Loop regions, keyed by qualified identifier (initial value: `{}`) |
+| `comparator` | The `Comparator` resolved for the Optimizer |
 | `data` | extra data for Stage compatibility extensions |
 
 `population`, `archive`, and `pareto_archive` refer to named collections internally.

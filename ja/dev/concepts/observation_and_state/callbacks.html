@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>CallbackManager &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>CallbackManager &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -702,14 +702,25 @@ Eventは実行境界を観測するものであり、Eventのフィールドを�
 <h2>カスタムハンドラの登録と収束履歴の記録<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">cbmanager.register(EventType,</span> <span class="pre">handler)</span></code>で任意のハンドラを登録します。
 収束履歴を記録するには、クロージャで蓄積するリストを保持するハンドラを登録します。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenerationEndEvent</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenerationEndEvent</span><span class="p">,</span> <span class="n">Optimizer</span><span class="p">,</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">Termination</span><span class="p">,</span> <span class="n">max_fe</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">20</span><span class="p">)))</span>
 
 <span class="n">history</span> <span class="o">=</span> <span class="p">[]</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">record_best</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
     <span class="n">f</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">)</span>
-    <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">min</span><span class="p">()))</span>
+    <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()))</span>
 
 
 <span class="n">optimizer</span><span class="o">.</span><span class="n">cbmanager</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">GenerationEndEvent</span><span class="p">,</span> <span class="n">record_best</span><span class="p">)</span>
@@ -721,7 +732,25 @@ Eventは実行境界を観測するものであり、Eventのフィールドを�
 <section id="id5">
 <h2>ハイパーボリュームの追跡<a class="headerlink" href="#id5" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">logging_generation_hv(reference_point)</span></code>は、指定したreference pointに対する第一フロントのhypervolumeを世代ごとにログへ出力するハンドラを返します。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenerationStartEvent</span><span class="p">,</span> <span class="n">logging_generation_hv</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GenerationStartEvent</span><span class="p">,</span>
+    <span class="n">Optimizer</span><span class="p">,</span>
+    <span class="n">Problem</span><span class="p">,</span>
+    <span class="n">Termination</span><span class="p">,</span>
+    <span class="n">logging_generation_hv</span><span class="p">,</span>
+    <span class="n">max_fe</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">20</span><span class="p">)))</span>
 
 <span class="n">optimizer</span><span class="o">.</span><span class="n">cbmanager</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
     <span class="n">GenerationStartEvent</span><span class="p">,</span>
@@ -733,7 +762,25 @@ Eventは実行境界を観測するものであり、Eventのフィールドを�
 <section id="id6">
 <h2>既定ハンドラの差し替え<a class="headerlink" href="#id6" title="Link to this heading">#</a></h2>
 <p>自動登録された<code class="docutils literal notranslate"><span class="pre">logging_generation</span></code>は<code class="docutils literal notranslate"><span class="pre">unregister(event_type,</span> <span class="pre">func)</span></code>で削除でき、<code class="docutils literal notranslate"><span class="pre">replace(event_type,</span> <span class="pre">old,</span> <span class="pre">new)</span></code>で別のハンドラに置き換えられます。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenerationStartEvent</span><span class="p">,</span> <span class="n">logging_generation</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GenerationStartEvent</span><span class="p">,</span>
+    <span class="n">Optimizer</span><span class="p">,</span>
+    <span class="n">Problem</span><span class="p">,</span>
+    <span class="n">Termination</span><span class="p">,</span>
+    <span class="n">logging_generation</span><span class="p">,</span>
+    <span class="n">max_fe</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">20</span><span class="p">)))</span>
 
 <span class="n">optimizer</span><span class="o">.</span><span class="n">cbmanager</span><span class="o">.</span><span class="n">unregister</span><span class="p">(</span><span class="n">GenerationStartEvent</span><span class="p">,</span> <span class="n">logging_generation</span><span class="p">)</span>
 </pre></div>
@@ -755,7 +802,8 @@ Event発火後も<code class="docutils literal notranslate"><span class="pre">GA
 この手順はStage互換パスとgraph-nativeパスの両方で機能します。
 Componentが要求する再コンパイル経路については、<a class="reference internal" href="../execution_and_evaluation/strategies.html"><span class="std std-doc">OptimizationStrategy</span></a>の「実行時の差し替えの動作」を参照してください。
 Callbackハンドラは<code class="docutils literal notranslate"><span class="pre">RuntimeCommand</span></code>を返せません。
-Callbackクロージャで<code class="docutils literal notranslate"><span class="pre">optimizer.set_*()</span></code>を呼び出した変更は上述の経路で適用されますが、構成変更は<code class="docutils literal notranslate"><span class="pre">iterate()</span></code>側の手順として文書化されています。</p>
+Callbackクロージャで<code class="docutils literal notranslate"><span class="pre">optimizer.set_*()</span></code>を呼び出した変更は上述の経路で適用されますが、構成変更は<code class="docutils literal notranslate"><span class="pre">iterate()</span></code>側の手順として文書化されています。
+コールバック内でセッターを呼ぶ場合は、<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>をキャプチャしたクロージャをハンドラとして登録します。</p>
 </section>
 <section id="callbackmanageriterate">
 <h2>CallbackManagerとiterate()の使い分け<a class="headerlink" href="#callbackmanageriterate" title="Link to this heading">#</a></h2>

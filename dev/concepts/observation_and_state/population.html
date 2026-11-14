@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Population &#8212; saealib 0.1.1.dev48+gc8cc74297 documentation</title>
+    <title>Population &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=fdd9bf5b"></script>
+    <script src="../../_static/documentation_options.js?v=e821cf19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -600,7 +600,9 @@ Therefore, not every Problem can be converted into a floating-point <code class=
 <h2>Population’s role<a class="headerlink" href="#population-s-role" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">Population</span></code> holds Genomes, objective values, constraint values, constraint violations, and Algorithm-specific auxiliary attributes.
 A Genome can be represented by a <code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code> implementation such as <code class="docutils literal notranslate"><span class="pre">DenseVectorBatch</span></code>, <code class="docutils literal notranslate"><span class="pre">ObjectBatch</span></code>, or <code class="docutils literal notranslate"><span class="pre">PermutationBatch</span></code>.
-Use <code class="docutils literal notranslate"><span class="pre">x</span></code> or a dense numeric view only when the values can be safely obtained as numeric vectors.</p>
+For Genomes whose values can be safely obtained as numeric vectors, <code class="docutils literal notranslate"><span class="pre">x</span></code> exposes the numeric view values.
+Pass the numeric view service to the <code class="docutils literal notranslate"><span class="pre">Population</span></code> constructor with the <code class="docutils literal notranslate"><span class="pre">dense_numeric_view</span></code> argument.
+<code class="docutils literal notranslate"><span class="pre">dense_view</span></code> is a deprecated alias for <code class="docutils literal notranslate"><span class="pre">dense_numeric_view</span></code>; using it emits a <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">Population.genomes</span></code> is a read-only view borrowed from the live Population’s genome storage, not an immutable snapshot.
 Subsequent Population operations such as <code class="docutils literal notranslate"><span class="pre">update_array</span></code> may update that storage in place, so the contents observed through an existing <code class="docutils literal notranslate"><span class="pre">genomes</span></code> view can change.</p>
 <p>Use <code class="docutils literal notranslate"><span class="pre">Population</span></code> as an instance in ordinary cases, and subclass it only when custom individual management is needed.</p>

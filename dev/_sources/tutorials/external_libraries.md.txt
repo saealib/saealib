@@ -9,7 +9,9 @@ page_type: guide
 
 The adapter only translates `saealib`-side data representations such as `Problem`/`Population`/`ctx`; the learning algorithm or search operator itself uses the external library's implementation as-is.
 
-Currently, surrogate model adapters (scikit-learn, XGBoost, LightGBM, PyTorch) and pymoo adapters (`Crossover`/`Mutation`/`Algorithm`/`Problem`) are implemented. For users who would rather remove the runtime dependency on an external evolutionary-computation library, {ref}`Porting operators to native saealib code <port-operators-to-native-saealib-code>` covers rewriting a pymoo- or DEAP-style operator as a native `Crossover`/`Mutation` subclass instead.
+Adapters for scikit-learn, XGBoost, LightGBM, and PyTorch surrogate models, and for the evolutionary-computation libraries pymoo and DEAP, are implemented.
+The DEAP adapters are `DeapCrossover`, `DeapMutation`, and `DeapGenerateUpdateAlgorithm`, and are included in the `deap` extra.
+For users who want to remove the runtime dependency on an external evolutionary-computation library, {ref}`Porting operators to native saealib code <port-operators-to-native-saealib-code>` covers rewriting a pymoo- or DEAP-style operator as a native `Crossover`/`Mutation` subclass.
 
 :::{admonition} What you'll be able to do
 :class: tip
@@ -142,6 +144,13 @@ result = minimize(
 `PymooAlgorithm` runs in "engine mode": the wrapped pymoo algorithm owns its own population and internal survival state, and `ctx.population` is refreshed from it after every generation rather than being the source of truth.
 See [Algorithm](../concepts/search_algorithms/algorithm.md) for what this means in practice (no checkpoint/resume, `n_offspring` is ignored, and `PreSelectionStrategy`'s partial `tell()` needs an explicit opt-in).
 
+## Use DEAP adapters
+
+`DeapCrossover` and `DeapMutation` use DEAP crossover and mutation functions as `Crossover` and `Mutation` components.
+`DeapGenerateUpdateAlgorithm` uses a DEAP Strategy with `generate` and `update` methods, such as `deap.cma.Strategy`, as an algorithm.
+`DeapGenerateUpdateAlgorithm` supports unconstrained single-objective problems only; `DeapCrossover` and `DeapMutation` support fixed-length numeric sequences.
+These adapters require the `deap` extra.
+
 ## Related concepts and reference
 
 - {py:class}`saealib.Surrogate`
@@ -151,4 +160,6 @@ See [Algorithm](../concepts/search_algorithms/algorithm.md) for what this means 
 - {py:class}`saealib.PymooCrossover` / {py:class}`saealib.PymooMutation`
 - {py:class}`saealib.PymooAlgorithm`
 - {py:class}`saealib.PymooProblem`
+- {py:class}`saealib.operators.DeapCrossover` / {py:class}`saealib.operators.DeapMutation`
+- {py:class}`saealib.algorithms.DeapGenerateUpdateAlgorithm`
 - {py:func}`saealib.minimize`

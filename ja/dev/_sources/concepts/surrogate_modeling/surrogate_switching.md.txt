@@ -50,7 +50,36 @@ page_type: concept
 次の例では、`iterate()`と`optimizer.set_*()`で構成を変更します。実行環境が変更を検出して計画を再コンパイルし、次の世代から変更を適用します。この手順は、反復中に構成を変更する他のケースにも使えます。
 
 ```python
+import numpy as np
+from saealib import Optimizer, Problem, Termination, max_fe
+from saealib.surrogate import (
+    ArchiveObjectiveSet,
+    GlobalSurrogateManager,
+    KFoldAccuracyEvaluator,
+    ManagerSwitcher,
+    SklearnGPRSurrogate,
+)
+
+problem = Problem(
+    lambda x: np.sum(x**2),
+    dim=2,
+    n_obj=1,
+    direction=np.array([-1.0]),
+    lb=[-5.0, -5.0],
+    ub=[5.0, 5.0],
+)
+evaluator = KFoldAccuracyEvaluator(n_splits=3)
+primary = GlobalSurrogateManager(
+    SklearnGPRSurrogate(), ArchiveObjectiveSet(), accuracy_evaluator=evaluator
+)
+fallback = GlobalSurrogateManager(SklearnGPRSurrogate(), ArchiveObjectiveSet())
 switcher = ManagerSwitcher(primary, fallback)
+optimizer = (
+    Optimizer(problem, seed=0)
+    .set_surrogate_manager(primary)
+    .set_termination(Termination(max_fe(30)))
+)
+
 for ctx in optimizer.iterate():
     optimizer.set_surrogate_manager(
         switcher.switch(optimizer.surrogate_manager.last_accuracy)
@@ -60,10 +89,12 @@ for ctx in optimizer.iterate():
 | クラス | パラメータ | 切り替える対象 |
 |---|---|---|
 | `ManagerSwitcher` | `primary, fallback, *, metric="spearman", threshold=0.5` | `SurrogateManager` |
-| `StrategySwitcher` | `primary, fallback, *, metric="spearman", threshold=0.56` | `OptimizationStrategy` |
+| `StrategySwitcher` | `primary, fallback, *, metric="spearman", threshold=0.56, mid=None, mid_threshold=None` | `OptimizationStrategy` |
 | `GenCtrlSwitcher` | `*, gm_max=5, gm_min=0, update_rate=0.5, metric="spearman", initial_error=0.5` | `gen_ctrl`（整数） |
 
-`ManagerSwitcher`/`StrategySwitcher`は、指定した指標が閾値以上なら`primary`、そうでなければ`fallback`を返す単純な二値切り替えです。 `StrategySwitcher`の既定閾値`0.56`は、{cite}`hanawa2025switching`によるPS/IB-GB切り替えの設定値に基づきます。
+`ManagerSwitcher`は、指定した指標が閾値以上なら`primary`、そうでなければ`fallback`を返します。`StrategySwitcher`もこの二分岐で動作し、`mid`と`mid_threshold`を両方指定すると、`threshold`未満では`fallback`、`threshold`以上`mid_threshold`未満では`mid`、それ以上では`primary`を返します。
+三分岐を使う場合は`mid`と`mid_threshold`を両方指定し、片方だけ指定すると`ValidationError`になります。
+`StrategySwitcher`の既定閾値`0.56`は、{cite}`hanawa2025switching`によるPS/IB-GB切り替えの設定値に基づきます。
 
 `GenCtrlSwitcher`は、二値切り替えではなく`gen_ctrl`を指数平滑化で連続的に調整します{cite}`repicky2017genctrl`。 公開属性`smoothed_error`に平滑化済みの誤差推定値を保持する状態を持つため、1回の`run`につき1つのインスタンスを使います。 `GenCtrlSwitcher.switch()`が返す`int`は、そのまま[GenerationBasedStrategy](../execution_and_evaluation/strategies.md)の`gen_ctrl`引数に渡す想定です。
 

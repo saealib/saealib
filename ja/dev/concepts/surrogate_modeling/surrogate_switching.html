@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>AccuracyBasedSurrogateSwitcher &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>AccuracyBasedSurrogateSwitcher &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -664,7 +664,36 @@
 <h2>切り替え判断：AccuracyBasedSurrogateSwitcher<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">AccuracyBasedSurrogateSwitcher</span></code>が実装する必要があるメソッドは<code class="docutils literal notranslate"><span class="pre">switch(accuracy:</span> <span class="pre">SurrogateAccuracy</span> <span class="pre">|</span> <span class="pre">None)</span> <span class="pre">-&gt;</span> <span class="pre">T</span></code>の1つだけです。精度結果から次のコンポーネントまたはパラメータを選びます。その選択をRuntimeの計画へ適用する操作は別です。</p>
 <p>次の例では、<code class="docutils literal notranslate"><span class="pre">iterate()</span></code>と<code class="docutils literal notranslate"><span class="pre">optimizer.set_*()</span></code>で構成を変更します。実行環境が変更を検出して計画を再コンパイルし、次の世代から変更を適用します。この手順は、反復中に構成を変更する他のケースにも使えます。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">switcher</span> <span class="o">=</span> <span class="n">ManagerSwitcher</span><span class="p">(</span><span class="n">primary</span><span class="p">,</span> <span class="n">fallback</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimizer</span><span class="p">,</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">Termination</span><span class="p">,</span> <span class="n">max_fe</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.surrogate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ArchiveObjectiveSet</span><span class="p">,</span>
+    <span class="n">GlobalSurrogateManager</span><span class="p">,</span>
+    <span class="n">KFoldAccuracyEvaluator</span><span class="p">,</span>
+    <span class="n">ManagerSwitcher</span><span class="p">,</span>
+    <span class="n">SklearnGPRSurrogate</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">Problem</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_obj</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">lb</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">5.0</span><span class="p">],</span>
+    <span class="n">ub</span><span class="o">=</span><span class="p">[</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">evaluator</span> <span class="o">=</span> <span class="n">KFoldAccuracyEvaluator</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">primary</span> <span class="o">=</span> <span class="n">GlobalSurrogateManager</span><span class="p">(</span>
+    <span class="n">SklearnGPRSurrogate</span><span class="p">(),</span> <span class="n">ArchiveObjectiveSet</span><span class="p">(),</span> <span class="n">accuracy_evaluator</span><span class="o">=</span><span class="n">evaluator</span>
+<span class="p">)</span>
+<span class="n">fallback</span> <span class="o">=</span> <span class="n">GlobalSurrogateManager</span><span class="p">(</span><span class="n">SklearnGPRSurrogate</span><span class="p">(),</span> <span class="n">ArchiveObjectiveSet</span><span class="p">())</span>
+<span class="n">switcher</span> <span class="o">=</span> <span class="n">ManagerSwitcher</span><span class="p">(</span><span class="n">primary</span><span class="p">,</span> <span class="n">fallback</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">Optimizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_surrogate_manager</span><span class="p">(</span><span class="n">primary</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_termination</span><span class="p">(</span><span class="n">Termination</span><span class="p">(</span><span class="n">max_fe</span><span class="p">(</span><span class="mi">30</span><span class="p">)))</span>
+<span class="p">)</span>
+
 <span class="k">for</span> <span class="n">ctx</span> <span class="ow">in</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">iterate</span><span class="p">():</span>
     <span class="n">optimizer</span><span class="o">.</span><span class="n">set_surrogate_manager</span><span class="p">(</span>
         <span class="n">switcher</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">optimizer</span><span class="o">.</span><span class="n">surrogate_manager</span><span class="o">.</span><span class="n">last_accuracy</span><span class="p">)</span>
@@ -684,7 +713,7 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">SurrogateManager</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">StrategySwitcher</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">primary,</span> <span class="pre">fallback,</span> <span class="pre">*,</span> <span class="pre">metric=&quot;spearman&quot;,</span> <span class="pre">threshold=0.56</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">primary,</span> <span class="pre">fallback,</span> <span class="pre">*,</span> <span class="pre">metric=&quot;spearman&quot;,</span> <span class="pre">threshold=0.56,</span> <span class="pre">mid=None,</span> <span class="pre">mid_threshold=None</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GenCtrlSwitcher</span></code></p></td>
@@ -694,7 +723,9 @@
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">ManagerSwitcher</span></code>/<code class="docutils literal notranslate"><span class="pre">StrategySwitcher</span></code>は、指定した指標が閾値以上なら<code class="docutils literal notranslate"><span class="pre">primary</span></code>、そうでなければ<code class="docutils literal notranslate"><span class="pre">fallback</span></code>を返す単純な二値切り替えです。 <code class="docutils literal notranslate"><span class="pre">StrategySwitcher</span></code>の既定閾値<code class="docutils literal notranslate"><span class="pre">0.56</span></code>は、<span class="bibtex-citation" id="id4">[<a class="reference internal" href="../../references.html#id55" title="Yuki Hanawa, Tomohiro Harada, and Yukiya Miura. Impact of surrogate model accuracy on performance and model management strategy in surrogate-assisted evolutionary algorithms. Array, 27:100461, 2025. doi:10.1016/j.array.2025.100461.">34</a>]</span>によるPS/IB-GB切り替えの設定値に基づきます。</p>
+<p><code class="docutils literal notranslate"><span class="pre">ManagerSwitcher</span></code>は、指定した指標が閾値以上なら<code class="docutils literal notranslate"><span class="pre">primary</span></code>、そうでなければ<code class="docutils literal notranslate"><span class="pre">fallback</span></code>を返します。<code class="docutils literal notranslate"><span class="pre">StrategySwitcher</span></code>もこの二分岐で動作し、<code class="docutils literal notranslate"><span class="pre">mid</span></code>と<code class="docutils literal notranslate"><span class="pre">mid_threshold</span></code>を両方指定すると、<code class="docutils literal notranslate"><span class="pre">threshold</span></code>未満では<code class="docutils literal notranslate"><span class="pre">fallback</span></code>、<code class="docutils literal notranslate"><span class="pre">threshold</span></code>以上<code class="docutils literal notranslate"><span class="pre">mid_threshold</span></code>未満では<code class="docutils literal notranslate"><span class="pre">mid</span></code>、それ以上では<code class="docutils literal notranslate"><span class="pre">primary</span></code>を返します。
+三分岐を使う場合は<code class="docutils literal notranslate"><span class="pre">mid</span></code>と<code class="docutils literal notranslate"><span class="pre">mid_threshold</span></code>を両方指定し、片方だけ指定すると<code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>になります。
+<code class="docutils literal notranslate"><span class="pre">StrategySwitcher</span></code>の既定閾値<code class="docutils literal notranslate"><span class="pre">0.56</span></code>は、<span class="bibtex-citation" id="id4">[<a class="reference internal" href="../../references.html#id55" title="Yuki Hanawa, Tomohiro Harada, and Yukiya Miura. Impact of surrogate model accuracy on performance and model management strategy in surrogate-assisted evolutionary algorithms. Array, 27:100461, 2025. doi:10.1016/j.array.2025.100461.">34</a>]</span>によるPS/IB-GB切り替えの設定値に基づきます。</p>
 <p><code class="docutils literal notranslate"><span class="pre">GenCtrlSwitcher</span></code>は、二値切り替えではなく<code class="docutils literal notranslate"><span class="pre">gen_ctrl</span></code>を指数平滑化で連続的に調整します<span class="bibtex-citation" id="id5">[<a class="reference internal" href="../../references.html#id56" title="Jiří Repický, Lukas Bajer, Zbyněk Pitra, and Martin Holeňa. Adaptive generation-based evolution control for gaussian process surrogate models. In Proceedings of the 17th Conference on Information Technologies – Applications and Theory (ITAT 2017), volume 1885 of CEUR Workshop Proceedings, 136–143. 2017.">35</a>]</span>。 公開属性<code class="docutils literal notranslate"><span class="pre">smoothed_error</span></code>に平滑化済みの誤差推定値を保持する状態を持つため、1回の<code class="docutils literal notranslate"><span class="pre">run</span></code>につき1つのインスタンスを使います。 <code class="docutils literal notranslate"><span class="pre">GenCtrlSwitcher.switch()</span></code>が返す<code class="docutils literal notranslate"><span class="pre">int</span></code>は、そのまま<a class="reference internal" href="../execution_and_evaluation/strategies.html"><span class="std std-doc">GenerationBasedStrategy</span></a>の<code class="docutils literal notranslate"><span class="pre">gen_ctrl</span></code>引数に渡す想定です。</p>
 <p>コンポーネント側から再コンパイルを要求する経路については、<a class="reference internal" href="../execution_and_evaluation/strategies.html"><span class="std std-doc">OptimizationStrategy</span></a>の「ランタイム差し替えの動作」を参照してください。</p>
 </section>

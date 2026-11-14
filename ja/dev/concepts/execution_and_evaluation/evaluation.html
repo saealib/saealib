@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Evaluator &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>Evaluator &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -606,7 +606,7 @@
 </thead>
 <tbody>
 <tr class="row-even"><td><p>graph-native境界</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">GenomeBatch</span> <span class="pre">→</span> <span class="pre">EvaluationAdapter</span> <span class="pre">→</span> <span class="pre">EvaluationPayload</span></code>、候補ID、提案関係、メタデータ</p></td>
+<td><p>評価プランナーの<code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code>で選ばれた<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>、候補ID、提案関係、メタデータ</p></td>
 <td><p>部分的・順不同・反復を含む <code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code></p></td>
 <td><p>Evaluator、非同期Scheduler、構造化ランタイム</p></td>
 </tr>
@@ -618,7 +618,11 @@
 </tbody>
 </table>
 </div>
-<p>Evaluatorまたは非同期Schedulerへ渡されるRequestは、候補IDと評価対象を識別する情報を持ちます。評価が同期か非同期かは、パイプライン側の候補生成契約を変えずにEvaluatorとランタイムプロバイダーで切り替えられます。<code class="docutils literal notranslate"><span class="pre">EvaluationAdapter</span></code>は<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>をEvaluatorが受け取る<code class="docutils literal notranslate"><span class="pre">EvaluationPayload</span></code>へ変換します。Evaluatorはペイロードを評価し、観測の対応付けを候補ID、提案関係、順序、状態、出所、完了の意味論で行い、行位置を前提にしません。</p>
+<p>Evaluatorまたは非同期Schedulerへ渡されるRequestは、候補IDと評価対象を識別する情報を持ちます。
+評価が同期か非同期かは、パイプライン側の候補生成契約を変えずにEvaluatorとランタイムプロバイダーで切り替えられます。
+<code class="docutils literal notranslate"><span class="pre">EvaluationRequestBatch</span></code>は、評価プランナーの出力ポートに宣言された<code class="docutils literal notranslate"><span class="pre">DataSpec</span></code>のkindです。
+Evaluatorは選択された<code class="docutils literal notranslate"><span class="pre">GenomeBatch</span></code>を受け取ります。<code class="docutils literal notranslate"><span class="pre">Problem.evaluation_adapter</span></code>が設定されている場合は<code class="docutils literal notranslate"><span class="pre">EvaluationAdapter.transform()</span></code>の戻り値を<code class="docutils literal notranslate"><span class="pre">Problem.evaluate_batch()</span></code>に渡し、未設定で入力が<code class="docutils literal notranslate"><span class="pre">DenseVectorBatch</span></code>の場合は<code class="docutils literal notranslate"><span class="pre">SerialEvaluator</span></code>が<code class="docutils literal notranslate"><span class="pre">DenseVectorBatch.array</span></code>をpayloadとして使います。
+Evaluatorの出力は<code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code>で、候補ID、提案関係、順序、状態、出所、完了の意味論で観測を対応付け、行位置を前提にしません。</p>
 <p>Stage互換経路では<code class="docutils literal notranslate"><span class="pre">Evaluator.evaluate_batch(...)</span> <span class="pre">-&gt;</span> <span class="pre">EvaluationResult</span></code>を使います。<code class="docutils literal notranslate"><span class="pre">EvaluationRequest</span></code>はRequest ID、候補ID、GenomeBatch、メタデータを保持します。互換性境界でのみ、<code class="docutils literal notranslate"><span class="pre">EvaluationResult</span></code>は<code class="docutils literal notranslate"><span class="pre">f</span></code>、<code class="docutils literal notranslate"><span class="pre">g</span></code>、<code class="docutils literal notranslate"><span class="pre">cv</span></code>の形状と行数の規則を満たす必要があります。<code class="docutils literal notranslate"><span class="pre">candidate_ids</span></code>を指定した場合は一意で、結果の行数と一致しなければなりません。<code class="docutils literal notranslate"><span class="pre">Evaluator.submit</span></code>が<code class="docutils literal notranslate"><span class="pre">candidate_ids</span></code>を返す場合、それらはリクエストの候補IDと完全に一致しなければなりません。外部の<code class="docutils literal notranslate"><span class="pre">ObservationBatch</span></code>に行順を使わせる必要はありません。</p>
 <p><code class="docutils literal notranslate"><span class="pre">EvaluationResult</span></code> は、評価結果の配列と候補IDを保持するデータクラスです。</p>
 <ul class="simple">

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>比較器 &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>比較器 &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1156,6 +1156,29 @@ SPEA2: Improving the Strength Pareto Evolutionary Algorithm. TIK-Report
 103, ETH Zurich, Switzerland.</p>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="saealib.comparators.default_comparator">
+<span class="sig-prename descclassname"><span class="pre">saealib.comparators.</span></span><span class="sig-name descname"><span class="pre">default_comparator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_obj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/saealib/comparators/comparators.html#default_comparator"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.comparators.default_comparator" title="Link to this definition">#</a></dt>
+<dd><p>Return the comparator selected for a problem with this objective count.</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_obj</strong> (<em>int</em>) -- Number of objectives of the problem.</p></li>
+<li><p><strong>direction</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) -- Per-objective optimization directions. shape = (n_obj, )</p></li>
+<li><p><strong>eps_cv</strong> (<em>float</em><em>, </em><em>optional</em>) -- Constraint-violation tolerance of the returned comparator.</p></li>
+<li><p><strong>eps_obj</strong> (<em>float</em><em>, </em><em>optional</em>) -- Objective-value tolerance of the returned comparator.</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">SingleObjectiveComparator</span></code> when <code class="docutils literal notranslate"><span class="pre">n_obj</span> <span class="pre">==</span> <span class="pre">1</span></code>, otherwise
+<code class="docutils literal notranslate"><span class="pre">NSGA2Comparator</span></code>.</p>
+</dd>
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="_autosummary/saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator">Comparator</a></p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 </section>
 
@@ -1215,6 +1238,7 @@ SPEA2: Improving the Strength Pareto Evolutionary Algorithm. TIK-Report
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.crowding_distance"><code class="docutils literal notranslate"><span class="pre">crowding_distance()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.crowding_distance_all_fronts"><code class="docutils literal notranslate"><span class="pre">crowding_distance_all_fronts()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.spea2_fitness"><code class="docutils literal notranslate"><span class="pre">spea2_fitness()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.comparators.default_comparator"><code class="docutils literal notranslate"><span class="pre">default_comparator()</span></code></a></li>
 </ul>
 </li>
 </ul>

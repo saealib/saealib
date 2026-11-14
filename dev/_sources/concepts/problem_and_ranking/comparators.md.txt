@@ -10,9 +10,18 @@ page_type: concept
 Pass it with `Optimizer.set_comparator()`.
 
 ```python
-from saealib import Optimizer
+import numpy as np
+from saealib import Optimizer, Problem
 from saealib.comparators import HypervolumeComparator
 
+problem = Problem(
+    lambda x: np.array([x[0], 1.0 - x[0]]),
+    dim=1,
+    n_obj=2,
+    direction=np.array([-1.0, -1.0]),
+    lb=[0.0],
+    ub=[1.0],
+)
 optimizer = Optimizer(problem, seed=0).set_comparator(HypervolumeComparator())
 ctx = optimizer.run()
 print(ctx.comparator is optimizer.comparator)  # True
@@ -20,7 +29,8 @@ print(ctx.comparator is optimizer.comparator)  # True
 
 The comparator is an optimizer binding slot, not part of the problem.
 When no comparator is set, `Optimizer` selects one from the number of objectives (`SingleObjectiveComparator` when `n_obj == 1`, `NSGA2Comparator` when `n_obj > 1`) and records that origin as a framework default; a comparator set explicitly always wins.
-The comparator receives the problem's `direction` when it enters the slot if its own `direction` is unset, and `Optimizer.validate()` reports a comparator whose direction, per-objective weights, or reference points do not match the problem's objective count.
+The comparator receives the problem's `direction` when it enters the slot if its own `direction` is unset.
+A comparator whose direction, per-objective weights, or reference points do not match the problem's objective count is reported by `Optimizer.validate()` or `contract_diagnostics()` with diagnostic codes `direction_length_mismatch`, `objective_count_mismatch`, and `reference_points_dimension_mismatch`.
 During a run every component reads the active comparator through `state.comparator`, so the epsilon threshold a constraint handler writes each generation reaches the same object the search orders solutions with.
 
 `Problem(comparator=...)` and `Problem(eps_obj=...)` are deprecated.
@@ -72,7 +82,11 @@ This covers every built-in comparator except `SPEA2Comparator`: even `NSGA2Compa
 This class is the sole exception where the passed `direction` is used directly as the scalarization weights (`score = f @ direction`).
 Not just the sign but also the magnitude functions as a weight, which is a treatment specific to this class, different from the general role split described in [Problem](problem.md) where "`direction` is sign only, and weight magnitude is a separate concept."
 
-All built-in comparators default `eps_cv` to `0.0`, the same default as `Problem` and `ParetoArchive`, so `cv == 0` marks a feasible solution. During an `Optimizer` run the runtime copies `handler.feasibility_threshold` onto `eps_cv` every generation, which is how `EpsilonConstraintHandler` relaxes the search without changing reported feasibility.
+All built-in comparators default `eps_cv` to `0.0`, the same default as `Problem` and `ParetoArchive`.
+Thus `cv == 0` marks a feasible solution.
+During an `Optimizer` run, `handler.feasibility_threshold` is copied onto `eps_cv` at preparation and at the end of every generation.
+`EpsilonConstraintHandler` uses this mechanism to relax the search without changing reported feasibility.
+A comparator's constructor `eps_cv` value is overwritten at preparation and at the end of every generation, so it is not used for comparisons during a run.
 
 `ParetoComparator(direction=None, *, eps_cv=0.0, eps_obj=1e-6, sorter=non_dominated_sort, dominator=None)` ranks the population by dominance relation alone.
 It's the common base of `NSGA2Comparator`/`HypervolumeComparator`/`NSGA3Comparator`/`RNSGA2Comparator`/`EpsilonDominanceComparator`, and can also be used standalone as a concrete class.
@@ -175,3 +189,4 @@ Separately, if that metric also needs to survive being carried into a smaller po
 - {py:class}`saealib.NSGA3Comparator`
 - {py:class}`saealib.RNSGA2Comparator`
 - {py:func}`saealib.hypervolume`
+- {py:func}`saealib.comparators.default_comparator`

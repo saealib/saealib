@@ -81,7 +81,12 @@ Selectionは比較と乱数を必要とするため、組み込み実装は `ctx
 
 構造化PipelineへStageを入れるときは、`stage_component(stage)` で互換性境界を明示します。 Optimizerは内部でこのDSLをGraphへlowerし、構造化Runtimeで実行できる計画へ変換します。 通常の利用者がCompilerを直接呼び出す必要はありません。
 
-`pipeline.replace("name", entry)` は構造上のエントリを置き換え、`pipeline.find("name", recursive=False)` は名前でエントリを検索します。
+`pipeline.replace("name", entry)` はトップレベルの構造エントリのみを置き換えます。
+入れ子のエントリを置き換えるには、`find(name, recursive=True)` で対象の入れ子パイプラインを取得してその上で `replace` を呼び出します。
+準備済みの実行において差し替えが反映されるのは次の確定点（commit point）です。
+`to_spec` はコンストラクタ引数をシリアライズするため、組み込み戦略での差し替え内容はspecに保持されません。
+差し替えを永続化するには、宣言やコンストラクタ引数を利用します。
+`pipeline.find("name", recursive=False)` は名前でエントリを検索します。
 
 ```python
 from saealib import Pipeline, Stage

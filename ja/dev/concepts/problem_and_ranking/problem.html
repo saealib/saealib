@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Problem &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>Problem &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -612,7 +612,9 @@
 <p><strong><code class="docutils literal notranslate"><span class="pre">constraints</span></code></strong>：不等式制約（<code class="docutils literal notranslate"><span class="pre">InequalityConstraint</span></code>）のリストです。定義方法は<a class="reference internal" href="../../tutorials/constraints.html"><span class="std std-doc">制約付き最適化</span></a>で説明します。</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">eps_cv</span></code></strong>/<strong><code class="docutils literal notranslate"><span class="pre">eps_obj</span></code></strong>：いずれも非推奨の探索側の許容誤差です。
 実行可能性は<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>ではなく制約定義で決まります。制約ごとの違反量が許容幅の内側ですべて0の解が実行可能であり、<code class="docutils literal notranslate"><span class="pre">Result</span></code>、履歴の<code class="docutils literal notranslate"><span class="pre">best_f</span></code>と<code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>、学習データのラベル、Paretoアーカイブはすべてこの判定を使います。
-<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>に値を渡すと<code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>が出て、既定のハンドラの探索側の緩和として設定されます。ランタイムはその値を毎世代comparatorの<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>へ書き写すため、探索が実行可能とみなす範囲が広がりますが、報告される実行可能性は変わりません。
+<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>に値を渡すと<code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>が出て、制約の許容幅または<code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code>を使うよう案内されます。
+渡された値は既定のハンドラの探索側の緩和として設定され、ランタイムはその値を毎世代comparatorの<code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>へ書き写します。
+探索が実行可能とみなす範囲は広がりますが、報告される実行可能性は変わりません。
 省略時の既定は<code class="docutils literal notranslate"><span class="pre">0.0</span></code>で、制約による判定と一致します。実際に使われる緩和値は<code class="docutils literal notranslate"><span class="pre">handler.feasibility_threshold</span></code>です。
 <code class="docutils literal notranslate"><span class="pre">eps_obj</span></code>も既定のcomparatorの許容誤差を決めるだけで、ここに値を渡すと<code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code>が出ます。許容誤差は<code class="docutils literal notranslate"><span class="pre">Optimizer.set_comparator()</span></code>で設定するcomparatorに渡してください。</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">cv_aggregator</span></code></strong>：<code class="docutils literal notranslate"><span class="pre">cv_aggregator(constraints,</span> <span class="pre">x,</span> <span class="pre">g)</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code>というcallableで、<code class="docutils literal notranslate"><span class="pre">cv</span></code>を計算して<code class="docutils literal notranslate"><span class="pre">handler.compute_cv</span></code>を置き換えます。通常の関数も使えます。
@@ -629,8 +631,12 @@
 </section>
 <section id="id2">
 <h2>Problemが保持するもの<a class="headerlink" href="#id2" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">direction</span></code>は、符号だけを表すsaealib全体で統一された<code class="docutils literal notranslate"><span class="pre">±1</span></code>配列です。一方、<code class="docutils literal notranslate"><span class="pre">WeightedSumComparator</span></code>や<code class="docutils literal notranslate"><span class="pre">DecompositionComparator</span></code>が受け取る<code class="docutils literal notranslate"><span class="pre">weights</span></code>は、複数の目的をスカラー値へ集約するための非負の重みであり、方向とは独立した別の概念です。</p>
-<p>この役割分担のもとでは、目的の重要度そのもの（スケーリング）を<code class="docutils literal notranslate"><span class="pre">weights</span></code>で表現することはできません。 目的関数値の大きさを調整したい場合は<code class="docutils literal notranslate"><span class="pre">func</span></code>の内部でスケーリングします。 <code class="docutils literal notranslate"><span class="pre">direction</span></code>は符号だけを、<code class="docutils literal notranslate"><span class="pre">weights</span></code>は集約の重み配分だけを表す、という2軸に整理されています。</p>
+<p><code class="docutils literal notranslate"><span class="pre">direction</span></code>は、符号だけを表すsaealib全体で統一された<code class="docutils literal notranslate"><span class="pre">±1</span></code>配列です。
+<code class="docutils literal notranslate"><span class="pre">DecompositionComparator</span></code>が受け取る<code class="docutils literal notranslate"><span class="pre">weights</span></code>は、複数の目的をスカラー値へ集約する非負の重みであり、方向とは独立しています。
+<code class="docutils literal notranslate"><span class="pre">WeightedSumComparator</span></code>は<code class="docutils literal notranslate"><span class="pre">weights</span></code>パラメータを持たず、符号付き重みベクトルとして<code class="docutils literal notranslate"><span class="pre">direction</span></code>を使います。</p>
+<p><code class="docutils literal notranslate"><span class="pre">DecompositionComparator</span></code>では<code class="docutils literal notranslate"><span class="pre">weights</span></code>が集約時の配分を表します。
+目的関数値のスケールを調整したい場合は<code class="docutils literal notranslate"><span class="pre">func</span></code>の内部でスケーリングします。
+<code class="docutils literal notranslate"><span class="pre">direction</span></code>は符号を、<code class="docutils literal notranslate"><span class="pre">DecompositionComparator</span></code>の<code class="docutils literal notranslate"><span class="pre">weights</span></code>は集約配分を表します。</p>
 </section>
 <section id="id3">
 <h2>不変条件<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>

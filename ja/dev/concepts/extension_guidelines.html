@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>拡張ガイドライン &#8212; saealib 0.1.1.dev48+gc8cc74297 ドキュメント</title>
+    <title>拡張ガイドライン &#8212; saealib 0.1.1.dev49+g6ff252f2d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=64c304f5"></script>
+    <script src="../_static/documentation_options.js?v=713b74b7"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -701,7 +701,12 @@
 <h2>PipelineとStage<a class="headerlink" href="#pipelinestage" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">Stage</span></code> と <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> には、互換性用の実行経路と構造化DSLの二つの境界があります。 Stageは <code class="docutils literal notranslate"><span class="pre">OptimizationState</span></code> を受け取り、更新した状態を返す互換性用の実行単位です。 一方、構造化Pipelineはgraph-native component、入れ子のPipeline、<code class="docutils literal notranslate"><span class="pre">Repeat</span></code>、<code class="docutils literal notranslate"><span class="pre">Loop</span></code>、<code class="docutils literal notranslate"><span class="pre">Branch</span></code>を保持し、状態を直接実行しません。</p>
 <p>構造化PipelineへStageを入れるときは、<code class="docutils literal notranslate"><span class="pre">stage_component(stage)</span></code> で互換性境界を明示します。 Optimizerは内部でこのDSLをGraphへlowerし、構造化Runtimeで実行できる計画へ変換します。 通常の利用者がCompilerを直接呼び出す必要はありません。</p>
-<p><code class="docutils literal notranslate"><span class="pre">pipeline.replace(&quot;name&quot;,</span> <span class="pre">entry)</span></code> は構造上のエントリを置き換え、<code class="docutils literal notranslate"><span class="pre">pipeline.find(&quot;name&quot;,</span> <span class="pre">recursive=False)</span></code> は名前でエントリを検索します。</p>
+<p><code class="docutils literal notranslate"><span class="pre">pipeline.replace(&quot;name&quot;,</span> <span class="pre">entry)</span></code> はトップレベルの構造エントリのみを置き換えます。
+入れ子のエントリを置き換えるには、<code class="docutils literal notranslate"><span class="pre">find(name,</span> <span class="pre">recursive=True)</span></code> で対象の入れ子パイプラインを取得してその上で <code class="docutils literal notranslate"><span class="pre">replace</span></code> を呼び出します。
+準備済みの実行において差し替えが反映されるのは次の確定点（commit point）です。
+<code class="docutils literal notranslate"><span class="pre">to_spec</span></code> はコンストラクタ引数をシリアライズするため、組み込み戦略での差し替え内容はspecに保持されません。
+差し替えを永続化するには、宣言やコンストラクタ引数を利用します。
+<code class="docutils literal notranslate"><span class="pre">pipeline.find(&quot;name&quot;,</span> <span class="pre">recursive=False)</span></code> は名前でエントリを検索します。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Stage</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">stage_component</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">CountGenerationStage</span>

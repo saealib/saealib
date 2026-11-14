@@ -20,6 +20,8 @@ from saealib.algorithms import GA, PSO, Algorithm, AskTellAlgorithm, GenomeGA
 from saealib.api import maximize, minimize
 from saealib.callback import (
     CallbackManager,
+    ConfigurationChange,
+    ConfigurationCommittedEvent,
     Event,
     GenerationEndEvent,
     GenerationStartEvent,
@@ -197,6 +199,8 @@ __all__ = [
     "Comparator",
     "ComparatorWorstFallback",
     "Condition",
+    "ConfigurationChange",
+    "ConfigurationCommittedEvent",
     "ConfigurationError",
     "ConstraintHandler",
     "ContinuousVariable",

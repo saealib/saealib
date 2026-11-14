@@ -47,6 +47,8 @@ from saealib.api import minimize as minimize
 from saealib.callback import AcquisitionEndEvent as AcquisitionEndEvent
 from saealib.callback import AcquisitionStartEvent as AcquisitionStartEvent
 from saealib.callback import CallbackManager as CallbackManager
+from saealib.callback import ConfigurationChange as ConfigurationChange
+from saealib.callback import ConfigurationCommittedEvent as ConfigurationCommittedEvent
 from saealib.callback import Event as Event
 from saealib.callback import GenerationEndEvent as GenerationEndEvent
 from saealib.callback import GenerationStartEvent as GenerationStartEvent

@@ -17,6 +17,8 @@ import numpy as np
 
 from saealib._deprecation import deprecated_function
 from saealib.callback import (
+    ConfigurationChange,
+    ConfigurationCommittedEvent,
     Event,
     GenerationEndEvent,
     GenerationStartEvent,
@@ -1730,6 +1732,35 @@ def _replaced_slots(
     )
 
 
+def _configuration_changes(
+    previous: Mapping[str, object],
+    current: Mapping[str, object],
+    provenance: Mapping[str, object],
+) -> tuple[ConfigurationChange, ...]:
+    """Return the binding slots a publication replaced, in binding order.
+
+    A slot whose object is unchanged is left out, so a publication that only
+    recompiled around an in-place part change reports no entries.  The source
+    is the origin recorded for the component that now holds the slot.
+    """
+    changes: list[ConfigurationChange] = []
+    for slot in BINDING_SLOTS:
+        before = previous.get(slot)
+        after = current.get(slot)
+        if before is after:
+            continue
+        origin = provenance.get(slot)
+        changes.append(
+            ConfigurationChange(
+                slot=slot,
+                previous=before,
+                current=after,
+                source=getattr(origin, "source", None),
+            )
+        )
+    return tuple(changes)
+
+
 def _transition_entries(
     records: Mapping[str, object],
     replaced: tuple[str, ...],
@@ -2408,7 +2439,7 @@ class _OptimizerEnvironment:
             incoming_reads, incoming_writes = (
                 incoming_state_keys if incoming_state_keys is not None else (None, None)
             )
-            self._publish_prepared(
+            committed = self._publish_prepared(
                 executable,
                 rebuilt,
                 resolution,
@@ -2420,6 +2451,8 @@ class _OptimizerEnvironment:
         except BaseException as error:
             self._reject_commit(error, memento)
         self._assign_published_comparator_rng()
+        if committed is not None:
+            self._dispatch_committed_configuration(committed)
 
     def _publish_prepared(
         self,
@@ -2431,7 +2464,8 @@ class _OptimizerEnvironment:
         *,
         state_reads: frozenset[StateKey] | None = None,
         state_writes: frozenset[StateKey] | None = None,
-    ) -> None:
+    ) -> ConfigurationCommittedEvent | None:
+        previous_values = dict(self._active_snapshot.values)
         consumes_feature_encoder = _executable_uses_service(
             executable, "FeatureEncoder"
         )
@@ -2512,6 +2546,36 @@ class _OptimizerEnvironment:
             if comparator is not None and self._last_state.comparator is not comparator:
                 self._last_state.comparator = comparator
                 prepare_state_comparator(self._last_state)
+        if self._last_state is None:
+            return None
+        return ConfigurationCommittedEvent(
+            ctx=self._last_state,
+            version=version,
+            changes=_configuration_changes(previous_values, values, provenance),
+        )
+
+    def _dispatch_committed_configuration(
+        self, event: ConfigurationCommittedEvent
+    ) -> None:
+        """Dispatch a publication event to the manager the new version binds.
+
+        The event describes the configuration that now runs, so it reaches the
+        callback manager of the published binding version: a handler the
+        replacement registered there observes it, and a manager the
+        replacement put out of use does not.  A callback that fails keeps the
+        publication, like any other callback failure.
+        """
+        state = self._last_state
+        phase = self._checkpoint_phase
+        if state is not None:
+            self._mark_checkpoint_state(state, phase="callback")
+        manager = self._active_snapshot.values.get("cbmanager")
+        dispatch = getattr(manager, "dispatch", None)
+        try:
+            if callable(dispatch):
+                dispatch(event)
+        finally:
+            self._checkpoint_phase = phase
 
     def _check_candidate_state(
         self,

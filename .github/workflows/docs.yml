@@ -37,7 +37,7 @@ jobs:
         run: uv run sphinx-build -b html -c docs -D language=ja docs/ja docs/_build/html-ja
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: html-docs
           path: docs/_build/html/

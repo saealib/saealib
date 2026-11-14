@@ -315,6 +315,11 @@ __all__ = [
 _LAZY_EXPORTS: dict[str, str] = {
     # algorithms (less common)
     "PymooAlgorithm": "saealib.algorithms",
+    # transitions
+    "Chain": "saealib.transition",
+    "Transition": "saealib.transition",
+    "TransitionContext": "saealib.transition",
+    "chain": "saealib.transition",
     # context
     "OptimizationState": "saealib.context",
     # comparators (less common)

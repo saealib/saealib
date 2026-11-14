@@ -43,6 +43,7 @@ from saealib.core.compiler.contract_diagnostics import (
     check_pymoo_feedback_compatibility,
 )
 from saealib.core.contracts import ComponentContract
+from saealib.core.runtime import ReplaceComponent
 from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.exceptions import CheckpointError, ConfigurationError, ValidationError
 from saealib.execution.bindings import (
@@ -77,6 +78,7 @@ from saealib.surrogate.manager import (
 )
 from saealib.surrogate.rbf_kernels import GaussianKernel
 from saealib.termination import Termination
+from saealib.transition import Transition
 
 logger = logging.getLogger(__name__)
 
@@ -288,11 +290,28 @@ class Optimizer:
             if name == "feedback_builder" and value is not None:
                 object.__setattr__(self, "feedback_builder_explicit", True)
 
-    def _set_component(self, name: str, value: object, reason: str) -> None:
+    def _set_component(
+        self,
+        name: str,
+        value: object,
+        reason: str,
+        transition: Transition | None = None,
+    ) -> None:
+        if transition is not None and not isinstance(transition, Transition):
+            raise ValidationError("transition must be a Transition or None")
         prior_value = getattr(self, name, None)
         object.__setattr__(self, name, value)
         self._component_origins[name] = _ComponentOrigin(value, "setter", reason, "")
         self._materialized_components.pop(name, None)
+        if transition is None:
+            self._replacement_records.pop(name, None)
+        else:
+            self._replacement_records[name] = ReplaceComponent(
+                slot=name,
+                component=value,
+                transition=transition,
+                source="setter",
+            )
         if prior_value is not value:
             self._configuration_version += 1
 
@@ -302,6 +321,16 @@ class Optimizer:
             value, "framework default", reason, ""
         )
         self._materialized_components.pop(name, None)
+
+    def _pending_replacements(self) -> dict[str, ReplaceComponent]:
+        """Return the recorded replacements no commit point consumed yet."""
+        return dict(self._replacement_records)
+
+    def _consume_replacements(self) -> dict[str, ReplaceComponent]:
+        """Take the recorded replacements and leave the queue empty."""
+        records = dict(self._replacement_records)
+        self._replacement_records.clear()
+        return records
 
     def __init__(self, problem: Problem, seed: int | None = None):
         """
@@ -336,6 +365,7 @@ class Optimizer:
         self._materialized_components: dict[str, object] = {}
         self._feature_encoder_default: tuple[object, object, str] | None = None
         self._configuration_version = 0
+        self._replacement_records: dict[str, ReplaceComponent] = {}
         self._last_contract_diagnostics: tuple[Diagnostic, ...] = ()
         self._executable_plan: ExecutablePlan | None = None
         self._last_published_bindings: _BindingSnapshot | None = None
@@ -736,10 +766,25 @@ class Optimizer:
         self.history_channels_explicit = True
         return self
 
-    def set_comparator(self, comparator: Comparator) -> Self:
-        """Set the comparator that orders solutions. Returns self."""
+    def set_comparator(
+        self, comparator: Comparator, *, transition: Transition | None = None
+    ) -> Self:
+        """Set the comparator that orders solutions. Returns self.
+
+        Parameters
+        ----------
+        comparator : Comparator
+            The component to bind.
+        transition : Transition or None, optional
+            Transition to run at the commit point of this replacement, after
+            the candidate configuration passes static validation and before
+            the new binding version is published.
+        """
         self._set_component(
-            "comparator", comparator, "Configured with set_comparator()."
+            "comparator",
+            comparator,
+            "Configured with set_comparator().",
+            transition=transition,
         )
         return self
 
@@ -750,15 +795,45 @@ class Optimizer:
         )
         return self
 
-    def set_algorithm(self, algorithm: Algorithm) -> Self:
-        """Set the evolutionary algorithm. Returns self."""
-        self._set_component("algorithm", algorithm, "Configured with set_algorithm().")
+    def set_algorithm(
+        self, algorithm: Algorithm, *, transition: Transition | None = None
+    ) -> Self:
+        """Set the evolutionary algorithm. Returns self.
+
+        Parameters
+        ----------
+        algorithm : Algorithm
+            The component to bind.
+        transition : Transition or None, optional
+            Transition to run at the commit point of this replacement, after
+            the candidate configuration passes static validation and before
+            the new binding version is published.
+        """
+        self._set_component(
+            "algorithm",
+            algorithm,
+            "Configured with set_algorithm().",
+            transition=transition,
+        )
         return self
 
-    def set_surrogate_manager(self, manager: SurrogateManager) -> Self:
-        """Set the surrogate manager. Returns self."""
+    def set_surrogate_manager(
+        self, manager: SurrogateManager, *, transition: Transition | None = None
+    ) -> Self:
+        """Set the surrogate manager. Returns self.
+
+        Parameters
+        ----------
+        manager : SurrogateManager
+            The component to bind.
+        transition : Transition or None, optional
+            Transition to run at the commit point of this replacement.
+        """
         self._set_component(
-            "surrogate_manager", manager, "Configured with set_surrogate_manager()."
+            "surrogate_manager",
+            manager,
+            "Configured with set_surrogate_manager().",
+            transition=transition,
         )
         if isinstance(manager, PairwiseSurrogateManager) and self.acquisition is None:
             self._set_framework_component(
@@ -768,10 +843,23 @@ class Optimizer:
             )
         return self
 
-    def set_acquisition(self, acquisition) -> Self:
-        """Set the independent acquisition component."""
+    def set_acquisition(
+        self, acquisition, *, transition: Transition | None = None
+    ) -> Self:
+        """Set the independent acquisition component.
+
+        Parameters
+        ----------
+        acquisition : AcquisitionFunction
+            The component to bind.
+        transition : Transition or None, optional
+            Transition to run at the commit point of this replacement.
+        """
         self._set_component(
-            "acquisition", acquisition, "Configured with set_acquisition()."
+            "acquisition",
+            acquisition,
+            "Configured with set_acquisition().",
+            transition=transition,
         )
         return self
 
@@ -784,19 +872,43 @@ class Optimizer:
     def evaluation_planner(self, planner: EvaluationPlanner | None) -> None:
         self._evaluation_planner = planner
 
-    def set_evaluation_planner(self, planner: EvaluationPlanner) -> Self:
-        """Set the evaluation planner."""
+    def set_evaluation_planner(
+        self, planner: EvaluationPlanner, *, transition: Transition | None = None
+    ) -> Self:
+        """Set the evaluation planner.
+
+        Parameters
+        ----------
+        planner : EvaluationPlanner
+            The component to bind.
+        transition : Transition or None, optional
+            Transition to run at the commit point of this replacement.
+        """
         self._set_component(
             "evaluation_planner",
             planner,
             "Configured with set_evaluation_planner().",
+            transition=transition,
         )
         return self
 
-    def set_feedback_builder(self, builder: FeedbackBuilder) -> Self:
-        """Set the feedback builder."""
+    def set_feedback_builder(
+        self, builder: FeedbackBuilder, *, transition: Transition | None = None
+    ) -> Self:
+        """Set the feedback builder.
+
+        Parameters
+        ----------
+        builder : FeedbackBuilder
+            The component to bind.
+        transition : Transition or None, optional
+            Transition to run at the commit point of this replacement.
+        """
         self._set_component(
-            "feedback_builder", builder, "Configured with set_feedback_builder()."
+            "feedback_builder",
+            builder,
+            "Configured with set_feedback_builder().",
+            transition=transition,
         )
         self.feedback_builder_explicit = True
         return self
@@ -824,18 +936,48 @@ class Optimizer:
         )
         return self
 
-    def set_strategy(self, strategy: OptimizationStrategy) -> Self:
-        """Set the optimization strategy. Returns self."""
-        self._set_component("strategy", strategy, "Configured with set_strategy().")
+    def set_strategy(
+        self, strategy: OptimizationStrategy, *, transition: Transition | None = None
+    ) -> Self:
+        """Set the optimization strategy. Returns self.
+
+        Parameters
+        ----------
+        strategy : OptimizationStrategy
+            The component to bind.
+        transition : Transition or None, optional
+            Transition to run at the commit point of this replacement.
+        """
+        self._set_component(
+            "strategy",
+            strategy,
+            "Configured with set_strategy().",
+            transition=transition,
+        )
         return self
 
-    def set_evaluator(self, evaluator: Evaluator) -> Self:
-        """Set the evaluator. Returns self."""
+    def set_evaluator(
+        self, evaluator: Evaluator, *, transition: Transition | None = None
+    ) -> Self:
+        """Set the evaluator. Returns self.
+
+        Parameters
+        ----------
+        evaluator : Evaluator
+            The component to bind.
+        transition : Transition or None, optional
+            Transition to run at the commit point of this replacement.
+        """
         if evaluator.has_partial_lifecycle_override():
             raise ConfigurationError(
                 "submit(), collect(), and acknowledge() must be overridden together"
             )
-        self._set_component("evaluator", evaluator, "Configured with set_evaluator().")
+        self._set_component(
+            "evaluator",
+            evaluator,
+            "Configured with set_evaluator().",
+            transition=transition,
+        )
         return self
 
     def set_async_evaluation_scheduler(
@@ -1400,6 +1542,7 @@ class Optimizer:
         state["_executable_plan"] = None
         state["_prepared_diagnostic_cache"] = None
         state["_feature_encoder_default"] = None
+        state["_replacement_records"] = {}
         return state
 
     def __setstate__(self, state: dict[str, object]) -> None:
@@ -1415,6 +1558,7 @@ class Optimizer:
         self.__dict__.setdefault("_component_origins", {})
         self.__dict__.setdefault("_materialized_components", {})
         self.__dict__.setdefault("_feature_encoder_default", None)
+        self.__dict__.setdefault("_replacement_records", {})
         self.__dict__.setdefault("comparator", None)
         self.__dict__.setdefault("_comparator_default", None)
         self.__dict__.setdefault("_configuration_version", 0)

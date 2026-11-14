@@ -112,7 +112,7 @@ from saealib.policies.evaluation import (
     _continue_fidelity_plan,
 )
 from saealib.policies.feedback import (
-    LEGACY_SOURCE_CODES,
+    OBJECTIVE_SOURCE_CODES,
     FeedbackBuilder,
     MixedFeedback,
     TrueOnlyFeedback,
@@ -2881,7 +2881,7 @@ class ArchiveUpdateStage(Stage):
             if has_id:
                 entry["id"] = int(ind.id)
             if OBJECTIVE_SOURCE_COLUMN in state.archive.schema:
-                entry[OBJECTIVE_SOURCE_COLUMN] = np.uint8(LEGACY_SOURCE_CODES[TRUE])
+                entry[OBJECTIVE_SOURCE_COLUMN] = np.uint8(OBJECTIVE_SOURCE_CODES[TRUE])
             state.archive.add(entry)
             if not has_id or int(ind.id) not in set(
                 map(int, state.pareto_archive.get_array("id"))
@@ -2889,7 +2889,7 @@ class ArchiveUpdateStage(Stage):
                 pareto_entry = dict(entry)
                 if OBJECTIVE_SOURCE_COLUMN in state.pareto_archive.schema:
                     pareto_entry[OBJECTIVE_SOURCE_COLUMN] = np.uint8(
-                        LEGACY_SOURCE_CODES[TRUE]
+                        OBJECTIVE_SOURCE_CODES[TRUE]
                     )
                 state.pareto_archive.add(pareto_entry)
         if has_id and len(evaluated):

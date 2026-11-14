@@ -64,7 +64,7 @@ from saealib.policies.evaluation import (
     _continue_fidelity_plan,
 )
 from saealib.policies.feedback import (
-    LEGACY_SOURCE_CODES,
+    OBJECTIVE_SOURCE_CODES,
     TRUE,
     FeedbackBuilder,
     FeedbackResult,
@@ -1408,7 +1408,7 @@ class AsyncEvaluationScheduler:
                     and OBJECTIVE_SOURCE_COLUMN not in owner.schema
                 ):
                     values[OBJECTIVE_SOURCE_COLUMN] = np.uint8(
-                        LEGACY_SOURCE_CODES[TRUE]
+                        OBJECTIVE_SOURCE_CODES[TRUE]
                     )
                 if "id" in archive.schema:
                     values["id"] = np.int64(candidate_id)

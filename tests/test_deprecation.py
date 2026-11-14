@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
+import textwrap
 import warnings
+from collections.abc import Callable
+from typing import cast
 
 import numpy as np
 import pytest
@@ -17,6 +22,7 @@ from saealib import (
     TruncationSelection,
 )
 from saealib._deprecation import (
+    _stacklevel_outside_package,
     deprecated_argument_alias,
     deprecated_function,
     warn_deprecated,
@@ -332,6 +338,107 @@ def test_build_graph_override_warns_once_per_strategy_class() -> None:
     assert len(override_warnings) == 1
     assert issubclass(override_warnings[0].category, DeprecationWarning)
     assert "TemplateStrategy" in str(override_warnings[0].message)
+
+
+def test_build_graph_override_is_attributed_to_the_calling_code() -> None:
+    class LocalGraphOnlyStrategy(_GraphOnlyStrategy):
+        pass
+
+    optimizer = _graph_only_optimizer(LocalGraphOnlyStrategy())
+    with pytest.warns(
+        DeprecationWarning, match=r"Overriding build_graph\(provider\)"
+    ) as caught:
+        call_line = sys._getframe().f_lineno + 1
+        optimizer.run()
+
+    assert len(caught) == 1
+    assert caught[0].filename == __file__
+    assert caught[0].lineno == call_line
+
+
+def test_build_graph_override_is_attributed_to_user_code_in_a_saealib_named_module(
+    tmp_path,
+) -> None:
+    class LocalGraphOnlyStrategy(_GraphOnlyStrategy):
+        pass
+
+    optimizer = _graph_only_optimizer(LocalGraphOnlyStrategy())
+    user_file = str(tmp_path / "namespace_user.py")
+    code = compile("def trigger(optimizer):\n    optimizer.run()\n", user_file, "exec")
+    namespace: dict[str, object] = {"__name__": "saealib.userland"}
+    exec(code, namespace)
+    trigger = cast(Callable[[Optimizer], None], namespace["trigger"])
+    with pytest.warns(
+        DeprecationWarning, match=r"Overriding build_graph\(provider\)"
+    ) as caught:
+        trigger(optimizer)
+
+    assert len(caught) == 1
+    assert caught[0].filename == user_file
+    assert caught[0].lineno == 2
+
+
+def test_build_graph_override_is_shown_to_a_script_under_the_default_filters(
+    tmp_path,
+) -> None:
+    script = tmp_path / "user_script.py"
+    source = textwrap.dedent(
+        """\
+            import numpy as np
+
+            from saealib import Optimizer, SteadyStateStrategy, Termination
+            from saealib.problem import Problem
+
+
+            class UserStrategy(SteadyStateStrategy):
+                def build_graph(self, provider):
+                    return super().build_graph(provider)
+
+
+            problem = Problem(
+                func=lambda x: np.array([float(np.sum(np.asarray(x) ** 2))]),
+                dim=2,
+                n_obj=1,
+                direction=np.array([-1.0]),
+                lb=[-5.0, -5.0],
+                ub=[5.0, 5.0],
+            )
+            optimizer = (
+                Optimizer(problem, seed=0)
+                .set_strategy(UserStrategy())
+                .set_termination(Termination(lambda state: state.gen >= 1))
+            )
+            optimizer.run()
+            """
+    )
+    script.write_text(source)
+    run_line = source.splitlines().index("optimizer.run()") + 1
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONWARNINGS"}
+    completed = subprocess.run(
+        [sys.executable, str(script)],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+        check=True,
+    )
+
+    expected = (
+        f"{script}:{run_line}: DeprecationWarning: Overriding build_graph(provider)"
+    )
+    assert expected in completed.stderr
+
+
+@pytest.mark.parametrize("failure", [AttributeError, ValueError, RuntimeError])
+def test_stack_level_falls_back_to_the_default_when_frame_introspection_fails(
+    monkeypatch, failure
+) -> None:
+    def refuse(depth: int = 0):
+        raise failure("frame access refused")
+
+    monkeypatch.setattr(sys, "_getframe", refuse)
+
+    assert _stacklevel_outside_package(default=7) == 7
 
 
 def test_plain_subclass_of_a_builtin_strategy_does_not_warn_build_graph() -> None:

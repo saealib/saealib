@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev57+g404ff2d34 documentation</title>
+    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev59+g9b61a611d documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=5ccc3c19"></script>
+    <script src="../../../_static/documentation_options.js?v=2d89d3f0"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -970,7 +970,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">InitialEvaluationEndEvent</span><span class="p">,</span> <span class="n">InitialEvaluationStartEvent</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">Comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">_count_evaluated</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">MANY</span><span class="p">,</span>
     <span class="n">ComponentContract</span><span class="p">,</span>
@@ -1362,7 +1362,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
-        <span class="n">ctx</span><span class="o">.</span><span class="n">count_fe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">)</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
         <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
@@ -1521,7 +1521,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
-        <span class="n">ctx</span><span class="o">.</span><span class="n">count_fe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">)</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
 
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
@@ -1680,7 +1680,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
-        <span class="n">ctx</span><span class="o">.</span><span class="n">count_fe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">)</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
 
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
@@ -1842,7 +1842,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
-        <span class="n">ctx</span><span class="o">.</span><span class="n">count_fe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">)</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
 
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 

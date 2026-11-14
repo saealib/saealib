@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.optimizer &#8212; saealib 0.1.1.dev57+g404ff2d34 ドキュメント</title>
+    <title>saealib.optimizer &#8212; saealib 0.1.1.dev59+g9b61a611d ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=c5d687b7"></script>
+    <script src="../../_static/documentation_options.js?v=b493685e"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -2207,7 +2207,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">checkpoint_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">checkpoint_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;npz&quot;</span><span class="p">,</span>
         <span class="n">checkpoint_delete_on_success</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">OptimizationState</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Iterate the optimization process.</span>
 
@@ -2226,7 +2226,8 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Generator[OptimizationState]</span>
-<span class="sd">            Generator of OptimizationState.</span>
+<span class="sd">            Generator of OptimizationState; it returns the state the runtime</span>
+<span class="sd">            ended with.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">resolve_defaults</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_compile_plan</span><span class="p">()</span>
@@ -2323,7 +2324,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">checkpoint_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">checkpoint_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;npz&quot;</span><span class="p">,</span>
         <span class="n">checkpoint_delete_on_success</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">OptimizationState</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">OptimizationState</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Resume iteration from an existing context (e.g. loaded from checkpoint).</span>
 
@@ -2345,7 +2346,9 @@ window.runMermaid = runMermaid;</script>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        Generator[OptimizationState, None, None]</span>
+<span class="sd">        Generator[OptimizationState, None, OptimizationState]</span>
+<span class="sd">            Generator of OptimizationState; it returns the state the runtime</span>
+<span class="sd">            ended with.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_compile_plan</span><span class="p">(</span><span class="n">require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">issues</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">require_initializer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>

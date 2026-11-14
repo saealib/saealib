@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.stages &#8212; saealib 0.1.1.dev57+g404ff2d34 ドキュメント</title>
+    <title>saealib.stages &#8212; saealib 0.1.1.dev59+g9b61a611d ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=c5d687b7"></script>
+    <script src="../../_static/documentation_options.js?v=b493685e"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -999,7 +999,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">SurrogateEndEvent</span><span class="p">,</span>
     <span class="n">SurrogateStartEvent</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationPlanState</span><span class="p">,</span> <span class="n">OptimizationState</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationPlanState</span><span class="p">,</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">_count_evaluated</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">CallInput</span><span class="p">,</span>
     <span class="n">CallOutput</span><span class="p">,</span>
@@ -1062,6 +1062,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">Evaluator</span><span class="p">,</span>
     <span class="n">PendingEvaluation</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.history</span><span class="w"> </span><span class="kn">import</span> <span class="n">observe_true_evaluation</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">_EXECUTION_BOUNDARIES</span><span class="p">,</span> <span class="n">ComponentRef</span><span class="p">,</span> <span class="n">Stage</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">EvaluateAll</span><span class="p">,</span>
@@ -3751,6 +3752,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">)</span>
         <span class="k">for</span> <span class="n">update</span> <span class="ow">in</span> <span class="n">raw_updates</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="o">.</span><span class="n">acknowledge</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+        <span class="n">reported_ids</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">update</span><span class="p">,</span> <span class="n">update_new_ids</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
             <span class="n">state</span><span class="o">.</span><span class="n">evaluation_updates</span><span class="p">,</span> <span class="n">new_by_update</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">):</span>
@@ -3772,8 +3774,9 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">handles</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">pending_map</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">)]</span> <span class="o">=</span> <span class="n">updated_pending</span>
-            <span class="n">current</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
-                <span class="n">fe</span><span class="o">=</span><span class="n">current</span><span class="o">.</span><span class="n">fe</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">update_new_ids</span><span class="p">),</span>
+            <span class="n">current</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span>
+                <span class="n">current</span><span class="p">,</span> <span class="n">update_new_ids</span><span class="p">,</span> <span class="n">counted</span><span class="o">=</span><span class="n">reported_ids</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
                 <span class="n">pending_evaluations</span><span class="o">=</span><span class="n">pending_map</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
                 <span class="n">evaluation_handles</span><span class="o">=</span><span class="n">handles</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
             <span class="p">)</span>
@@ -3824,11 +3827,12 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">pending_map</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">planned_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
                     <span class="k">continue</span>
                 <span class="n">extra_pending</span> <span class="o">=</span> <span class="n">pending_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">planned_id</span><span class="p">)</span>
+                <span class="n">reported_extra_ids</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
                 <span class="k">for</span> <span class="n">update</span> <span class="ow">in</span> <span class="n">all_updates</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">planned_id</span><span class="p">,</span> <span class="p">()):</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="o">.</span><span class="n">acknowledge</span><span class="p">(</span><span class="n">extra_handle</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="n">current</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
-                            <span class="n">fe</span><span class="o">=</span><span class="n">current</span><span class="o">.</span><span class="n">fe</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">)</span>
+                        <span class="n">current</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span>
+                            <span class="n">current</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="n">counted</span><span class="o">=</span><span class="n">reported_extra_ids</span>
                         <span class="p">)</span>
                 <span class="k">if</span> <span class="n">extra_pending</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">pending_map</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">planned_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -3951,7 +3955,12 @@ window.runMermaid = runMermaid;</script>
         <span class="n">candidates</span><span class="o">.</span><span class="n">update_rows</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">values</span><span class="p">)</span>
 
         <span class="n">evaluated</span> <span class="o">=</span> <span class="n">candidates</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)))</span>
-        <span class="n">counted</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">fe</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">fe</span> <span class="o">+</span> <span class="n">n</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">candidates</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
+            <span class="n">evaluated_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">candidates</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)[:</span><span class="n">n</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">evaluated_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">counted</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">evaluated_ids</span><span class="p">)</span>
+        <span class="n">observe_true_evaluation</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">evaluated_ids</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cbmanager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">_dispatch_callback</span><span class="p">(</span>

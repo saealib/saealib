@@ -225,7 +225,7 @@ class FallbackPolicy:
         """Create materialized missing values, source labels, and masks."""
         return (
             np.full((n, n_obj), np.nan, dtype=np.float64),
-            np.full(n, LEGACY_SOURCE_CODES.get(self.source, 2), dtype=np.uint8),
+            np.full(n, OBJECTIVE_SOURCE_CODES.get(self.source, 2), dtype=np.uint8),
             np.zeros(n, dtype=bool),
         )
 
@@ -309,7 +309,7 @@ def _metadata_numbers(
         )
 
 
-LEGACY_SOURCE_CODES = {TRUE: 0, SURROGATE: 1, IMPUTED: 2}
+OBJECTIVE_SOURCE_CODES = {TRUE: 0, SURROGATE: 1, IMPUTED: 2}
 
 
 def _set_objective_source(
@@ -332,7 +332,7 @@ def _set_objectives_true(
     population: Population, values: dict[str, Any], n_rows: int
 ) -> None:
     """Mark the rows of an ``update_rows`` mapping as truly evaluated."""
-    _set_objective_source(population, values, LEGACY_SOURCE_CODES[TRUE], n_rows)
+    _set_objective_source(population, values, OBJECTIVE_SOURCE_CODES[TRUE], n_rows)
 
 
 def _feedback_batch_from_result(
@@ -550,8 +550,8 @@ def _materialize_legacy_mixed(
     f[selected_positions[usable], selected_indices[usable]] = selected_values[usable]
     selected_source[selected_positions[usable]] = np.where(
         sources[selected][usable] == 0,
-        LEGACY_SOURCE_CODES[TRUE],
-        LEGACY_SOURCE_CODES[SURROGATE],
+        OBJECTIVE_SOURCE_CODES[TRUE],
+        OBJECTIVE_SOURCE_CODES[SURROGATE],
     ).astype(np.uint8)
     evaluated[selected_positions[usable]] = sources[selected][usable] == 0
     return FeedbackResult(ids, f, None, None, evaluated, selected_source)
@@ -716,11 +716,11 @@ def _materialize_feedback(
         objective_source = source_names[objective]
         selected_source[selected_positions[objective]] = np.where(
             objective_source == TRUE,
-            LEGACY_SOURCE_CODES[TRUE],
+            OBJECTIVE_SOURCE_CODES[TRUE],
             np.where(
                 objective_source == SURROGATE,
-                LEGACY_SOURCE_CODES[SURROGATE],
-                LEGACY_SOURCE_CODES.get(fallback_policy.source, 2),
+                OBJECTIVE_SOURCE_CODES[SURROGATE],
+                OBJECTIVE_SOURCE_CODES.get(fallback_policy.source, 2),
             ),
         ).astype(np.uint8)
         evaluated[selected_positions[objective]] = objective_source == TRUE

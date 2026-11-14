@@ -2610,7 +2610,7 @@ def _fill_objective_source_from_history(collections: list[Any], history: Any) ->
     ``evaluation`` channel was not recorded.
     """
     from saealib.execution.history import _true_objectives_by_candidate
-    from saealib.policies.feedback import LEGACY_SOURCE_CODES, TRUE
+    from saealib.policies.feedback import OBJECTIVE_SOURCE_CODES, TRUE
     from saealib.population.population import (
         OBJECTIVE_SOURCE_COLUMN,
         UNKNOWN_SOURCE_CODE,
@@ -2628,7 +2628,7 @@ def _fill_objective_source_from_history(collections: list[Any], history: Any) ->
         for row, candidate_id in enumerate(ids.tolist()):
             value = truth.get(candidate_id)
             if value is not None and np.array_equal(value, f[row], equal_nan=True):
-                codes[row] = LEGACY_SOURCE_CODES[TRUE]
+                codes[row] = OBJECTIVE_SOURCE_CODES[TRUE]
         collection.update_array(OBJECTIVE_SOURCE_COLUMN, codes)
 
 

@@ -248,7 +248,10 @@ class Problem:
             warn_deprecated(
                 "Problem(eps_cv=...)",
                 since="0.2.0",
-                replacement="the constraint tolerances or EpsilonConstraintHandler",
+                replacement=(
+                    "the constraint tolerances, Problem(cv_aggregator=...) for the "
+                    "aggregation, or EpsilonSchedule for the schedule"
+                ),
             )
         self.eps_cv = eps_cv
         if eps_obj is None:

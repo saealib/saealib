@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 from saealib.algorithms import GA, GenomeGA
+from saealib.context import OptimizationState
 from saealib.core.contracts import (
     Fixed,
     ParameterSpec,
@@ -22,6 +23,7 @@ from saealib.core.contracts.representation import REPRESENTATION_KINDS
 from saealib.exceptions import ValidationError
 from saealib.execution import AsyncEvaluationScheduler, AsyncEvaluator, SerialEvaluator
 from saealib.execution.evaluator import EvaluationQuery
+from saealib.execution.initializer import GenomeInitializer
 from saealib.operators import OrderCrossover, SequenceMutation, SwapMutation
 from saealib.operators.crossover import Crossover, CrossoverSBX
 from saealib.operators.mutation import Mutation, MutationUniform
@@ -489,6 +491,78 @@ def test_external_representation_runs_archive_checkpoint_async_and_global_surrog
         assert async_adapter.calls > 0
     finally:
         async_evaluator.close()
+
+
+def _run_permutation_optimizer(
+    dim: int,
+    n_init: int,
+    max_generations: int,
+    max_pending: int | None,
+    seed: int,
+) -> OptimizationState:
+    space = PermutationSpace(dim)
+    problem = _genome_problem(
+        space, lambda genomes: np.asarray([float(np.sum(genomes, dtype=float))])
+    )
+    optimizer = (
+        Optimizer(problem, seed=seed)
+        .set_algorithm(
+            GenomeGA(
+                OrderCrossover(),
+                SwapMutation(),
+                SequentialSelection(),
+                TruncationSelection(),
+            )
+        )
+        .set_initializer(GenomeInitializer(n_init, n_init))
+        .set_strategy(DirectStrategy())
+        .set_termination(Termination(max_gen(max_generations)))
+    )
+    if max_pending is None:
+        return optimizer.run()
+    evaluator = AsyncEvaluator(SerialEvaluator(), max_workers=1)
+    optimizer.set_evaluator(evaluator).set_async_evaluation_scheduler(
+        AsyncEvaluationScheduler(evaluator, max_pending=max_pending)
+    )
+    try:
+        return optimizer.run()
+    finally:
+        evaluator.close()
+
+
+def _archived_genomes(archive: Any) -> list[tuple[int, ...]]:
+    return sorted(
+        tuple(int(value) for value in row) for row in np.asarray(archive.genomes.array)
+    )
+
+
+@pytest.mark.parametrize("max_pending", [1, 2])
+def test_asynchronous_genome_run_records_genomes_in_the_archive(
+    max_pending: int,
+) -> None:
+    synchronous = _run_permutation_optimizer(6, 6, 1, None, seed=5)
+    asynchronous = _run_permutation_optimizer(6, 6, 1, max_pending, seed=5)
+
+    assert len(asynchronous.archive.genomes) == len(asynchronous.archive)
+    assert len(asynchronous.pareto_archive.genomes) == len(asynchronous.pareto_archive)
+    assert _archived_genomes(asynchronous.archive) == _archived_genomes(
+        synchronous.archive
+    )
+    assert _archived_genomes(asynchronous.pareto_archive) == _archived_genomes(
+        synchronous.pareto_archive
+    )
+    assert asynchronous.fe == synchronous.fe
+
+
+def test_asynchronous_repeated_genome_is_evaluated_and_archived_once() -> None:
+    synchronous = _run_permutation_optimizer(2, 4, 2, None, seed=2)
+    asynchronous = _run_permutation_optimizer(2, 4, 2, 1, seed=2)
+
+    assert asynchronous.fe == synchronous.fe
+    assert asynchronous.fe > len(asynchronous.archive)
+    assert _archived_genomes(asynchronous.archive) == _archived_genomes(
+        synchronous.archive
+    )
 
 
 def test_external_representation_requires_explicit_feature_encoder() -> None:

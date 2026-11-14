@@ -1326,12 +1326,12 @@ class SurrogateFitStage(Stage):
 
     def execute(self, state: OptimizationState) -> OptimizationState:
         self._sm.fit(state.archive, ctx=state)
-        if self._cbmanager is not None:
-            self._cbmanager.dispatch(
-                PostSurrogateFitEvent(
-                    ctx=state, surrogate=getattr(self._sm, "surrogate", None)
-                )
-            )
+        _dispatch_callback(
+            self._cbmanager,
+            PostSurrogateFitEvent(
+                ctx=state, surrogate=getattr(self._sm, "surrogate", None)
+            ),
+        )
         return state
 
 

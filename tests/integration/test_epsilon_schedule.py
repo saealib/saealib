@@ -24,6 +24,7 @@ from saealib import (
     linear_epsilon_schedule,
     max_gen,
 )
+from saealib.callback import CallbackManager, GenerationStartEvent
 from saealib.execution.runner import Runner
 from saealib.registry import build, to_spec
 from saealib.surrogate.rbf import RBFSurrogate
@@ -96,11 +97,15 @@ def test_the_schedule_controller_writes_the_epsilon_of_the_step_start(
 ) -> None:
     optimizer = _optimizer(surrogate=surrogate)
     optimizer.add_controller(EpsilonSchedule(_SCHEDULE))
+    observed: list[tuple[int, float]] = []
 
-    observed = [
-        (state.gen, round(float(state.comparator.eps_cv), 9))
-        for state in Runner(optimizer).iterate()
-    ]
+    def record(event: Any) -> None:
+        observed.append((event.ctx.gen, round(float(event.ctx.comparator.eps_cv), 9)))
+
+    manager = CallbackManager()
+    manager.register(GenerationStartEvent, record)
+    optimizer.cbmanager = manager
+    optimizer.run()
 
     assert observed[0][0] == 0
     for gen, epsilon in observed:

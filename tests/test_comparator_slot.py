@@ -510,15 +510,17 @@ def test_replacing_the_comparator_during_a_run_updates_the_state(mode: str) -> N
 
 
 @pytest.mark.parametrize("mode", ("sync", "async"))
-def test_replacing_the_comparator_applies_the_running_threshold(mode: str) -> None:
+def test_replacing_the_comparator_follows_the_running_schedule(mode: str) -> None:
     from saealib import (
         EpsilonConstraintHandler,
+        EpsilonSchedule,
         GenerationEndEvent,
         GenerationStartEvent,
     )
     from saealib.execution import AsyncEvaluationScheduler
 
-    handler = EpsilonConstraintHandler(linear_epsilon_schedule(eps0=0.4, n_gen=3))
+    schedule = linear_epsilon_schedule(eps0=0.4, n_gen=3)
+    handler = EpsilonConstraintHandler(schedule)
     problem = Problem(
         func=lambda x: float(np.asarray(x, dtype=float)[0]) ** 2,
         dim=1,
@@ -543,6 +545,7 @@ def test_replacing_the_comparator_applies_the_running_threshold(mode: str) -> No
         optimizer = optimizer.set_evaluator(evaluator).set_async_evaluation_scheduler(
             AsyncEvaluationScheduler(evaluator, max_pending=8)
         )
+    optimizer.add_controller(EpsilonSchedule(schedule))
     thresholds: list[tuple[int, float, float]] = []
 
     def on_start(event) -> None:
@@ -551,7 +554,7 @@ def test_replacing_the_comparator_applies_the_running_threshold(mode: str) -> No
                 (
                     event.ctx.gen,
                     event.ctx.comparator.eps_cv,
-                    float(handler.feasibility_threshold),
+                    float(schedule(event.ctx.gen)),
                 )
             )
 
@@ -565,9 +568,7 @@ def test_replacing_the_comparator_applies_the_running_threshold(mode: str) -> No
     state = optimizer.run()
 
     assert thresholds
-    for _, eps_cv, running_threshold in thresholds:
-        assert eps_cv == pytest.approx(running_threshold)
+    for _, eps_cv, scheduled in thresholds:
+        assert eps_cv == pytest.approx(scheduled)
     assert state.comparator is replacement
-    assert state.comparator.eps_cv == pytest.approx(
-        state.problem.handler.feasibility_threshold
-    )
+    assert state.comparator.eps_cv == pytest.approx(schedule(state.gen))

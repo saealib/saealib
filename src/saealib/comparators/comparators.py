@@ -52,9 +52,11 @@ class Comparator(ABC):
         Weights for objectives. shape = (n_obj, )
     eps_cv : float
         Epsilon for constraint violation feasibility threshold. Under
-        ``Optimizer`` execution this value is overwritten every generation
-        from ``problem.handler.feasibility_threshold``; the constructor
-        argument only matters for standalone (non-``Optimizer``) use.
+        ``Optimizer`` execution run preparation writes the constraint
+        handler's ``feasibility_threshold`` here and ``EpsilonSchedule``
+        writes ``schedule(gen)`` at every commit point, so a run with a
+        schedule takes the scheduled value and a run without one keeps the
+        value preparation wrote.
     eps_obj : float
         Epsilon for objective value equality comparison.
     direction : np.ndarray or None

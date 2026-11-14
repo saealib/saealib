@@ -264,9 +264,9 @@ class ConstraintHandler(ABC):
                        -> evaluate f, g
                        -> [compute_cv(constraints, x, g)]        -> cv
                        -> [augment_objective(f, constraints, x, g)] -> f'
-        Tell           -> Comparator(f', cv) with eps_cv = feasibility_threshold
-                       (a search-time relaxation; reported feasibility uses
-                       the per-constraint violations)
+        Tell           -> Comparator(f', cv) with the relaxation of the run's
+                       comparator (reported feasibility uses the
+                       per-constraint violations)
         Generation end -> [on_generation_end(gen, population)]
 
     Only :meth:`compute_cv` is abstract; the remaining hooks have sensible
@@ -372,15 +372,22 @@ class ConstraintHandler(ABC):
 
     @property
     def feasibility_threshold(self) -> float:
-        """Search-time threshold the comparator copies onto its ``eps_cv``."""
+        """Return this handler's own current search-time relaxation.
+
+        A run reads it at preparation to seed the comparator's ``eps_cv``; the
+        running relaxation afterwards is the comparator's value, which
+        ``EpsilonSchedule`` writes at every commit point.
+        """
         return 0.0
 
     def on_generation_end(self, gen: int, population: Population) -> None:
         """
         Run end-of-generation bookkeeping.
 
-        Used by adaptive strategies (e.g. ε-level control) that update their
-        internal state between generations. The default is a no-op.
+        Used by adaptive strategies that update their own state between
+        generations. The default is a no-op. A hook that moves
+        :attr:`feasibility_threshold` does not reach the comparator; the
+        search-side relaxation follows ``EpsilonSchedule``.
 
         Parameters
         ----------
@@ -406,7 +413,8 @@ class StaticToleranceHandler(ConstraintHandler):
     ----------
     eps_cv : float, optional
         Search-time feasibility relaxation returned by
-        :attr:`feasibility_threshold` and copied onto the comparator. The
+        :attr:`feasibility_threshold`, which run preparation writes onto the
+        comparator. The
         default of 0.0 treats a solution as feasible only when
         :func:`sum_violation` is zero, which matches the per-constraint
         feasibility decision.
@@ -504,7 +512,13 @@ class EpsilonConstraintHandler(ConstraintHandler):
 
     @property
     def feasibility_threshold(self) -> float:
-        """Current ε; the comparator treats ``cv <= ε`` as feasible."""
+        """Return this handler's own current ε.
+
+        A run reads it at preparation to seed the comparator's ``eps_cv``.  The
+        running relaxation afterwards is the comparator's value, scheduled by
+        ``EpsilonSchedule``; the handler keeps updating its own ε for its
+        violation aggregation and for a later preparation.
+        """
         return self._eps
 
     def on_generation_end(self, gen: int, population: Population) -> None:

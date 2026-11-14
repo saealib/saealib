@@ -258,3 +258,27 @@ class TestGenCtrlSwitcherSwitch:
     def test_smoothed_error_is_public(self) -> None:
         sw = GenCtrlSwitcher(initial_error=0.3)
         assert sw.smoothed_error == 0.3
+
+
+# ---------------------------------------------------------------------------
+# Deprecation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("constructor", "replacement"),
+    [
+        (lambda: ManagerSwitcher(MagicMock(), MagicMock()), "ThresholdController"),
+        (
+            lambda: StrategySwitcher(MagicMock(), MagicMock()),
+            "ThresholdController",
+        ),
+        (lambda: GenCtrlSwitcher(), "SmoothedController"),
+    ],
+    ids=["manager", "strategy", "gen-ctrl"],
+)
+def test_the_concrete_switchers_name_their_controller_replacement(
+    constructor, replacement: str
+) -> None:
+    with pytest.warns(DeprecationWarning, match=replacement):
+        constructor()

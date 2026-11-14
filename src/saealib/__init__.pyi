@@ -319,6 +319,7 @@ from saealib.termination import max_fe as max_fe
 from saealib.termination import max_gen as max_gen
 from saealib.termination import max_steps as max_steps
 from saealib.termination import stalled as stalled
+from saealib.transition import AlignColumns as AlignColumns
 from saealib.transition import Chain as Chain
 from saealib.transition import Transition as Transition
 from saealib.transition import TransitionContext as TransitionContext

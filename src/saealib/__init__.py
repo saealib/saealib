@@ -316,6 +316,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     # algorithms (less common)
     "PymooAlgorithm": "saealib.algorithms",
     # transitions
+    "AlignColumns": "saealib.transition",
     "Chain": "saealib.transition",
     "Transition": "saealib.transition",
     "TransitionContext": "saealib.transition",

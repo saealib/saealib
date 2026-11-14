@@ -22,6 +22,7 @@ from saealib import (
     Optimizer,
     SequentialSelection,
     Termination,
+    Transition,
     TruncationSelection,
     max_gen,
 )
@@ -1834,62 +1835,47 @@ def test_a_pickle_whose_snapshot_lacks_the_preset_term_still_resumes() -> None:
 
 
 def _swap_to_pso_at_generation_boundary(
-    generator: Any, states: list[Any], optimizer: Any, pso: PSO
+    generator: Any,
+    states: list[Any],
+    optimizer: Any,
+    pso: PSO,
+    *,
+    transition: Any = None,
 ) -> None:
     """Advance to generation 2 without pending work, then set *pso*."""
     for state in generator:
         states.append(state)
         if state.gen == 2 and not state.pending_evaluations:
-            optimizer.set_algorithm(pso)
+            optimizer.set_algorithm(pso, transition=transition)
             return
 
 
-def _assert_pso_swap_rejected(
+def _assert_pso_swap_published(
     *,
     optimizer: Any,
     environment: Any,
     state: Any,
-    error: Any,
-    ga: Any,
     pso: Any,
-    counter: int,
     version: int,
-    columns: frozenset[str],
-    evaluations: int,
     same_candidate: bool = True,
 ) -> None:
-    missing = [
-        attribute.name
-        for attribute in pso.get_required_attrs(state.problem)
-        if attribute.name not in state.population.schema
-    ]
-    assert missing
-    assert [change.slot for change in error.changes] == ["algorithm"]
-    assert error.changes[0].previous is ga
     if same_candidate:
-        assert error.changes[0].candidate is pso
+        assert optimizer.algorithm is pso
     else:
-        assert type(error.changes[0].candidate) is type(pso)
-    assert error.changes[0].source == "setter"
-    assert [diagnostic.code for diagnostic in error.diagnostics] == [
-        "missing_population_column"
-    ]
-    assert error.version == version
-    for name in missing:
-        assert name in str(error)
-    assert optimizer.algorithm is ga
-    assert environment.active_version == version
-    assert optimizer._configuration_version == counter
-    assert frozenset(state.population.schema) == columns
-    assert state.fe == evaluations
-    assert environment._last_state.fe == evaluations
-    _assert_published_origins_restored(optimizer)
+        assert type(optimizer.algorithm) is type(pso)
+    assert environment.binding_values()["algorithm"] is optimizer.algorithm
+    assert environment.active_version == version + 1
+    assert state.__dict__["_binding_version"] == version + 1
+    schema = state.population.schema
+    for attribute in pso.get_required_attrs(state.problem):
+        assert attribute.name in schema
+        assert schema[attribute.name].shape == attribute.shape
 
 
 @pytest.mark.parametrize(
     "path", ["structured sync", "structured async", "sequential plan"]
 )
-def test_swapping_the_algorithm_for_pso_is_rejected_at_the_commit_point(
+def test_swapping_the_algorithm_for_pso_adds_its_columns_at_the_commit_point(
     path: str,
 ) -> None:
     if path == "structured sync":
@@ -1920,32 +1906,25 @@ def test_swapping_the_algorithm_for_pso_is_rejected_at_the_commit_point(
     environment = captured["environment"]
     pso = optimizer.algorithm
     version = environment.active_version
-    columns = frozenset(states[-1].population.schema)
-    evaluations = states[-1].fe
 
-    with pytest.raises(ReplacementRejectedError) as error:
-        next(generator)
+    next(generator)
     generator.close()
 
-    _assert_pso_swap_rejected(
+    _assert_pso_swap_published(
         optimizer=optimizer,
         environment=environment,
         state=states[-1],
-        error=error.value,
-        ga=ga,
         pso=pso,
-        counter=counter,
         version=version,
-        columns=columns,
-        evaluations=evaluations,
     )
+    assert optimizer._configuration_version == counter + 1
 
     resumed, resumed_captured = _capturing_runner(optimizer)
     for final in resumed.iterate_from(states[-1]):
         pass
 
     assert final.gen == (6 if path == "structured async" else 10)
-    assert resumed_captured["environment"].active_version == version
+    assert resumed_captured["environment"].active_version == version + 1
 
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -1961,7 +1940,9 @@ def test_resuming_after_a_rejected_algorithm_replacement_publishes_nothing() -> 
     runner, captured = _capturing_runner(optimizer)
     generator = runner.iterate()
     states: list[Any] = []
-    _swap_to_pso_at_generation_boundary(generator, states, optimizer, PSO())
+    _swap_to_pso_at_generation_boundary(
+        generator, states, optimizer, PSO(), transition=Transition()
+    )
     version = captured["environment"].active_version
     with pytest.raises(ReplacementRejectedError):
         next(generator)
@@ -1976,7 +1957,7 @@ def test_resuming_after_a_rejected_algorithm_replacement_publishes_nothing() -> 
     assert states[-1].__dict__["_binding_version"] == version
 
 
-def test_swapping_the_algorithm_for_pso_is_rejected_after_a_pickle_round_trip() -> None:
+def test_a_pickled_pso_replacement_adds_its_columns() -> None:
     ga = _RecordingGA()
     optimizer = _build_optimizer(ga)
     optimizer.set_termination(Termination(max_gen(10)))
@@ -1993,41 +1974,26 @@ def test_swapping_the_algorithm_for_pso_is_rejected_after_a_pickle_round_trip() 
     restored = pickle.loads(pickle.dumps(optimizer))
     resumed, resumed_captured = _capturing_runner(restored)
     version = restored._last_published_bindings.version
-    counter = restored._last_published_bindings.configuration_version
-    columns = frozenset(states[-1].population.schema)
     evaluations = states[-1].fe
 
-    with pytest.raises(ReplacementRejectedError) as error:
-        for _ in resumed.iterate_from(states[-1]):
-            pass
+    for _ in resumed.iterate_from(states[-1]):
+        pass
 
-    _assert_pso_swap_rejected(
+    _assert_pso_swap_published(
         optimizer=restored,
         environment=resumed_captured["environment"],
         state=states[-1],
-        error=error.value,
-        ga=restored._last_published_bindings.values["algorithm"],
         pso=pso,
-        counter=counter,
         version=version,
-        columns=columns,
-        evaluations=evaluations,
         same_candidate=False,
     )
-    assert captured["environment"].active_version == 0
     assert restored.algorithm is not pso
-    assert type(restored.algorithm) is type(ga)
-
-    again, again_captured = _capturing_runner(restored)
-    for final in again.iterate_from(states[-1]):
-        pass
-    assert final.gen == 10
-    resumed_environment = again_captured["environment"]
-    assert resumed_environment.binding_values()["algorithm"] is restored.algorithm
-    assert resumed_environment.active_version == version + 1
+    assert type(restored.algorithm) is type(pso)
+    assert captured["environment"].active_version == 0
+    assert states[-1].fe >= evaluations
 
 
-def test_a_pending_async_generation_defers_the_pso_rejection_to_the_commit_point() -> (
+def test_a_pending_async_generation_defers_the_pso_alignment_to_the_commit_point() -> (
     None
 ):
     ga = _RecordingGA()
@@ -2043,30 +2009,29 @@ def test_a_pending_async_generation_defers_the_pso_rejection_to_the_commit_point
     object.__setattr__(state, "pending_evaluations", {1: object()})
     object.__setattr__(state, "evaluation_handles", {1: object()})
     version = environment.active_version
-    counter = optimizer._configuration_version
-    optimizer.set_algorithm(PSO())
+    pso = PSO()
+    optimizer.set_algorithm(pso)
 
     environment._refresh_plan_if_needed(state)
 
     assert environment._publication_deferred
     assert environment.active_version == version
     assert environment.binding_values()["algorithm"] is ga
-    assert optimizer.algorithm is not ga
-    assert optimizer._configuration_version == counter + 1
+    assert optimizer.algorithm is pso
+    assert not any(
+        attribute.name in state.population.schema
+        for attribute in pso.get_required_attrs(state.problem)
+    )
 
     object.__setattr__(state, "pending_evaluations", {})
     object.__setattr__(state, "evaluation_handles", {})
-    with pytest.raises(ReplacementRejectedError) as error:
-        environment._refresh_plan_if_needed(state)
+    environment._refresh_plan_if_needed(state)
 
-    assert [diagnostic.code for diagnostic in error.value.diagnostics] == [
-        "missing_population_column"
-    ]
-    assert [change.slot for change in error.value.changes] == ["algorithm"]
-    assert optimizer.algorithm is ga
-    assert environment.active_version == version
-    assert optimizer._configuration_version == counter
     assert not environment._publication_deferred
+    assert environment.active_version == version + 1
+    assert environment.binding_values()["algorithm"] is pso
+    for attribute in pso.get_required_attrs(state.problem):
+        assert attribute.name in state.population.schema
 
 
 @pytest.mark.filterwarnings(

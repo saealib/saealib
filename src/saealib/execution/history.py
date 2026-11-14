@@ -13,11 +13,14 @@ import numpy as np
 
 from saealib.exceptions import ValidationError
 from saealib.execution.evaluator import EvaluationStatus, EvaluationUpdate
+from saealib.policies.feedback import OBJECTIVE_SOURCE_CODES, TRUE
+from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.problem.constraint import _feasible_rows
 from saealib.space import DenseNumericView
 
 if TYPE_CHECKING:
     from saealib.context import OptimizationState
+    from saealib.population import Population
 
 
 SUPPORTED_HISTORY_CHANNELS = frozenset(
@@ -1481,6 +1484,18 @@ def snapshot_generation_for_checkpoint(state: OptimizationState) -> Optimization
     return save_state
 
 
+def _truly_evaluated_rows(population: Population) -> np.ndarray:
+    """Mark the rows whose objectives come from a true evaluation.
+
+    A population without an ``objective_source`` column marks every row as
+    truly evaluated.
+    """
+    if OBJECTIVE_SOURCE_COLUMN not in population.schema:
+        return np.ones(len(population), dtype=bool)
+    codes = np.asarray(population.get_array(OBJECTIVE_SOURCE_COLUMN))
+    return codes == OBJECTIVE_SOURCE_CODES[TRUE]
+
+
 def record_generation(state: OptimizationState) -> None:
     """Append enabled generation-channel rows for the current state.
 
@@ -1489,8 +1504,11 @@ def record_generation(state: OptimizationState) -> None:
     after its own tolerance. Both are independent of the aggregation that
     produced ``cv`` and of any search-time epsilon relaxation, so relaxing the
     comparator never changes the reported solution or the ratio.
-    ``min_cv`` is the raw minimum cv in ``state.population`` and uses no
-    threshold.
+    ``feasible_ratio`` and ``min_cv`` describe only the population rows whose
+    ``objective_source`` marks a true evaluation, because predicted rows keep
+    a placeholder constraint value; both are NaN when no row of the population
+    is truly evaluated. ``min_cv`` is the raw minimum cv over those rows and
+    uses no threshold.
 
     The ``front`` channel stores the Pareto archive's objective values alone and
     has no cv column, so a front recorded while that archive holds no feasible
@@ -1553,11 +1571,15 @@ def record_generation(state: OptimizationState) -> None:
                 columns[f"f_max_{index}"] = np.nan
 
         population = state.population
-        if len(population):
-            cv = population.cv
-            feasible = _feasible_rows(population, state.problem.constraints)
-            columns["feasible_ratio"] = float(np.count_nonzero(feasible) / len(cv))
-            columns["min_cv"] = float(np.min(cv))
+        evaluated = _truly_evaluated_rows(population)
+        if np.any(evaluated):
+            feasible = _feasible_rows(population, state.problem.constraints, evaluated)
+            columns["feasible_ratio"] = float(
+                np.count_nonzero(feasible) / np.count_nonzero(evaluated)
+            )
+            columns["min_cv"] = float(
+                np.min(np.asarray(population.cv, dtype=float)[evaluated])
+            )
         else:
             columns["feasible_ratio"] = np.nan
             columns["min_cv"] = np.nan

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.policies.feedback &#8212; saealib 0.1.1.dev49+g6ff252f2d documentation</title>
+    <title>saealib.policies.feedback &#8212; saealib 0.1.1.dev50+g43c8ecf18 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=e821cf19"></script>
+    <script src="../../../_static/documentation_options.js?v=19315b9f"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1186,7 +1186,7 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create materialized missing values, source labels, and masks.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n_obj</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">LEGACY_SOURCE_CODES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">),</span>
             <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span>
         <span class="p">)</span>
 
@@ -1270,7 +1270,7 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
 
 
-<span class="n">LEGACY_SOURCE_CODES</span> <span class="o">=</span> <span class="p">{</span><span class="n">TRUE</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SURROGATE</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">IMPUTED</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+<span class="n">OBJECTIVE_SOURCE_CODES</span> <span class="o">=</span> <span class="p">{</span><span class="n">TRUE</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SURROGATE</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">IMPUTED</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_set_objective_source</span><span class="p">(</span>
@@ -1293,7 +1293,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">n_rows</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mark the rows of an ``update_rows`` mapping as truly evaluated.&quot;&quot;&quot;</span>
-    <span class="n">_set_objective_source</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">LEGACY_SOURCE_CODES</span><span class="p">[</span><span class="n">TRUE</span><span class="p">],</span> <span class="n">n_rows</span><span class="p">)</span>
+    <span class="n">_set_objective_source</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="p">[</span><span class="n">TRUE</span><span class="p">],</span> <span class="n">n_rows</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_feedback_batch_from_result</span><span class="p">(</span>
@@ -1511,8 +1511,8 @@ window.runMermaid = runMermaid;</script>
     <span class="n">f</span><span class="p">[</span><span class="n">selected_positions</span><span class="p">[</span><span class="n">usable</span><span class="p">],</span> <span class="n">selected_indices</span><span class="p">[</span><span class="n">usable</span><span class="p">]]</span> <span class="o">=</span> <span class="n">selected_values</span><span class="p">[</span><span class="n">usable</span><span class="p">]</span>
     <span class="n">selected_source</span><span class="p">[</span><span class="n">selected_positions</span><span class="p">[</span><span class="n">usable</span><span class="p">]]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
         <span class="n">sources</span><span class="p">[</span><span class="n">selected</span><span class="p">][</span><span class="n">usable</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="n">LEGACY_SOURCE_CODES</span><span class="p">[</span><span class="n">TRUE</span><span class="p">],</span>
-        <span class="n">LEGACY_SOURCE_CODES</span><span class="p">[</span><span class="n">SURROGATE</span><span class="p">],</span>
+        <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="p">[</span><span class="n">TRUE</span><span class="p">],</span>
+        <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="p">[</span><span class="n">SURROGATE</span><span class="p">],</span>
     <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
     <span class="n">evaluated</span><span class="p">[</span><span class="n">selected_positions</span><span class="p">[</span><span class="n">usable</span><span class="p">]]</span> <span class="o">=</span> <span class="n">sources</span><span class="p">[</span><span class="n">selected</span><span class="p">][</span><span class="n">usable</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span>
     <span class="k">return</span> <span class="n">FeedbackResult</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">evaluated</span><span class="p">,</span> <span class="n">selected_source</span><span class="p">)</span>
@@ -1677,11 +1677,11 @@ window.runMermaid = runMermaid;</script>
         <span class="n">objective_source</span> <span class="o">=</span> <span class="n">source_names</span><span class="p">[</span><span class="n">objective</span><span class="p">]</span>
         <span class="n">selected_source</span><span class="p">[</span><span class="n">selected_positions</span><span class="p">[</span><span class="n">objective</span><span class="p">]]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
             <span class="n">objective_source</span> <span class="o">==</span> <span class="n">TRUE</span><span class="p">,</span>
-            <span class="n">LEGACY_SOURCE_CODES</span><span class="p">[</span><span class="n">TRUE</span><span class="p">],</span>
+            <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="p">[</span><span class="n">TRUE</span><span class="p">],</span>
             <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
                 <span class="n">objective_source</span> <span class="o">==</span> <span class="n">SURROGATE</span><span class="p">,</span>
-                <span class="n">LEGACY_SOURCE_CODES</span><span class="p">[</span><span class="n">SURROGATE</span><span class="p">],</span>
-                <span class="n">LEGACY_SOURCE_CODES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">fallback_policy</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="p">[</span><span class="n">SURROGATE</span><span class="p">],</span>
+                <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">fallback_policy</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
             <span class="p">),</span>
         <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
         <span class="n">evaluated</span><span class="p">[</span><span class="n">selected_positions</span><span class="p">[</span><span class="n">objective</span><span class="p">]]</span> <span class="o">=</span> <span class="n">objective_source</span> <span class="o">==</span> <span class="n">TRUE</span>

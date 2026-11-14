@@ -8,7 +8,7 @@ binding version together with it; nothing half-applies.
 from __future__ import annotations
 
 import pickle
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -26,11 +26,16 @@ from saealib import (
 )
 from saealib.algorithms import GA
 from saealib.callback import CallbackManager, GenerationEndEvent, PostAskEvent
+from saealib.core.compiler import ExecutablePlan
 from saealib.core.compiler.strategy_requirements import resolve_requires_surrogate
 from saealib.core.graph_builder import build_component_graph
 from saealib.core.runtime import NodeResult, SequentialPlan
 from saealib.core.state import StatePatch
-from saealib.exceptions import ConfigurationError, ValidationError
+from saealib.exceptions import (
+    ConfigurationError,
+    ReplacementRejectedError,
+    ValidationError,
+)
 from saealib.execution import (
     AsyncEvaluationScheduler,
     EvaluationHandle,
@@ -274,6 +279,32 @@ def _capturing_runner(optimizer: Any) -> tuple[Runner, dict[str, Any]]:
     return Runner(optimizer, runtime_factory=factory), captured
 
 
+def _assert_published_origins_restored(optimizer: Any) -> None:
+    """Check the origin and materialized maps describe the published parts."""
+    snapshot = optimizer._last_published_bindings
+    assert snapshot is not None
+    published = {
+        name: origin
+        for name, origin in snapshot.provenance.items()
+        if name != "feature_encoder" or origin.source == "persisted"
+    }
+    origins = optimizer._component_origins
+    assert set(origins) == set(published)
+    for name, origin in published.items():
+        assert origins[name].value is origin.value
+        assert origins[name].source == origin.source
+        assert origins[name].reason == origin.reason
+    materialized = {
+        name: origin.value
+        for name, origin in snapshot.provenance.items()
+        if name != "feature_encoder"
+        and origin.source not in {"setter", "direct assignment"}
+    }
+    assert set(optimizer._materialized_components) == set(materialized)
+    for name, value in materialized.items():
+        assert optimizer._materialized_components[name] is value
+
+
 # ---------------------------------------------------------------------------
 # Synchronous commit points
 # ---------------------------------------------------------------------------
@@ -380,18 +411,25 @@ def test_replacement_with_error_diagnostic_keeps_previous_plan_usable() -> None:
     states.append(next(generator))
     version_before = captured["environment"].active_version
     plan_before = optimizer._executable_plan
+    planner_before = optimizer.evaluation_planner
+    counter_before = optimizer._configuration_version
     optimizer.evaluation_planner = object()  # type: ignore[assignment]
 
-    with pytest.raises(ConfigurationError) as error:
+    with pytest.raises(ReplacementRejectedError) as error:
         next(generator)
     assert "component_protocol_mismatch" in str(error.value)
     assert "optimizer.evaluation_planner" in str(error.value)
+    assert "component_protocol_mismatch" in [
+        diagnostic.code for diagnostic in error.value.diagnostics
+    ]
     generator.close()
     assert optimizer._executable_plan is plan_before
+    assert optimizer.evaluation_planner is planner_before
+    assert optimizer._configuration_version == counter_before
     assert captured["environment"].active_version == version_before
     assert len(pso.asks) == 1
+    _assert_published_origins_restored(optimizer)
 
-    optimizer.evaluation_planner = None
     optimizer.set_algorithm(ga)
     for state in runner.iterate_from(states[-1]):
         states.append(state)
@@ -403,27 +441,34 @@ def test_replacement_with_error_diagnostic_keeps_previous_plan_usable() -> None:
 
 def test_rejected_replacement_restores_the_resolution_results() -> None:
     optimizer = _build_optimizer(_RecordingGA())
-    generator = Runner(optimizer).iterate()
+    generator = optimizer.iterate()
     next(generator)
     next(generator)
     resolution_before = optimizer._component_resolution
     plan_before = optimizer._executable_plan
-    origins_before = optimizer._component_origins
-    materialized_before = optimizer._materialized_components
     defaults_before = optimizer._default_resolution
+    planner_before = optimizer.evaluation_planner
+    counter_before = optimizer._configuration_version
+    published_version = optimizer._last_published_bindings.version
     rejected = object()
     optimizer.evaluation_planner = rejected  # type: ignore[assignment]
 
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ReplacementRejectedError) as error:
         next(generator)
     generator.close()
 
+    assert isinstance(plan_before, ExecutablePlan)
     assert optimizer._component_resolution is resolution_before
     assert optimizer._executable_plan is plan_before
-    assert optimizer._component_origins is origins_before
-    assert optimizer._materialized_components is materialized_before
     assert optimizer._default_resolution is defaults_before
-    assert optimizer.evaluation_planner is rejected
+    _assert_published_origins_restored(optimizer)
+    assert optimizer.evaluation_planner is planner_before
+    assert optimizer._configuration_version == counter_before
+    assert error.value.version == published_version
+    assert [
+        (change.slot, change.previous, change.candidate)
+        for change in error.value.changes
+    ] == [("evaluation_planner", planner_before, rejected)]
 
 
 def _iterate_until_rejection(
@@ -450,12 +495,14 @@ def test_resumed_run_rejects_the_rejected_component_at_the_commit_point() -> Non
     optimizer = _build_optimizer(ga)
     states = _iterate_until_rejection(Runner(optimizer), optimizer, generation=2)
     assert states[-1].gen == 2
+    published_planner = optimizer.evaluation_planner
+    optimizer.evaluation_planner = object()  # type: ignore[assignment]
 
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ReplacementRejectedError):
         for _ in Runner(optimizer).iterate_from(states[-1]):
             pass
+    assert optimizer.evaluation_planner is published_planner
 
-    optimizer.evaluation_planner = None
     final = Runner(optimizer).run_from(states[-1])
     assert final.gen == 10
     assert ga.asks == [4] * 10
@@ -472,12 +519,14 @@ def test_async_resumed_run_rejects_the_rejected_component_at_the_commit_point() 
         termination=Termination(max_gen(6)),
     )
     states = _iterate_until_rejection(Runner(optimizer), optimizer, generation=2)
+    published_planner = optimizer.evaluation_planner
+    optimizer.evaluation_planner = object()  # type: ignore[assignment]
 
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ReplacementRejectedError):
         for _ in Runner(optimizer).iterate_from(states[-1]):
             pass
+    assert optimizer.evaluation_planner is published_planner
 
-    optimizer.evaluation_planner = None
     final = Runner(optimizer).run_from(states[-1])
     assert final.gen == 6
     assert not final.pending_evaluations
@@ -506,12 +555,14 @@ def test_sequential_plan_resumed_run_rejects_the_rejected_component() -> None:
     runner, captured = _capturing_runner(optimizer)
     states = _iterate_until_rejection(runner, optimizer, generation=2)
     assert isinstance(captured["environment"].plan, SequentialPlan)
+    published_planner = optimizer.evaluation_planner
+    optimizer.evaluation_planner = cast(Any, object())
 
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ReplacementRejectedError):
         for _ in Runner(optimizer).iterate_from(states[-1]):
             pass
+    assert optimizer.evaluation_planner is published_planner
 
-    optimizer.evaluation_planner = None
     final = Runner(optimizer).run_from(states[-1])
     assert final.gen == 10
 
@@ -523,17 +574,23 @@ def test_pickled_optimizer_keeps_the_rejection_of_a_rejected_replacement() -> No
     next(generator)
     state = next(generator)
     optimizer.evaluation_planner = object()  # type: ignore[assignment]
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ReplacementRejectedError):
         next(generator)
     generator.close()
+    published_planner = optimizer.evaluation_planner
+    optimizer.evaluation_planner = object()  # type: ignore[assignment]
 
     restored = pickle.loads(pickle.dumps(optimizer))
 
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ReplacementRejectedError):
         for _ in Runner(restored).iterate_from(state):
             pass
+    assert restored.evaluation_planner is not published_planner
+    assert (
+        restored.evaluation_planner
+        is restored._last_published_bindings.values["evaluation_planner"]
+    )
 
-    restored.evaluation_planner = None
     final = Runner(restored).run_from(state)
     assert final.gen == 10
 
@@ -1018,7 +1075,7 @@ def test_async_generation_based_replacement_waits_for_in_flight_requests() -> No
 
 def test_pending_async_work_keeps_active_provenance_until_drain() -> None:
     first = _RecordingGA()
-    second = _RecordingPSO()
+    second = _RecordingGA()
     optimizer = _build_optimizer(first)
     evaluator = SerialEvaluator()
     optimizer.set_async_evaluation_scheduler(
@@ -1767,3 +1824,462 @@ def test_a_pickle_whose_snapshot_lacks_the_preset_term_still_resumes() -> None:
     final = Runner(restored).run_from(restored_state)
     assert final.gen == 10
     assert final.__dict__["_binding_version"] == restored_snapshot.version
+
+
+# ---------------------------------------------------------------------------
+# Commit-point rejection of a declared-column mismatch
+# ---------------------------------------------------------------------------
+
+
+def _swap_to_pso_at_generation_boundary(
+    generator: Any, states: list[Any], optimizer: Any, pso: PSO
+) -> None:
+    """Advance to generation 2 without pending work, then set *pso*."""
+    for state in generator:
+        states.append(state)
+        if state.gen == 2 and not state.pending_evaluations:
+            optimizer.set_algorithm(pso)
+            return
+
+
+def _assert_pso_swap_rejected(
+    *,
+    optimizer: Any,
+    environment: Any,
+    state: Any,
+    error: Any,
+    ga: Any,
+    pso: Any,
+    counter: int,
+    version: int,
+    columns: frozenset[str],
+    evaluations: int,
+    same_candidate: bool = True,
+) -> None:
+    missing = [
+        attribute.name
+        for attribute in pso.get_required_attrs(state.problem)
+        if attribute.name not in state.population.schema
+    ]
+    assert missing
+    assert [change.slot for change in error.changes] == ["algorithm"]
+    assert error.changes[0].previous is ga
+    if same_candidate:
+        assert error.changes[0].candidate is pso
+    else:
+        assert type(error.changes[0].candidate) is type(pso)
+    assert error.changes[0].source == "setter"
+    assert [diagnostic.code for diagnostic in error.diagnostics] == [
+        "missing_population_column"
+    ]
+    assert error.version == version
+    for name in missing:
+        assert name in str(error)
+    assert optimizer.algorithm is ga
+    assert environment.active_version == version
+    assert optimizer._configuration_version == counter
+    assert frozenset(state.population.schema) == columns
+    assert state.fe == evaluations
+    assert environment._last_state.fe == evaluations
+    _assert_published_origins_restored(optimizer)
+
+
+@pytest.mark.parametrize(
+    "path", ["structured sync", "structured async", "sequential plan"]
+)
+def test_swapping_the_algorithm_for_pso_is_rejected_at_the_commit_point(
+    path: str,
+) -> None:
+    if path == "structured sync":
+        ga = _RecordingGA()
+        optimizer = _build_optimizer(ga)
+    elif path == "structured async":
+        ga = _RecordingGA()
+        optimizer = _build_async_optimizer(
+            ga,
+            DirectStrategy(),
+            _DeterministicEvaluator(release_after_collects=1, max_collects=4000),
+            termination=Termination(max_gen(6)),
+        )
+    else:
+        ga = _RecordingGA()
+        optimizer = (
+            Optimizer(_problem(), seed=7)
+            .set_initializer(LHSInitializer(6, 4, 7))
+            .set_algorithm(ga)
+            .set_strategy(_FlatDirect())
+            .set_termination(Termination(max_gen(10)))
+        )
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    states: list[Any] = []
+    counter = optimizer._configuration_version
+    _swap_to_pso_at_generation_boundary(generator, states, optimizer, PSO())
+    environment = captured["environment"]
+    pso = optimizer.algorithm
+    version = environment.active_version
+    columns = frozenset(states[-1].population.schema)
+    evaluations = states[-1].fe
+
+    with pytest.raises(ReplacementRejectedError) as error:
+        next(generator)
+    generator.close()
+
+    _assert_pso_swap_rejected(
+        optimizer=optimizer,
+        environment=environment,
+        state=states[-1],
+        error=error.value,
+        ga=ga,
+        pso=pso,
+        counter=counter,
+        version=version,
+        columns=columns,
+        evaluations=evaluations,
+    )
+
+    resumed, resumed_captured = _capturing_runner(optimizer)
+    for final in resumed.iterate_from(states[-1]):
+        pass
+
+    assert final.gen == (6 if path == "structured async" else 10)
+    assert resumed_captured["environment"].active_version == version
+
+
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
+def test_resuming_after_a_rejected_algorithm_replacement_publishes_nothing() -> None:
+    ga = _RecordingGA()
+    optimizer = (
+        Optimizer(_problem(), seed=7)
+        .set_initializer(LHSInitializer(6, 4, 7))
+        .set_algorithm(ga)
+        .set_strategy(_FlatDirect())
+        .set_termination(Termination(max_gen(10)))
+    )
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    states: list[Any] = []
+    _swap_to_pso_at_generation_boundary(generator, states, optimizer, PSO())
+    version = captured["environment"].active_version
+    with pytest.raises(ReplacementRejectedError):
+        next(generator)
+    generator.close()
+
+    resumed, resumed_captured = _capturing_runner(optimizer)
+    for _ in resumed.iterate_from(states[-1]):
+        pass
+
+    assert optimizer.algorithm is ga
+    assert resumed_captured["environment"].active_version == version
+    assert states[-1].__dict__["_binding_version"] == version
+
+
+def test_swapping_the_algorithm_for_pso_is_rejected_after_a_pickle_round_trip() -> None:
+    ga = _RecordingGA()
+    optimizer = _build_optimizer(ga)
+    optimizer.set_termination(Termination(max_gen(10)))
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    states: list[Any] = []
+    for state in generator:
+        states.append(state)
+        if state.gen == 2:
+            break
+    generator.close()
+    pso = PSO()
+    optimizer.set_algorithm(pso)
+    restored = pickle.loads(pickle.dumps(optimizer))
+    resumed, resumed_captured = _capturing_runner(restored)
+    version = restored._last_published_bindings.version
+    counter = restored._last_published_bindings.configuration_version
+    columns = frozenset(states[-1].population.schema)
+    evaluations = states[-1].fe
+
+    with pytest.raises(ReplacementRejectedError) as error:
+        for _ in resumed.iterate_from(states[-1]):
+            pass
+
+    _assert_pso_swap_rejected(
+        optimizer=restored,
+        environment=resumed_captured["environment"],
+        state=states[-1],
+        error=error.value,
+        ga=restored._last_published_bindings.values["algorithm"],
+        pso=pso,
+        counter=counter,
+        version=version,
+        columns=columns,
+        evaluations=evaluations,
+        same_candidate=False,
+    )
+    assert captured["environment"].active_version == 0
+    assert restored.algorithm is not pso
+    assert type(restored.algorithm) is type(ga)
+
+    again, again_captured = _capturing_runner(restored)
+    for final in again.iterate_from(states[-1]):
+        pass
+    assert final.gen == 10
+    resumed_environment = again_captured["environment"]
+    assert resumed_environment.binding_values()["algorithm"] is restored.algorithm
+    assert resumed_environment.active_version == version + 1
+
+
+def test_a_pending_async_generation_defers_the_pso_rejection_to_the_commit_point() -> (
+    None
+):
+    ga = _RecordingGA()
+    optimizer = _build_optimizer(ga)
+    optimizer.set_async_evaluation_scheduler(
+        AsyncEvaluationScheduler(SerialEvaluator(), max_pending=1)
+    )
+    optimizer.resolve_defaults()
+    state = optimizer.initializer.initialize(optimizer, optimizer.problem)
+    runtime = create_runtime(optimizer)
+    environment = getattr(runtime, "environment")
+    environment._remember_state(state)
+    object.__setattr__(state, "pending_evaluations", {1: object()})
+    object.__setattr__(state, "evaluation_handles", {1: object()})
+    version = environment.active_version
+    counter = optimizer._configuration_version
+    optimizer.set_algorithm(PSO())
+
+    environment._refresh_plan_if_needed(state)
+
+    assert environment._publication_deferred
+    assert environment.active_version == version
+    assert environment.binding_values()["algorithm"] is ga
+    assert optimizer.algorithm is not ga
+    assert optimizer._configuration_version == counter + 1
+
+    object.__setattr__(state, "pending_evaluations", {})
+    object.__setattr__(state, "evaluation_handles", {})
+    with pytest.raises(ReplacementRejectedError) as error:
+        environment._refresh_plan_if_needed(state)
+
+    assert [diagnostic.code for diagnostic in error.value.diagnostics] == [
+        "missing_population_column"
+    ]
+    assert [change.slot for change in error.value.changes] == ["algorithm"]
+    assert optimizer.algorithm is ga
+    assert environment.active_version == version
+    assert optimizer._configuration_version == counter
+    assert not environment._publication_deferred
+
+
+@pytest.mark.filterwarnings(
+    "ignore:Overriding build_graph\\(provider\\):DeprecationWarning"
+)
+def test_a_strategy_graph_failure_restores_the_published_configuration() -> None:
+    class _BrokenGraphDirect(_FlatDirect):
+        def build_graph(self, provider: Any) -> Any:
+            raise ValidationError("strategy graph does not validate")
+
+    ga = _RecordingGA()
+    optimizer = _build_optimizer(ga)
+    strategy = optimizer.strategy
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    next(generator)
+    next(generator)
+    version = captured["environment"].active_version
+    counter = optimizer._configuration_version
+    broken = _BrokenGraphDirect()
+    optimizer.set_strategy(broken)
+
+    with pytest.raises(ValidationError) as error:
+        next(generator)
+    generator.close()
+
+    assert str(error.value) == "strategy graph does not validate"
+    assert not isinstance(error.value, ReplacementRejectedError)
+    assert optimizer.strategy is strategy
+    assert captured["environment"].active_version == version
+    assert optimizer._configuration_version == counter
+
+
+@pytest.mark.filterwarnings(
+    "ignore:Overriding build_graph\\(provider\\):DeprecationWarning"
+)
+def test_a_strategy_interrupt_restores_the_published_configuration() -> None:
+    class _InterruptingGraph(_FlatDirect):
+        def build_graph(self, provider: Any) -> Any:
+            raise KeyboardInterrupt
+
+    optimizer = _build_optimizer(_RecordingGA())
+    strategy = optimizer.strategy
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    next(generator)
+    next(generator)
+    version = captured["environment"].active_version
+    counter = optimizer._configuration_version
+    optimizer.set_strategy(_InterruptingGraph())
+
+    with pytest.raises(KeyboardInterrupt):
+        next(generator)
+    generator.close()
+
+    assert optimizer.strategy is strategy
+    assert captured["environment"].active_version == version
+    assert optimizer._configuration_version == counter
+
+
+def test_a_rejected_replacement_restores_the_preset() -> None:
+    optimizer = _build_optimizer(_RecordingGA())
+    generator = optimizer.iterate()
+    next(generator)
+    next(generator)
+    published_preset = optimizer._preset
+    optimizer._preset = {"algorithm": {"type": "PSO"}}
+    optimizer.evaluation_planner = cast(Any, object())
+
+    with pytest.raises(ReplacementRejectedError):
+        next(generator)
+    generator.close()
+
+    assert optimizer._preset is published_preset
+    _assert_published_origins_restored(optimizer)
+
+
+class _OtherFeatureEncoder:
+    def encode(self, genomes: Any) -> Any:
+        return np.asarray(genomes.array)
+
+
+def test_a_rejected_replacement_restores_the_feature_encoder_default() -> None:
+    optimizer = _surrogate_optimizer_for_swap(GenerationBasedStrategy(1), seed=7)
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    states = [next(generator), next(generator)]
+    environment = captured["environment"]
+    assert environment._active_snapshot.feature_encoder_selection is not None
+    published_default = optimizer._feature_encoder_default
+    assert published_default is not None
+    version = environment.active_version
+    optimizer._feature_encoder_default = (
+        optimizer.problem.space,
+        _OtherFeatureEncoder(),
+        "another encoder",
+    )
+    optimizer.evaluation_planner = cast(Any, object())
+
+    with pytest.raises(ReplacementRejectedError) as error:
+        next(generator)
+    generator.close()
+
+    assert [change.slot for change in error.value.changes] == [
+        "evaluation_planner",
+        "feature_encoder",
+    ]
+    assert optimizer._feature_encoder_default is not None
+    assert optimizer._feature_encoder_default[1] is published_default[1]
+    _assert_published_origins_restored(optimizer)
+    assert environment._active_snapshot.unchanged_by(
+        environment._bindings(),
+        environment._strategy_values(),
+        environment._feature_encoder_selection(),
+        optimizer._preset,
+    )
+    assert environment.active_version == version
+
+    resumed, resumed_captured = _capturing_runner(optimizer)
+    for _ in resumed.iterate_from(states[-1]):
+        pass
+    assert resumed_captured["environment"].active_version == version
+
+
+def test_a_rejected_replacement_restores_the_feedback_builder_flag() -> None:
+    optimizer = _build_optimizer(_RecordingGA())
+    builder = _RecordingFeedback()
+    generator = optimizer.iterate()
+    next(generator)
+    next(generator)
+    assert optimizer.feedback_builder_explicit is False
+    optimizer.feedback_builder = builder
+    assert optimizer.feedback_builder_explicit is True
+    optimizer.evaluation_planner = cast(Any, object())
+
+    with pytest.raises(ReplacementRejectedError) as error:
+        next(generator)
+    generator.close()
+
+    assert [change.slot for change in error.value.changes] == [
+        "evaluation_planner",
+        "feedback_builder",
+    ]
+    assert optimizer.feedback_builder is not builder
+    assert optimizer.feedback_builder_explicit is False
+    _assert_published_origins_restored(optimizer)
+
+
+def test_a_rejected_replacement_leaves_the_published_defaults_to_a_later_swap() -> None:
+    control = _surrogate_optimizer_for_swap(DirectStrategy(), seed=7)
+    control_generator = control.iterate()
+    control_state: Any = None
+    for control_state in control_generator:
+        if control_state.gen == 2:
+            break
+    control_published_planner = control.evaluation_planner
+    control_published_builder = control.feedback_builder
+    control.set_strategy(IndividualBasedStrategy(0.5))
+    control_final: Any = control_state
+    for control_final in control.iterate_from(control_state):
+        pass
+    control_generator.close()
+
+    optimizer = _surrogate_optimizer_for_swap(DirectStrategy(), seed=7)
+    generator = optimizer.iterate()
+    state: Any = None
+    for state in generator:
+        if state.gen == 2:
+            break
+    optimizer.set_feedback_builder(TrueOnlyFeedback())
+    optimizer.set_evaluation_planner(cast(Any, object()))
+    with pytest.raises(ReplacementRejectedError) as error:
+        next(generator)
+    generator.close()
+
+    assert [change.slot for change in error.value.changes] == [
+        "evaluation_planner",
+        "feedback_builder",
+    ]
+    assert optimizer.feedback_builder_explicit is False
+    _assert_published_origins_restored(optimizer)
+    published_planner = optimizer.evaluation_planner
+    published_builder = optimizer.feedback_builder
+    assert type(published_planner) is type(control_published_planner)
+    assert type(published_builder) is type(control_published_builder)
+
+    optimizer.set_strategy(IndividualBasedStrategy(0.5))
+    final: Any = state
+    for final in optimizer.iterate_from(state):
+        pass
+
+    assert type(optimizer.evaluation_planner) is type(control.evaluation_planner)
+    assert type(optimizer.evaluation_planner) is not type(published_planner)
+    assert type(optimizer.feedback_builder) is type(control.feedback_builder)
+    assert type(optimizer.feedback_builder) is not type(published_builder)
+    assert optimizer.feedback_builder_explicit is False
+    assert control.feedback_builder_explicit is False
+    assert final.gen == control_final.gen == 6
+    assert final.fe == control_final.fe
+
+
+def test_the_origins_of_every_slot_match_the_published_origins_after_a_rejection() -> (
+    None
+):
+    optimizer = _build_optimizer(_RecordingGA())
+    generator = optimizer.iterate()
+    next(generator)
+    next(generator)
+    optimizer.set_feedback_builder(TrueOnlyFeedback())
+    optimizer.evaluation_planner = cast(Any, object())
+
+    with pytest.raises(ReplacementRejectedError):
+        next(generator)
+    generator.close()
+
+    _assert_published_origins_restored(optimizer)

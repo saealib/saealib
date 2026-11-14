@@ -25,7 +25,11 @@ from saealib.callback import (
 from saealib.comparators import NSGA3Comparator
 from saealib.context import OptimizationState
 from saealib.core.compiler.compiler import ExecutablePlan
-from saealib.core.compiler.diagnostics import Severity
+from saealib.core.compiler.diagnostics import (
+    ContractPath,
+    Diagnostic,
+    Severity,
+)
 from saealib.core.compiler.graph import ComponentNode
 from saealib.core.compiler.regions import (
     BranchRegion,
@@ -69,7 +73,13 @@ from saealib.core.state import (
 )
 from saealib.core.state.patch import StatePatch
 from saealib.core.state.readonly import _unwrap_readonly
-from saealib.exceptions import ConfigurationError, EvaluationFatalError, ValidationError
+from saealib.exceptions import (
+    ConfigurationError,
+    EvaluationFatalError,
+    RejectedChange,
+    ReplacementRejectedError,
+    ValidationError,
+)
 from saealib.execution.bindings import (
     _ComponentOrigin,
     _ComponentResolution,
@@ -1458,6 +1468,69 @@ def _replacement_blocked(
     return plan is not None and _plan_has_unfinished_async_work(plan, state)
 
 
+def _state_column_names(state: OptimizationState) -> frozenset[str]:
+    """Return the columns every collection of a running state carries."""
+    present: frozenset[str] | None = None
+    for name in ("population", "archive", "pareto_archive"):
+        collection = getattr(state, name, None)
+        schema = getattr(collection, "schema", None)
+        if schema is None:
+            continue
+        names = frozenset(schema)
+        present = names if present is None else present & names
+    return present if present is not None else frozenset()
+
+
+def _required_column_names(component: object, problem: object) -> tuple[str, ...]:
+    """Return the population column names one component declares, once."""
+    getter = getattr(component, "get_required_attrs", None)
+    if not callable(getter):
+        return ()
+    return tuple(attribute.name for attribute in getter(problem))
+
+
+def _non_checkpointable_components(
+    plan: ExecutablePlan,
+) -> tuple[tuple[str, str], ...]:
+    """Return ``(component id, type name)`` for non-checkpointable components.
+
+    A part that cannot be exported is reported under its parent's id with the
+    part name appended.
+    """
+    rejected: list[tuple[str, str]] = []
+    for component_id, contract in dict(plan.contract_snapshots).items():
+        component = plan.graph.node_by_id(component_id).component
+        held = getattr(component, "component", component)
+        if not contract.assumptions["state.checkpointable"]:
+            rejected.append((component_id, type(held).__name__))
+            continue
+        for part in contract.parts:
+            if part.contract.assumptions["state.checkpointable"]:
+                continue
+            part_component = getattr(getattr(component, "stage", None), part.name, None)
+            rejected.append(
+                (f"{component_id}__{part.name}", type(part_component).__name__)
+            )
+    return tuple(rejected)
+
+
+def _checkpointable_diagnostic(component_id: str, type_name: str) -> Diagnostic:
+    return Diagnostic(
+        severity=Severity.ERROR,
+        code="state_not_checkpointable",
+        message=(
+            "Portable checkpointing requires state.checkpointable=True; "
+            f"{type_name} declares state.checkpointable=False."
+        ),
+        path=ContractPath(components=(component_id,)),
+        resolutions=(
+            "Write pickle checkpoints or omit the checkpoint path for this run.",
+            "Make the component's state exportable and declare "
+            "state.checkpointable=True.",
+        ),
+    )
+
+
 class _OptimizerEnvironment:
     def __init__(self, optimizer: Any, plan: SequentialPlan | StructuredPlan) -> None:
         self.optimizer = optimizer
@@ -1510,6 +1583,7 @@ class _OptimizerEnvironment:
             ),
         )
         self._candidate_resolution: _ComponentResolution | None = None
+        self._candidate_diagnostics: tuple[Diagnostic, ...] = ()
         self.capabilities = _algorithm_runtime_capabilities(optimizer)
         self._publish_scheduler(plan.plan)
 
@@ -1707,12 +1781,21 @@ class _OptimizerEnvironment:
         bindings: dict[str, object],
         strategy_values: tuple[tuple[str, str], ...],
     ) -> None:
+        """Prepare a candidate binding set and publish it, or reject it.
+
+        Preparation covers compilation, the validation gate, the state checks,
+        and region history.  Any failure there goes through
+        :meth:`_reject_commit`, which restores the published configuration;
+        publication itself only writes already prepared values.
+        """
         self._candidate_resolution = None
+        self._candidate_diagnostics = ()
         saved_resolution_state = _capture_resolution_state(self.optimizer)
         try:
             executable, rebuilt = self._compile_current_plan(bindings)
             resolution = self._candidate_resolution
             self._gate(executable, resolution)
+            self._check_candidate_state(executable, resolution)
             if self._last_state is not None and _has_state_key(
                 self._last_state, RUNTIME_REGION_COUNTS
             ):
@@ -1722,9 +1805,20 @@ class _OptimizerEnvironment:
                     else ()
                 )
                 _ensure_region_history(self._last_state, region_ids)
-        except BaseException:
-            _restore_resolution_state(self.optimizer, saved_resolution_state)
-            raise
+        except BaseException as error:
+            self._reject_commit(error, saved_resolution_state)
+        self._publish_prepared(
+            executable, rebuilt, resolution, bindings, strategy_values
+        )
+
+    def _publish_prepared(
+        self,
+        executable: ExecutablePlan,
+        rebuilt: SequentialPlan | StructuredPlan,
+        resolution: _ComponentResolution | None,
+        bindings: dict[str, object],
+        strategy_values: tuple[tuple[str, str], ...],
+    ) -> None:
         consumes_feature_encoder = _executable_uses_service(
             executable, "FeatureEncoder"
         )
@@ -1801,6 +1895,211 @@ class _OptimizerEnvironment:
                 prepare_state_comparator(self._last_state)
         self._candidate_resolution = None
         self._publish_scheduler(executable)
+
+    def _check_candidate_state(
+        self,
+        executable: ExecutablePlan,
+        resolution: _ComponentResolution | None,
+    ) -> None:
+        """Run the checks that need the running state or the run's format."""
+        self._check_candidate_columns(resolution)
+        self._check_candidate_checkpointable(executable)
+        if self._candidate_diagnostics:
+            raise ConfigurationError(
+                "Component replacement rejected at the commit point:\n"
+                + "\n".join(f"  - {item}" for item in self._candidate_diagnostics)
+            )
+
+    def _check_candidate_columns(self, resolution: _ComponentResolution | None) -> None:
+        """Reject candidates whose declared columns the running state lacks.
+
+        The check needs a state to compare against, so a commit point without
+        one (a recompile from outside a run) skips it.
+        """
+        state = self._last_state
+        problem = getattr(self.optimizer, "problem", None)
+        if state is None or problem is None:
+            return
+        present = _state_column_names(state)
+        for slot in ("algorithm", "comparator"):
+            component = (
+                resolution.components.get(slot)
+                if resolution is not None
+                else getattr(self.optimizer, slot, None)
+            )
+            required = _required_column_names(component, problem)
+            missing = sorted(name for name in required if name not in present)
+            if not missing:
+                continue
+            self._candidate_diagnostics += (
+                Diagnostic(
+                    severity=Severity.ERROR,
+                    code="missing_population_column",
+                    message=(
+                        f"{type(component).__name__} requires population columns "
+                        "that are missing: " + ", ".join(missing) + "."
+                    ),
+                    path=ContractPath(components=(slot,)),
+                    resolutions=(
+                        "Add the columns with Population.add_columns() before the "
+                        "replacement.",
+                        "Provide a transition that produces the columns.",
+                    ),
+                ),
+            )
+
+    def _check_candidate_checkpointable(self, executable: ExecutablePlan) -> None:
+        """Reject candidates whose state a portable checkpoint cannot carry."""
+        if not getattr(self.optimizer, "_portable_checkpointing", False):
+            return
+        rejected = _non_checkpointable_components(executable)
+        if not rejected:
+            return
+        self._candidate_diagnostics += tuple(
+            _checkpointable_diagnostic(component_id, type_name)
+            for component_id, type_name in rejected
+        )
+        validator = getattr(self.optimizer, "_validate_checkpointable", None)
+        if callable(validator):
+            validator(plan=executable)
+
+    def _rejected_changes(self) -> tuple[RejectedChange, ...]:
+        """Return every slot whose component differs from the published one."""
+        published = self._active_snapshot.values
+        current = self._bindings()
+        names = list(_BINDING_SLOTS)
+        names.extend(sorted((set(published) | set(current)) - set(_BINDING_SLOTS)))
+        origins = getattr(self.optimizer, "_component_origins", None)
+        changes: list[RejectedChange] = []
+        for name in names:
+            previous = published.get(name)
+            candidate = current.get(name)
+            if previous is candidate:
+                continue
+            origin = origins.get(name) if isinstance(origins, dict) else None
+            changes.append(
+                RejectedChange(
+                    slot=name,
+                    previous=previous,
+                    candidate=candidate,
+                    source=getattr(origin, "source", None),
+                )
+            )
+        return tuple(changes)
+
+    def _reject_commit(
+        self,
+        error: BaseException,
+        saved_resolution_state: tuple[object, ...],
+    ) -> None:
+        """Restore the published configuration, then report the rejection.
+
+        Every failure raised while preparing a candidate restores the same
+        terms, so the next commit point observes no change and publishes
+        nothing.  A plain :class:`ConfigurationError` becomes a
+        :class:`ReplacementRejectedError` with the rejected slots and the
+        diagnostics that caused it; any other exception keeps its type and
+        message because it carries no diagnostics.
+        """
+        changes = self._rejected_changes()
+        diagnostics = self._candidate_diagnostics
+        _restore_resolution_state(self.optimizer, saved_resolution_state)
+        self._restore_published_configuration()
+        if type(error) is ConfigurationError:
+            raise ReplacementRejectedError(
+                changes, diagnostics, version=self.active_version
+            ) from error
+        raise
+
+    def _published_feature_encoder_default(
+        self,
+    ) -> tuple[object, object, str] | None:
+        """Return the cached default encoder the published snapshot selected.
+
+        A framework-default encoder is chosen once and cached on the optimizer;
+        the selection a commit point compares is read back from that cache when
+        no encoder is registered on the search space.  Rebuilding the cache
+        from the published snapshot keeps the selection equal to the one the
+        snapshot recorded.
+        """
+        selection = self._active_snapshot.feature_encoder_selection
+        encoder = self._active_snapshot.values.get("feature_encoder")
+        space = getattr(getattr(self.optimizer, "problem", None), "space", None)
+        if selection is None or selection[0] != "framework default":
+            return None
+        if encoder is None or space is None:
+            return None
+        return (space, encoder, selection[1])
+
+    def _published_origins(self) -> dict[str, _ComponentOrigin]:
+        """Return the component origins the published snapshot recorded.
+
+        Setters and direct assignments rewrite the optimizer's origin entries
+        in place before a commit point runs, so the dictionary captured at the
+        start of preparation already describes the rejected components.  The
+        snapshot's provenance holds the origins the publication wrote, and the
+        publication keeps a ``feature_encoder`` entry only for a persisted
+        encoder.
+        """
+        return {
+            name: origin
+            for name, origin in self._active_snapshot.provenance.items()
+            if name != "feature_encoder" or origin.source == "persisted"
+        }
+
+    def _published_materialized_components(self) -> dict[str, object]:
+        """Return the plan-owned components the published snapshot recorded."""
+        return {
+            name: origin.value
+            for name, origin in self._active_snapshot.provenance.items()
+            if name != "feature_encoder"
+            and origin.source not in {"setter", "direct assignment"}
+        }
+
+    def _restore_published_configuration(self) -> None:
+        """Put every restorable term back to the last published value.
+
+        Slots and the preset are restored by identity, the cached default
+        encoder and the origin and materialized-component maps from the
+        published snapshot, the configuration counter last, so the restored
+        values describe the published configuration exactly.  The published
+        binding record and the state's binding version are left alone: they
+        already point at it.
+        """
+        optimizer = self.optimizer
+        snapshot = self._active_snapshot
+        for name, value in snapshot.values.items():
+            if getattr(optimizer, name, None) is not value:
+                object.__setattr__(optimizer, name, value)
+        if getattr(optimizer, "_preset", None) is not snapshot.preset:
+            object.__setattr__(optimizer, "_preset", snapshot.preset)
+        object.__setattr__(
+            optimizer,
+            "_feature_encoder_default",
+            self._published_feature_encoder_default(),
+        )
+        object.__setattr__(optimizer, "_component_origins", self._published_origins())
+        object.__setattr__(
+            optimizer,
+            "_materialized_components",
+            self._published_materialized_components(),
+        )
+        builder_origin = snapshot.provenance.get("feedback_builder")
+        builder_explicit = getattr(builder_origin, "source", None) in {
+            "setter",
+            "direct assignment",
+            "user preset",
+        }
+        current_explicit = getattr(optimizer, "feedback_builder_explicit", False)
+        if current_explicit is not builder_explicit:
+            object.__setattr__(optimizer, "feedback_builder_explicit", builder_explicit)
+        self._candidate_resolution = None
+        self._candidate_diagnostics = ()
+        self._publication_deferred = False
+        self._pending_recompile = False
+        object.__setattr__(
+            optimizer, "_configuration_version", snapshot.configuration_version
+        )
 
     def _publish_scheduler(self, executable: ExecutablePlan) -> None:
         """Serve the scheduler from the active snapshot, never live reads."""
@@ -1892,6 +2191,12 @@ class _OptimizerEnvironment:
                     optimizer, "feedback_builder_explicit", saved_feedback_explicit
                 )
         if issues:
+            reported = tuple(
+                item
+                for item in getattr(optimizer, "_last_contract_diagnostics", ())
+                if item.severity is Severity.ERROR
+            )
+            self._candidate_diagnostics = self._candidate_diagnostics + reported
             raise ConfigurationError(
                 "Component replacement rejected at the commit point:\n"
                 + "\n".join(f"  - {message}" for message in issues)

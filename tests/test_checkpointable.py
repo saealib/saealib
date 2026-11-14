@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -21,7 +22,7 @@ from saealib import (
 from saealib.algorithms import Algorithm, DeapGenerateUpdateAlgorithm
 from saealib.context import OptimizationState
 from saealib.core.contracts import AssumptionSet
-from saealib.exceptions import ConfigurationError
+from saealib.exceptions import ConfigurationError, ReplacementRejectedError
 from saealib.experiment import (
     AlgorithmEntry,
     ExperimentConfig,
@@ -289,3 +290,102 @@ def test_resume_trial_accumulates_prior_wall_time(tmp_path: Path) -> None:
 
     assert result.wall_time > 100.0
     assert resumed_metadata["wall_time"] > 100.0
+
+
+def _sphere(x: object) -> float:
+    return float(np.sum(np.asarray(x) ** 2))
+
+
+def _picklable_problem() -> Problem:
+    return Problem(
+        func=_sphere,
+        dim=2,
+        n_obj=1,
+        direction=np.array([-1.0]),
+        lb=[-2.0, -2.0],
+        ub=[2.0, 2.0],
+    )
+
+
+@pytest.mark.parametrize("checkpoint_format", ["npz", "both"])
+def test_a_portable_checkpoint_run_rejects_a_non_checkpointable_replacement(
+    tmp_path: Path, checkpoint_format: str
+) -> None:
+    optimizer = _optimizer(_picklable_problem(), n_gen=4)
+    rejected = _NonCheckpointableEvaluator()
+
+    with pytest.raises(ReplacementRejectedError) as error:
+        for state in optimizer.iterate(
+            checkpoint_path=tmp_path / "checkpoint",
+            checkpoint_format=checkpoint_format,
+            checkpoint_interval=1,
+        ):
+            if state.gen == 1:
+                optimizer.set_evaluator(rejected)
+
+    codes = {diagnostic.code for diagnostic in error.value.diagnostics}
+    assert codes == {"state_not_checkpointable"}
+    assert any(
+        "evaluation_submit___evaluator" in str(diagnostic.path)
+        for diagnostic in error.value.diagnostics
+    )
+    published = optimizer._last_published_bindings
+    assert published is not None
+    assert error.value.version == published.version
+    assert optimizer.evaluator is not rejected
+    assert isinstance(optimizer.evaluator, SerialEvaluator)
+    assert optimizer._configuration_version == published.configuration_version
+
+
+@pytest.mark.parametrize("checkpoint_format", ["pickle", None])
+def test_a_non_portable_run_accepts_a_non_checkpointable_replacement(
+    tmp_path: Path, checkpoint_format: str | None
+) -> None:
+    optimizer = _optimizer(_picklable_problem(), n_gen=4)
+    replacement = _NonCheckpointableEvaluator()
+    kwargs: dict[str, Any] = (
+        {}
+        if checkpoint_format is None
+        else {
+            "checkpoint_path": tmp_path / "checkpoint",
+            "checkpoint_format": checkpoint_format,
+            "checkpoint_interval": 1,
+        }
+    )
+
+    final = None
+    for final in optimizer.iterate(**kwargs):
+        if final.gen == 1:
+            optimizer.set_evaluator(replacement)
+
+    assert final is not None
+    assert final.gen == 4
+    assert optimizer.evaluator is replacement
+    published = optimizer._last_published_bindings
+    assert published is not None
+    assert published.version == 1
+
+
+def test_a_portable_checkpoint_run_accepts_a_checkpointable_replacement(
+    tmp_path: Path,
+) -> None:
+    optimizer = _optimizer(_picklable_problem(), n_gen=4)
+    replacement = SerialEvaluator()
+
+    final = None
+    for final in optimizer.iterate(
+        checkpoint_path=tmp_path / "checkpoint",
+        checkpoint_format="npz",
+        checkpoint_interval=1,
+    ):
+        if final.gen == 1:
+            optimizer.set_evaluator(replacement)
+
+    assert final is not None
+    assert final.gen == 4
+    assert optimizer.evaluator is replacement
+    published = optimizer._last_published_bindings
+    assert published is not None
+    assert published.version == 1
+    files = sorted((tmp_path / "checkpoint").glob("checkpoint_*.npz"))
+    assert len(files) == final.gen

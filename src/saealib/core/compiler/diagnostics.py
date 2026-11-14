@@ -336,6 +336,26 @@ DIAGNOSTIC_CODES.register(
     ),
 )
 DIAGNOSTIC_CODES.register(
+    "missing_population_column",
+    VocabularyDescriptor(
+        name="missing_population_column",
+        description=(
+            "A component requires population columns that the running state "
+            "does not carry."
+        ),
+    ),
+)
+DIAGNOSTIC_CODES.register(
+    "state_not_checkpointable",
+    VocabularyDescriptor(
+        name="state_not_checkpointable",
+        description=(
+            "A component declares that its state cannot be exported to a "
+            "portable checkpoint."
+        ),
+    ),
+)
+DIAGNOSTIC_CODES.register(
     "opaque_state_effects",
     VocabularyDescriptor(
         name="opaque_state_effects",

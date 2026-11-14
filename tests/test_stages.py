@@ -18,17 +18,23 @@ from saealib.comparators import SingleObjectiveComparator
 from saealib.context import EvaluationPlanState, OptimizationState
 from saealib.exceptions import EvaluationProtocolError
 from saealib.execution.evaluator import (
+    EvaluationHandle,
     EvaluationRequest,
     EvaluationResult,
+    EvaluationStatus,
+    EvaluationUpdate,
     Evaluator,
+    PendingEvaluation,
     SerialEvaluator,
 )
+from saealib.execution.history import History, record_evaluations
 from saealib.policies.evaluation import EvaluationPlan
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
 from saealib.problem import Problem
 from saealib.stages import (
     AcquisitionStage,
     AskStage,
+    EvaluationAcknowledgeStage,
     EvaluationPlanStage,
     SurrogateFitStage,
     SurrogatePredictStage,
@@ -588,3 +594,131 @@ class TestTrueEvaluationStage:
         assert len(received) == 1
         np.testing.assert_array_equal(received[0].f, f[:n_eval])
         np.testing.assert_array_equal(received[0].cv, cv[:n_eval])
+
+    def test_evaluation_is_recorded_in_history_as_one_row(self):
+        state = self._state_with_offspring()
+        state = state.replace(history=History(("summary", "evaluation")))
+        assert state.offspring is not None
+        n_offspring = len(state.offspring)
+
+        counted = TrueEvaluationStage(SerialEvaluator()).execute(state)
+        record_evaluations(counted)
+
+        assert counted.fe == n_offspring
+        assert counted.history is not None
+        channel = counted.history.channel("evaluation")
+        assert channel["size"].tolist() == [n_offspring]
+        assert channel["fe_before"].tolist() == [0]
+        assert channel["fe_after"].tolist() == [n_offspring]
+
+    def test_consecutive_evaluations_accumulate_in_history(self):
+        state = self._state_with_offspring()
+        state = state.replace(history=History(("summary", "evaluation")))
+        assert state.offspring is not None
+        n_offspring = len(state.offspring)
+
+        first = TrueEvaluationStage(SerialEvaluator()).execute(state)
+        record_evaluations(first)
+        second = TrueEvaluationStage(SerialEvaluator()).execute(
+            first.replace(gen=1, offspring=first.offspring)
+        )
+        record_evaluations(second)
+
+        assert second.fe == 2 * n_offspring
+        assert second.history is not None
+        channel = second.history.channel("evaluation")
+        assert channel["size"].tolist() == [n_offspring, n_offspring]
+        assert channel["fe_before"].tolist() == [0, n_offspring]
+        assert channel["fe_after"].tolist() == [n_offspring, 2 * n_offspring]
+        assert int(np.sum(channel["size"])) == second.fe
+
+    def test_post_evaluation_event_observes_the_state_before_counting(self):
+        state = self._state_with_offspring()
+        received = []
+        cbmanager = CallbackManager()
+        cbmanager.register(PostEvaluationEvent, received.append)
+        assert state.offspring is not None
+
+        counted = TrueEvaluationStage(SerialEvaluator(), cbmanager=cbmanager).execute(
+            state
+        )
+
+        assert len(received) == 1
+        event = received[0]
+        assert event.ctx is state
+        assert event.ctx.fe == state.fe
+        assert event.request_id is None
+        assert event.status is None
+        assert event.candidate_ids is None
+        assert counted.fe == state.fe + len(state.offspring)
+
+
+class _AcknowledgeOnlyEvaluator(Evaluator):
+    def evaluate_batch(self, x, problem):
+        raise AssertionError("acknowledging does not evaluate")
+
+    def acknowledge(self, handle, sequence):
+        return None
+
+
+class TestEvaluationAcknowledgeStageCounting:
+    def _two_request_plan_state(self) -> OptimizationState:
+        state = _make_state()
+        requests = (
+            EvaluationRequest(
+                np.int64(0), np.array([0], dtype=np.int64), np.zeros((1, DIM))
+            ),
+            EvaluationRequest(
+                np.int64(1), np.array([1], dtype=np.int64), np.zeros((1, DIM))
+            ),
+        )
+        plan = EvaluationPlan(requests)
+
+        def update(request_id: int, sequence: int) -> EvaluationUpdate:
+            result = EvaluationResult(
+                f=np.zeros((1, N_OBJ)),
+                g=np.zeros((1, 0)),
+                cv=np.zeros(1),
+                candidate_ids=np.array([request_id], dtype=np.int64),
+            )
+            return EvaluationUpdate(
+                np.int64(request_id),
+                EvaluationStatus.COMPLETED,
+                np.array([request_id], dtype=np.int64),
+                result,
+                None,
+                sequence,
+            )
+
+        completed = [
+            PendingEvaluation(
+                request,
+                EvaluationStatus.COMPLETED,
+                np.array([int(request.request_id)], dtype=np.int64),
+            )
+            for request in requests
+        ]
+        return state.replace(
+            evaluation_plan=plan,
+            evaluation_plan_state=EvaluationPlanState(
+                submitted=(0, 1), completed=(0, 1)
+            ),
+            evaluation_request=requests[1],
+            evaluation_updates=[update(1, 0)],
+            evaluation_update_new_ids=[np.array([1], dtype=np.int64)],
+            evaluation_plan_updates={0: [update(0, 0), update(0, 1)]},
+            pending_evaluations={0: completed[0], 1: completed[1]},
+            evaluation_handles={
+                0: EvaluationHandle(np.int64(0), EvaluationStatus.COMPLETED),
+                1: EvaluationHandle(np.int64(1), EvaluationStatus.COMPLETED),
+            },
+            fe=0,
+        )
+
+    def test_a_candidate_id_reported_by_two_updates_counts_once(self):
+        state = self._two_request_plan_state()
+
+        counted = EvaluationAcknowledgeStage(_AcknowledgeOnlyEvaluator()).execute(state)
+
+        assert counted.fe == 2
+        assert counted.pending_evaluations == {}

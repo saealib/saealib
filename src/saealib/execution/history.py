@@ -12,7 +12,11 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 
 from saealib.exceptions import ValidationError
-from saealib.execution.evaluator import EvaluationStatus, EvaluationUpdate
+from saealib.execution.evaluator import (
+    EvaluationResult,
+    EvaluationStatus,
+    EvaluationUpdate,
+)
 from saealib.policies.feedback import OBJECTIVE_SOURCE_CODES, TRUE
 from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.problem.constraint import _feasible_rows
@@ -1408,14 +1412,54 @@ def record_evaluations(state: OptimizationState) -> None:
             history._fe_counted_ids.pop(request_id, None)
 
 
+def observe_true_evaluation(
+    state: OptimizationState, candidate_ids: object, result: EvaluationResult
+) -> None:
+    """Buffer one true-evaluation batch of the classic pipeline.
+
+    ``TrueEvaluationStage`` evaluates a batch without an evaluation request,
+    so the recorder receives a synthetic completed update whose request ID
+    comes from the state's request allocator.  Delivery and recording then
+    follow the plan-based paths: :func:`record_evaluations` turns the update
+    into one row with ``fe_before`` / ``fe_after`` from the recorder's counter.
+
+    Nothing is buffered when neither the ``evaluation`` nor the
+    ``surrogate_accuracy`` channel is enabled, so such a run allocates no
+    request ID.  A malformed batch is ignored, because history recording must
+    not stop execution.
+    """
+    # A graph-native stage sees a proxy without a history attribute.
+    state = getattr(state, "_state", state)
+    history = getattr(state, "history", None)
+    if history is None or not (
+        history.is_enabled("evaluation") or history.is_enabled("surrogate_accuracy")
+    ):
+        return
+    try:
+        ids = np.array(candidate_ids, dtype=np.int64, copy=True)
+        result.candidate_ids = ids
+        update = EvaluationUpdate(
+            np.int64(state.request_id_allocator.allocate(1)[0]),
+            EvaluationStatus.COMPLETED,
+            ids,
+            result,
+            None,
+            0,
+        )
+    except (AttributeError, TypeError, ValueError, OverflowError):
+        return
+    history._observe_evaluation(update, 0)
+
+
 def record_initial_evaluation(
     state: OptimizationState, result: object, ids: object
 ) -> None:
     """Record the initial evaluation as one synthetic completed row.
 
-    Every Initializer calls this before ``ctx.count_fe()``, so the row carries
-    ``fe_before = 0`` and ``fe_after = len(ids)`` from the recorder's own
-    cumulative counter (the same counter used by :func:`record_evaluations`).
+    Every Initializer records this row before counting the evaluations, so the
+    row carries ``fe_before = 0`` and ``fe_after = len(ids)`` from the recorder's
+    own cumulative counter (the same counter used by
+    :func:`record_evaluations`).
     ``request_id = -1`` marks it as not issued by a planner; ``IDAllocator``
     never allocates a negative ID.  No surrogate prediction exists yet, so
     ``surrogate_accuracy`` records nothing here.

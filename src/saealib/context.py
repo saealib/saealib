@@ -7,7 +7,7 @@ import dataclasses
 import functools
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -1305,7 +1305,7 @@ class OptimizationState:
         count : int
             Number of function evaluations to add.
         """
-        self.fe += count
+        _add_evaluations(self, count, in_place=True)
 
     def count_generation(self) -> None:
         """Count generations."""
@@ -1472,6 +1472,76 @@ class OptimizationState:
 for _store_field_name in _STORE_FIELDS:
     if _store_field_name in vars(OptimizationState):
         delattr(OptimizationState, _store_field_name)
+
+
+def _add_evaluations(
+    state: OptimizationState, count: int, *, in_place: bool = False
+) -> OptimizationState:
+    """Record *count* true evaluations on *state*.
+
+    Every addition to the evaluation count goes through this function.
+    ``in_place`` writes the count on *state* itself, for the public
+    :meth:`OptimizationState.count_fe` method, which mutates the state it is
+    called on; without it the function returns a state that carries the new
+    count.
+
+    Parameters
+    ----------
+    state : OptimizationState
+        State whose evaluation count advances.
+    count : int
+        Number of true evaluations to add.
+    in_place : bool
+        Whether to write the count on *state* instead of returning a new state.
+
+    Returns
+    -------
+    OptimizationState
+        The state carrying the new evaluation count.
+    """
+    if in_place:
+        state.fe += count
+        return state
+    return state.replace(fe=state.fe + count)
+
+
+def _count_evaluated(
+    state: OptimizationState,
+    candidate_ids: Iterable[int],
+    *,
+    counted: set[int] | None = None,
+) -> OptimizationState:
+    """Return a state that counts the true evaluations of one report.
+
+    Every built-in execution path advances the evaluation count through this
+    function, which adds the count with :func:`_add_evaluations`.  A candidate
+    ID is counted once per reporting scope: pass one ``counted`` set per
+    evaluation request to count an ID once however many updates report it, and
+    omit it for a report whose candidate IDs are unique.
+
+    Parameters
+    ----------
+    state : OptimizationState
+        State whose evaluation count advances.
+    candidate_ids : Iterable[int]
+        Candidate IDs whose evaluations this report delivers.
+    counted : set[int] or None
+        Candidate IDs already counted for the same request.
+
+    Returns
+    -------
+    OptimizationState
+        The state with the evaluation count advanced by the newly reported
+        candidate IDs.
+    """
+    seen = set() if counted is None else counted
+    newly_counted = [
+        candidate_id
+        for candidate_id in (int(value) for value in candidate_ids)
+        if candidate_id not in seen
+    ]
+    seen.update(newly_counted)
+    return _add_evaluations(state, len(newly_counted))
 
 
 def _state_key_to_json(key: StateKey[Any]) -> dict[str, Any]:

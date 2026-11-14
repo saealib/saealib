@@ -40,7 +40,7 @@ from saealib.callback import (
     SurrogateEndEvent,
     SurrogateStartEvent,
 )
-from saealib.context import EvaluationPlanState, OptimizationState
+from saealib.context import EvaluationPlanState, OptimizationState, _count_evaluated
 from saealib.core.contracts import (
     CallInput,
     CallOutput,
@@ -103,6 +103,7 @@ from saealib.execution.evaluator import (
     Evaluator,
     PendingEvaluation,
 )
+from saealib.execution.history import observe_true_evaluation
 from saealib.pipeline import _EXECUTION_BOUNDARIES, ComponentRef, Stage
 from saealib.policies.evaluation import (
     EvaluateAll,
@@ -2623,6 +2624,7 @@ class EvaluationAcknowledgeStage(Stage):
             )
         for update in raw_updates:
             self._evaluator.acknowledge(handle, update.sequence)
+        reported_ids: set[int] = set()
         for update, update_new_ids in zip(
             state.evaluation_updates, new_by_update, strict=True
         ):
@@ -2644,8 +2646,9 @@ class EvaluationAcknowledgeStage(Stage):
                 handles.pop(int(request.request_id), None)
             else:
                 pending_map[int(request.request_id)] = updated_pending
-            current = current.replace(
-                fe=current.fe + len(update_new_ids),
+            current = _count_evaluated(
+                current, update_new_ids, counted=reported_ids
+            ).replace(
                 pending_evaluations=pending_map.copy(),
                 evaluation_handles=handles.copy(),
             )
@@ -2696,11 +2699,12 @@ class EvaluationAcknowledgeStage(Stage):
                     pending_map.pop(planned_id, None)
                     continue
                 extra_pending = pending_map.get(planned_id)
+                reported_extra_ids: set[int] = set()
                 for update in all_updates.get(planned_id, ()):
                     self._evaluator.acknowledge(extra_handle, update.sequence)
                     if update.result is not None:
-                        current = current.replace(
-                            fe=current.fe + len(update.candidate_ids)
+                        current = _count_evaluated(
+                            current, update.candidate_ids, counted=reported_extra_ids
                         )
                 if extra_pending is not None:
                     pending_map.pop(planned_id, None)
@@ -2821,7 +2825,12 @@ class TrueEvaluationStage(Stage):
         candidates.update_rows(np.arange(n), values)
 
         evaluated = candidates.extract(list(range(n)))
-        counted = state.replace(fe=state.fe + n)
+        if "id" in candidates.schema:
+            evaluated_ids = np.asarray(candidates.get_array("id")[:n], dtype=np.int64)
+        else:
+            evaluated_ids = np.arange(n, dtype=np.int64)
+        counted = _count_evaluated(state, evaluated_ids)
+        observe_true_evaluation(state, evaluated_ids, result)
 
         if self._cbmanager is not None:
             _dispatch_callback(

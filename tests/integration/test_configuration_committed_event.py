@@ -123,7 +123,7 @@ def _count_commit_point_entries(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     entries = [0]
     original = _OptimizerEnvironment._refresh_plan_if_needed
 
-    def counted(self: Any, state: Any = None) -> None:
+    def counted(self: Any, state: Any = None) -> Any:
         entries[0] += 1
         return original(self, state)
 

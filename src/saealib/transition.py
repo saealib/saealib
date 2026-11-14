@@ -4,21 +4,26 @@
 replacement.  The transition runs at the commit point of that replacement,
 after the candidate configuration passes static validation and before the new
 binding version is published, so a transition that raises leaves the published
-configuration, the binding version, and the state's collections unchanged.
+configuration, the binding version, and its staged column writes unapplied.
+The true evaluations a transition confirmed before it raised stay confirmed,
+with their rows, archive entries, evaluation count, and History rows.
 
 Capabilities:
 
 - Supported: attaching a transition to a component setter, composing
   transitions with :class:`Chain`, staging column additions and drops for the
-  population, archive, and Pareto archive of the running state, and aligning
-  the columns of those collections with the components bound after a
-  replacement.
-- Extensible toward: evaluation requests from a transition.  ``apply`` is a
-  generator; a yielded value is rejected at the commit point with
-  :class:`~saealib.exceptions.ConfigurationError` because evaluation requested
-  by a transition is not available.
+  population, archive, and Pareto archive of the running state, aligning the
+  columns of those collections with the components bound after a replacement,
+  and requesting true evaluations of population rows with
+  :class:`EvaluateRequest` at the commit point of a synchronous or
+  asynchronous structured flow.
+- Extensible toward: evaluating rows of the archive alone, evaluation requests
+  from a sequential plan's transition (a commit point that runs outside a
+  structured flow has no evaluation path), and helper transitions for common
+  cases such as re-evaluating predicted rows.
 - Out of scope: replacing components or writing component parameters from a
-  transition, and declaring properties other than population columns.
+  transition, declaring properties other than population columns, and telling
+  the algorithm about the evaluations a transition requests.
 
 Named state is not invalidated across processes: a state resumed from a
 checkpoint in a new process does not record the flow that produced it, so the
@@ -31,8 +36,9 @@ replacement; a warning reports it.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterable, Iterator, Mapping
-from dataclasses import dataclass
+import pickle
+from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final
 
 import numpy as np
@@ -47,7 +53,15 @@ if TYPE_CHECKING:
     from saealib.context import OptimizationState
     from saealib.problem import Problem
 
-__all__ = ["AlignColumns", "Chain", "Transition", "TransitionContext", "chain"]
+__all__ = [
+    "AlignColumns",
+    "Chain",
+    "EvaluateRequest",
+    "EvaluationOutcome",
+    "Transition",
+    "TransitionContext",
+    "chain",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -383,13 +397,87 @@ def _same_attribute(left: PopulationAttribute, right: PopulationAttribute) -> bo
     return same_dtype and tuple(left.shape) == tuple(right.shape) and same_default
 
 
+@dataclass(frozen=True)
+class EvaluateRequest:
+    """A transition's request to evaluate population rows with the true objective.
+
+    The commit point evaluates the rows of ``state.population`` whose candidate
+    IDs this request names, confirms the results, and sends the outcome back
+    into the transition's generator.  Rows whose objective values already come
+    from a true evaluation are left out, so issuing the same replacement again
+    evaluates no row twice and a request with no rows left evaluates nothing.
+
+    Supported: population rows of a synchronous or asynchronous structured
+    flow, with the results confirmed at the commit point and never rolled back.
+    An asynchronous flow splits a request that exceeds the scheduler's free
+    capacity into capacity-sized parts and submits them in batches of the
+    scheduler's free capacity, polling after each batch, so six rows at
+    ``max_pending=3`` become two requests of three rows; the flow's own
+    evaluation requests keep their own split shape.  A synchronous flow
+    evaluates the whole request with one ``evaluator.evaluate_batch()`` call.
+    Extensible toward: rows that live in other collections.  Out of scope:
+    telling the algorithm about the requested evaluations, and adding the
+    request to the plan, whose requests and signatures stay unchanged.
+
+    Attributes
+    ----------
+    candidate_ids : numpy.ndarray
+        Candidate IDs of the rows to evaluate, shape ``(n,)``; they must be
+        unique and present in ``state.population``.
+    metadata : mapping of str to object
+        Extra metadata carried with every evaluation request the commit point
+        derives from this one.  The commit point adds its own entries to it.
+    """
+
+    candidate_ids: np.ndarray
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        ids = np.array(self.candidate_ids, dtype=np.int64, copy=True)
+        if ids.ndim != 1:
+            raise ValidationError("EvaluateRequest candidate_ids must be 1-D")
+        if len(np.unique(ids)) != len(ids):
+            raise ValidationError("EvaluateRequest candidate_ids must be unique")
+        metadata = dict(self.metadata)
+        for key in metadata:
+            if not isinstance(key, str):
+                raise ValidationError("EvaluateRequest metadata keys must be strings")
+        pickle.dumps(metadata)
+        ids.flags.writeable = False
+        object.__setattr__(self, "candidate_ids", ids)
+        object.__setattr__(self, "metadata", metadata)
+
+
+@dataclass(frozen=True)
+class EvaluationOutcome:
+    """What the commit point evaluated for one :class:`EvaluateRequest`.
+
+    Attributes
+    ----------
+    candidate_ids : numpy.ndarray
+        Candidate IDs that were truly evaluated, in request order, shape
+        ``(n,)``; empty when the request had nothing left to evaluate.
+    f, g, cv : numpy.ndarray
+        True objective values, shape ``(n, n_obj)``, raw constraint values,
+        shape ``(n, n_constraints)``, and constraint violations, shape ``(n,)``
+        of the evaluated rows.
+    """
+
+    candidate_ids: np.ndarray
+    f: np.ndarray
+    g: np.ndarray
+    cv: np.ndarray
+
+
 class Transition:
     """A change applied at a component replacement's commit point.
 
-    ``apply`` is a generator: yield nothing to change the run, and record
-    collection writes on the context.  A yielded value requests evaluation,
-    which is not available at a commit point and is rejected with
-    :class:`~saealib.exceptions.ConfigurationError`.
+    ``apply`` is a generator: yield nothing to change the run, record
+    collection writes on the context, and yield an :class:`EvaluateRequest` to
+    evaluate population rows at the commit point.  The runtime evaluates the
+    request and sends an :class:`EvaluationOutcome` back into the generator, so
+    the transition can continue with the true values.  Any other yielded value
+    is rejected with :class:`~saealib.exceptions.ConfigurationError`.
 
     A transition runs once per replacement, after the candidate configuration
     passes static validation and before its binding version is published.  A
@@ -399,16 +487,17 @@ class Transition:
 
     Examples
     --------
+    >>> import numpy as np
     >>> from saealib.identity import PopulationAttribute
-    >>> class AddScore(Transition):
-    ...     def produced_columns(self, new_bindings):
-    ...         return frozenset({"score"})
+    >>> class Reevaluate(Transition):
     ...     def apply(self, tctx):
-    ...         spec = PopulationAttribute("score", np.float64, (), np.nan)
+    ...         ids = np.asarray(tctx.state.population.get_array("id"), dtype=np.int64)
+    ...         yield EvaluateRequest(ids)
     ...         for staged in (tctx.population, tctx.archive):
     ...             if staged is not None:
-    ...                 staged.add_columns([spec])
-    ...         yield from ()
+    ...                 staged.add_columns(
+    ...                     [PopulationAttribute("score", np.float64, (), np.nan)]
+    ...                 )
     """
 
     def apply(self, tctx: TransitionContext) -> Iterator[object]:
@@ -419,16 +508,25 @@ class Transition:
         tctx : TransitionContext
             Inputs of this commit point and the staged writes to record.
 
+        Yields
+        ------
+        EvaluateRequest
+            Rows to evaluate with the true objective before the transition
+            continues.  The runtime sends an :class:`EvaluationOutcome` back
+            into the generator.
+
         Returns
         -------
-        Iterator of object
-            Requests for the runtime.  Yielding a value raises
-            ``ConfigurationError`` at the commit point.
+        Iterator of EvaluateRequest
+            The requests the transition yields, in order; yielding any other
+            value raises ``ConfigurationError`` at the commit point.
 
         Notes
         -----
-        The base implementation does nothing.  Implementations are generators
-        so that later evaluation requests can be yielded from the same method.
+        The base implementation does nothing.  The results of a request are
+        confirmed before the outcome reaches the transition and stay confirmed
+        if the transition or a later part of the commit fails, while column
+        changes stay staged.
         """
         return iter(())
 
@@ -668,7 +766,9 @@ class AlignColumns(Transition):
         yield from ()
 
 
-def _iter_applied(transition: Transition, tctx: TransitionContext) -> Iterator[object]:
+def _iter_applied(
+    transition: Transition, tctx: TransitionContext
+) -> Generator[object, object, None]:
     """Return what *transition* asks the runtime to do, if anything.
 
     Parameters
@@ -697,4 +797,11 @@ def _iter_applied(transition: Transition, tctx: TransitionContext) -> Iterator[o
         raise ValidationError(
             "Transition.apply must return an iterator or None"
         ) from error
-    yield from iterator
+    sender = getattr(iterator, "send", None)
+    try:
+        value = next(iterator)
+        while True:
+            sent = yield value
+            value = sender(sent) if sender is not None else next(iterator)
+    except StopIteration:
+        return

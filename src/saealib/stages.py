@@ -25,7 +25,6 @@ import sys
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import replace
-from math import fsum
 from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
 import numpy as np
@@ -97,11 +96,11 @@ from saealib.core.state import (
 from saealib.core.state.context import RuntimeContext
 from saealib.exceptions import EvaluationProtocolError, ValidationError
 from saealib.execution.evaluator import (
-    EvaluationRequest,
     EvaluationResult,
     EvaluationStatus,
     Evaluator,
     PendingEvaluation,
+    split_request,
 )
 from saealib.execution.history import observe_true_evaluation
 from saealib.pipeline import _EXECUTION_BOUNDARIES, ComponentRef, Stage
@@ -1773,41 +1772,15 @@ class AsyncEvaluationSubmitStage(Stage):
                 if capacity == 1
                 else min(capacity, len(request.candidate_ids))
             )
-            chunks = np.array_split(request.candidate_ids, chunk_count)
-            requests = []
-            total_cost = float(
-                request.metadata.get("estimated_cost", len(request.candidate_ids))
+            requests = list(
+                split_request(
+                    request,
+                    chunk_count,
+                    allocate_request_id=lambda: np.int64(
+                        state.request_id_allocator.allocate(1)[0]
+                    ),
+                )
             )
-            allocated_cost = 0.0
-            for index, ids in enumerate(chunks):
-                rows = np.asarray(
-                    [
-                        int(np.flatnonzero(request.candidate_ids == value)[0])
-                        for value in ids
-                    ],
-                    dtype=np.intp,
-                )
-                request_id = request.request_id
-                if index:
-                    request_id = np.int64(state.request_id_allocator.allocate(1)[0])
-                chunk_cost = (
-                    total_cost - fsum((allocated_cost,))
-                    if index == len(chunks) - 1
-                    else total_cost * len(ids) / len(request.candidate_ids)
-                )
-                allocated_cost = fsum((allocated_cost, chunk_cost))
-                requests.append(
-                    EvaluationRequest(
-                        request_id,
-                        ids,
-                        request.payload.take(rows),
-                        request.outputs,
-                        {
-                            **request.metadata,
-                            "estimated_cost": float(chunk_cost),
-                        },
-                    )
-                )
             plan_requests = list(plan.requests)
             target_index = next(
                 index

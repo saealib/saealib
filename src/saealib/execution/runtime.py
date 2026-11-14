@@ -8,10 +8,10 @@ import copy
 import inspect
 import logging
 import time
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping
 from dataclasses import dataclass, replace
 from types import SimpleNamespace
-from typing import Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import numpy as np
 
@@ -75,6 +75,7 @@ from saealib.core.state import (
     StateKey,
     StateView,
 )
+from saealib.core.state.keys import EVALUATIONS_COUNT
 from saealib.core.state.patch import StatePatch
 from saealib.core.state.readonly import _unwrap_readonly
 from saealib.exceptions import (
@@ -91,6 +92,12 @@ from saealib.execution.bindings import (
     _resolve_explicit_feature_encoder,
     resolve_components,
 )
+from saealib.execution.evaluator import (
+    NO_TELL_METADATA,
+    ORIGIN_KIND_METADATA,
+    ORIGIN_KIND_TRANSITION,
+    EvaluationRequest,
+)
 from saealib.execution.history import (
     _ensure_region_history,
     record_decision,
@@ -98,16 +105,31 @@ from saealib.execution.history import (
     record_generation,
 )
 from saealib.execution.prepare import BINDING_SLOTS, _prepare_plan
+from saealib.execution.transition_evaluation import (
+    confirm_true_evaluation,
+    rows_for,
+    split_for_capacity,
+)
 from saealib.identity import PopulationAttribute
+from saealib.policies.feedback import OBJECTIVE_SOURCE_CODES, TRUE
+from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.termination import Termination
 from saealib.transition import (
     AlignColumns,
     Chain,
+    EvaluateRequest,
+    EvaluationOutcome,
     StagedColumns,
     Transition,
     TransitionContext,
     _iter_applied,
 )
+
+if TYPE_CHECKING:
+    from saealib.execution.evaluator import Evaluator
+    from saealib.execution.scheduler import AsyncEvaluationScheduler
+    from saealib.population.genome import GenomeBatch
+    from saealib.population.population import Population
 
 logger = logging.getLogger(__name__)
 
@@ -1507,6 +1529,8 @@ class _CommitMemento:
     region_ids: tuple[str, ...]
     history_columns: Mapping[str, frozenset[str]]
     scheduler: Mapping[str, object]
+    evaluation_handles: Mapping[int, object]
+    scheduler_fatal_states: frozenset[int]
     staged: _StagedCollections
     candidate_resolution: object
     candidate_diagnostics: tuple[Diagnostic, ...]
@@ -1791,6 +1815,77 @@ def _transition_entries(
     return tuple(entries)
 
 
+def _transition_steps(
+    transition: Transition, tctx: TransitionContext
+) -> Generator[EvaluateRequest, EvaluationOutcome, None]:
+    """Forward a transition's evaluation requests and their outcomes.
+
+    Every yielded value must be an :class:`EvaluateRequest`; the outcome of the
+    request is sent back into the transition's generator.
+    """
+    steps = _iter_applied(transition, tctx)
+    try:
+        value = next(steps)
+        while True:
+            if not isinstance(value, EvaluateRequest):
+                raise ConfigurationError(
+                    f"Transition {type(transition).__name__} yielded {value!r}; "
+                    "a transition may yield only an EvaluateRequest."
+                )
+            outcome = yield value
+            value = steps.send(outcome)
+    except StopIteration:
+        return
+    finally:
+        steps.close()
+
+
+def _unevaluated_rows(population: Population, rows: np.ndarray) -> np.ndarray:
+    """Return the mask of *rows* whose objective values are not true yet."""
+    if OBJECTIVE_SOURCE_COLUMN not in population.schema:
+        return np.ones(len(rows), dtype=bool)
+    source = np.asarray(population.get_array(OBJECTIVE_SOURCE_COLUMN))[rows]
+    return np.asarray(source, dtype=np.int64) != OBJECTIVE_SOURCE_CODES[TRUE]
+
+
+def _evaluation_outcome(
+    population: Population, candidate_ids: np.ndarray, state: OptimizationState
+) -> EvaluationOutcome:
+    """Read the true values of the successfully evaluated rows.
+
+    Only rows whose objective values are true evaluations are reported, so an
+    outcome never carries a row that failed to evaluate.
+    """
+    rows = rows_for(population, candidate_ids)
+    evaluated = ~_unevaluated_rows(population, rows)
+    rows = rows[evaluated]
+    candidate_ids = candidate_ids[evaluated]
+    width = len(candidate_ids)
+
+    def column(name: str, empty: np.ndarray) -> np.ndarray:
+        if name not in population.schema:
+            return empty
+        values = np.asarray(population.get_array(name))[rows]
+        return np.array(values, dtype=np.float64, copy=True)
+
+    return EvaluationOutcome(
+        candidate_ids=candidate_ids,
+        f=column("f", np.empty((width, int(state.problem.n_obj)))),
+        g=column("g", np.empty((width, int(state.problem.n_constraints)))),
+        cv=column("cv", np.empty(width)),
+    )
+
+
+def _empty_outcome(state: OptimizationState) -> EvaluationOutcome:
+    """Return the outcome of a request that had nothing left to evaluate."""
+    return EvaluationOutcome(
+        candidate_ids=np.empty(0, dtype=np.int64),
+        f=np.empty((0, int(state.problem.n_obj))),
+        g=np.empty((0, int(state.problem.n_constraints))),
+        cv=np.empty(0),
+    )
+
+
 def _combined_transition(
     entries: tuple[tuple[str, Transition], ...],
 ) -> Transition | None:
@@ -2051,7 +2146,9 @@ class _OptimizerEnvironment:
     def execute(
         self, plan: SequentialPlan, state: OptimizationState
     ) -> OptimizationState:
-        self._refresh_plan_if_needed(state)
+        refreshed = self._refresh_plan_if_needed(state)
+        if refreshed is not None:
+            state = refreshed
         if not isinstance(self.plan, SequentialPlan):
             raise ValidationError(
                 "sequential environment cannot execute a structured plan"
@@ -2063,7 +2160,9 @@ class _OptimizerEnvironment:
     ) -> _ExecutionOutcome:
         self._last_state = state
         self._mark_checkpoint_state(state, phase="running")
-        self._refresh_plan_if_needed(state)
+        refreshed = self._refresh_plan_if_needed(state)
+        if refreshed is not None:
+            state = refreshed
         if not isinstance(self.plan, SequentialPlan):
             raise ValidationError(
                 "sequential environment cannot execute a structured plan"
@@ -2138,7 +2237,9 @@ class _OptimizerEnvironment:
             if name != "pipeline"
         )
 
-    def _refresh_plan_if_needed(self, state: OptimizationState | None = None) -> None:
+    def _refresh_plan_if_needed(
+        self, state: OptimizationState | None = None
+    ) -> OptimizationState | None:
         """Commit point: publish a new binding version once, or defer it.
 
         A replacement detected between commit points is applied only here;
@@ -2149,12 +2250,13 @@ class _OptimizerEnvironment:
         Slots that declare no ``contract()`` (``comparator``, ``cbmanager``,
         ``feature_encoder``) are never compared, and a contract holds no
         parameter values, so writing one leaves the version and the plan
-        alone.  A rejection restores slots, not parts: an in-place change
-        stays installed and a later commit point rejects it again until the
-        part is put back.  Reading every contract costs roughly a millisecond
-        per commit point for a GA configuration and half of that for a PSO
-        one, measured against a cheap objective; next to an expensive
-        evaluation that is negligible.
+        alone.  Returns the state to continue with: a transition that evaluated
+        rows at this commit point advanced the evaluation count.  A rejection
+        restores slots, not parts: an in-place change stays installed and a
+        later commit point rejects it again until the part is put back.
+        Reading every contract costs roughly a millisecond per commit point
+        for a GA configuration and half of that for a PSO one, measured against
+        a cheap objective; next to an expensive evaluation that is negligible.
         """
         entry = self._entry_commit()
         bindings = self._bindings()
@@ -2176,11 +2278,11 @@ class _OptimizerEnvironment:
             self._publication_deferred = False
             self._discard_stale_replacements()
             self._apply_entry_repair(entry)
-            return
+            return state
         if self._replacement_blocked(state):
             self._publication_deferred = True
             self._apply_entry_repair(entry)
-            return
+            return state
         self._publication_deferred = False
         self._pending_recompile = False
         if entry is None:
@@ -2188,6 +2290,7 @@ class _OptimizerEnvironment:
         else:
             memento, staged = entry
             self._publish(bindings, strategy_values, memento=memento, staged=staged)
+        return self._last_state if self._last_state is not None else state
 
     def _entry_commit(
         self,
@@ -2425,10 +2528,14 @@ class _OptimizerEnvironment:
             )
         except BaseException as error:
             self._reject_commit(error, memento)
+        self._active_memento = memento
         try:
-            self._run_transitions(staged, entries, incoming, replaced)
-        except BaseException as error:
-            self._reject_commit(error, memento, report=False)
+            try:
+                self._run_transitions(staged, entries, incoming, replaced)
+            except BaseException as error:
+                self._reject_commit(error, memento, report=False)
+        finally:
+            self._active_memento = None
         try:
             self._check_staged_changes(staged, incoming)
             self._prepare_region_history(rebuilt)
@@ -2562,8 +2669,11 @@ class _OptimizerEnvironment:
         The event describes the configuration that now runs, so it reaches the
         callback manager of the published binding version: a handler the
         replacement registered there observes it, and a manager the
-        replacement put out of use does not.  A callback that fails keeps the
-        publication, like any other callback failure.
+        replacement put out of use does not.  It is an observer notification
+        sent after the publication completed: a handler that raises propagates
+        to the caller but cannot veto the publication, so the version, the
+        snapshot, the slots, and the state's binding version keep describing
+        the new configuration.
         """
         state = self._last_state
         phase = self._checkpoint_phase
@@ -2646,13 +2756,187 @@ class _OptimizerEnvironment:
             archive=staged.archive,
             pareto_archive=staged.pareto_archive,
         )
-        for slot, transition in entries:
-            for requested in _iter_applied(transition, tctx):
-                raise ConfigurationError(
-                    f"Transition {type(transition).__name__} of slot {slot!r} "
-                    f"yielded {requested!r}; evaluation requested by a "
-                    "transition is not available at the commit point."
+        hooked = state
+        if state is not None:
+            state.__dict__["_evaluation_confirmation_hook"] = (
+                self._keep_confirmed_evaluation
+            )
+        try:
+            for _slot, transition in entries:
+                steps = _transition_steps(transition, tctx)
+                try:
+                    request = next(steps)
+                    while True:
+                        outcome = self._evaluate_transition_request(request)
+                        object.__setattr__(tctx, "state", self._last_state)
+                        request = steps.send(outcome)
+                except StopIteration:
+                    continue
+                finally:
+                    steps.close()
+        finally:
+            for candidate in {
+                id(hooked): hooked,
+                id(self._last_state): self._last_state,
+            }.values():
+                if candidate is not None:
+                    candidate.__dict__.pop("_evaluation_confirmation_hook", None)
+
+    def _evaluate_transition_request(
+        self, request: EvaluateRequest
+    ) -> EvaluationOutcome:
+        """Evaluate the population rows *request* names and confirm them.
+
+        Rows whose objective values already come from a true evaluation are
+        left out, so a request with nothing left evaluates nothing.  A
+        synchronous flow evaluates the whole request with one
+        ``evaluator.evaluate_batch()`` call; an asynchronous flow splits it into
+        capacity-sized requests and submits them to the scheduler.  Neither
+        path tells the algorithm about the evaluations.
+        """
+        state = self._last_state
+        if state is None:
+            raise ConfigurationError("a transition evaluation requires a running state")
+        population = state.population
+        if population is None:
+            raise ConfigurationError("a transition evaluation requires a population")
+        ids = np.asarray(request.candidate_ids, dtype=np.int64)
+        rows = rows_for(population, ids)
+        rows = rows[_unevaluated_rows(population, rows)]
+        ids = np.asarray(population.get_array("id"), dtype=np.int64)[rows]
+        if not len(ids):
+            return _empty_outcome(state)
+        payload = population.genomes.take(rows)
+        metadata = {
+            **request.metadata,
+            NO_TELL_METADATA: True,
+            ORIGIN_KIND_METADATA: ORIGIN_KIND_TRANSITION,
+            "estimated_cost": float(len(ids)),
+        }
+        evaluator = getattr(self.optimizer, "evaluator", None)
+        if evaluator is None:
+            raise ConfigurationError("a transition evaluation requires an evaluator")
+        scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
+        if scheduler is None:
+            state = self._confirm_transition_request(
+                state, evaluator, population, ids, payload, metadata
+            )
+        else:
+            try:
+                state = self._schedule_transition_request(
+                    state, scheduler, population, ids, payload, metadata
                 )
+            except EvaluationFatalError as error:
+                self._last_state = error.state
+                raise
+        return _evaluation_outcome(population, ids, state)
+
+    def _keep_confirmed_evaluation(self, state: OptimizationState) -> OptimizationState:
+        """Advance the confirmed baseline after one request's results land.
+
+        Runs from the single confirmation function after the History append and
+        the row, archive, and count updates and before the request event: the
+        environment's current state becomes *state*, and the commit memento's
+        store baseline takes the confirmed evaluation count (the request-ID
+        allocator advanced in place), while the scheduling terms keep their
+        pre-commit values.  A later failure therefore restores exactly the
+        results confirmed so far.
+        """
+        self._last_state = state
+        memento = getattr(self, "_active_memento", None)
+        if memento is None or memento.store is _UNSET:
+            return state
+        baseline = copy.copy(memento.store)
+        object.__setattr__(
+            memento,
+            "store",
+            baseline.apply_patch(StatePatch(writes={EVALUATIONS_COUNT: int(state.fe)})),
+        )
+        return state
+
+    def _confirm_transition_request(
+        self,
+        state: OptimizationState,
+        evaluator: Evaluator,
+        population: Population,
+        ids: np.ndarray,
+        payload: GenomeBatch,
+        metadata: Mapping[str, object],
+    ) -> OptimizationState:
+        """Evaluate one request with the evaluator and confirm it at once."""
+        request = EvaluationRequest(
+            np.int64(state.request_id_allocator.allocate(1)[0]),
+            ids,
+            payload,
+            metadata=metadata,
+        )
+        result = evaluator.evaluate_batch(request.payload, self.optimizer.problem)
+        if result.candidate_ids is None:
+            result.candidate_ids = request.candidate_ids
+        return confirm_true_evaluation(
+            state,
+            request,
+            result,
+            owner=population,
+            dispatch=self.dispatch,
+        )
+
+    def _schedule_transition_request(
+        self,
+        state: OptimizationState,
+        scheduler: AsyncEvaluationScheduler,
+        population: Population,
+        ids: np.ndarray,
+        payload: GenomeBatch,
+        metadata: Mapping[str, object],
+    ) -> OptimizationState:
+        """Submit capacity-sized requests to the scheduler and confirm them.
+
+        The requests are split into parts of at most the free capacity and
+        submitted in batches the scheduler can accept at once, so a request
+        larger than the capacity still runs.  A terminal failure of any part is
+        raised as a fatal error carrying the state, which keeps the confirmed
+        results and rejects the replacement.
+        """
+        request = EvaluationRequest(
+            np.int64(state.request_id_allocator.allocate(1)[0]),
+            ids,
+            payload,
+            metadata=metadata,
+        )
+        capacity = scheduler.max_pending - len(state.pending_evaluations)
+        requests = list(
+            split_for_capacity(
+                request,
+                capacity,
+                allocate_request_id=lambda: np.int64(
+                    state.request_id_allocator.allocate(1)[0]
+                ),
+            )
+        )
+        for start in range(0, len(requests), capacity):
+            batch = requests[start : start + capacity]
+            state = scheduler.submit(state, batch, owner=population)
+            self._last_state = state
+            state = scheduler.poll(state, wait=True)
+            self._last_state = state
+            self._check_transition_requests_evaluated(state, population, batch)
+        record_evaluations(state)
+        return state
+
+    def _check_transition_requests_evaluated(
+        self,
+        state: OptimizationState,
+        population: Population,
+        requests: list[EvaluationRequest],
+    ) -> None:
+        """Raise a fatal error when a submitted part failed to evaluate a row."""
+        requested = np.concatenate([request.candidate_ids for request in requests])
+        rows = rows_for(population, requested)
+        if np.any(_unevaluated_rows(population, rows)):
+            raise EvaluationFatalError(
+                "a transition evaluation request did not complete", state
+            )
 
     def _assign_published_comparator_rng(self) -> None:
         """Draw the child seed of a randomized comparator once it is published."""
@@ -2896,6 +3180,19 @@ class _OptimizerEnvironment:
                 }
             ),
             scheduler=self._scheduler_state(),
+            evaluation_handles=(
+                {}
+                if state is None
+                else dict(state.__dict__.get("evaluation_handles") or {})
+            ),
+            scheduler_fatal_states=frozenset(
+                getattr(
+                    getattr(optimizer, "async_evaluation_scheduler", None),
+                    "_fatal_states",
+                    {},
+                )
+                or {}
+            ),
             staged=staged,
             candidate_resolution=self._candidate_resolution,
             candidate_diagnostics=self._candidate_diagnostics,
@@ -2947,6 +3244,7 @@ class _OptimizerEnvironment:
                     state, "_compiled_services", dict(memento.compiled_services)
                 )
             self._restore_region_history(memento)
+            self._restore_evaluation_handles(state, memento)
         self._restore_scheduler_state(memento.scheduler)
         self._candidate_resolution = cast(
             "_ComponentResolution | None", memento.candidate_resolution
@@ -2954,6 +3252,36 @@ class _OptimizerEnvironment:
         self._candidate_diagnostics = memento.candidate_diagnostics
         self._publication_deferred = memento.publication_deferred
         self._pending_recompile = memento.pending_recompile
+
+    def _restore_evaluation_handles(
+        self, state: OptimizationState, memento: _CommitMemento
+    ) -> None:
+        """Drop the handles and fatal records a failed evaluation attempt left.
+
+        ``evaluation_handles`` is not part of the state store, so the memento
+        restores it separately: handles the failed commit created are cancelled
+        or detached on the evaluator, and the scheduler's fatal-state records
+        from the attempt are removed, so the same replacement can run again.
+        """
+        scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
+        evaluator = getattr(scheduler, "evaluator", None)
+        current = state.__dict__.get("evaluation_handles")
+        if isinstance(current, dict):
+            for request_id, handle in current.items():
+                if request_id in memento.evaluation_handles or evaluator is None:
+                    continue
+                with contextlib.suppress(Exception):
+                    if not evaluator.cancel(handle):
+                        evaluator.detach(handle)
+            object.__setattr__(
+                state, "evaluation_handles", dict(memento.evaluation_handles)
+            )
+        fatal = getattr(scheduler, "_fatal_states", None)
+        if isinstance(fatal, dict):
+            for key in [
+                key for key in fatal if key not in memento.scheduler_fatal_states
+            ]:
+                fatal.pop(key, None)
 
     def _restore_region_history(self, memento: _CommitMemento) -> None:
         """Remove the region history the candidate plan added."""
@@ -3271,7 +3599,9 @@ class _OptimizerEnvironment:
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
         if scheduler is None:
             raise ValidationError("Async runtime requires an evaluation scheduler")
-        self._refresh_plan_if_needed(state)
+        refreshed = self._refresh_plan_if_needed(state)
+        if refreshed is not None:
+            state = refreshed
         if not isinstance(self.plan, SequentialPlan):
             raise ValidationError("async environment cannot execute a structured plan")
         sequential_plan = self.plan
@@ -3806,14 +4136,16 @@ class PipelineRuntime:
             env = self.environment
             env.fatal(session.state)
             refresh = getattr(env, "_refresh_plan_if_needed", None)
+            state = session.state
             if callable(refresh) and not session.frames:
-                refresh(session.state)
+                refreshed = refresh(session.state)
+                if refreshed is not None:
+                    state = refreshed
             plan = getattr(env, "plan", session.plan)
             if not isinstance(plan, StructuredPlan):
                 raise ValidationError(
                     "structured runtime environment returned a non-structured plan"
                 )
-            state = session.state
             if env.is_terminated(state):
                 env.dispatch(RunEndEvent(ctx=state))
                 return self._step(
@@ -4204,7 +4536,9 @@ class AsyncPipelineRuntime(PipelineRuntime):
         _sync_transient_fields_from_store(state)
         refresh = getattr(environment, "_refresh_plan_if_needed", None)
         if callable(refresh) and not session.frames:
-            refresh(state)
+            refreshed = refresh(state)
+            if refreshed is not None:
+                state = refreshed
         plan = getattr(environment, "plan", session.plan)
         if not isinstance(plan, StructuredPlan):
             raise ValidationError(
@@ -4468,7 +4802,9 @@ class AsyncPipelineRuntime(PipelineRuntime):
         metadata = _ExecutionOutcome(state=state)
         commit = getattr(env, "_refresh_plan_if_needed", None)
         if callable(commit):
-            commit(state)
+            refreshed = commit(state)
+            if refreshed is not None:
+                state = refreshed
             plan = getattr(env, "plan", plan)
 
         if state.pending_evaluations:

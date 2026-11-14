@@ -323,6 +323,8 @@ from saealib.termination import max_steps as max_steps
 from saealib.termination import stalled as stalled
 from saealib.transition import AlignColumns as AlignColumns
 from saealib.transition import Chain as Chain
+from saealib.transition import EvaluateRequest as EvaluateRequest
+from saealib.transition import EvaluationOutcome as EvaluationOutcome
 from saealib.transition import Transition as Transition
 from saealib.transition import TransitionContext as TransitionContext
 from saealib.transition import chain as chain

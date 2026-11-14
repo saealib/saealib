@@ -322,6 +322,8 @@ _LAZY_EXPORTS: dict[str, str] = {
     # transitions
     "AlignColumns": "saealib.transition",
     "Chain": "saealib.transition",
+    "EvaluateRequest": "saealib.transition",
+    "EvaluationOutcome": "saealib.transition",
     "Transition": "saealib.transition",
     "TransitionContext": "saealib.transition",
     "chain": "saealib.transition",

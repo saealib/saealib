@@ -261,9 +261,11 @@ def test_replacing_pso_with_ga_keeps_a_column_the_comparator_declares() -> None:
     comparator = SPEA2Comparator(direction=np.array([-1.0]))
     optimizer = _optimizer(PSO(), comparator=comparator)
     optimizer.resolve_defaults()
-    state = optimizer.initializer.initialize(optimizer, optimizer.problem)
+    initializer = optimizer.initializer
+    assert initializer is not None
+    state = initializer.initialize(optimizer, optimizer.problem)
     runtime = create_runtime(optimizer)
-    environment = runtime.environment
+    environment = getattr(runtime, "environment")
     environment._remember_state(state)
     optimizer.set_algorithm(_ga())
 

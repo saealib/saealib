@@ -16,6 +16,7 @@ import pytest
 
 from saealib import (
     PSO,
+    AlignColumns,
     Chain,
     CrossoverBLXAlpha,
     CrossoverSBX,
@@ -33,6 +34,7 @@ from saealib import (
     chain,
 )
 from saealib.algorithms import GA
+from saealib.context import OptimizationState
 from saealib.exceptions import (
     CheckpointError,
     ConfigurationError,
@@ -763,6 +765,7 @@ _COMMIT_FAULT_STEPS = (
     "transition",
     "post_validation",
     "staged_apply",
+    "align_columns",
     "publish_resolution",
     "publish_record",
     "publish_comparator",
@@ -774,7 +777,7 @@ def _four_generations(state: Any) -> bool:
     return state.gen >= 4
 
 
-def _surrogate_optimizer(seed: int = 7) -> Optimizer:
+def _surrogate_optimizer(seed: int = 7, strategy: Any | None = None) -> Optimizer:
     from saealib.acquisition import MeanPrediction
     from saealib.surrogate import GaussianKernel, LocalSurrogateManager, RBFSurrogate
     from saealib.surrogate.training_set import KNNObjectiveSet
@@ -789,7 +792,7 @@ def _surrogate_optimizer(seed: int = 7) -> Optimizer:
             )
         )
         .set_acquisition(MeanPrediction(direction=_problem().direction))
-        .set_strategy(DirectStrategy())
+        .set_strategy(DirectStrategy() if strategy is None else strategy)
         .set_termination(Termination(_four_generations))
     )
 
@@ -890,6 +893,28 @@ def _commit_vector(
             },
             "active_version": environment.active_version,
             "binding_version": state.__dict__.get("_binding_version"),
+            "store": tuple(
+                sorted(
+                    (
+                        key.namespace,
+                        key.name,
+                        key.schema_version,
+                        id(value),
+                    )
+                    for key, value in state.__dict__["_store"]._values.items()
+                )
+            ),
+            "custom_state": tuple(
+                sorted(
+                    (
+                        key.namespace,
+                        key.name,
+                        key.schema_version,
+                        id(value),
+                    )
+                    for key, value in state.__dict__.get("_custom_state", {}).items()
+                )
+            ),
             "unchanged_by": snapshot.unchanged_by(
                 environment._bindings(),
                 environment._strategy_values(),
@@ -947,6 +972,10 @@ def _inject_commit_fault(
         _wrap_after(monkeypatch, environment, "_check_staged_changes", step)
     elif step == "staged_apply":
         _wrap_after(monkeypatch, runtime_module._StagedCollections, "apply", step)
+    elif step == "named_state":
+        _wrap_after(monkeypatch, OptimizationState, "set_state", step)
+    elif step == "align_columns":
+        _wrap_after(monkeypatch, AlignColumns, "apply", step)
     elif step == "publish_resolution":
         _wrap_after(monkeypatch, optimizer, "_publish_component_resolution", step)
     elif step == "publish_record":
@@ -980,6 +1009,122 @@ def test_a_failure_at_any_commit_step_restores_the_published_state(
 
     _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
     assert optimizer._pending_replacements() == {}
+
+
+def test_a_failing_named_state_update_restores_the_commit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    optimizer = _surrogate_optimizer(strategy=GenerationBasedStrategy(1))
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    optimizer._feature_encoder_default = None
+    before = _commit_vector(optimizer, environment, state)
+    optimizer.set_strategy(DirectStrategy(), transition=_ProbeColumn())
+    _inject_commit_fault(monkeypatch, "named_state", environment, optimizer)
+
+    with pytest.raises(RuntimeError, match="fault injected"):
+        next(generator)
+    generator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+
+
+def test_a_failure_after_named_state_invalidation_restores_the_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    optimizer = _surrogate_optimizer(strategy=GenerationBasedStrategy(1))
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    optimizer._feature_encoder_default = None
+    before = _commit_vector(optimizer, environment, state)
+    optimizer.set_strategy(DirectStrategy(), transition=_ProbeColumn())
+    _inject_commit_fault(monkeypatch, "publish_scheduler", environment, optimizer)
+
+    with pytest.raises(RuntimeError, match="fault injected"):
+        next(generator)
+    generator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+
+
+def test_a_failure_after_publication_restores_the_default_alignment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    optimizer = _optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    before = _commit_vector(optimizer, environment, state)
+    optimizer.set_algorithm(PSO())
+    _inject_commit_fault(monkeypatch, "publish_scheduler", environment, optimizer)
+
+    with pytest.raises(RuntimeError, match="fault injected"):
+        next(generator)
+    generator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+
+
+def _state_after_generations(count: int) -> Any:
+    optimizer = _optimizer()
+    states: list[Any] = []
+    for state in Runner(optimizer).iterate():
+        states.append(state)
+        if state.gen >= count:
+            return states[-1]
+    raise AssertionError("the run ended before the requested generation")
+
+
+def test_a_failure_while_repairing_an_entry_restores_the_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from saealib import Archive
+
+    ga_state = _state_after_generations(2)
+    optimizer = _optimizer(PSO())
+    optimizer.resolve_defaults()
+    optimizer._compile_plan(require_initializer=False)
+    runner, captured = _capturing_runner(optimizer)
+    iterator = runner.iterate_from(ga_state)
+    state = next(iterator)
+    environment = captured["environment"]
+    before = _commit_vector(optimizer, environment, state)
+    _wrap_after(monkeypatch, Archive, "add_columns", "entry_repair")
+
+    with pytest.raises(RuntimeError, match="fault injected"):
+        next(iterator)
+    iterator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+    assert "velocity" not in state.population.schema
+
+
+def test_a_rejected_entry_population_size_leaves_the_state_unchanged() -> None:
+    from pymoo.algorithms.moo.nsga2 import NSGA2
+
+    from saealib import PymooAlgorithm
+
+    ga_state = _state_after_generations(2)
+    optimizer = _optimizer(PymooAlgorithm(NSGA2(pop_size=6)))
+    optimizer.resolve_defaults()
+    optimizer._compile_plan(require_initializer=False)
+    runner, captured = _capturing_runner(optimizer)
+    iterator = runner.iterate_from(ga_state)
+    state = next(iterator)
+    environment = captured["environment"]
+    before = _commit_vector(optimizer, environment, state)
+
+    with pytest.raises(ConfigurationError, match="pymoo_pop_size_mismatch"):
+        next(iterator)
+    iterator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+    assert "pymoo_idx" not in state.population.schema
 
 
 def test_a_comparator_that_refuses_its_binding_restores_the_commit() -> None:

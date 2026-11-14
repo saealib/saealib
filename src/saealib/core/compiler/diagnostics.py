@@ -346,6 +346,36 @@ DIAGNOSTIC_CODES.register(
     ),
 )
 DIAGNOSTIC_CODES.register(
+    "pristine_copy_unavailable",
+    VocabularyDescriptor(
+        name="pristine_copy_unavailable",
+        description=(
+            "A component that keeps construction-time state was re-inserted "
+            "after its construction-time copy could not be made."
+        ),
+    ),
+)
+DIAGNOSTIC_CODES.register(
+    "pymoo_pop_size_mismatch",
+    VocabularyDescriptor(
+        name="pymoo_pop_size_mismatch",
+        description=(
+            "A wrapped pymoo algorithm's initial population size does not "
+            "match the running population size."
+        ),
+    ),
+)
+DIAGNOSTIC_CODES.register(
+    "pymoo_pop_size_unverified",
+    VocabularyDescriptor(
+        name="pymoo_pop_size_unverified",
+        description=(
+            "A wrapped pymoo algorithm's initial population size cannot be "
+            "determined before it runs."
+        ),
+    ),
+)
+DIAGNOSTIC_CODES.register(
     "state_not_checkpointable",
     VocabularyDescriptor(
         name="state_not_checkpointable",

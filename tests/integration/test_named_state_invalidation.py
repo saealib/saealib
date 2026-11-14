@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import copy
+import os
 import pickle
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -104,7 +108,7 @@ def _capturing_runner(optimizer: Any) -> tuple[Runner, dict[str, Any]]:
 
     def factory(optimizer_obj: Any) -> Any:
         runtime = create_runtime(optimizer_obj)
-        captured["environment"] = runtime.environment
+        captured["environment"] = getattr(runtime, "environment")
         return runtime
 
     return Runner(optimizer, runtime_factory=factory), captured
@@ -249,13 +253,69 @@ def test_a_rejected_component_in_a_pickled_slot_is_rejected_at_the_commit_point(
     generator = Runner(optimizer).iterate()
     next(generator)
     state = next(generator)
-    optimizer.evaluation_planner = object()  # type: ignore[assignment]
+    object.__setattr__(optimizer, "evaluation_planner", object())
     restored = pickle.loads(pickle.dumps(optimizer))
 
     with pytest.raises(ConfigurationError) as error:
         for _ in Runner(restored).iterate_from(state):
             pass
     assert not isinstance(error.value, AttributeError)
+
+
+def test_a_rejected_component_in_an_npz_resume_from_another_process_raises(
+    tmp_path: Any,
+) -> None:
+    optimizer = _surrogate_optimizer(DirectStrategy(1), max_generation=4)
+    generator = Runner(optimizer).iterate()
+    next(generator)
+    state = next(generator)
+    state.__dict__.pop("_binding_version", None)
+    state_path = tmp_path / "state.npz"
+    state.save(state_path)
+    object.__setattr__(optimizer, "evaluation_planner", object())
+    with pytest.raises(ConfigurationError):
+        next(generator)
+    object.__setattr__(optimizer, "evaluation_planner", object())
+    optimizer_path = tmp_path / "optimizer.pkl"
+    optimizer_path.write_bytes(pickle.dumps(optimizer))
+
+    code = f"""
+import pickle
+from saealib.context import OptimizationState
+from saealib.execution.runner import Runner
+from saealib.exceptions import ConfigurationError
+
+with open({str(optimizer_path)!r}, 'rb') as handle:
+    optimizer = pickle.load(handle)
+state = OptimizationState.load({str(state_path)!r}, optimizer.problem)
+try:
+    Runner(optimizer).run_from(state)
+except ConfigurationError as error:
+    print('ConfigurationError', str(error).splitlines()[0])
+except AttributeError as error:
+    raise AssertionError(f'AttributeError: {{error}}')
+else:
+    raise AssertionError('invalid component accepted')
+"""
+    test_directory = str(Path(__file__).resolve().parent)
+    existing_path = os.environ.get("PYTHONPATH")
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = (
+        test_directory
+        if not existing_path
+        else test_directory + os.pathsep + existing_path
+    )
+    completed = subprocess.run(
+        [sys.executable, "-B", "-c", code],
+        capture_output=True,
+        text=True,
+        cwd=str(tmp_path),
+        env=environment,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "ConfigurationError" in completed.stdout
+    assert "AttributeError" not in completed.stdout + completed.stderr
 
 
 def test_replacing_an_algorithm_and_a_strategy_in_one_step_publishes_once() -> None:
@@ -314,7 +374,9 @@ def test_an_entry_without_changes_publishes_nothing(
 def test_entry_repair_adds_missing_columns_without_publishing() -> None:
     optimizer = _surrogate_optimizer(DirectStrategy(1), max_generation=3)
     optimizer.resolve_defaults()
-    state = optimizer.initializer.initialize(optimizer, optimizer.problem)
+    initializer = optimizer.initializer
+    assert initializer is not None
+    state = initializer.initialize(optimizer, optimizer.problem)
     optimizer.set_algorithm(PSO())
     runner, captured = _capturing_runner(optimizer)
     publications: list[int] = []

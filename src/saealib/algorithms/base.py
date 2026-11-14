@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
 import numpy as np
 
@@ -37,6 +37,9 @@ from saealib.exceptions import ValidationError
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
 from saealib.problem import Problem
 from saealib.space import DenseNumericView
+
+if TYPE_CHECKING:
+    from saealib.transition import Transition
 
 
 class Algorithm(ABC):
@@ -87,6 +90,18 @@ class Algorithm(ABC):
                 feedback=FeedbackContract(accepted_channels=frozenset({TRUE}))
             ),
         )
+
+    def _replacement_transition(self) -> Transition | None:
+        """Return the transition that restores this component's construction state.
+
+        Returns
+        -------
+        Transition or None
+            A transition the commit point runs after the default column
+            alignment when this component enters its slot, or ``None`` when
+            the component keeps no construction-time state to restore.
+        """
+        return None
 
     def get_required_attrs(self, problem: Problem) -> list[PopulationAttribute]:
         """

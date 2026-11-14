@@ -1456,6 +1456,13 @@ def _restore_attribute(target: object, name: str, value: object) -> None:
     object.__setattr__(target, name, value)
 
 
+def _state_comparator_or_unset(state: OptimizationState) -> object:
+    try:
+        return state.comparator
+    except (AttributeError, KeyError, ValidationError):
+        return _UNSET
+
+
 @dataclass(frozen=True)
 class _CommitMemento:
     """Every term one commit point may change, captured before it changes one.
@@ -1645,7 +1652,10 @@ class _StagedCollections:
             return cls()
 
         def staged(name: str) -> StagedColumns | None:
-            collection = getattr(state, name, None)
+            try:
+                collection = getattr(state, name, None)
+            except (AttributeError, KeyError, ValidationError):
+                return None
             return None if collection is None else StagedColumns(collection)
 
         return cls(
@@ -1724,7 +1734,7 @@ def _transition_entries(
     records: Mapping[str, object],
     replaced: tuple[str, ...],
     incoming: Mapping[str, object],
-    problem: object,
+    problem: Any,
 ) -> tuple[tuple[str, Transition], ...]:
     """Return the transitions of the replaced slots, in slot order.
 
@@ -1739,7 +1749,13 @@ def _transition_entries(
         if not isinstance(transition, Transition) or (
             getattr(record, "component", None) is not component
         ):
-            transition = AlignColumns(problem)  # type: ignore[arg-type]
+            parts: list[Transition] = [AlignColumns(problem)]
+            hook = getattr(component, "_replacement_transition", None)
+            if callable(hook):
+                restore = hook()
+                if isinstance(restore, Transition):
+                    parts.append(restore)
+            transition = parts[0] if len(parts) == 1 else Chain(*parts)
         entries.append((slot, transition))
     return tuple(entries)
 
@@ -1760,7 +1776,7 @@ def _check_transition(
     new_bindings: Mapping[str, object],
     *,
     present: frozenset[str],
-    problem: object,
+    problem: Any,
 ) -> tuple[frozenset[str] | None, tuple[Diagnostic, ...]]:
     """Check a transition's column declaration against the incoming bindings.
 
@@ -1886,12 +1902,18 @@ def _checkpointable_diagnostic(component_id: str, type_name: str) -> Diagnostic:
 
 
 class _OptimizerEnvironment:
-    def __init__(self, optimizer: Any, plan: SequentialPlan | StructuredPlan) -> None:
+    def __init__(
+        self,
+        optimizer: Any,
+        plan: SequentialPlan | StructuredPlan,
+        executable: ExecutablePlan | None = None,
+    ) -> None:
         self.optimizer = optimizer
         self._publication_deferred = False
         self._pending_recompile = False
         self._last_state: OptimizationState | None = None
         self._entry_checked = False
+        self._entry_binding_version: object = _UNSET
         self._state_keys_known: bool | None = None
         self._checkpoint_phase = "running"
         self._checkpoint_run_end_callback = False
@@ -1909,7 +1931,11 @@ class _OptimizerEnvironment:
             if isinstance(resolution, _ComponentResolution)
             else {}
         )
-        executable = getattr(optimizer, "_executable_plan", None)
+        prepared_executable = getattr(optimizer, "_executable_plan", None)
+        self._entry_executable = (
+            prepared_executable if executable is None else executable
+        )
+        executable = prepared_executable
         feature_encoder_selection = None
         if (
             isinstance(resolution, _ComponentResolution)
@@ -1968,6 +1994,7 @@ class _OptimizerEnvironment:
         self._publication_deferred = True
 
     def _remember_state(self, state: OptimizationState) -> None:
+        self._entry_binding_version = state.__dict__.get("_binding_version", _UNSET)
         if self._state_keys_known is None:
             resumed = state.__dict__.get("_binding_version") is not None
             self._state_keys_known = not (
@@ -2098,7 +2125,7 @@ class _OptimizerEnvironment:
         one, measured against a cheap objective; next to an expensive
         evaluation that is negligible.
         """
-        self._check_entry_state()
+        entry = self._entry_commit()
         bindings = self._bindings()
         strategy_values = self._strategy_values()
         unchanged = (
@@ -2117,51 +2144,145 @@ class _OptimizerEnvironment:
             # the deferral, otherwise pending-collection would stall the run.
             self._publication_deferred = False
             self._discard_stale_replacements()
+            self._apply_entry_repair(entry)
             return
         if self._replacement_blocked(state):
             self._publication_deferred = True
+            self._apply_entry_repair(entry)
             return
         self._publication_deferred = False
         self._pending_recompile = False
-        self._publish(bindings, strategy_values)
+        if entry is None:
+            self._publish(bindings, strategy_values)
+        else:
+            memento, staged = entry
+            self._publish(bindings, strategy_values, memento=memento, staged=staged)
 
-    def _check_entry_state(self) -> None:
-        """Repair the columns an entry starts with, once per environment.
-
-        The entry has already compiled the plan and validated the same
-        bindings, so this adds missing declared columns only: it publishes
-        nothing, raises no event, and changes no version.  A resumed state can
-        name bindings other than the ones it was written under, which the next
-        replacement still aligns with its own publication.
-        """
+    def _entry_commit(
+        self,
+    ) -> tuple[_CommitMemento, _StagedCollections] | None:
+        """Capture an entry repair only when the entry needs one."""
         if self._entry_checked:
-            return
+            return None
         self._entry_checked = True
         state = self._last_state
         problem = getattr(self.optimizer, "problem", None)
         if state is None or problem is None:
+            return None
+        values = self._active_snapshot.values
+        engine_slots = self._entry_engine_slots(values)
+        diagnostics = self._component_engine_diagnostics(values, engine_slots)
+        errors = tuple(
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.severity is Severity.ERROR
+        )
+        for diagnostic in diagnostics:
+            if diagnostic.severity is not Severity.ERROR:
+                logger.warning("%s", diagnostic.message)
+        declared = self._entry_declared_columns(values, problem)
+        staged = _StagedCollections.of(state)
+        repairs = self._entry_repairs(staged, declared)
+        validate = self._entry_needs_validation()
+        if not errors and not repairs and not validate:
+            return None
+        memento = self._capture_commit_memento(self._bindings(), staged)
+        try:
+            if errors:
+                raise ConfigurationError(
+                    "Component configuration rejected at the commit point:\n"
+                    + "\n".join(f"  - {item}" for item in errors)
+                )
+            if validate:
+                self._validate_entry()
+            for target, additions in repairs:
+                target.add_columns(additions)
+        except BaseException:
+            self._restore_commit_memento(memento)
+            raise
+        return memento, staged
+
+    def _apply_entry_repair(
+        self, entry: tuple[_CommitMemento, _StagedCollections] | None
+    ) -> None:
+        """Apply a staged entry repair, restoring the entry memento on failure."""
+        if entry is None:
             return
+        memento, staged = entry
+        try:
+            staged.apply()
+        except BaseException:
+            self._restore_commit_memento(memento)
+            raise
+
+    def _entry_engine_slots(self, values: Mapping[str, object]) -> tuple[str, ...]:
+        """Return the slots whose engine diagnostics this entry must run."""
+        record = self._recorded_bindings
+        if isinstance(record, _BindingSnapshot):
+            return _replaced_slots(record.values, values)
+        return tuple(BINDING_SLOTS)
+
+    def _entry_needs_validation(self) -> bool:
+        """Return whether this entry has not validated its live configuration."""
+        record = self._recorded_bindings
+        if not isinstance(record, _BindingSnapshot):
+            return False
+        return self._entry_binding_version != record.version
+
+    def _validate_entry(self) -> None:
+        """Validate a resumed entry with the executable plan already prepared."""
+        executable = self._entry_executable
+        if not isinstance(executable, ExecutablePlan):
+            executable = getattr(self.optimizer, "_executable_plan", None)
+        resolver = getattr(self.optimizer, "resolve_defaults", None)
+        if isinstance(executable, ExecutablePlan):
+            resolution = (
+                resolve_components(self.optimizer, configured=self._bindings())
+                if callable(resolver)
+                else None
+            )
+            self._gate(executable, resolution)
+            return
+        validate = getattr(self.optimizer, "validate", None)
+        if not callable(validate):
+            return
+        issues = validate(require_initializer=False)
+        if issues:
+            raise ConfigurationError(
+                "Component configuration rejected at the commit point:\n"
+                + "\n".join(f"  - {message}" for message in issues)
+            )
+
+    def _entry_declared_columns(
+        self, values: Mapping[str, object], problem: object
+    ) -> dict[str, PopulationAttribute]:
+        """Return the columns the active components declare, by name."""
         declared: dict[str, PopulationAttribute] = {}
         for slot in BINDING_SLOTS:
-            component = self._active_snapshot.values.get(slot)
+            component = values.get(slot)
             if component is None:
                 continue
             for attribute in _required_attributes(component, problem):
                 declared.setdefault(attribute.name, attribute)
-        if not declared:
-            return
-        for name in ("population", "archive", "pareto_archive"):
-            collection = getattr(state, name, None)
-            schema = getattr(collection, "schema", None)
-            if collection is None or schema is None:
-                continue
+        return declared
+
+    def _entry_repairs(
+        self,
+        staged: _StagedCollections,
+        declared: Mapping[str, PopulationAttribute],
+    ) -> list[tuple[StagedColumns, list[PopulationAttribute]]]:
+        """Return the column additions each collection needs at this entry."""
+        repairs: list[tuple[StagedColumns, list[PopulationAttribute]]] = []
+        for _, target in staged.items():
+            schema = target.planned_schema()
             additions = [
                 attribute
                 for column, attribute in declared.items()
                 if column not in schema and (column != "x" or "x" in schema)
             ]
             if additions:
-                collection.add_columns(additions)
+                repairs.append((target, additions))
+        return repairs
 
     def _publication_state_keys(
         self,
@@ -2226,6 +2347,9 @@ class _OptimizerEnvironment:
         self,
         bindings: dict[str, object],
         strategy_values: tuple[tuple[str, str], ...],
+        *,
+        memento: _CommitMemento | None = None,
+        staged: _StagedCollections | None = None,
     ) -> None:
         """Prepare a candidate binding set and publish it, or reject it.
 
@@ -2243,8 +2367,10 @@ class _OptimizerEnvironment:
         self._candidate_resolution = None
         self._candidate_diagnostics = ()
         records = self._consume_replacements()
-        staged = _StagedCollections.of(self._last_state)
-        memento = self._capture_commit_memento(bindings, staged)
+        if staged is None:
+            staged = _StagedCollections.of(self._last_state)
+        if memento is None:
+            memento = self._capture_commit_memento(bindings, staged)
         try:
             executable, rebuilt = self._compile_current_plan(bindings)
             resolution = self._candidate_resolution
@@ -2263,7 +2389,9 @@ class _OptimizerEnvironment:
             stale_state_keys = self._stale_state_keys(
                 outgoing_writes, incoming_state_keys
             )
-            self._check_candidate_state(executable, resolution, transition, incoming)
+            self._check_candidate_state(
+                executable, resolution, transition, incoming, replaced
+            )
         except BaseException as error:
             self._reject_commit(error, memento)
         try:
@@ -2274,6 +2402,9 @@ class _OptimizerEnvironment:
             self._check_staged_changes(staged, incoming)
             self._prepare_region_history(rebuilt)
             staged.apply()
+            if self._last_state is not None:
+                for key in stale_state_keys:
+                    self._last_state.set_state(key, None)
             incoming_reads, incoming_writes = (
                 incoming_state_keys if incoming_state_keys is not None else (None, None)
             )
@@ -2286,9 +2417,6 @@ class _OptimizerEnvironment:
                 state_reads=incoming_reads,
                 state_writes=incoming_writes,
             )
-            if self._last_state is not None:
-                for key in stale_state_keys:
-                    self._last_state.set_state(key, None)
         except BaseException as error:
             self._reject_commit(error, memento)
         self._assign_published_comparator_rng()
@@ -2391,9 +2519,11 @@ class _OptimizerEnvironment:
         resolution: _ComponentResolution | None,
         transition: Transition | None,
         incoming: Mapping[str, object],
+        replaced: tuple[str, ...],
     ) -> None:
         """Run the checks that need the running state or the run's format."""
         self._check_candidate_columns(incoming, transition)
+        self._check_candidate_engine(incoming, replaced)
         self._check_candidate_checkpointable(executable)
         if self._candidate_diagnostics:
             raise ConfigurationError(
@@ -2538,6 +2668,48 @@ class _OptimizerEnvironment:
                 + "\n".join(f"  - {item}" for item in self._candidate_diagnostics)
             )
 
+    def _component_engine_diagnostics(
+        self, components: Mapping[str, object], slots: tuple[str, ...]
+    ) -> tuple[Diagnostic, ...]:
+        """Return the engine checks of the components entering their slots."""
+        state = self._last_state
+        problem = getattr(self.optimizer, "problem", None)
+        if state is None or problem is None:
+            return ()
+        try:
+            population_size = len(state.population)
+        except (AttributeError, KeyError, ValidationError):
+            return ()
+        diagnostics: list[Diagnostic] = []
+        for slot in slots:
+            component = components.get(slot)
+            check = getattr(component, "_replacement_diagnostics", None)
+            if not callable(check):
+                continue
+            try:
+                findings = check(problem, population_size)
+            except Exception:
+                continue
+            diagnostics.extend(findings)
+        return tuple(diagnostics)
+
+    def _check_candidate_engine(
+        self, incoming: Mapping[str, object], replaced: tuple[str, ...]
+    ) -> None:
+        """Reject a candidate whose engine cannot run with this population.
+
+        Runs before publication, so an unavailable construction-time copy or a
+        wrapped pymoo population size that differs from the running population
+        leaves the published configuration and the evaluations unchanged.
+        Only components actually entering their slot are checked, so a
+        strategy-only replacement or a resume keeps the running engine.
+        """
+        for diagnostic in self._component_engine_diagnostics(incoming, replaced):
+            if diagnostic.severity is Severity.ERROR:
+                self._candidate_diagnostics += (diagnostic,)
+            else:
+                logger.warning("%s", diagnostic.message)
+
     def _check_candidate_checkpointable(self, executable: ExecutablePlan) -> None:
         """Reject candidates whose state a portable checkpoint cannot carry."""
         if not getattr(self.optimizer, "_portable_checkpointing", False):
@@ -2596,7 +2768,12 @@ class _OptimizerEnvironment:
         optimizer = self.optimizer
         state = self._last_state
         snapshot = self._active_snapshot
-        history = None if state is None else getattr(state, "history", None)
+        history = None
+        if state is not None:
+            try:
+                history = getattr(state, "history", None)
+            except (AttributeError, KeyError, ValidationError):
+                history = None
         attributes: dict[str, object] = dict(snapshot.values)
         for name in bindings:
             if name not in attributes:
@@ -2640,7 +2817,7 @@ class _OptimizerEnvironment:
             custom_state=(
                 _UNSET if state is None else state.__dict__.get("_custom_state", _UNSET)
             ),
-            comparator=_UNSET if state is None else state.comparator,
+            comparator=(_UNSET if state is None else _state_comparator_or_unset(state)),
             compiled_services=compiled_services,
             history=history,
             region_ids=(
@@ -4504,7 +4681,7 @@ def _sync_runtime_factory(optimizer: object, plan: ExecutablePlan) -> ExecutionR
         runtime_plan = StructuredPlan.from_executable_plan(plan)
     else:
         runtime_plan = SequentialPlan.from_executable_plan(plan)
-    return PipelineRuntime(_OptimizerEnvironment(optimizer, runtime_plan))
+    return PipelineRuntime(_OptimizerEnvironment(optimizer, runtime_plan, plan))
 
 
 def _async_runtime_factory(optimizer: object, plan: ExecutablePlan) -> ExecutionRuntime:
@@ -4513,7 +4690,7 @@ def _async_runtime_factory(optimizer: object, plan: ExecutablePlan) -> Execution
         runtime_plan = StructuredPlan.from_executable_plan(plan)
     else:
         runtime_plan = SequentialPlan.from_executable_plan(plan)
-    return AsyncPipelineRuntime(_OptimizerEnvironment(optimizer, runtime_plan))
+    return AsyncPipelineRuntime(_OptimizerEnvironment(optimizer, runtime_plan, plan))
 
 
 def _sync_runtime_capability_provider(

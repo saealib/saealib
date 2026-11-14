@@ -3,13 +3,54 @@
 from __future__ import annotations
 
 import functools
+import os
+import sys
 import warnings
 from collections.abc import Callable
+from types import FrameType
 from typing import ParamSpec, TypeVar, cast
 
 P = ParamSpec("P")
 R = TypeVar("R")
 T = TypeVar("T")
+
+_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__)) + os.sep
+
+
+def _is_package_frame(frame: FrameType) -> bool:
+    """Return whether a frame runs code that belongs to this package."""
+    return frame.f_code.co_filename.startswith(_PACKAGE_DIR)
+
+
+def _stacklevel_outside_package(default: int = 2) -> int:
+    """Locate the first stack frame outside this package.
+
+    Parameters
+    ----------
+    default
+        Stack level returned when no outside frame is found or when frame
+        introspection fails for any reason, including a refusal raised by an
+        audit hook.
+
+    Returns
+    -------
+    int
+        ``stacklevel`` for :func:`warn_deprecated`, counted from that
+        function's caller. Level 1 is the caller of :func:`warn_deprecated`,
+        so a warning raised by a package helper is attributed to the code that
+        invoked the helper.
+    """
+    level = 1
+    try:
+        frame: FrameType | None = sys._getframe(1)
+        while frame is not None:
+            if not _is_package_frame(frame):
+                return level
+            frame = frame.f_back
+            level += 1
+    except Exception:
+        return default
+    return default
 
 
 def warn_deprecated(

@@ -6,7 +6,7 @@ import weakref
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, cast
 
-from saealib._deprecation import warn_deprecated
+from saealib._deprecation import _stacklevel_outside_package, warn_deprecated
 from saealib.context import OptimizationState
 from saealib.core.compiler.graph import ComponentGraph
 from saealib.core.compiler.regions import _structural_stages
@@ -390,5 +390,5 @@ def warn_deprecated_build_graph_override(strategy: object) -> None:
         f"Overriding build_graph(provider) in {cls.__qualname__}",
         since="0.2.0",
         replacement="TemplateStrategy with a declared Pipeline",
-        stacklevel=2,
+        stacklevel=_stacklevel_outside_package(),
     )

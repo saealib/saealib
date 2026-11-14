@@ -18,6 +18,7 @@ from saealib import (
     PSO,
     AlignColumns,
     Chain,
+    Controller,
     CrossoverBLXAlpha,
     CrossoverSBX,
     LHSInitializer,
@@ -25,6 +26,7 @@ from saealib import (
     NSGA3Comparator,
     Optimizer,
     PopulationAttribute,
+    ReplaceComponent,
     SequentialSelection,
     SingleObjectiveComparator,
     Termination,
@@ -36,6 +38,7 @@ from saealib import (
 from saealib.algorithms import GA
 from saealib.context import OptimizationState
 from saealib.core.runtime import SetParameter
+from saealib.core.state import StateKey
 from saealib.exceptions import (
     CheckpointError,
     ConfigurationError,
@@ -47,6 +50,8 @@ from saealib.execution.runner import Runner
 from saealib.execution.runtime import create_runtime
 from saealib.problem import Problem
 from saealib.strategies import DirectStrategy, GenerationBasedStrategy
+
+_DECISIONS = StateKey[object](namespace="user", name="decisions", schema_version=1)
 
 
 def _sphere(x: Any) -> np.ndarray:
@@ -1206,6 +1211,40 @@ def test_a_failure_while_comparing_contracts_restores_the_mutated_terms(
         environment._refresh_plan_if_needed(state)
     generator.close()
 
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+
+
+def test_a_rejected_controller_command_restores_the_commit() -> None:
+    class _RejectingController(Controller):
+        def decide(self, state: Any) -> tuple[Any, ...]:
+            record = dict(state.get_state(_DECISIONS) or {})
+            record["steps"] = [*record.get("steps", []), state.step]
+            state.set_state(_DECISIONS, record)
+            if state.step == 0:
+                return (
+                    ReplaceComponent(
+                        slot="evaluation_planner", component=cast(Any, object())
+                    ),
+                )
+            return ()
+
+        def state_keys(self) -> tuple[Any, ...]:
+            return (_DECISIONS,)
+
+    optimizer = _surrogate_optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    optimizer.add_controller(_RejectingController())
+    before = _commit_vector(optimizer, environment, state)
+
+    with pytest.raises(ReplacementRejectedError):
+        next(generator)
+    generator.close()
+
+    with pytest.raises(KeyError):
+        state.get_state(_DECISIONS)
     _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
 
 

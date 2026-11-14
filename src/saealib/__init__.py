@@ -323,6 +323,15 @@ _LAZY_EXPORTS: dict[str, str] = {
     "chain": "saealib.transition",
     # context
     "OptimizationState": "saealib.context",
+    # controllers
+    "Controller": "saealib.controllers",
+    "FixedSchedule": "saealib.controllers",
+    "SmoothedController": "saealib.controllers",
+    "StagnationController": "saealib.controllers",
+    "ThresholdController": "saealib.controllers",
+    # runtime commands
+    "ReplaceComponent": "saealib.core.runtime",
+    "SetParameter": "saealib.core.runtime",
     # comparators (less common)
     "Dominator": "saealib.comparators",
     "EpsilonDominanceComparator": "saealib.comparators",

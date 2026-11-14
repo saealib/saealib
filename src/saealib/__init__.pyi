@@ -96,6 +96,17 @@ from saealib.comparators import spea2_fitness as spea2_fitness
 # context
 from saealib.context import OptimizationState as OptimizationState
 
+# controllers
+from saealib.controllers import Controller as Controller
+from saealib.controllers import FixedSchedule as FixedSchedule
+from saealib.controllers import SmoothedController as SmoothedController
+from saealib.controllers import StagnationController as StagnationController
+from saealib.controllers import ThresholdController as ThresholdController
+
+# runtime commands
+from saealib.core.runtime import ReplaceComponent as ReplaceComponent
+from saealib.core.runtime import SetParameter as SetParameter
+
 # decomposition
 from saealib.decomposition import Decomposition as Decomposition
 from saealib.decomposition import DecompositionComparator as DecompositionComparator

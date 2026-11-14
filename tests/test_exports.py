@@ -25,6 +25,7 @@ SCANNED_SUBPACKAGES = [
     "saealib.benchmarks",
     "saealib.callback",
     "saealib.comparators",
+    "saealib.controllers",
     "saealib.defaults",
     "saealib.exceptions",
     "saealib.execution",

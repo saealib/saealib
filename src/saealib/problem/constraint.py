@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from saealib._deprecation import _stacklevel_outside_package, warn_deprecated
+
 if TYPE_CHECKING:
     from saealib.population import Population
 
@@ -264,9 +266,9 @@ class ConstraintHandler(ABC):
                        -> evaluate f, g
                        -> [compute_cv(constraints, x, g)]        -> cv
                        -> [augment_objective(f, constraints, x, g)] -> f'
-        Tell           -> Comparator(f', cv) with eps_cv = feasibility_threshold
-                       (a search-time relaxation; reported feasibility uses
-                       the per-constraint violations)
+        Tell           -> Comparator(f', cv) with the relaxation of the run's
+                       comparator (reported feasibility uses the
+                       per-constraint violations)
         Generation end -> [on_generation_end(gen, population)]
 
     Only :meth:`compute_cv` is abstract; the remaining hooks have sensible
@@ -372,15 +374,17 @@ class ConstraintHandler(ABC):
 
     @property
     def feasibility_threshold(self) -> float:
-        """Search-time threshold the comparator copies onto its ``eps_cv``."""
+        """Search-time relaxation run preparation seeds the comparator with."""
         return 0.0
 
     def on_generation_end(self, gen: int, population: Population) -> None:
         """
         Run end-of-generation bookkeeping.
 
-        Used by adaptive strategies (e.g. ε-level control) that update their
-        internal state between generations. The default is a no-op.
+        Used by adaptive strategies that update their own state between
+        generations. The default is a no-op. A hook that moves
+        :attr:`feasibility_threshold` does not reach the comparator; the
+        search-side relaxation follows ``EpsilonSchedule``.
 
         Parameters
         ----------
@@ -406,7 +410,8 @@ class StaticToleranceHandler(ConstraintHandler):
     ----------
     eps_cv : float, optional
         Search-time feasibility relaxation returned by
-        :attr:`feasibility_threshold` and copied onto the comparator. The
+        :attr:`feasibility_threshold`, which run preparation writes onto the
+        comparator. The
         default of 0.0 treats a solution as feasible only when
         :func:`sum_violation` is zero, which matches the per-constraint
         feasibility decision.
@@ -434,14 +439,18 @@ class EpsilonConstraintHandler(ConstraintHandler):
     """
     Dynamic ε-constraint handler.
 
-    The feasibility threshold ε starts at ``schedule(0)`` and is updated
-    to ``schedule(gen)`` at the end of each generation via
-    :meth:`on_generation_end`. As ε decreases toward 0 the population is
-    gradually driven into the feasible region.
+    The handler's own feasibility threshold ε starts at ``schedule(0)`` and is
+    updated to ``schedule(gen)`` at the end of each generation via
+    :meth:`on_generation_end`. The handler keeps the ε-constrained violation
+    aggregation, and it returns its current ε from
+    :attr:`feasibility_threshold`, which run preparation writes onto the
+    comparator.
 
-    Each call to :meth:`on_generation_end` sets
-    ``comparator.eps_cv = feasibility_threshold`` via the runner, so the
-    comparator's feasibility criterion tightens in sync with ε.
+    The per-generation search-side relaxation is scheduled by
+    :class:`~saealib.controllers.EpsilonSchedule`, registered with
+    :meth:`saealib.Optimizer.add_controller`. Without a schedule the run keeps
+    the relaxation written at preparation, so a run that wants ε to decrease
+    over generations registers the schedule with the same mapping.
 
     Parameters
     ----------
@@ -484,6 +493,15 @@ class EpsilonConstraintHandler(ConstraintHandler):
     """
 
     def __init__(self, schedule: Callable[[int], float]):
+        warn_deprecated(
+            "EpsilonConstraintHandler",
+            since="0.2.0",
+            replacement=(
+                "Problem(cv_aggregator=...) for the violation aggregation and "
+                "EpsilonSchedule for the schedule"
+            ),
+            stacklevel=_stacklevel_outside_package(),
+        )
         self._schedule = schedule
         self._eps: float = float(schedule(0))
 

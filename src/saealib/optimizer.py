@@ -10,7 +10,7 @@ import pickle
 import warnings
 from collections.abc import Callable, Generator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from typing_extensions import Self
 
@@ -43,7 +43,7 @@ from saealib.core.compiler.contract_diagnostics import (
     check_pymoo_feedback_compatibility,
 )
 from saealib.core.contracts import ComponentContract
-from saealib.core.runtime import ReplaceComponent
+from saealib.core.runtime import ReplaceComponent, SetParameter
 from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.exceptions import CheckpointError, ConfigurationError, ValidationError
 from saealib.execution.bindings import (
@@ -332,6 +332,16 @@ class Optimizer:
         self._replacement_records.clear()
         return records
 
+    def _pending_parameter_writes(self) -> dict[tuple[str, str], SetParameter]:
+        """Return the parameter writes no commit point applied yet."""
+        return dict(self._parameter_writes)
+
+    def _consume_parameter_writes(self) -> dict[tuple[str, str], SetParameter]:
+        """Take the recorded parameter writes and leave the queue empty."""
+        records = dict(self._parameter_writes)
+        self._parameter_writes.clear()
+        return records
+
     def __init__(self, problem: Problem, seed: int | None = None):
         """
         Initialize the Optimizer.
@@ -366,6 +376,8 @@ class Optimizer:
         self._feature_encoder_default: tuple[object, object, str] | None = None
         self._configuration_version = 0
         self._replacement_records: dict[str, ReplaceComponent] = {}
+        self._parameter_writes: dict[tuple[str, str], SetParameter] = {}
+        self.controllers: list[Any] = []
         self._last_contract_diagnostics: tuple[Diagnostic, ...] = ()
         self._executable_plan: ExecutablePlan | None = None
         self._last_published_bindings: _BindingSnapshot | None = None
@@ -934,6 +946,33 @@ class Optimizer:
             MeanPrediction(direction=self.problem.direction),
             "Uses the prediction acquisition paired with set_surrogate().",
         )
+        return self
+
+    def add_controller(self, controller: Any) -> Self:
+        """Register a decision rule consulted once per step. Returns self.
+
+        Several controllers run in registration order at every commit point.
+        A controller is not a plan node: registering one changes neither the
+        plan nor the checkpoint format.
+
+        Parameters
+        ----------
+        controller : Controller
+            Object providing a callable ``decide(state)``.  ``decide`` must
+            depend only on the run state and on the state keys the controller
+            declares in ``state_keys()``, because the runtime restores those
+            keys and decides the same step again after a rejected commit.
+
+        Raises
+        ------
+        ValidationError
+            If ``controller`` provides no callable ``decide``.
+        """
+        if not callable(getattr(controller, "decide", None)):
+            raise ValidationError(
+                "controller must provide a callable decide(state) method"
+            )
+        self.controllers.append(controller)
         return self
 
     def set_strategy(
@@ -1543,6 +1582,7 @@ class Optimizer:
         state["_prepared_diagnostic_cache"] = None
         state["_feature_encoder_default"] = None
         state["_replacement_records"] = {}
+        state["_parameter_writes"] = {}
         return state
 
     def __setstate__(self, state: dict[str, object]) -> None:
@@ -1559,6 +1599,8 @@ class Optimizer:
         self.__dict__.setdefault("_materialized_components", {})
         self.__dict__.setdefault("_feature_encoder_default", None)
         self.__dict__.setdefault("_replacement_records", {})
+        self.__dict__.setdefault("_parameter_writes", {})
+        self.__dict__.setdefault("controllers", [])
         self.__dict__.setdefault("comparator", None)
         self.__dict__.setdefault("_comparator_default", None)
         self.__dict__.setdefault("_configuration_version", 0)

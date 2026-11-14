@@ -56,8 +56,9 @@ class Problem:
         ``handler``/``comparator``. A run treats ``cv <= eps_cv`` as feasible
         when it ranks solutions, and reported feasibility never uses this
         value. Mutating this attribute afterwards has no runtime effect; the
-        running relaxation is ``handler.feasibility_threshold``, which the
-        ``Runner`` syncs into ``comparator`` every generation. Default: 0.0.
+        running relaxation is the run comparator's ``eps_cv``, which run
+        preparation seeds from ``handler.feasibility_threshold`` and
+        ``EpsilonSchedule`` writes at every commit point. Default: 0.0.
     cv_aggregator : callable or None
         Aggregation that turns raw constraint values into ``cv``. When set,
         it replaces ``handler.compute_cv``. The default is
@@ -247,7 +248,10 @@ class Problem:
             warn_deprecated(
                 "Problem(eps_cv=...)",
                 since="0.2.0",
-                replacement="the constraint tolerances or EpsilonConstraintHandler",
+                replacement=(
+                    "the constraint tolerances, Problem(cv_aggregator=...) for the "
+                    "aggregation, or EpsilonSchedule for the schedule"
+                ),
             )
         self.eps_cv = eps_cv
         if eps_obj is None:

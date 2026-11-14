@@ -244,44 +244,45 @@ def test_comparator_eps_cv_synced_at_start():
     assert eps_at_start[0] == pytest.approx(eps0)
 
 
-def test_comparator_eps_cv_decreases_each_generation():
-    from saealib import GenerationEndEvent
+def test_the_schedule_controller_decides_the_relaxation_of_each_generation():
+    from saealib import EpsilonSchedule, GenerationStartEvent
 
     n_gen = 5
-    h = EpsilonConstraintHandler(linear_epsilon_schedule(eps0=1.0, n_gen=n_gen))
+    schedule = linear_epsilon_schedule(eps0=1.0, n_gen=n_gen)
+    h = EpsilonConstraintHandler(schedule)
     prob = _make_constrained_problem(h)
     opt = _make_optimizer(prob, n_gen=n_gen)
+    opt.add_controller(EpsilonSchedule(schedule))
 
     eps_history = []
 
     def _capture(e):
-        eps_history.append(e.ctx.comparator.eps_cv)
+        eps_history.append((e.ctx.gen, e.ctx.comparator.eps_cv))
 
-    opt.cbmanager.register(GenerationEndEvent, _capture)
+    opt.cbmanager.register(GenerationStartEvent, _capture)
     opt.run()
 
-    assert len(eps_history) == n_gen
-    for i in range(1, len(eps_history)):
-        assert eps_history[i] < eps_history[i - 1]
-    assert eps_history[-1] == pytest.approx(0.0)
+    assert eps_history
+    for gen, epsilon in eps_history:
+        assert epsilon == pytest.approx(schedule(gen))
 
 
 def test_epsilon_relaxation_reaches_the_comparator_only():
-    from saealib import GenerationEndEvent
+    from saealib import EpsilonSchedule, GenerationStartEvent
 
     n_gen = 5
-    h = EpsilonConstraintHandler(linear_epsilon_schedule(eps0=1.0, n_gen=n_gen))
+    schedule = linear_epsilon_schedule(eps0=1.0, n_gen=n_gen)
+    h = EpsilonConstraintHandler(schedule)
     prob = _make_constrained_problem(h)
     opt = _make_optimizer(prob, n_gen=n_gen)
+    opt.add_controller(EpsilonSchedule(schedule))
     archive_eps = []
 
     def _check(e):
-        assert e.ctx.comparator.eps_cv == pytest.approx(
-            e.ctx.problem.handler.feasibility_threshold
-        )
+        assert e.ctx.comparator.eps_cv == pytest.approx(schedule(e.ctx.gen))
         archive_eps.append(e.ctx.pareto_archive.eps_cv)
 
-    opt.cbmanager.register(GenerationEndEvent, _check)
+    opt.cbmanager.register(GenerationStartEvent, _check)
     opt.run()
 
     assert archive_eps

@@ -42,11 +42,14 @@ __all__ = [
     "RUNTIME_REGION_COUNTS",
     "RUNTIME_REQUEST_ID_ALLOCATOR",
     "RUNTIME_RNG",
+    "RUNTIME_STAGNATION",
     "RUNTIME_STEP",
     "SCORES",
     "STATE_NAMESPACES",
+    "SURROGATES_ACCURACY",
     "SURROGATES_DEFAULT",
     "SURROGATES_PREDICTIONS",
+    "SURROGATES_SMOOTHED_ERROR",
     "USER_DATA",
     "StateKey",
 ]
@@ -169,11 +172,27 @@ PROPOSALS_ID_ALLOCATOR = StateKey[object](
 RUNTIME_REQUEST_ID_ALLOCATOR = StateKey[object](
     namespace="runtime", name="request_id_allocator", schema_version=1
 )
+# Progress record a stagnation controller keeps: the best measure it has seen
+# and the step that last improved it.
+RUNTIME_STAGNATION = StateKey[object](
+    namespace="runtime", name="stagnation", schema_version=1
+)
 SURROGATES_DEFAULT = StateKey[object](
     namespace="surrogates", name="default", schema_version=1
 )
 SURROGATES_PREDICTIONS = StateKey[object](
     namespace="surrogates", name="predictions", schema_version=1
+)
+# The last accuracy a bound surrogate manager reported, as a JSON-safe mapping
+# ``{"metrics": {name: float}, "n_samples": int}`` so a portable checkpoint can
+# carry it.  A run writes it at every generation end while controllers are
+# registered, and clears it when the manager binding is replaced.
+SURROGATES_ACCURACY = StateKey[object](
+    namespace="surrogates", name="accuracy", schema_version=1
+)
+# Smoothed accuracy error a smoothing controller keeps.
+SURROGATES_SMOOTHED_ERROR = StateKey[object](
+    namespace="surrogates", name="smoothed_error", schema_version=1
 )
 FEEDBACK_RESULT = StateKey[object](
     namespace="feedback", name="result", schema_version=1

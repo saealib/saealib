@@ -139,6 +139,39 @@ class ReplaceComponent(RuntimeCommand):
 
 
 @dataclass(frozen=True, kw_only=True)
+class SetParameter(RuntimeCommand):
+    """A parameter write queued for the next commit point.
+
+    The write targets an attribute of the published binding in ``slot``.  A
+    commit point applies it before the difference check, so a write the plan
+    and the contract cannot see leaves the binding version, the plan, and the
+    publication state alone.  Writes are internal and last-write-wins per
+    ``(slot, path)``; nothing serializes them.
+
+    Attributes
+    ----------
+    slot : str
+        Binding slot holding the component the write targets.
+    path : str
+        Attribute path on that component, with ``.`` separating nested
+        components (``"crossover.prob"``).
+    value : object
+        Value written to the attribute.
+    """
+
+    slot: str
+    path: str
+    value: object = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if not isinstance(self.slot, str) or not self.slot:
+            raise ValidationError("SetParameter slot must be a non-empty string")
+        if not isinstance(self.path, str) or not self.path:
+            raise ValidationError("SetParameter path must be a non-empty string")
+
+
+@dataclass(frozen=True, kw_only=True)
 class NodeResult:
     """The immutable result envelope returned by one plan node."""
 

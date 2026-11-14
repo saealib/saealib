@@ -1395,7 +1395,15 @@ class AsyncEvaluationScheduler:
         rows = self._rows(state, update.candidate_ids, int(update.request_id))
         archives = (state.archive, state.pareto_archive)
 
+        def row_genomes() -> Any:
+            """Return the owner's genomes when every row carries one."""
+            genomes = owner.genomes
+            return genomes if len(genomes) == len(owner) else None
+
         def values_for(archive: Any) -> list[dict[str, Any]]:
+            genomes = None
+            if "x" not in archive.schema or "x" not in owner.schema:
+                genomes = row_genomes()
             values_list = []
             for row, candidate_id in zip(rows, update.candidate_ids, strict=True):
                 values = {
@@ -1414,6 +1422,8 @@ class AsyncEvaluationScheduler:
                     values["id"] = np.int64(candidate_id)
                 if "request_id" in archive.schema:
                     values["request_id"] = np.int64(update.request_id)
+                if genomes is not None:
+                    values["genome"] = genomes.take([row])
                 values_list.append(values)
             return values_list
 

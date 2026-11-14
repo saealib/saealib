@@ -14,7 +14,11 @@ from saealib.context import OptimizationState
 from saealib.core.compiler import Severity
 from saealib.core.contracts.contract import ComponentContract
 from saealib.core.contracts.state import StateContract
-from saealib.defaults.keys import POPULATION_SIZE
+from saealib.defaults.keys import (
+    INITIAL_ARCHIVE_SIZE,
+    MAX_EVALUATIONS,
+    POPULATION_SIZE,
+)
 from saealib.defaults.model import (
     DefaultHint,
     DefaultResolution,
@@ -595,3 +599,31 @@ def test_first_yield_and_resume_reuse_component_sources(monkeypatch) -> None:
     assert {
         name: origin.source for name, origin in _origins(optimizer).items()
     } == sources
+
+
+def test_default_resolution_reads_only_the_problem_and_the_comparator() -> None:
+    from saealib.comparators import SingleObjectiveComparator
+    from saealib.execution.bindings import _resolve_defaults
+
+    problem = _problem()
+    comparator = SingleObjectiveComparator(direction=-1.0)
+
+    class _OnlyProblem:
+        def __init__(self, problem: Problem) -> None:
+            self.problem = problem
+
+        def __getattr__(self, name: str) -> object:
+            raise AssertionError(f"default resolution read {name!r}")
+
+    resolved = _resolve_defaults(_OnlyProblem(problem), comparator)
+    assert resolved.get(POPULATION_SIZE) == 4 * problem.dim
+    assert resolved.get(INITIAL_ARCHIVE_SIZE) == 5 * problem.dim
+    assert resolved.get(MAX_EVALUATIONS) == 200 * problem.dim
+
+    class _ReferencePointComparator:
+        reference_points = tuple(object() for _ in range(8))
+        aligns_population_to_reference_points = True
+
+    aligned = _resolve_defaults(_OnlyProblem(problem), _ReferencePointComparator())
+    assert aligned.get(POPULATION_SIZE) == 8
+    assert aligned.get(INITIAL_ARCHIVE_SIZE) == max(5 * problem.dim, 8)

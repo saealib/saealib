@@ -265,7 +265,6 @@ class Optimizer:
     def __setattr__(self, name: str, value: object) -> None:
         tracking = self.__dict__.get("_track_component_assignments", False)
         prior_value = getattr(self, name, None) if tracking else None
-        prior_origin = self.__dict__.get("_component_origins", {}).get(name)
         object.__setattr__(self, name, value)
         if tracking and name in self._COMPONENT_ASSIGNMENTS:
             origins = self.__dict__.setdefault("_component_origins", {})
@@ -276,10 +275,7 @@ class Optimizer:
                 "",
             )
             self.__dict__.setdefault("_materialized_components", {}).pop(name, None)
-            if (
-                prior_value is not value
-                or getattr(prior_origin, "source", None) != "direct assignment"
-            ):
+            if prior_value is not value:
                 object.__setattr__(
                     self,
                     "_configuration_version",
@@ -290,14 +286,10 @@ class Optimizer:
 
     def _set_component(self, name: str, value: object, reason: str) -> None:
         prior_value = getattr(self, name, None)
-        prior_origin = self._component_origins.get(name)
         object.__setattr__(self, name, value)
         self._component_origins[name] = _ComponentOrigin(value, "setter", reason, "")
         self._materialized_components.pop(name, None)
-        if (
-            prior_value is not value
-            or getattr(prior_origin, "source", None) != "setter"
-        ):
+        if prior_value is not value:
             self._configuration_version += 1
 
     def _set_framework_component(self, name: str, value: object, reason: str) -> None:

@@ -18,6 +18,7 @@ import math
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
+from saealib._deprecation import _stacklevel_outside_package, warn_deprecated
 from saealib.core.contracts import ComponentContract, PartSpec
 from saealib.exceptions import ValidationError
 
@@ -89,6 +90,12 @@ class ManagerSwitcher(AccuracyBasedSurrogateSwitcher["SurrogateManager"]):
         metric: str = "spearman",
         threshold: float = 0.5,
     ) -> None:
+        warn_deprecated(
+            "ManagerSwitcher",
+            since="0.2.0",
+            replacement="ThresholdController(slot='surrogate_manager', levels=...)",
+            stacklevel=_stacklevel_outside_package(),
+        )
         self.primary = primary
         self.fallback = fallback
         self.metric = metric
@@ -202,6 +209,12 @@ class StrategySwitcher(AccuracyBasedSurrogateSwitcher["OptimizationStrategy"]):
     ) -> None:
         if (mid is None) != (mid_threshold is None):
             raise ValidationError("mid and mid_threshold must be provided together")
+        warn_deprecated(
+            "StrategySwitcher",
+            since="0.2.0",
+            replacement="ThresholdController(slot='strategy', levels=...)",
+            stacklevel=_stacklevel_outside_package(),
+        )
         self.primary = primary
         self.fallback = fallback
         self.metric = metric
@@ -291,6 +304,12 @@ class GenCtrlSwitcher(AccuracyBasedSurrogateSwitcher[int]):
             raise ValidationError("gm_min must be >= 0")
         if gm_max < gm_min:
             raise ValidationError("gm_max must be >= gm_min")
+        warn_deprecated(
+            "GenCtrlSwitcher",
+            since="0.2.0",
+            replacement="SmoothedController(slot='strategy', path='gen_ctrl')",
+            stacklevel=_stacklevel_outside_package(),
+        )
         self.gm_max = gm_max
         self.gm_min = gm_min
         self.update_rate = update_rate

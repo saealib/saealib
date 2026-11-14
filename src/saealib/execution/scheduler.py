@@ -12,7 +12,13 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from saealib.callback import PostEvaluationEvent
-from saealib.context import EvaluationPlanState, _count_evaluated
+from saealib.context import (
+    EvaluationPlanState,
+    OptimizationState,
+    _count_evaluated,
+    _EvaluationReport,
+    _flush_evaluation_history,
+)
 from saealib.core.adapters import FeedbackAccumulator
 from saealib.core.contracts import (
     ComponentContract,
@@ -51,12 +57,18 @@ from saealib.exceptions import (
     ValidationError,
 )
 from saealib.execution.evaluator import (
+    NO_TELL_METADATA,
     EvaluationErrorInfo,
     EvaluationRequest,
     EvaluationStatus,
     EvaluationUpdate,
     Evaluator,
     PendingEvaluation,
+    request_origin_kind,
+)
+from saealib.execution.transition_evaluation import (
+    append_evaluated_rows,
+    apply_true_rows,
 )
 from saealib.policies.evaluation import (
     _aggregate_repeated_updates,
@@ -64,21 +76,23 @@ from saealib.policies.evaluation import (
     _continue_fidelity_plan,
 )
 from saealib.policies.feedback import (
-    OBJECTIVE_SOURCE_CODES,
-    TRUE,
     FeedbackBuilder,
     FeedbackResult,
     _feedback_batch_from_result,
     _set_objective_source,
-    _set_objectives_true,
 )
-from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.stages import deliver_feedback
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from saealib.context import OptimizationState
+    from saealib.population.population import Population
+
+
+def _origin_kind(pending: PendingEvaluation) -> int:
+    """Return who requested the evaluation of *pending*."""
+    return request_origin_kind(pending.request)
 
 
 class AsyncEvaluationScheduler:
@@ -245,16 +259,29 @@ class AsyncEvaluationScheduler:
         return state.reserved_cost
 
     def submit(
-        self, state: OptimizationState, requests: Iterable[EvaluationRequest]
+        self,
+        state: OptimizationState,
+        requests: Iterable[EvaluationRequest],
+        *,
+        owner: Population | None = None,
     ) -> OptimizationState:
-        """Submit disjoint requests within capacity and budget limits."""
+        """Submit disjoint requests within capacity and budget limits.
+
+        *owner* holds the candidate rows the requests evaluate; it defaults to
+        the state's offspring.  Pass it explicitly for a request that did not
+        come from the flow's proposals, so the submit path does not read
+        ``state.offspring`` on its behalf.
+        """
         requests = tuple(requests)
         if len(requests) > 1 and not self.evaluator.supports_batch_rollback():
             raise EvaluationProtocolError(
                 "batch submission requires rollback-capable evaluator"
             )
-        if state.offspring is None:
-            raise EvaluationProtocolError("asynchronous submission requires offspring")
+        owner = state.offspring if owner is None else owner
+        if owner is None:
+            raise EvaluationProtocolError(
+                "asynchronous submission requires an evaluation owner"
+            )
         existing = set(map(int, self.pending_candidate_ids(state)))
         plan_ids = {request.metadata.get("plan_id") for request in requests}
         allow_replicates = (
@@ -371,7 +398,7 @@ class AsyncEvaluationScheduler:
                 )
                 handles[request_id] = handle
                 pending_map[request_id] = pending
-                owners[request_id] = state.offspring
+                owners[request_id] = owner
         except Exception as exc:
             cleanup_failed = self._cleanup_started_handles(started)
             if cleanup_failed:
@@ -794,10 +821,20 @@ class AsyncEvaluationScheduler:
             plan_updates.setdefault(request_id, []).append(update)
             current = current.replace(evaluation_plan_updates=plan_updates)
         current_pending = current.pending_evaluations[request_id]
+        no_tell = bool(current_pending.request.metadata.get(NO_TELL_METADATA, False))
         if not replay:
             history = current.history
             if history is not None:
-                history._observe_evaluation(update, current_pending.retry_count)
+                history._observe_evaluation(
+                    update,
+                    current_pending.retry_count,
+                    origin_kind=request_origin_kind(current_pending.request),
+                )
+                if no_tell:
+                    # Confirm the History row before the rows, the archives,
+                    # and the count change, so a recording failure changes
+                    # nothing and an observer cannot separate them.
+                    _flush_evaluation_history(current, history, strict=True)
         if current_pending.feedback_result is not None:
             current = current.replace(feedback_result=current_pending.feedback_result)
         current_plan = current.evaluation_plan
@@ -877,6 +914,11 @@ class AsyncEvaluationScheduler:
         accumulator_update = (
             update if self._feedback_accumulator is not None else plan_effect_update
         )
+        if no_tell:
+            # A request the flow did not make must not reach the accumulator or
+            # the algorithm; its rows and archive entries are confirmed all the
+            # same.
+            accumulator_update = plan_effect_update
         population_update = update
         if (
             self._feedback_accumulator is None
@@ -912,11 +954,21 @@ class AsyncEvaluationScheduler:
             current = self._apply_archive(current, accumulator_update)
             current = progress(current, "archived")
             stage_rank = 2
-        if accumulator_update is not None and stage_rank < 3 and has_rows:
+        if (
+            accumulator_update is not None
+            and not no_tell
+            and stage_rank < 3
+            and has_rows
+        ):
             current = self._apply_feedback(current, accumulator_update)
             current = progress(current, "feedback-applied")
             stage_rank = 3
-        if accumulator_update is not None and stage_rank < 4 and has_rows:
+        if (
+            accumulator_update is not None
+            and not no_tell
+            and stage_rank < 4
+            and has_rows
+        ):
             current = progress(
                 current,
                 "tell-started",
@@ -935,7 +987,16 @@ class AsyncEvaluationScheduler:
             stage_rank = 4
         if stage_rank < 5:
             if update.result is not None:
-                current = _count_evaluated(current, update.candidate_ids)
+                current = _count_evaluated(
+                    current,
+                    update.candidate_ids,
+                    report=_EvaluationReport(
+                        request_id=request_id,
+                        candidate_ids=np.asarray(update.candidate_ids, dtype=np.int64),
+                        status=update.status,
+                        origin_kind=_origin_kind(current_pending),
+                    ),
+                )
             current = progress(current, "fe-applied")
         if stage_rank < 6:
             self.evaluator.acknowledge(handle, update.sequence)
@@ -956,6 +1017,21 @@ class AsyncEvaluationScheduler:
         }
         remaining = np.setdiff1d(original_ids, applied)
         retried = False
+        request_report = (
+            _EvaluationReport(
+                request_id=request_id,
+                candidate_ids=np.asarray(applied, dtype=np.int64),
+                status=update.status,
+                origin_kind=_origin_kind(current_pending),
+                dispatch=(
+                    None
+                    if self.callback_manager is None
+                    else self.callback_manager.dispatch
+                ),
+            )
+            if terminal and len(applied)
+            else None
+        )
         if (
             update.status is EvaluationStatus.FAILED
             and remaining.size
@@ -1083,6 +1159,7 @@ class AsyncEvaluationScheduler:
             )
         if (
             self._feedback_accumulator is not None
+            and not no_tell
             and terminal
             and not retried
             and update.result is None
@@ -1096,6 +1173,7 @@ class AsyncEvaluationScheduler:
         )
         if (
             callback_update is not None
+            and not no_tell
             and len(callback_update.candidate_ids)
             and self.callback_manager is not None
         ):
@@ -1160,6 +1238,16 @@ class AsyncEvaluationScheduler:
                         feedback=plan_state.feedback,
                     )
                 )
+        if request_report is not None:
+            try:
+                current = _count_evaluated(current, (), report=request_report)
+            except EvaluationFatalError:
+                raise
+            except Exception as exc:
+                raise EvaluationFatalError(
+                    "post-evaluation-request callback failed; update is fatal",
+                    current,
+                ) from exc
         return current
 
     @staticmethod
@@ -1372,18 +1460,7 @@ class AsyncEvaluationScheduler:
         if update.result is None:
             return state
         owner = self._owner(state, int(update.request_id))
-        rows = self._rows(state, update.candidate_ids, int(update.request_id))
-        values = {
-            name: value
-            for name, value in {
-                "f": update.result.f,
-                "g": update.result.g,
-                "cv": update.result.cv,
-            }.items()
-            if name in owner.schema
-        }
-        _set_objectives_true(owner, values, len(rows))
-        owner.update_rows(rows, values)
+        apply_true_rows(owner, update.candidate_ids, update.result)
         return state
 
     def _apply_archive(
@@ -1392,107 +1469,14 @@ class AsyncEvaluationScheduler:
         if update.result is None:
             return state
         owner = self._owner(state, int(update.request_id))
-        rows = self._rows(state, update.candidate_ids, int(update.request_id))
-        archives = (state.archive, state.pareto_archive)
-
-        def row_genomes() -> Any:
-            """Return the owner's genomes when every row carries one."""
-            genomes = owner.genomes
-            return genomes if len(genomes) == len(owner) else None
-
-        def values_for(archive: Any) -> list[dict[str, Any]]:
-            genomes = None
-            if "x" not in archive.schema or "x" not in owner.schema:
-                genomes = row_genomes()
-            values_list = []
-            for row, candidate_id in zip(rows, update.candidate_ids, strict=True):
-                values = {
-                    name: owner.get_array(name)[row]
-                    for name in archive.schema
-                    if name in owner.schema
-                }
-                if (
-                    OBJECTIVE_SOURCE_COLUMN in archive.schema
-                    and OBJECTIVE_SOURCE_COLUMN not in owner.schema
-                ):
-                    values[OBJECTIVE_SOURCE_COLUMN] = np.uint8(
-                        OBJECTIVE_SOURCE_CODES[TRUE]
-                    )
-                if "id" in archive.schema:
-                    values["id"] = np.int64(candidate_id)
-                if "request_id" in archive.schema:
-                    values["request_id"] = np.int64(update.request_id)
-                if genomes is not None:
-                    values["genome"] = genomes.take([row])
-                values_list.append(values)
-            return values_list
-
-        snapshots = []
-        for archive in archives:
-            snapshots.append(
-                (
-                    archive,
-                    {
-                        name: np.array(array, copy=True)
-                        for name, array in archive._data.items()
-                    },
-                    archive._size,
-                    archive._structure_version,
-                    archive._value_version,
-                    dict(archive._cache),
-                    getattr(archive, "_kdtree", None),
-                )
-            )
-        try:
-            for archive in archives:
-                for values in values_for(archive):
-                    if "id" in values and len(archive):
-                        ids = archive.get_array("id")[: len(archive)]
-                        if np.any(ids == values["id"]):
-                            policy = getattr(archive, "duplicate_policy", "keep_first")
-                            if (
-                                policy == "keep_first"
-                                and archive is not state.pareto_archive
-                            ):
-                                continue
-                            if policy == "append":
-                                request_ids = archive.get_array("request_id")[
-                                    : len(archive)
-                                ]
-                                if np.any(
-                                    (ids == values["id"])
-                                    & (request_ids == values.get("request_id"))
-                                ):
-                                    continue
-                            else:
-                                archive.delete(np.flatnonzero(ids == values["id"]))
-                    archive.add(values)
-        except Exception:
-            self._restore_archive_snapshots(snapshots)
-            raise
+        append_evaluated_rows(
+            state.archive,
+            state.pareto_archive,
+            owner,
+            int(update.request_id),
+            update.candidate_ids,
+        )
         return state
-
-    def _restore_archive_snapshots(self, snapshots: list[tuple[Any, ...]]) -> None:
-        for (
-            archive,
-            snapshot,
-            size,
-            structure_version,
-            value_version,
-            cache,
-            kdtree,
-        ) in snapshots:
-            archive._data = snapshot
-            archive._size = size
-            archive._structure_version = structure_version
-            archive._value_version = value_version
-            archive._cache = cache
-            if hasattr(archive, "_kdtree"):
-                archive._kdtree = kdtree
-            # Rebuild opaque service indexes from restored rows after rollback.
-            invalidate = getattr(archive, "_invalidate_service_indexes", None)
-            if callable(invalidate):
-                invalidate()
 
     def _apply_feedback(
         self, state: OptimizationState, update: EvaluationUpdate

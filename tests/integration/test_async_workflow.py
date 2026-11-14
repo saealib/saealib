@@ -474,7 +474,7 @@ def test_async_callback_runs_after_tell():
 
     class Callback:
         def dispatch(self, event):
-            order.append("event")
+            order.append(type(event).__name__)
 
     state = make_state()
     scheduler = AsyncEvaluationScheduler(
@@ -486,7 +486,11 @@ def test_async_callback_runs_after_tell():
     state = scheduler.submit(state, [requests()[0]])
     scheduler.poll(state, wait=True)
 
-    assert order == ["tell", "event"]
+    assert order == [
+        "tell",
+        "PostEvaluationEvent",
+        "PostEvaluationRequestEvent",
+    ]
 
 
 def test_repeated_sync_plan_uses_the_same_terminal_lifecycle():
@@ -587,7 +591,8 @@ def test_async_fidelity_promotion_uses_plan_continuation_and_checkpoint(tmp_path
 
     class Callback:
         def dispatch(self, event):
-            order.append(("event", event.candidate_ids.tolist()))
+            if isinstance(event, PostEvaluationEvent):
+                order.append(("event", event.candidate_ids.tolist()))
 
     state = make_state()
     evaluator = ControlledFidelityValueEvaluator()

@@ -13,10 +13,11 @@ from __future__ import annotations
 import pickle
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
+from math import fsum
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import numpy as np
@@ -35,6 +36,10 @@ from saealib.population.genome import DenseVectorBatch, GenomeBatch, genome_valu
 
 if TYPE_CHECKING:
     from saealib.problem import Problem
+
+
+#: Metadata key marking a request whose results must not reach the algorithm.
+NO_TELL_METADATA = "no_tell"
 
 
 class EvaluationStatus(str, Enum):
@@ -222,6 +227,80 @@ class EvaluationRequest:
             "DenseVectorBatch payload; this request carries a non-dense "
             f"{type(self.payload).__name__} payload"
         )
+
+
+def split_request(
+    request: EvaluationRequest,
+    chunk_count: int,
+    *,
+    allocate_request_id: Callable[[], np.int64] | None = None,
+) -> tuple[EvaluationRequest, ...]:
+    """Split a request into *chunk_count* parts, in candidate order.
+
+    The parts cover the request's candidates in order; the first part keeps the
+    request's ID and each later part takes a new ID from *allocate_request_id*.
+    The estimated cost a part carries is apportioned by candidate count, and
+    the last part takes the remainder.
+
+    Parameters
+    ----------
+    request : EvaluationRequest
+        Request to split.
+    chunk_count : int
+        Number of parts to produce.  ``1`` returns the request unchanged.
+    allocate_request_id : callable or None
+        Returns the request ID for each part after the first.  Required only
+        when more than one part is requested.
+
+    Returns
+    -------
+    tuple of EvaluationRequest
+        The parts, in candidate order.
+
+    Raises
+    ------
+    ValidationError
+        If *chunk_count* is not a positive integer, or if more than one part is
+        requested and no ID allocator was given.
+    """
+    if isinstance(chunk_count, bool) or not isinstance(chunk_count, int):
+        raise ValidationError("evaluation chunk count must be an integer")
+    if chunk_count < 1:
+        raise ValidationError("evaluation chunk count must be positive")
+    if chunk_count == 1:
+        return (request,)
+    if allocate_request_id is None:
+        raise ValidationError("a split request needs a request ID allocator")
+    total_cost = float(
+        request.metadata.get("estimated_cost", len(request.candidate_ids))
+    )
+    allocated_cost = 0.0
+    requests: list[EvaluationRequest] = []
+    id_chunks = np.array_split(request.candidate_ids, chunk_count)
+    row_chunks = np.array_split(np.arange(len(request.candidate_ids)), chunk_count)
+    for index, (ids, rows) in enumerate(zip(id_chunks, row_chunks, strict=True)):
+        request_id = (
+            request.request_id if index == 0 else np.int64(allocate_request_id())
+        )
+        chunk_cost = (
+            total_cost - fsum((allocated_cost,))
+            if index == len(id_chunks) - 1
+            else total_cost * len(ids) / len(request.candidate_ids)
+        )
+        allocated_cost = fsum((allocated_cost, chunk_cost))
+        requests.append(
+            EvaluationRequest(
+                request_id,
+                ids,
+                request.payload.take(np.asarray(rows, dtype=np.intp)),
+                request.outputs,
+                {
+                    **request.metadata,
+                    "estimated_cost": float(chunk_cost),
+                },
+            )
+        )
+    return tuple(requests)
 
 
 @dataclass

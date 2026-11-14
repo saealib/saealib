@@ -612,6 +612,16 @@ class CompositeSurrogateManager(SurrogateManager):
             )
         self.managers = managers
 
+    def contract(self) -> ComponentContract:
+        """Return the manager contract with the state its children read."""
+        return replace(
+            super().contract(),
+            state=StateContract(
+                reads=(POPULATIONS_MAIN, RUNTIME_RNG),
+                writes=(RUNTIME_RNG,),
+            ),
+        )
+
     def fit(
         self,
         archive: Archive,

@@ -1442,6 +1442,9 @@ from saealib.core.compiler.persistence_runtime_rules import (  # noqa: E402
 )
 from saealib.core.compiler.schema_rules import SchemaBindingRule  # noqa: E402
 from saealib.core.compiler.state_effect_rules import StateEffectRule  # noqa: E402
+from saealib.core.compiler.state_inference_rules import (  # noqa: E402
+    InferredStateEffectRule,
+)
 from saealib.core.compiler.uncertainty_rules import (  # noqa: E402
     SurrogateUncertaintyRule,
 )
@@ -1454,6 +1457,7 @@ DEFAULT_RULE_REGISTRY.register(cast(CompilationRule, PersistenceRule()))
 DEFAULT_RULE_REGISTRY.register(cast(CompilationRule, RuntimeCompatibilityRule()))
 DEFAULT_RULE_REGISTRY.register(cast(CompilationRule, LifecycleCompatibilityRule()))
 DEFAULT_RULE_REGISTRY.register(cast(CompilationRule, StateEffectRule()))
+DEFAULT_RULE_REGISTRY.register(cast(CompilationRule, InferredStateEffectRule()))
 DEFAULT_RULE_REGISTRY.register(cast(CompilationRule, SurrogateUncertaintyRule()))
 
 __all__ = [

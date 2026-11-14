@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Constrained Optimization &#8212; saealib 0.1.1.dev54+g422769519 documentation</title>
+    <title>Constrained Optimization &#8212; saealib 0.1.1.dev57+g404ff2d34 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=1f898ae2"></script>
+    <script src="../_static/documentation_options.js?v=5ccc3c19"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -647,7 +647,7 @@ This page covers defining constraints on a <code class="docutils literal notrans
 <p>The same decision drives <code class="docutils literal notranslate"><span class="pre">result.x</span></code>/<code class="docutils literal notranslate"><span class="pre">result.f</span></code>, the history’s <code class="docutils literal notranslate"><span class="pre">best_f</span></code> and <code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code>, training-set labels, and the Pareto archive.
 It therefore does not depend on how violations are aggregated into <code class="docutils literal notranslate"><span class="pre">cv</span></code> or on any ε relaxation used during search.
 With <code class="docutils literal notranslate"><span class="pre">GenerationBasedStrategy</span></code> and <code class="docutils literal notranslate"><span class="pre">gen_ctrl</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>, the final population may contain predicted rows with placeholder <code class="docutils literal notranslate"><span class="pre">g=0</span></code>, depending on the algorithm’s <code class="docutils literal notranslate"><span class="pre">tell()</span></code> implementation; for example, GA can retain them.
-The <code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code> in History’s <code class="docutils literal notranslate"><span class="pre">summary</span></code> classifies each generation’s <code class="docutils literal notranslate"><span class="pre">state.population</span></code> against the constraint definitions, so these rows may be counted as feasible.
+The <code class="docutils literal notranslate"><span class="pre">feasible_ratio</span></code> and <code class="docutils literal notranslate"><span class="pre">min_cv</span></code> in History’s <code class="docutils literal notranslate"><span class="pre">summary</span></code> are computed only over the rows of <code class="docutils literal notranslate"><span class="pre">state.population</span></code> that were truly evaluated, so these rows are not counted; both are NaN when no row has been truly evaluated.
 True evaluation values remain in the archive.
 The default criterion of <code class="docutils literal notranslate"><span class="pre">result.best()</span></code> and <code class="docutils literal notranslate"><span class="pre">result.front()</span></code> uses that decision as well: feasible solutions come first and are then filtered by Pareto dominance.
 When no solution is feasible, the default criterion uses the first row with the minimum <code class="docutils literal notranslate"><span class="pre">cv</span></code> for a single-objective problem, and <code class="docutils literal notranslate"><span class="pre">result.front()</span></code> for a multi-objective problem returns the non-dominated solutions among the rows with the minimum <code class="docutils literal notranslate"><span class="pre">cv</span></code>.

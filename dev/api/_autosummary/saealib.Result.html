@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Result &#8212; saealib 0.1.1.dev54+g422769519 documentation</title>
+    <title>saealib.Result &#8212; saealib 0.1.1.dev57+g404ff2d34 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=1f898ae2"></script>
+    <script src="../../_static/documentation_options.js?v=5ccc3c19"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1162,7 +1162,10 @@ over that generation describes an infeasible front; <code class="docutils litera
 collapsing to a single point is the visible sign.</p>
 <p><code class="docutils literal notranslate"><span class="pre">&quot;best&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;feasible_ratio&quot;</span></code> use the same constraint-based
 decision, so relaxing the comparator during an epsilon-constrained run
-changes neither; <code class="docutils literal notranslate"><span class="pre">min_cv</span></code> describes the population’s raw violation.</p>
+changes neither; <code class="docutils literal notranslate"><span class="pre">min_cv</span></code> describes the population’s raw violation.
+Both <code class="docutils literal notranslate"><span class="pre">&quot;feasible_ratio&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;min_cv&quot;</span></code> cover only the population
+rows whose <code class="docutils literal notranslate"><span class="pre">objective_source</span></code> marks a true evaluation, and are NaN
+when no row of the population is truly evaluated.</p>
 </dd></dl>
 
 </section>

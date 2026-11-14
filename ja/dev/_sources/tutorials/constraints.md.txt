@@ -105,7 +105,7 @@ print(f"feasible: {feasible.sum()} / {len(feasible)}")
 同じ判定が`result.x`/`result.f`、履歴の`best_f`と`feasible_ratio`、学習データのラベル、Paretoアーカイブを駆動します。
 そのため、`cv`の集約方法や探索中のε緩和には左右されません。
 `GenerationBasedStrategy`で`gen_ctrl > 0`の場合、アルゴリズムの`tell()`の実装によっては、最終個体群にプレースホルダー`g=0`を持つ予測行が含まれることがあります。たとえばGAでは予測行を保持できます。
-Historyの`summary`にある`feasible_ratio`は各世代の`state.population`を制約定義に従って分類するため、これらの行が実行可能として数えられる場合があります。
+Historyの`summary`にある`feasible_ratio`と`min_cv`は、`state.population`のうち真に評価された行だけから計算するため、これらの行は数えられません。真に評価された行が1つもないときは、どちらもNaNになります。
 真の評価値はアーカイブに保持されます。
 `result.best()`と`result.front()`の既定の基準もこの判定を使い、実行可能解を優先したうえでPareto支配で絞り込みます。
 実行可能な解が1つもない場合、既定の基準では単目的は`cv`が最小の最初の行を使い、多目的問題の`result.front()`は`cv`が最小の行のうち非劣な解を返します。

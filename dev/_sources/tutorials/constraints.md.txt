@@ -107,7 +107,7 @@ print(f"feasible: {feasible.sum()} / {len(feasible)}")
 The same decision drives `result.x`/`result.f`, the history's `best_f` and `feasible_ratio`, training-set labels, and the Pareto archive.
 It therefore does not depend on how violations are aggregated into `cv` or on any ε relaxation used during search.
 With `GenerationBasedStrategy` and `gen_ctrl > 0`, the final population may contain predicted rows with placeholder `g=0`, depending on the algorithm's `tell()` implementation; for example, GA can retain them.
-The `feasible_ratio` in History's `summary` classifies each generation's `state.population` against the constraint definitions, so these rows may be counted as feasible.
+The `feasible_ratio` and `min_cv` in History's `summary` are computed only over the rows of `state.population` that were truly evaluated, so these rows are not counted; both are NaN when no row has been truly evaluated.
 True evaluation values remain in the archive.
 The default criterion of `result.best()` and `result.front()` uses that decision as well: feasible solutions come first and are then filtered by Pareto dominance.
 When no solution is feasible, the default criterion uses the first row with the minimum `cv` for a single-objective problem, and `result.front()` for a multi-objective problem returns the non-dominated solutions among the rows with the minimum `cv`.

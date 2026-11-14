@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.problem.constraint &#8212; saealib 0.1.1.dev54+g422769519 documentation</title>
+    <title>saealib.problem.constraint &#8212; saealib 0.1.1.dev57+g404ff2d34 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=1f898ae2"></script>
+    <script src="../../../_static/documentation_options.js?v=5ccc3c19"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1199,6 +1199,7 @@ window.runMermaid = runMermaid;</script>
 <span class="k">def</span><span class="w"> </span><span class="nf">_feasible_rows</span><span class="p">(</span>
     <span class="n">collection</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InequalityConstraint</span><span class="p">],</span>
+    <span class="n">mask</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Mark the feasible rows of a population or archive.</span>
@@ -1213,16 +1214,25 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        Rows to classify. The ``g`` column is read when present.</span>
 <span class="sd">    constraints : list[InequalityConstraint]</span>
 <span class="sd">        The problem&#39;s constraints, aligned with the ``g`` columns.</span>
+<span class="sd">    mask : np.ndarray, optional</span>
+<span class="sd">        Boolean mask selecting the rows to classify. ``None`` classifies every</span>
+<span class="sd">        row.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    np.ndarray</span>
-<span class="sd">        Boolean mask of feasible rows. shape = (len(collection), )</span>
+<span class="sd">        Boolean mask of feasible rows. shape = (len(collection), ) or</span>
+<span class="sd">        ``(np.count_nonzero(mask), )`` when *mask* is given.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">schema</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="p">{})</span>
     <span class="k">if</span> <span class="s2">&quot;g&quot;</span> <span class="ow">in</span> <span class="n">schema</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">_feasible_mask</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">collection</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">))</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">_feasible_mask</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
     <span class="n">cv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="n">cv</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">cv</span> <span class="o">&lt;=</span> <span class="mf">0.0</span>
 
 

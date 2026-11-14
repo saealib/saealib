@@ -44,10 +44,13 @@ On the Genome-native path, the GenomeBatch and SearchSpace contracts own the rep
 | `reorder(order)` / `argsort(name, reverse=False)` | Reordering |
 | `empty_like(capacity=None)` | Creates an empty `Population` with the same schema |
 | `set_cache(key, value)` / `get_cache(key)` | Holds a computed result as a cache valid until the Population changes |
+| `add_columns(specs)` | Adds columns, filling every row with each specification's default; an existing column with an equal specification is left unchanged |
+| `drop_columns(names)` | Drops columns and returns the removed names; reserved columns are rejected, and columns that a component in use requires are not checked |
 | `pop[i]` / `pop[a:b]` | Returns an `Individual` for a single int, or a `Population` subset for a slice |
 | `len(pop)` | The number of individuals |
 
-The cache from `set_cache`/`get_cache` is automatically invalidated whenever an operation that changes the population — `append`/`delete`/`update_array`, etc. — is called.
+The cache from `set_cache`/`get_cache` is automatically invalidated whenever an operation that changes the population — `append`/`delete`/`update_array`/`add_columns`/`drop_columns`, etc. — is called.
+`drop_columns` keeps the design-variable, objective, constraint, constraint-value, candidate-identity, and objective-source columns, and an archive also keeps its `key_attr` column and the observation columns of an `append` archive; asking to drop any of them raises `ValidationError`. Dropping a column that a component in use requires makes the next `ask` or `tell` that reads it fail with `KeyError`. Like `append` and `truncate`, both operations invalidate live `Individual` views, and concurrent mutation of the same population is not supported.
 [NSGA2Comparator](../problem_and_ranking/comparators.md) uses this mechanism when reusing its front-splitting and crowding-distance computation results within a generation.
 
 ```python

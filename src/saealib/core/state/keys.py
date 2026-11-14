@@ -35,6 +35,7 @@ __all__ = [
     "PROPOSALS_ID_ALLOCATOR",
     "PROPOSALS_OFFSPRING",
     "RUNTIME_ASYNC_FATAL",
+    "RUNTIME_BASE_COLUMNS",
     "RUNTIME_CANDIDATE_ID_ALLOCATOR",
     "RUNTIME_DECISION_COUNT",
     "RUNTIME_GENERATION",
@@ -146,6 +147,12 @@ RUNTIME_GENERATION = StateKey[object](
 RUNTIME_STEP = StateKey[object](namespace="runtime", name="step", schema_version=1)
 RUNTIME_REGION_COUNTS = StateKey[object](
     namespace="runtime", name="region_counts", schema_version=1
+)
+# The columns the initializer created when no component declared them.  A
+# checkpoint without this key carries no record, so readers must treat a
+# missing value as unknown rather than as an empty set.
+RUNTIME_BASE_COLUMNS = StateKey[object](
+    namespace="runtime", name="base_columns", schema_version=1
 )
 RUNTIME_DECISION_COUNT = StateKey[object](
     namespace="runtime", name="decision_count", schema_version=1

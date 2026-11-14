@@ -43,7 +43,7 @@ from saealib.execution.runtime import execute_strategy_step
 from saealib.identity import PopulationAttribute
 from saealib.pipeline import Pipeline
 from saealib.population import Archive, ParetoArchive, Population
-from saealib.problem import Problem
+from saealib.problem import ConstraintHandler, Problem
 from saealib.stages import (
     ArchiveUpdateStage,
     AskStage,
@@ -387,7 +387,7 @@ def test_build_graph_override_is_shown_to_a_script_under_the_default_filters(
             import numpy as np
 
             from saealib import Optimizer, SteadyStateStrategy, Termination
-            from saealib.problem import Problem
+            from saealib.problem import ConstraintHandler, Problem
 
 
             class UserStrategy(SteadyStateStrategy):
@@ -476,3 +476,64 @@ def test_build_graph_override_strategy_keeps_its_surrogate_requirement() -> None
     )
 
     assert any(finding.code == "missing_surrogate_manager" for finding in findings)
+
+
+def test_the_epsilon_constraint_handler_names_its_replacements() -> None:
+    from saealib import EpsilonConstraintHandler, linear_epsilon_schedule
+
+    with pytest.warns(DeprecationWarning) as captured:
+        EpsilonConstraintHandler(linear_epsilon_schedule(eps0=0.4, n_gen=3))
+
+    message = str(captured[0].message)
+    assert "cv_aggregator" in message
+    assert "EpsilonSchedule" in message
+    assert captured[0].filename == __file__
+
+
+def test_problem_eps_cv_names_the_schedule_and_the_aggregator() -> None:
+    with pytest.warns(DeprecationWarning) as captured:
+        Problem(
+            lambda x: float(np.sum(np.asarray(x) ** 2)),
+            dim=1,
+            n_obj=1,
+            direction=np.array([-1.0]),
+            lb=[-1.0],
+            ub=[1.0],
+            eps_cv=1e-3,
+        )
+
+    message = str(captured[0].message)
+    assert "EpsilonSchedule" in message
+    assert "cv_aggregator" in message
+    assert "EpsilonConstraintHandler" not in message
+
+
+def test_a_handler_that_moves_its_threshold_is_reported_as_a_warning() -> None:
+    from saealib import (
+        EpsilonConstraintHandler,
+        StaticToleranceHandler,
+        linear_epsilon_schedule,
+    )
+
+    def diagnostics(handler: ConstraintHandler) -> list[str]:
+        problem = Problem(
+            lambda x: float(np.asarray(x)[0]) ** 2,
+            dim=1,
+            n_obj=1,
+            direction=np.array([-1.0]),
+            lb=[-1.0],
+            ub=[1.0],
+            handler=handler,
+        )
+        return [
+            item.code
+            for item in _optimizer_configuration_diagnostics({}, {}, problem, None)
+        ]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        moving = EpsilonConstraintHandler(linear_epsilon_schedule(eps0=0.4, n_gen=3))
+    assert "constraint_handler_threshold_moves" in diagnostics(moving)
+    assert "constraint_handler_threshold_moves" not in diagnostics(
+        StaticToleranceHandler()
+    )

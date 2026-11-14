@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from saealib._deprecation import _stacklevel_outside_package, warn_deprecated
+
 if TYPE_CHECKING:
     from saealib.population import Population
 
@@ -437,14 +439,18 @@ class EpsilonConstraintHandler(ConstraintHandler):
     """
     Dynamic ε-constraint handler.
 
-    The feasibility threshold ε starts at ``schedule(0)`` and is updated
-    to ``schedule(gen)`` at the end of each generation via
-    :meth:`on_generation_end`. As ε decreases toward 0 the population is
-    gradually driven into the feasible region.
+    The handler's own feasibility threshold ε starts at ``schedule(0)`` and is
+    updated to ``schedule(gen)`` at the end of each generation via
+    :meth:`on_generation_end`. The handler keeps the ε-constrained violation
+    aggregation, and it returns its current ε from
+    :attr:`feasibility_threshold`, which run preparation writes onto the
+    comparator.
 
-    Each call to :meth:`on_generation_end` sets
-    ``comparator.eps_cv = feasibility_threshold`` via the runner, so the
-    comparator's feasibility criterion tightens in sync with ε.
+    The per-generation search-side relaxation is scheduled by
+    :class:`~saealib.controllers.EpsilonSchedule`, registered with
+    :meth:`saealib.Optimizer.add_controller`. Without a schedule the run keeps
+    the relaxation written at preparation, so a run that wants ε to decrease
+    over generations registers the schedule with the same mapping.
 
     Parameters
     ----------
@@ -487,6 +493,15 @@ class EpsilonConstraintHandler(ConstraintHandler):
     """
 
     def __init__(self, schedule: Callable[[int], float]):
+        warn_deprecated(
+            "EpsilonConstraintHandler",
+            since="0.2.0",
+            replacement=(
+                "Problem(cv_aggregator=...) for the violation aggregation and "
+                "EpsilonSchedule for the schedule"
+            ),
+            stacklevel=_stacklevel_outside_package(),
+        )
         self._schedule = schedule
         self._eps: float = float(schedule(0))
 

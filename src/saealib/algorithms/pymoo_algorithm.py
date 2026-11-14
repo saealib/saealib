@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import replace
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import numpy as np
 
@@ -13,6 +14,7 @@ from saealib.algorithms.base import (
     algorithm_context,
 )
 from saealib.callback import PostAskEvent
+from saealib.core.compiler.diagnostics import ContractPath, Diagnostic, Severity
 from saealib.core.contracts import (
     PARTIAL_ALLOWED,
     REPEATED_ALLOWED,
@@ -155,6 +157,21 @@ class PymooAlgorithm(AskTellAlgorithm):
     infill population, so that :meth:`tell` can recover the correct mapping
     even after ``SortByScoreStage``/``TopKSelectionStage`` reorder or
     truncate ``state.offspring`` between ``ask`` and ``tell``.
+
+    Supported: synchronous flows, and asynchronous flows that pass
+    ``allow_partial_tell=True``.  Extensible toward: asynchronous flows with
+    complete feedback.
+
+    An instance that has already run is rebuilt from a copy taken when it was
+    constructed whenever it is put back into a run: the wrapped algorithm is
+    replaced by a fresh copy of that construction-time engine, and its
+    initialization flag and infill population are reset.  An instance that has
+    never run is inserted as it is, so a ``pop_size`` changed after
+    construction is honored on its first insertion; a later re-insertion
+    returns to the construction-time setting.  If the construction-time copy
+    was unavailable (for example because the wrapped object cannot be copied),
+    the first insertion still runs and a re-insertion is rejected at the
+    commit point.
     """
 
     def __init__(
@@ -166,6 +183,8 @@ class PymooAlgorithm(AskTellAlgorithm):
         super().__init__()
         self.pymoo_algorithm = pymoo_algorithm
         self.allow_partial_tell = allow_partial_tell
+        self._pristine = _deepcopy_or_none(pymoo_algorithm)
+        self._used = False
         self._initialized = False
         self._ieq_idx: np.ndarray = np.empty(0, dtype=np.int64)
         self._eq_idx: np.ndarray = np.empty(0, dtype=np.int64)
@@ -207,6 +226,118 @@ class PymooAlgorithm(AskTellAlgorithm):
     def get_required_attrs(self, problem: Problem) -> list[PopulationAttribute]:
         """Add a ``pymoo_idx`` column tracking position in the pymoo infill pop."""
         return [PopulationAttribute("pymoo_idx", np.int64, (), default=-1)]
+
+    def _replacement_transition(self) -> Any:
+        """Return a transition that restores the construction-time engine."""
+        from saealib.transition import Transition
+
+        def restore(tctx: Any) -> Any:
+            del tctx
+            if getattr(self, "_used", False):
+                self._rebuild_from_pristine()
+            yield from ()
+
+        return Transition.from_function(restore)
+
+    def _replacement_diagnostics(
+        self, problem: Problem, population_size: int
+    ) -> tuple[Diagnostic, ...]:
+        """Check the engine a re-insertion would use before it is published."""
+        used = getattr(self, "_used", False)
+        pristine = getattr(self, "_pristine", None)
+        if used and pristine is None:
+            return (
+                Diagnostic(
+                    severity=Severity.ERROR,
+                    code="pristine_copy_unavailable",
+                    message=(
+                        f"{type(self).__name__} cannot restore its "
+                        "construction-time engine because no copy was available "
+                        "when it was constructed."
+                    ),
+                    path=ContractPath(components=("algorithm",)),
+                    resolutions=(
+                        "Construct the algorithm so its wrapped engine can be "
+                        "copied, or insert a fresh instance.",
+                    ),
+                ),
+            )
+        engine = pristine if used else self.pymoo_algorithm
+        size = _engine_population_size(engine)
+        if size is None:
+            size = self._simulated_population_size(problem, engine)
+        if size is None:
+            return (
+                Diagnostic(
+                    severity=Severity.WARNING,
+                    code="pymoo_pop_size_unverified",
+                    message=(
+                        f"{type(self).__name__} declares no population size and "
+                        "its first population could not be determined, so the "
+                        "running population size cannot be checked."
+                    ),
+                    path=ContractPath(components=("algorithm",)),
+                ),
+            )
+        if size == population_size:
+            return ()
+        return (
+            Diagnostic(
+                severity=Severity.ERROR,
+                code="pymoo_pop_size_mismatch",
+                message=(
+                    f"{type(self).__name__}'s initial population size ({size}) "
+                    f"does not match the running population size "
+                    f"({population_size})."
+                ),
+                path=ContractPath(components=("algorithm",)),
+                resolutions=(
+                    "Set the wrapped algorithm's pop_size to the running "
+                    "population size.",
+                ),
+            ),
+        )
+
+    def _simulated_population_size(self, problem: Problem, engine: Any) -> int | None:
+        """Return the first population size of a copied engine, if it can run."""
+        try:
+            from pymoo.core.problem import Problem as PymooProblem
+            from pymoo.core.termination import NoTermination
+
+            eq_mask = np.array(
+                [isinstance(c, EqualityConstraint) for c in problem.constraints],
+                dtype=bool,
+            )
+            pymoo_problem = PymooProblem(
+                n_var=problem.dim,
+                n_obj=problem.n_obj,
+                n_ieq_constr=int((~eq_mask).sum()),
+                n_eq_constr=int(eq_mask.sum()),
+                xl=np.asarray(problem.lb, dtype=float),
+                xu=np.asarray(problem.ub, dtype=float),
+            )
+            copy_engine = copy.deepcopy(engine)
+            copy_engine.setup(
+                pymoo_problem,
+                termination=NoTermination(),
+                seed=0,
+                verbose=False,
+            )
+            population = copy_engine.ask()
+        except Exception:
+            return None
+        return 0 if population is None else len(population)
+
+    def _rebuild_from_pristine(self) -> None:
+        pristine = getattr(self, "_pristine", None)
+        if pristine is None:
+            raise ConfigurationError(
+                f"{type(self).__name__} cannot restore its construction-time "
+                "engine because no copy was available when it was constructed."
+            )
+        self.pymoo_algorithm = copy.deepcopy(pristine)
+        self._initialized = False
+        self._infills = None
 
     @property
     def ask_notation(self) -> list[str]:
@@ -360,6 +491,7 @@ class PymooAlgorithm(AskTellAlgorithm):
             Candidates with ``x`` and ``pymoo_idx`` set.
         """
         del request
+        self._used = True
         ctx = algorithm_context(state)
         self._ensure_initialized(ctx)
         infills = self.pymoo_algorithm.ask()
@@ -582,3 +714,17 @@ def _survivor_objective_sources(
     for row, candidate_id in enumerate(survivor_ids.tolist()):
         sources[row] = known.get(candidate_id, UNKNOWN_SOURCE_CODE)
     return sources
+
+
+def _deepcopy_or_none(value: object) -> object | None:
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        return None
+
+
+def _engine_population_size(engine: object) -> int | None:
+    value = getattr(engine, "pop_size", None)
+    if isinstance(value, (int, np.integer)) and not isinstance(value, bool):
+        return int(value)
+    return None

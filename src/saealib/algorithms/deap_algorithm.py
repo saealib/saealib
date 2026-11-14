@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any, Protocol
@@ -10,6 +11,7 @@ import numpy as np
 
 from saealib.algorithms.base import Algorithm, ProposalRequest, algorithm_context
 from saealib.callback import PostAskEvent
+from saealib.core.compiler.diagnostics import ContractPath, Diagnostic, Severity
 from saealib.core.contracts import (
     AssumptionSet,
     ComponentContract,
@@ -48,6 +50,15 @@ class DeapGenerateUpdateAlgorithm(Algorithm):
     The wrapped strategy owns its evolving state; this adapter does not mirror
     a strategy population. Generated individuals are repaired before evaluation
     and the told offspring becomes saealib's main population.
+
+    Supported: synchronous and asynchronous flows.  An instance that has
+    already run is rebuilt from a copy taken when it was constructed whenever
+    it is put back into a run, so it restarts from the construction-time
+    centroid and covariance instead of continuing from the values it reached in
+    an earlier binding.
+    An instance that has never run is inserted as it is.  If the
+    construction-time copy was unavailable, the first insertion still runs and
+    a re-insertion is rejected at the commit point.
     """
 
     def __init__(
@@ -65,6 +76,8 @@ class DeapGenerateUpdateAlgorithm(Algorithm):
             ) from exc
         self.strategy = strategy
         self.allow_partial_tell = allow_partial_tell
+        self._pristine = _deepcopy_or_none(strategy)
+        self._used = False
         self._fitness_class: type | None = None
         self._last_individuals: list[_DeapIndividual] | None = None
 
@@ -108,6 +121,53 @@ class DeapGenerateUpdateAlgorithm(Algorithm):
         self._ensure_setup(problem)
         return [PopulationAttribute("deap_idx", np.int64, (), default=-1)]
 
+    def _replacement_transition(self) -> Any:
+        """Return a transition that restores the construction-time strategy."""
+        from saealib.transition import Transition
+
+        def restore(tctx: Any) -> Any:
+            del tctx
+            if getattr(self, "_used", False):
+                self._rebuild_from_pristine()
+            yield from ()
+
+        return Transition.from_function(restore)
+
+    def _replacement_diagnostics(
+        self, problem: Problem, population_size: int
+    ) -> tuple[Diagnostic, ...]:
+        """Check that a re-inserted strategy can be rebuilt before publication."""
+        del problem, population_size
+        if getattr(self, "_used", False) and getattr(self, "_pristine", None) is None:
+            return (
+                Diagnostic(
+                    severity=Severity.ERROR,
+                    code="pristine_copy_unavailable",
+                    message=(
+                        f"{type(self).__name__} cannot restore its "
+                        "construction-time strategy because no copy was "
+                        "available when it was constructed."
+                    ),
+                    path=ContractPath(components=("algorithm",)),
+                    resolutions=(
+                        "Construct the adapter with a strategy that can be "
+                        "copied, or insert a fresh instance.",
+                    ),
+                ),
+            )
+        return ()
+
+    def _rebuild_from_pristine(self) -> None:
+        pristine = getattr(self, "_pristine", None)
+        if pristine is None:
+            raise ConfigurationError(
+                f"{type(self).__name__} cannot restore its construction-time "
+                "strategy because no copy was available when it was constructed."
+            )
+        self.strategy = copy.deepcopy(pristine)
+        self._fitness_class = None
+        self._last_individuals = None
+
     @property
     def ask_notation(self) -> list[str]:
         """Describe strategy generation."""
@@ -121,6 +181,7 @@ class DeapGenerateUpdateAlgorithm(Algorithm):
     def ask(self, request: ProposalRequest, state: StateView) -> ProposalBatch:
         """Generate, repair, and return the strategy's next individuals."""
         del request
+        self._used = True
         ctx = algorithm_context(state)
         self._ensure_setup(ctx.problem)
         with seeded_global_numpy_random(ctx.rng):
@@ -193,3 +254,10 @@ class DeapGenerateUpdateAlgorithm(Algorithm):
         ctx.population.clear()
         ctx.population._extend_internal(offspring, preserve_ids=True)
         return StatePatch(writes={POPULATIONS_MAIN: ctx.population})
+
+
+def _deepcopy_or_none(value: object) -> object | None:
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        return None

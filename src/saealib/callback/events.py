@@ -200,6 +200,70 @@ class PostSurrogateFitEvent(Event):
     train_f: np.ndarray | None = None
 
 
+@dataclass(frozen=True, kw_only=True)
+class ConfigurationChange:
+    """One binding slot a published configuration replaced.
+
+    Attributes
+    ----------
+    slot : str
+        Binding slot whose component changed.
+    previous : object or None
+        Component the slot held in the previously published version.
+    current : object or None
+        Component the slot holds in the published version.
+    source : str or None
+        Where the write came from, using the optimizer's origin vocabulary
+        (for example ``"setter"`` or ``"direct assignment"``), or ``None``
+        when no origin was recorded.
+    """
+
+    slot: str
+    previous: object | None
+    current: object | None
+    source: str | None = None
+
+
+@dataclass
+class ConfigurationCommittedEvent(Event):
+    """Fired once per published binding version, after publication.
+
+    A commit point that leaves the configuration unchanged publishes nothing
+    and fires nothing, so an ordinary run produces no event however many
+    times it enters a commit point.
+
+    The event is dispatched to the callback manager of the published
+    configuration, which is the one in effect from this point: a handler that
+    the replacement registered on its own manager observes the configuration
+    that now runs, and a manager the replacement replaced does not receive the
+    event.
+
+    The event is an observer notification sent after the publication completed.
+    A handler that raises propagates to the caller, but it cannot veto the
+    publication: the new binding version, the published snapshot, the bound
+    slots, and the run state's binding version all keep describing the new
+    configuration.
+
+    Supported: every publication, on synchronous and asynchronous structured
+    flows and on sequential plans, with one entry per replaced binding slot.
+    Extensible toward: parameter changes, which the event does not carry.
+    Out of scope: a History channel for configuration changes.
+
+    Attributes
+    ----------
+    version : int
+        Binding version the publication created; equal to the run state's
+        ``_binding_version`` after the publication.
+    changes : tuple of ConfigurationChange
+        Replaced binding slots in ``BINDING_SLOTS`` order.  Empty when the
+        publication replaced no slot, for example when a part inside a
+        published component changed in place.
+    """
+
+    version: int
+    changes: tuple[ConfigurationChange, ...]
+
+
 @dataclass
 class PostEvaluationEvent(Event):
     """Fired after true evaluation of selected candidates.

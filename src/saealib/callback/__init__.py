@@ -8,6 +8,8 @@ the optimization lifecycle.
 from saealib.callback.events import (
     AcquisitionEndEvent,
     AcquisitionStartEvent,
+    ConfigurationChange,
+    ConfigurationCommittedEvent,
     Event,
     GenerationEndEvent,
     GenerationStartEvent,
@@ -30,6 +32,8 @@ __all__ = [
     "AcquisitionEndEvent",
     "AcquisitionStartEvent",
     "CallbackManager",
+    "ConfigurationChange",
+    "ConfigurationCommittedEvent",
     "Event",
     "GenerationEndEvent",
     "GenerationStartEvent",

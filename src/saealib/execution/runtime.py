@@ -1301,7 +1301,10 @@ class _BindingSnapshot:
     """One published binding set: component identities plus a version.
 
     Holds strong references to every bound component so identity comparison
-    at later commit points cannot be confused by object id reuse.
+    at later commit points cannot be confused by object id reuse.  The stored
+    preset object is compared by identity too: component resolution reads it
+    lazily during publication, so a preset reaches a commit point without
+    being a bound slot.
     """
 
     version: int
@@ -1310,13 +1313,14 @@ class _BindingSnapshot:
     feature_encoder_selection: tuple[str, str, str] | None
     strategy_values: tuple[tuple[str, str], ...]
     configuration_version: int
+    preset: object = None
 
     def unchanged_by(
         self,
         values: dict[str, object],
         strategy_values: tuple[tuple[str, str], ...],
-        configuration_version: int,
         feature_encoder_selection: tuple[str, str, str] | None,
+        preset: object,
     ) -> bool:
         """Return True when the candidate bindings resolve to this snapshot."""
         if set(values) != set(self.values):
@@ -1326,7 +1330,7 @@ class _BindingSnapshot:
         return (
             feature_encoder_selection == self.feature_encoder_selection
             and strategy_values == self.strategy_values
-            and configuration_version == self.configuration_version
+            and preset is getattr(self, "preset", None)
         )
 
 
@@ -1502,6 +1506,7 @@ class _OptimizerEnvironment:
                 feature_encoder_selection=feature_encoder_selection,
                 strategy_values=self._strategy_values(),
                 configuration_version=getattr(optimizer, "_configuration_version", 0),
+                preset=getattr(optimizer, "_preset", None),
             ),
         )
         self._candidate_resolution: _ComponentResolution | None = None
@@ -1650,8 +1655,8 @@ class _OptimizerEnvironment:
         unchanged = self._active_snapshot.unchanged_by(
             bindings,
             strategy_values,
-            getattr(self.optimizer, "_configuration_version", 0),
             self._feature_encoder_selection(),
+            getattr(self.optimizer, "_preset", None),
         )
         if unchanged and not self._pending_recompile:
             # A swap that was deferred while its evaluations ran may resolve
@@ -1773,6 +1778,7 @@ class _OptimizerEnvironment:
                 configuration_version=getattr(
                     self.optimizer, "_configuration_version", 0
                 ),
+                preset=getattr(self.optimizer, "_preset", None),
             ),
         )
         self._remember_published_bindings()
@@ -2172,8 +2178,8 @@ class _OptimizerEnvironment:
         if self._pending_recompile or not self._active_snapshot.unchanged_by(
             bindings,
             self._strategy_values(),
-            getattr(self.optimizer, "_configuration_version", 0),
             self._feature_encoder_selection(),
+            getattr(self.optimizer, "_preset", None),
         ):
             raise CheckpointError(
                 "checkpoint cannot be saved because the optimizer configuration "

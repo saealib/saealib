@@ -19,11 +19,13 @@ from saealib.execution.initializer import LHSInitializer
 from saealib.optimizer import Optimizer
 from saealib.problem import Problem
 from saealib.strategies.base import OptimizationStrategy
+from saealib.strategies.direct import DirectStrategy
 from saealib.strategies.ib import IndividualBasedStrategy
 from saealib.surrogate.manager import GlobalSurrogateManager
 from saealib.surrogate.rbf import RBFSurrogate
 from saealib.surrogate.rbf_kernels import GaussianKernel
 from saealib.surrogate.sklearn_surrogate import SklearnGPRSurrogate
+from saealib.termination import Termination, max_gen
 
 DIM = 2
 N_OBJ = 1
@@ -328,3 +330,37 @@ def test_iterate_injects_acquisition_direction_end_to_end():
     # Idempotent: re-injecting does not change an already-set direction.
     opt._inject_acquisition_directions()
     np.testing.assert_array_equal(acq.direction, problem.direction)
+
+
+def test_validate_reuses_prepared_diagnostics_and_reprepares_after_a_replacement(
+    monkeypatch,
+) -> None:
+    from saealib import optimizer as optimizer_module
+
+    optimizer = (
+        Optimizer(_make_problem(), seed=7)
+        .set_initializer(LHSInitializer(6, 4, 7))
+        .set_algorithm(PSO())
+        .set_strategy(DirectStrategy())
+        .set_termination(Termination(max_gen(3)))
+    )
+    original = optimizer_module._prepare_plan
+    preparations: list[int] = []
+
+    def counted(*args: Any, **kwargs: Any) -> Any:
+        preparations.append(len(preparations))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(optimizer_module, "_prepare_plan", counted)
+
+    optimizer._compile_plan()
+    compiled = len(preparations)
+    optimizer.set_algorithm(optimizer.algorithm)
+    optimizer.validate()
+    assert len(preparations) == compiled
+
+    optimizer._compile_plan()
+    compiled = len(preparations)
+    optimizer.set_algorithm(PSO())
+    optimizer.validate()
+    assert len(preparations) == compiled + 1

@@ -40,10 +40,11 @@ from saealib.execution import (
     Evaluator,
     SerialEvaluator,
 )
+from saealib.execution.bindings import BINDING_SLOTS
 from saealib.execution.runner import Runner
 from saealib.execution.runtime import create_runtime, resolve_plan
 from saealib.pipeline import Pipeline, Stage
-from saealib.policies.evaluation import RepeatedEvaluation
+from saealib.policies.evaluation import EvaluateAll, RepeatedEvaluation
 from saealib.policies.feedback import MixedFeedback, TrueOnlyFeedback
 from saealib.problem import Problem
 from saealib.strategies import (
@@ -1385,3 +1386,384 @@ def test_objective_source_matches_true_evaluations_at_every_commit_point(
     if asynchronous:
         acknowledged = [request_id for request_id, _ in evaluator.acks]
         assert acknowledged != sorted(acknowledged)
+
+
+# ---------------------------------------------------------------------------
+# Binding-version identity at commit points
+# ---------------------------------------------------------------------------
+
+
+def _count_plan_preparations(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Count every execution-preparation call across both compile entry points."""
+    from saealib import optimizer as optimizer_module
+    from saealib.execution import runtime as runtime_module
+
+    calls: list[int] = []
+    for module in (optimizer_module, runtime_module):
+        original = module._prepare_plan
+
+        def counted(*args: Any, _original=original, **kwargs: Any) -> Any:
+            calls.append(len(calls))
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(module, "_prepare_plan", counted)
+    return calls
+
+
+def _count_drains(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Count executions started with no pending evaluation: a settled drain."""
+    from saealib.execution import runtime as runtime_module
+
+    calls: list[int] = []
+    original = runtime_module._environment_execute_async
+
+    def counted(env: Any, plan: Any, state: Any) -> Any:
+        if not state.pending_evaluations:
+            calls.append(len(calls))
+        return original(env, plan, state)
+
+    monkeypatch.setattr(runtime_module, "_environment_execute_async", counted)
+    return calls
+
+
+def _version_trace(
+    optimizer: Optimizer, action: Any = None
+) -> tuple[list[tuple[int, int]], Any]:
+    if action is not None:
+        cbm = CallbackManager()
+        cbm.register(GenerationEndEvent, action)
+        optimizer.cbmanager = cbm
+    runner, captured = _capturing_runner(optimizer)
+    trace: list[tuple[int, int]] = []
+    for state in runner.iterate():
+        trace.append((int(state.gen), int(captured["environment"].active_version)))
+    return trace, captured["environment"]
+
+
+def _alternate_same_algorithm(optimizer: Optimizer, algorithm: Any) -> Any:
+    def action(event: Any) -> None:
+        if event.ctx.gen % 2 == 0:
+            optimizer.set_algorithm(algorithm)
+        else:
+            optimizer.algorithm = algorithm
+
+    return action
+
+
+def test_setting_the_same_algorithm_by_setter_and_assignment_keeps_the_binding_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    control_preparations = _count_plan_preparations(monkeypatch)
+    _version_trace(_build_optimizer(_RecordingGA()))
+    constant = len(control_preparations)
+    control_preparations.clear()
+
+    ga = _RecordingGA()
+    optimizer = _build_optimizer(ga)
+    trace, _environment = _version_trace(
+        optimizer, _alternate_same_algorithm(optimizer, ga)
+    )
+
+    assert [version for _gen, version in trace] == [0] * len(trace)
+    assert trace[-1][0] == 10
+    assert len(control_preparations) == constant
+    assert ga.asks == [4] * 10
+
+
+def test_async_run_keeps_the_binding_version_when_the_same_algorithm_is_set_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    control_preparations = _count_plan_preparations(monkeypatch)
+    drains = _count_drains(monkeypatch)
+
+    def build() -> Optimizer:
+        return _build_async_optimizer(
+            _RecordingGA(),
+            DirectStrategy(),
+            _DeterministicEvaluator(max_collects=20000),
+            max_pending=2,
+            population=6,
+            termination=Termination(max_gen(10)),
+        )
+
+    _version_trace(build())
+    constant = len(control_preparations)
+    control_preparations.clear()
+
+    ga = _RecordingGA()
+    optimizer = _build_async_optimizer(
+        ga,
+        DirectStrategy(),
+        _DeterministicEvaluator(max_collects=20000),
+        max_pending=2,
+        population=6,
+        termination=Termination(max_gen(10)),
+    )
+    trace, _environment = _version_trace(
+        optimizer, _alternate_same_algorithm(optimizer, ga)
+    )
+
+    assert [version for _gen, version in trace] == [0] * len(trace)
+    assert trace[-1][0] == 10
+    assert len(control_preparations) == constant
+    assert drains == []
+
+
+@pytest.mark.filterwarnings(
+    "ignore:Overriding build_graph\\(provider\\):DeprecationWarning"
+)
+def test_sequential_plan_keeps_the_binding_version_when_the_same_algorithm_is_set_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    control_preparations = _count_plan_preparations(monkeypatch)
+
+    def build(algorithm: Any) -> Optimizer:
+        return (
+            Optimizer(_problem(), seed=7)
+            .set_initializer(LHSInitializer(6, 4, 7))
+            .set_algorithm(algorithm)
+            .set_strategy(_FlatDirect())
+            .set_termination(Termination(max_gen(10)))
+        )
+
+    _version_trace(build(_RecordingGA()))
+    constant = len(control_preparations)
+    control_preparations.clear()
+
+    ga = _RecordingGA()
+    optimizer = build(ga)
+    trace, environment = _version_trace(
+        optimizer, _alternate_same_algorithm(optimizer, ga)
+    )
+
+    assert isinstance(environment.plan, SequentialPlan)
+    assert [version for _gen, version in trace] == [0] * len(trace)
+    assert trace[-1][0] == 10
+    assert len(control_preparations) == constant
+
+
+def test_direct_commit_point_keeps_the_binding_version_for_the_same_algorithm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    preparations = _count_plan_preparations(monkeypatch)
+    ga = _RecordingGA()
+    optimizer = _build_optimizer(ga)
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    initializer = optimizer.initializer
+    assert initializer is not None
+    state = initializer.initialize(optimizer, optimizer.problem)
+    runtime: Any = create_runtime(optimizer)
+    environment = runtime.environment
+    session: Any = runtime.initialize(resolve_plan(optimizer), state)
+    compiled = len(preparations)
+
+    versions: list[int] = []
+    while not session.finished:
+        session = runtime.advance(session).session
+        optimizer.set_algorithm(ga)
+        environment._refresh_plan_if_needed(session.state)
+        versions.append(environment.active_version)
+        optimizer.algorithm = ga
+        environment._refresh_plan_if_needed(session.state)
+        versions.append(environment.active_version)
+
+    assert versions == [0] * len(versions)
+    assert len(preparations) == compiled
+    assert session.state.gen == 10
+
+
+def test_reverting_a_replacement_between_commit_points_keeps_the_binding_version() -> (
+    None
+):
+    ga = _RecordingGA()
+    other = _RecordingGA()
+    optimizer = _build_optimizer(ga)
+
+    def revert(event: Any) -> None:
+        if event.ctx.gen == 1:
+            optimizer.set_algorithm(other)
+            optimizer.set_algorithm(ga)
+
+    trace, _environment = _version_trace(optimizer, revert)
+
+    assert [version for _gen, version in trace] == [0] * len(trace)
+    assert ga.asks == [4] * 10
+    assert other.asks == []
+
+
+def _replacement_for(slot: str) -> Any:
+    from saealib.acquisition.mean import MeanPrediction
+    from saealib.comparators import SingleObjectiveComparator
+    from saealib.policies.evaluation import EvaluateAll
+    from saealib.surrogate.manager import LocalSurrogateManager
+    from saealib.surrogate.rbf import RBFSurrogate
+    from saealib.surrogate.rbf_kernels import GaussianKernel
+
+    if slot == "algorithm":
+        return _RecordingGA()
+    if slot == "strategy":
+        return DirectStrategy()
+    if slot == "surrogate_manager":
+        return LocalSurrogateManager(RBFSurrogate(GaussianKernel()))
+    if slot == "acquisition":
+        return MeanPrediction()
+    if slot == "evaluation_planner":
+        return EvaluateAll()
+    if slot == "feedback_builder":
+        return TrueOnlyFeedback()
+    if slot == "evaluator":
+        return SerialEvaluator()
+    if slot == "cbmanager":
+        return CallbackManager()
+    if slot == "comparator":
+        return SingleObjectiveComparator(direction=-1.0)
+    raise AssertionError(slot)
+
+
+@pytest.mark.parametrize("slot", BINDING_SLOTS)
+def test_setting_the_same_slot_value_again_keeps_the_binding_version(slot: str) -> None:
+    optimizer = _build_optimizer(_RecordingGA())
+
+    def reapply(event: Any) -> None:
+        if event.ctx.gen == 1:
+            setattr(optimizer, slot, getattr(optimizer, slot))
+
+    trace, _environment = _version_trace(optimizer, reapply)
+
+    assert [version for _gen, version in trace] == [0] * len(trace)
+    assert trace[-1][0] == 10
+
+
+@pytest.mark.parametrize("slot", BINDING_SLOTS)
+def test_replacing_a_slot_value_raises_the_binding_version_by_one(slot: str) -> None:
+    optimizer = _build_optimizer(_RecordingGA())
+
+    def replace(event: Any) -> None:
+        if event.ctx.gen == 1:
+            setattr(optimizer, slot, _replacement_for(slot))
+
+    trace, environment = _version_trace(optimizer, replace)
+    versions = [version for _gen, version in trace]
+
+    assert versions == [0, 0] + [1] * (len(versions) - 2)
+    assert environment.binding_values()[slot] is getattr(optimizer, slot)
+
+
+def test_a_preset_that_changes_the_configuration_publishes_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    optimizer = _build_optimizer(_RecordingGA())
+    planner_before = optimizer.evaluation_planner
+    preparations = _count_plan_preparations(monkeypatch)
+    applied: list[int] = []
+
+    def apply_preset(event: Any) -> None:
+        if event.ctx.gen == 1 and not applied:
+            applied.append(1)
+            optimizer.set_preset(
+                {"evaluation_planner": {"type": "EvaluateAll", "params": {}}}
+            )
+
+    cbm = CallbackManager()
+    cbm.register(GenerationEndEvent, apply_preset)
+    optimizer.cbmanager = cbm
+    runner, captured = _capturing_runner(optimizer)
+    rows: list[tuple[int, int, int]] = []
+    for state in runner.iterate():
+        rows.append(
+            (
+                int(state.gen),
+                int(captured["environment"].active_version),
+                len(preparations),
+            )
+        )
+
+    assert optimizer.evaluation_planner is not planner_before
+    assert isinstance(optimizer.evaluation_planner, EvaluateAll)
+    assert [version for _gen, version, _count in rows] == [0, 0] + [1] * (len(rows) - 2)
+    published = rows[2][2]
+    assert [count for _gen, _version, count in rows[2:]] == [published] * (
+        len(rows) - 2
+    )
+
+
+def test_replaced_termination_stops_the_run_without_a_publication() -> None:
+    ga = _RecordingGA()
+    optimizer = _build_optimizer(ga)
+    termination_before = optimizer.termination
+
+    def replace(event: Any) -> None:
+        if event.ctx.gen == 2:
+            optimizer.set_termination(Termination(max_gen(5)))
+
+    trace, environment = _version_trace(optimizer, replace)
+
+    assert optimizer.termination is not termination_before
+    assert [version for _gen, version in trace] == [0] * len(trace)
+    assert trace[-1][0] == 5
+    assert environment.active_version == 0
+
+
+def test_plan_preparation_retries_when_a_component_changes_during_preparation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from saealib import optimizer as optimizer_module
+
+    first = _RecordingGA()
+    second = _RecordingGA()
+    optimizer = _build_optimizer(first)
+    original = optimizer_module._prepare_plan
+    preparations: list[int] = []
+
+    def swap_then_prepare(*args: Any, **kwargs: Any) -> Any:
+        preparations.append(len(preparations))
+        if len(preparations) == 1:
+            optimizer.set_algorithm(second)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(optimizer_module, "_prepare_plan", swap_then_prepare)
+    state = optimizer.run()
+
+    assert len(preparations) == 2
+    assert optimizer.algorithm is second
+    assert first.asks == []
+    assert second.asks == [4] * 10
+    assert state.gen == 10
+
+
+def test_a_pickle_whose_snapshot_lacks_the_preset_term_still_resumes() -> None:
+    ga = _RecordingGA()
+    optimizer = (
+        Optimizer(_problem(), seed=7)
+        .set_initializer(LHSInitializer(6, 4, 7))
+        .set_algorithm(ga)
+        .set_strategy(DirectStrategy())
+        .set_termination(Termination(max_gen(10)))
+    )
+    runner, _captured = _capturing_runner(optimizer)
+    states: list[Any] = []
+    for state in runner.iterate():
+        states.append(state)
+        if state.gen >= 3:
+            break
+    snapshot = optimizer._last_published_bindings
+    assert snapshot is not None
+    del snapshot.__dict__["preset"]
+
+    payload = pickle.dumps((optimizer, states[-1]))
+    restored, restored_state = pickle.loads(payload)
+    restored_snapshot = restored._last_published_bindings
+
+    assert "_configuration_version" in restored.__dict__
+    assert set(restored_snapshot.__dict__) == {
+        "version",
+        "values",
+        "provenance",
+        "feature_encoder_selection",
+        "strategy_values",
+        "configuration_version",
+    }
+    final = Runner(restored).run_from(restored_state)
+    assert final.gen == 10
+    assert final.__dict__["_binding_version"] == restored_snapshot.version

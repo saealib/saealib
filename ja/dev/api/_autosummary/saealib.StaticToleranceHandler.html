@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.StaticToleranceHandler &#8212; saealib 0.1.1.dev67+g3573ca625 ドキュメント</title>
+    <title>saealib.StaticToleranceHandler &#8212; saealib 0.1.1.dev73+g176274b1d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=57200c00"></script>
+    <script src="../../_static/documentation_options.js?v=3314f0ab"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -917,7 +917,8 @@ are not augmented.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>eps_cv</strong> (<em>float</em><em>, </em><em>optional</em>) -- Search-time feasibility relaxation returned by
-<code class="xref py py-attr docutils literal notranslate"><span class="pre">feasibility_threshold</span></code> and copied onto the comparator. The
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">feasibility_threshold</span></code>, which run preparation writes onto the
+comparator. The
 default of 0.0 treats a solution as feasible only when
 <code class="xref py py-func docutils literal notranslate"><span class="pre">sum_violation()</span></code> is zero, which matches the per-constraint
 feasibility decision.</p>
@@ -1003,8 +1004,10 @@ is the identity (objectives are returned unchanged).</p>
 <dt class="sig sig-object py" id="saealib.StaticToleranceHandler.on_generation_end">
 <span class="sig-prename descclassname"><span class="pre">StaticToleranceHandler.</span></span><span class="sig-name descname"><span class="pre">on_generation_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gen</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">population</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.StaticToleranceHandler.on_generation_end" title="Link to this definition">#</a></dt>
 <dd><p>Run end-of-generation bookkeeping.</p>
-<p>Used by adaptive strategies (e.g. ε-level control) that update their
-internal state between generations. The default is a no-op.</p>
+<p>Used by adaptive strategies that update their own state between
+generations. The default is a no-op. A hook that moves
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">feasibility_threshold</span></code> does not reach the comparator; the
+search-side relaxation follows <code class="docutils literal notranslate"><span class="pre">EpsilonSchedule</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.EpsilonConstraintHandler &#8212; saealib 0.1.1.dev67+g3573ca625 ドキュメント</title>
+    <title>saealib.EpsilonConstraintHandler &#8212; saealib 0.1.1.dev73+g176274b1d ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=57200c00"></script>
+    <script src="../../_static/documentation_options.js?v=3314f0ab"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -908,13 +908,17 @@
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">saealib.</span></span><span class="sig-name descname"><span class="pre">EpsilonConstraintHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">schedule</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/problem/constraint.html#EpsilonConstraintHandler"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.EpsilonConstraintHandler" title="Link to this definition">#</a></dt>
 <dd><p>ベースクラス: <a class="reference internal" href="saealib.ConstraintHandler.html#saealib.ConstraintHandler" title="saealib.problem.constraint.ConstraintHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConstraintHandler</span></code></a></p>
 <p>Dynamic ε-constraint handler.</p>
-<p>The feasibility threshold ε starts at <code class="docutils literal notranslate"><span class="pre">schedule(0)</span></code> and is updated
-to <code class="docutils literal notranslate"><span class="pre">schedule(gen)</span></code> at the end of each generation via
-<a class="reference internal" href="#saealib.EpsilonConstraintHandler.on_generation_end" title="saealib.EpsilonConstraintHandler.on_generation_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_generation_end()</span></code></a>. As ε decreases toward 0 the population is
-gradually driven into the feasible region.</p>
-<p>Each call to <a class="reference internal" href="#saealib.EpsilonConstraintHandler.on_generation_end" title="saealib.EpsilonConstraintHandler.on_generation_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_generation_end()</span></code></a> sets
-<code class="docutils literal notranslate"><span class="pre">comparator.eps_cv</span> <span class="pre">=</span> <span class="pre">feasibility_threshold</span></code> via the runner, so the
-comparator's feasibility criterion tightens in sync with ε.</p>
+<p>The handler's own feasibility threshold ε starts at <code class="docutils literal notranslate"><span class="pre">schedule(0)</span></code> and is
+updated to <code class="docutils literal notranslate"><span class="pre">schedule(gen)</span></code> at the end of each generation via
+<a class="reference internal" href="#saealib.EpsilonConstraintHandler.on_generation_end" title="saealib.EpsilonConstraintHandler.on_generation_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_generation_end()</span></code></a>. The handler keeps the ε-constrained violation
+aggregation, and it returns its current ε from
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">feasibility_threshold</span></code>, which run preparation writes onto the
+comparator.</p>
+<p>The per-generation search-side relaxation is scheduled by
+<code class="xref py py-class docutils literal notranslate"><span class="pre">EpsilonSchedule</span></code>, registered with
+<a class="reference internal" href="saealib.Optimizer.html#saealib.Optimizer.add_controller" title="saealib.Optimizer.add_controller"><code class="xref py py-meth docutils literal notranslate"><span class="pre">saealib.Optimizer.add_controller()</span></code></a>. Without a schedule the run keeps
+the relaxation written at preparation, so a run that wants ε to decrease
+over generations registers the schedule with the same mapping.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>schedule</strong> (<em>callable</em>) -- Maps generation index (int) → current ε value (float).

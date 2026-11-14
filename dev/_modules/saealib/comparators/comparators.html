@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.comparators.comparators &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
+    <title>saealib.comparators.comparators &#8212; saealib 0.1.1.dev73+g176274b1d documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=ce3ab7ae"></script>
+    <script src="../../../_static/documentation_options.js?v=aa0e4b05"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1012,9 +1012,11 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        Weights for objectives. shape = (n_obj, )</span>
 <span class="sd">    eps_cv : float</span>
 <span class="sd">        Epsilon for constraint violation feasibility threshold. Under</span>
-<span class="sd">        ``Optimizer`` execution this value is overwritten every generation</span>
-<span class="sd">        from ``problem.handler.feasibility_threshold``; the constructor</span>
-<span class="sd">        argument only matters for standalone (non-``Optimizer``) use.</span>
+<span class="sd">        ``Optimizer`` execution run preparation writes the constraint</span>
+<span class="sd">        handler&#39;s ``feasibility_threshold`` here and ``EpsilonSchedule``</span>
+<span class="sd">        writes ``schedule(gen)`` at every commit point, so a run with a</span>
+<span class="sd">        schedule takes the scheduled value and a run without one keeps the</span>
+<span class="sd">        value preparation wrote.</span>
 <span class="sd">    eps_obj : float</span>
 <span class="sd">        Epsilon for objective value equality comparison.</span>
 <span class="sd">    direction : np.ndarray or None</span>

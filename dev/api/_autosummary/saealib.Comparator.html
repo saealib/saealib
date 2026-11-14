@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Comparator &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
+    <title>saealib.Comparator &#8212; saealib 0.1.1.dev73+g176274b1d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=ce3ab7ae"></script>
+    <script src="../../_static/documentation_options.js?v=aa0e4b05"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -932,9 +932,11 @@
 <dt class="sig sig-object py" id="saealib.Comparator.eps_cv">
 <span class="sig-name descname"><span class="pre">eps_cv</span></span><a class="headerlink" href="#saealib.Comparator.eps_cv" title="Link to this definition">#</a></dt>
 <dd><p>Epsilon for constraint violation feasibility threshold. Under
-<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> execution this value is overwritten every generation
-from <code class="docutils literal notranslate"><span class="pre">problem.handler.feasibility_threshold</span></code>; the constructor
-argument only matters for standalone (non-<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code>) use.</p>
+<code class="docutils literal notranslate"><span class="pre">Optimizer</span></code> execution run preparation writes the constraint
+handler’s <code class="docutils literal notranslate"><span class="pre">feasibility_threshold</span></code> here and <code class="docutils literal notranslate"><span class="pre">EpsilonSchedule</span></code>
+writes <code class="docutils literal notranslate"><span class="pre">schedule(gen)</span></code> at every commit point, so a run with a
+schedule takes the scheduled value and a run without one keeps the
+value preparation wrote.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>

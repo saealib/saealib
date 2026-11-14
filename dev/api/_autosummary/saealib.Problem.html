@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Problem &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
+    <title>saealib.Problem &#8212; saealib 0.1.1.dev73+g176274b1d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=ce3ab7ae"></script>
+    <script src="../../_static/documentation_options.js?v=aa0e4b05"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1015,8 +1015,9 @@ explicit <code class="docutils literal notranslate"><span class="pre">Optimizer<
 <code class="docutils literal notranslate"><span class="pre">handler</span></code>/<code class="docutils literal notranslate"><span class="pre">comparator</span></code>. A run treats <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">&lt;=</span> <span class="pre">eps_cv</span></code> as feasible
 when it ranks solutions, and reported feasibility never uses this
 value. Mutating this attribute afterwards has no runtime effect; the
-running relaxation is <code class="docutils literal notranslate"><span class="pre">handler.feasibility_threshold</span></code>, which the
-<code class="docutils literal notranslate"><span class="pre">Runner</span></code> syncs into <code class="docutils literal notranslate"><span class="pre">comparator</span></code> every generation. Default: 0.0.</p>
+running relaxation is the run comparator’s <code class="docutils literal notranslate"><span class="pre">eps_cv</span></code>, which run
+preparation seeds from <code class="docutils literal notranslate"><span class="pre">handler.feasibility_threshold</span></code> and
+<code class="docutils literal notranslate"><span class="pre">EpsilonSchedule</span></code> writes at every commit point. Default: 0.0.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>

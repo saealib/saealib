@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Optimizer &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
+    <title>saealib.Optimizer &#8212; saealib 0.1.1.dev73+g176274b1d documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=ce3ab7ae"></script>
+    <script src="../../_static/documentation_options.js?v=aa0e4b05"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1057,91 +1057,94 @@ model manager, and termination condition, and manages the optimization process.<
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.__init__" title="saealib.Optimizer.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a></p></td>
 <td><p>Initialize the Optimizer.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.contract_diagnostics" title="saealib.Optimizer.contract_diagnostics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract_diagnostics</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.add_controller" title="saealib.Optimizer.add_controller"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_controller</span></code></a></p></td>
+<td><p>Register a decision rule consulted once per step.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.contract_diagnostics" title="saealib.Optimizer.contract_diagnostics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract_diagnostics</span></code></a></p></td>
 <td><p>Return diagnostics for the prepared optimizer composition.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.describe" title="saealib.Optimizer.describe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">describe</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.describe" title="saealib.Optimizer.describe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">describe</span></code></a></p></td>
 <td><p>Describe the most recently compiled plan, if one exists.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.dispatch" title="saealib.Optimizer.dispatch"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dispatch</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.dispatch" title="saealib.Optimizer.dispatch"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dispatch</span></code></a></p></td>
 <td><p>Dispatch an event to the callback manager.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.from_problem_file" title="saealib.Optimizer.from_problem_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_problem_file</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.from_problem_file" title="saealib.Optimizer.from_problem_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_problem_file</span></code></a></p></td>
 <td><p>Build an Optimizer from a Python file defining a problem.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.iterate" title="saealib.Optimizer.iterate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">iterate</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.iterate" title="saealib.Optimizer.iterate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">iterate</span></code></a></p></td>
 <td><p>Iterate the optimization process.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.iterate_from" title="saealib.Optimizer.iterate_from"><code class="xref py py-obj docutils literal notranslate"><span class="pre">iterate_from</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.iterate_from" title="saealib.Optimizer.iterate_from"><code class="xref py py-obj docutils literal notranslate"><span class="pre">iterate_from</span></code></a></p></td>
 <td><p>Resume iteration from an existing context (e.g. loaded from checkpoint).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.load_pickle" title="saealib.Optimizer.load_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_pickle</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.load_pickle" title="saealib.Optimizer.load_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_pickle</span></code></a></p></td>
 <td><p>Load an optimizer and context from a pickle checkpoint.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.resolve_defaults" title="saealib.Optimizer.resolve_defaults"><code class="xref py py-obj docutils literal notranslate"><span class="pre">resolve_defaults</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.resolve_defaults" title="saealib.Optimizer.resolve_defaults"><code class="xref py py-obj docutils literal notranslate"><span class="pre">resolve_defaults</span></code></a></p></td>
 <td><p>Resolve component and semantic defaults for the current composition.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.run" title="saealib.Optimizer.run"><code class="xref py py-obj docutils literal notranslate"><span class="pre">run</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.run" title="saealib.Optimizer.run"><code class="xref py py-obj docutils literal notranslate"><span class="pre">run</span></code></a></p></td>
 <td><p>Run the optimization process.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.run_from" title="saealib.Optimizer.run_from"><code class="xref py py-obj docutils literal notranslate"><span class="pre">run_from</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.run_from" title="saealib.Optimizer.run_from"><code class="xref py py-obj docutils literal notranslate"><span class="pre">run_from</span></code></a></p></td>
 <td><p>Resume and run to completion from an existing context.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.save_pickle" title="saealib.Optimizer.save_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">save_pickle</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.save_pickle" title="saealib.Optimizer.save_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">save_pickle</span></code></a></p></td>
 <td><p>Save the optimizer and context together as a pickle checkpoint.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.save_preset" title="saealib.Optimizer.save_preset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">save_preset</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.save_preset" title="saealib.Optimizer.save_preset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">save_preset</span></code></a></p></td>
 <td><p>Save the currently configured components as a reusable preset file.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_acquisition" title="saealib.Optimizer.set_acquisition"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_acquisition</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_acquisition" title="saealib.Optimizer.set_acquisition"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_acquisition</span></code></a></p></td>
 <td><p>Set the independent acquisition component.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_algorithm" title="saealib.Optimizer.set_algorithm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_algorithm</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_algorithm" title="saealib.Optimizer.set_algorithm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_algorithm</span></code></a></p></td>
 <td><p>Set the evolutionary algorithm.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_async_evaluation_scheduler" title="saealib.Optimizer.set_async_evaluation_scheduler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_async_evaluation_scheduler</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_async_evaluation_scheduler" title="saealib.Optimizer.set_async_evaluation_scheduler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_async_evaluation_scheduler</span></code></a></p></td>
 <td><p>Configure asynchronous evaluation for built-in strategies.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_comparator" title="saealib.Optimizer.set_comparator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_comparator</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_comparator" title="saealib.Optimizer.set_comparator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_comparator</span></code></a></p></td>
 <td><p>Set the comparator that orders solutions.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_evaluation_planner" title="saealib.Optimizer.set_evaluation_planner"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_evaluation_planner</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_evaluation_planner" title="saealib.Optimizer.set_evaluation_planner"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_evaluation_planner</span></code></a></p></td>
 <td><p>Set the evaluation planner.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_evaluator" title="saealib.Optimizer.set_evaluator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_evaluator</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_evaluator" title="saealib.Optimizer.set_evaluator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_evaluator</span></code></a></p></td>
 <td><p>Set the evaluator.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_feedback_builder" title="saealib.Optimizer.set_feedback_builder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_feedback_builder</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_feedback_builder" title="saealib.Optimizer.set_feedback_builder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_feedback_builder</span></code></a></p></td>
 <td><p>Set the feedback builder.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_history" title="saealib.Optimizer.set_history"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_history</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_history" title="saealib.Optimizer.set_history"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_history</span></code></a></p></td>
 <td><p>Set execution history channels and return self.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_initializer" title="saealib.Optimizer.set_initializer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_initializer</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_initializer" title="saealib.Optimizer.set_initializer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_initializer</span></code></a></p></td>
 <td><p>Set the initializer.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_instance_name" title="saealib.Optimizer.set_instance_name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_instance_name</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_instance_name" title="saealib.Optimizer.set_instance_name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_instance_name</span></code></a></p></td>
 <td><p>Set the instance name.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_preset" title="saealib.Optimizer.set_preset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_preset</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_preset" title="saealib.Optimizer.set_preset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_preset</span></code></a></p></td>
 <td><p>Set a user-defined preset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_seed" title="saealib.Optimizer.set_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seed</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_seed" title="saealib.Optimizer.set_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seed</span></code></a></p></td>
 <td><p>Set the master random seed.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_strategy" title="saealib.Optimizer.set_strategy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_strategy</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_strategy" title="saealib.Optimizer.set_strategy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_strategy</span></code></a></p></td>
 <td><p>Set the optimization strategy.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_surrogate" title="saealib.Optimizer.set_surrogate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_surrogate</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_surrogate" title="saealib.Optimizer.set_surrogate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_surrogate</span></code></a></p></td>
 <td><p>Wrap a raw Surrogate in a LocalSurrogateManager.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_surrogate_manager" title="saealib.Optimizer.set_surrogate_manager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_surrogate_manager</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_surrogate_manager" title="saealib.Optimizer.set_surrogate_manager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_surrogate_manager</span></code></a></p></td>
 <td><p>Set the surrogate manager.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.set_termination" title="saealib.Optimizer.set_termination"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_termination</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.set_termination" title="saealib.Optimizer.set_termination"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_termination</span></code></a></p></td>
 <td><p>Set the termination condition.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Optimizer.validate" title="saealib.Optimizer.validate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Optimizer.validate" title="saealib.Optimizer.validate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate</span></code></a></p></td>
 <td><p>Check configuration consistency.</p></td>
 </tr>
 </tbody>
@@ -1159,6 +1162,29 @@ model manager, and termination condition, and manages the optimization process.<
 <li><p><strong>seed</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Master random seed propagated to the initializer.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
 means non-deterministic.</p></li>
 </ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="saealib.Optimizer.add_controller">
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">add_controller</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.add_controller"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.Optimizer.add_controller" title="Link to this definition">#</a></dt>
+<dd><p>Register a decision rule consulted once per step. Returns self.</p>
+<p>Several controllers run in registration order at every commit point.
+A controller is not a plan node: registering one changes neither the
+plan nor the checkpoint format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>controller</strong> (<em>Controller</em>) – Object providing a callable <code class="docutils literal notranslate"><span class="pre">decide(state)</span></code>.  <code class="docutils literal notranslate"><span class="pre">decide</span></code> must
+depend only on the run state and on the state keys the controller
+declares in <code class="docutils literal notranslate"><span class="pre">state_keys()</span></code>, because the runtime restores those
+keys and decides the same step again after a rejected commit.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="saealib.ValidationError.html#saealib.ValidationError" title="saealib.ValidationError"><strong>ValidationError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">controller</span></code> provides no callable <code class="docutils literal notranslate"><span class="pre">decide</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Self</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1770,6 +1796,7 @@ resuming from a checkpoint where initialization is not needed.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.__init__"><code class="docutils literal notranslate"><span class="pre">Optimizer.__init__()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.add_controller"><code class="docutils literal notranslate"><span class="pre">Optimizer.add_controller()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.contract_diagnostics"><code class="docutils literal notranslate"><span class="pre">Optimizer.contract_diagnostics()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.describe"><code class="docutils literal notranslate"><span class="pre">Optimizer.describe()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Optimizer.dispatch"><code class="docutils literal notranslate"><span class="pre">Optimizer.dispatch()</span></code></a></li>

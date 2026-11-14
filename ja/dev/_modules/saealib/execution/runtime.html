@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev67+g3573ca625 ドキュメント</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev73+g176274b1d ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=57200c00"></script>
+    <script src="../../../_static/documentation_options.js?v=3314f0ab"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -970,7 +970,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">replace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimpleNamespace</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">NoReturn</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -1011,12 +1011,14 @@ window.runMermaid = runMermaid;</script>
     <span class="n">NodeStatus</span><span class="p">,</span>
     <span class="n">PollResult</span><span class="p">,</span>
     <span class="n">RegionFrame</span><span class="p">,</span>
+    <span class="n">ReplaceComponent</span><span class="p">,</span>
     <span class="n">RequestRecompile</span><span class="p">,</span>
     <span class="n">RequestTermination</span><span class="p">,</span>
     <span class="n">RuntimeCommand</span><span class="p">,</span>
     <span class="n">RuntimeSession</span><span class="p">,</span>
     <span class="n">RuntimeStep</span><span class="p">,</span>
     <span class="n">SequentialPlan</span><span class="p">,</span>
+    <span class="n">SetParameter</span><span class="p">,</span>
     <span class="n">StructuredPlan</span><span class="p">,</span>
     <span class="n">validate_plan_contracts</span><span class="p">,</span>
 <span class="p">)</span>
@@ -1030,6 +1032,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span><span class="p">,</span>
     <span class="n">RUNTIME_REGION_COUNTS</span><span class="p">,</span>
     <span class="n">RUNTIME_STEP</span><span class="p">,</span>
+    <span class="n">SURROGATES_ACCURACY</span><span class="p">,</span>
     <span class="n">RuntimeContext</span><span class="p">,</span>
     <span class="n">StateKey</span><span class="p">,</span>
     <span class="n">StateView</span><span class="p">,</span>
@@ -2482,7 +2485,11 @@ window.runMermaid = runMermaid;</script>
     <span class="n">binding_version</span><span class="p">:</span> <span class="nb">object</span>
     <span class="n">store</span><span class="p">:</span> <span class="nb">object</span>
     <span class="n">custom_state</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">controller_state</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">StateKey</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span>
     <span class="n">comparator</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">comparator_epsilon</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">published_comparator_epsilon</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">rng</span><span class="p">:</span> <span class="nb">object</span>
     <span class="n">compiled_services</span><span class="p">:</span> <span class="nb">object</span>
     <span class="n">history</span><span class="p">:</span> <span class="nb">object</span>
     <span class="n">region_ids</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
@@ -2491,10 +2498,139 @@ window.runMermaid = runMermaid;</script>
     <span class="n">evaluation_handles</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
     <span class="n">scheduler_fatal_states</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
     <span class="n">staged</span><span class="p">:</span> <span class="n">_StagedCollections</span>
+    <span class="n">parameter_writes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span>
+    <span class="n">component_writes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span>
+    <span class="n">pending_parameter_writes</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">]</span>
     <span class="n">candidate_resolution</span><span class="p">:</span> <span class="nb">object</span>
     <span class="n">candidate_diagnostics</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-    <span class="n">publication_deferred</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">pending_recompile</span><span class="p">:</span> <span class="nb">bool</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_generator</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the run generator of a state, or ``None`` when it has none.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;rng&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_remember_component_attributes</span><span class="p">(</span>
+    <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">component</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">names</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Record a candidate component&#39;s attributes before this commit writes them.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">memento</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+        <span class="n">memento</span><span class="o">.</span><span class="n">component_writes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">))</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_capture_run_generator</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a copy of the run generator, or ``_UNSET`` when there is none.&quot;&quot;&quot;</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">_run_generator</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">rng</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_UNSET</span>
+    <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">rng</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_restore_run_generator</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">saved</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Put the run generator&#39;s stream back, on the same generator object.</span>
+
+<span class="sd">    The stream is restored in place so every holder of the reference (a</span>
+<span class="sd">    transition context, the scheduler, a component) keeps one consistent</span>
+<span class="sd">    stream.  The child counter never needs restoring: it is advanced only after</span>
+<span class="sd">    a publication committed and every fallible step passed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">saved</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">_run_generator</span><span class="p">(</span><span class="n">state</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">rng</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">rng</span><span class="o">.</span><span class="n">bit_generator</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">saved</span><span class="p">)</span><span class="o">.</span><span class="n">bit_generator</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_restore_container</span><span class="p">(</span><span class="n">current</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">saved</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Put a captured controller value back, in place where that is possible.</span>
+
+<span class="sd">    The store restore already holds the object the controller was updating, so</span>
+<span class="sd">    its contents are put back in place and the entry keeps its identity: a</span>
+<span class="sd">    mapping, a sequence, a set, an array whose shape and dtype can be put back,</span>
+<span class="sd">    and the mutables a tuple holds.  An immutable value has nothing to put</span>
+<span class="sd">    back.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        Whether the value is restored.  ``False`` asks the caller to replace</span>
+<span class="sd">        the stored value with the captured copy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">saved</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">current</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="n">current</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">key</span><span class="p">:</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">saved</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">saved</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="n">current</span><span class="p">[:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">saved</span><span class="p">]</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">saved</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">current</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">saved</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="n">_restore_container</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">captured</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span><span class="p">,</span> <span class="n">captured</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">saved</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="nb">set</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">saved</span><span class="p">,</span> <span class="nb">set</span><span class="p">):</span>
+        <span class="n">current</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="n">current</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">saved</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">saved</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">current</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">saved</span><span class="o">.</span><span class="n">size</span> <span class="ow">or</span> <span class="n">current</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">saved</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">current</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="n">saved</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">current</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">saved</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">True</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_state_step</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the step value a commit point belongs to, or ``None``.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_capture_controller_state</span><span class="p">(</span>
+    <span class="n">optimizer</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">StateKey</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a deep copy of every declared controller state value.</span>
+
+<span class="sd">    A controller keeps its mutable state in the keys it declares, so a commit</span>
+<span class="sd">    point that fails has to put those values back with their contents, not with</span>
+<span class="sd">    the same dict or list the controller was updating in place.  A value that</span>
+<span class="sd">    cannot be copied is kept by identity and restored as it was captured.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">()</span>
+    <span class="n">records</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">StateKey</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">controller</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;controllers&quot;</span><span class="p">,</span> <span class="p">())</span> <span class="ow">or</span> <span class="p">():</span>
+        <span class="n">declared</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="s2">&quot;state_keys&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">declared</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">declared</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get_state</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">records</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_iter_plan_components</span><span class="p">(</span>
@@ -2579,6 +2715,17 @@ window.runMermaid = runMermaid;</script>
     <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span> <span class="ow">or</span> <span class="n">state</span><span class="o">.</span><span class="n">evaluation_handles</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">True</span>
     <span class="k">return</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_plan_has_unfinished_async_work</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_parameter_owner</span><span class="p">(</span><span class="n">target</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the object holding the last attribute of a dotted path.&quot;&quot;&quot;</span>
+    <span class="n">owner</span> <span class="o">=</span> <span class="n">target</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">owner</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">part</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">owner</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">owner</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_state_column_names</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -3000,6 +3147,15 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_entry_checked</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_entry_binding_version</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="n">_UNSET</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state_keys_known</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_entry_epsilon_applied</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_command_origins</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_child_seed_owed</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active_memento</span><span class="p">:</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_commit</span><span class="p">:</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_commit_step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_origin</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_phase</span> <span class="o">=</span> <span class="s2">&quot;running&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_reject_run_end_callback</span> <span class="o">=</span> <span class="kc">False</span>
@@ -3216,43 +3372,75 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        Reading every contract costs roughly a millisecond per commit point</span>
 <span class="sd">        for a GA configuration and half of that for a PSO one, measured against</span>
 <span class="sd">        a cheap objective; next to an expensive evaluation that is negligible.</span>
+
+<span class="sd">        A queued parameter write is applied to the published binding first, so</span>
+<span class="sd">        the difference check below decides whether the plan can see it: a</span>
+<span class="sd">        value no contract and no strategy value carries leaves the version and</span>
+<span class="sd">        the plan alone and takes effect from the next step, while a value the</span>
+<span class="sd">        flow shape carries joins the ordinary replacement path.  The memento is</span>
+<span class="sd">        taken before that write, and everything after it -- the entry repair,</span>
+<span class="sd">        the binding reads, the difference check, the drain decision,</span>
+<span class="sd">        publication, and the comparator&#39;s child seed -- runs inside one guarded</span>
+<span class="sd">        region, so a failure anywhere there puts every value the commit changed</span>
+<span class="sd">        back.  A commit point that defers its work keeps the memento, so the</span>
+<span class="sd">        commit that decides the same step again still restores the values from</span>
+<span class="sd">        before the first decision.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entry_commit</span><span class="p">()</span>
-        <span class="n">bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
-        <span class="n">strategy_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">()</span>
-        <span class="n">unchanged</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span>
-            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span>
-                <span class="n">bindings</span><span class="p">,</span>
-                <span class="n">strategy_values</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_selection</span><span class="p">(),</span>
-                <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="n">_state_step</span><span class="p">(</span><span class="n">state</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+        <span class="n">memento</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_commit_memento_for_mutations</span><span class="p">(</span><span class="n">step</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_entry_epsilon</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run_controllers</span><span class="p">(</span><span class="n">state</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_parameter_writes</span><span class="p">(</span><span class="n">memento</span><span class="p">)</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entry_commit</span><span class="p">(</span><span class="n">memento</span><span class="p">)</span>
+            <span class="n">bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
+            <span class="n">strategy_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">()</span>
+            <span class="n">unchanged</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span>
+                    <span class="n">bindings</span><span class="p">,</span>
+                    <span class="n">strategy_values</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_selection</span><span class="p">(),</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">contracts_match</span><span class="p">(</span><span class="n">_contract_records</span><span class="p">(</span><span class="n">bindings</span><span class="p">))</span>
             <span class="p">)</span>
-            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">contracts_match</span><span class="p">(</span><span class="n">_contract_records</span><span class="p">(</span><span class="n">bindings</span><span class="p">))</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">unchanged</span><span class="p">:</span>
-            <span class="c1"># A swap that was deferred while its evaluations ran may resolve</span>
-            <span class="c1"># back to the active bindings; a matching commit point then ends</span>
-            <span class="c1"># the deferral, otherwise pending-collection would stall the run.</span>
+            <span class="k">if</span> <span class="n">unchanged</span><span class="p">:</span>
+                <span class="c1"># A swap that was deferred while its evaluations ran may</span>
+                <span class="c1"># resolve back to the active bindings; a matching commit point</span>
+                <span class="c1"># then ends the deferral and drops the terms it kept.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_discard_stale_replacements</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_apply_entry_repair</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_forget_deferred_commit</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">state</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_replacement_blocked</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_remember_deferred_commit</span><span class="p">(</span><span class="n">memento</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_apply_entry_repair</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">state</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_discard_stale_replacements</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_entry_repair</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">state</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_replacement_blocked</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_entry_repair</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">state</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_publish</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">memento</span><span class="p">,</span> <span class="n">staged</span> <span class="o">=</span> <span class="n">entry</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_publish</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span><span class="p">,</span> <span class="n">memento</span><span class="o">=</span><span class="n">memento</span><span class="p">,</span> <span class="n">staged</span><span class="o">=</span><span class="n">staged</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">committed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_publish</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span><span class="p">,</span> <span class="n">memento</span><span class="o">=</span><span class="n">memento</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">entry_memento</span><span class="p">,</span> <span class="n">staged</span> <span class="o">=</span> <span class="n">entry</span>
+                <span class="n">committed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_publish</span><span class="p">(</span>
+                    <span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span><span class="p">,</span> <span class="n">memento</span><span class="o">=</span><span class="n">entry_memento</span><span class="p">,</span> <span class="n">staged</span><span class="o">=</span><span class="n">staged</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_forget_deferred_commit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reject_mutation_failure</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spend_child_seed</span><span class="p">()</span>
+        <span class="c1"># The event is an observer notification sent after the publication</span>
+        <span class="c1"># completed: a handler that raises cannot veto it.</span>
+        <span class="k">if</span> <span class="n">committed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dispatch_committed_configuration</span><span class="p">(</span><span class="n">committed</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_entry_commit</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">_CommitMemento</span><span class="p">,</span> <span class="n">_StagedCollections</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Capture an entry repair only when the entry needs one.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entry_checked</span><span class="p">:</span>
@@ -3274,12 +3462,13 @@ window.runMermaid = runMermaid;</script>
             <span class="k">if</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">severity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
         <span class="n">declared</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entry_declared_columns</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">problem</span><span class="p">)</span>
-        <span class="n">staged</span> <span class="o">=</span> <span class="n">_StagedCollections</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">staged</span> <span class="o">=</span> <span class="n">_StagedCollections</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="n">state</span><span class="p">)</span> <span class="k">if</span> <span class="n">memento</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">memento</span><span class="o">.</span><span class="n">staged</span>
         <span class="n">repairs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entry_repairs</span><span class="p">(</span><span class="n">staged</span><span class="p">,</span> <span class="n">declared</span><span class="p">)</span>
         <span class="n">validate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entry_needs_validation</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">errors</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">repairs</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">validate</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="n">memento</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_capture_commit_memento</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span> <span class="n">staged</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">memento</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">memento</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_capture_commit_memento</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span> <span class="n">staged</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
@@ -3410,6 +3599,201 @@ window.runMermaid = runMermaid;</script>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_replacement_blocked</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_commit_memento_for_mutations</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Capture the commit terms when this commit point will change one.</span>
+
+<span class="sd">        Controllers, a scheduled relaxation and a queued parameter write all</span>
+<span class="sd">        change values before the binding difference is read, so the memento has</span>
+<span class="sd">        to exist before the first of them.  A commit point with none of that</span>
+<span class="sd">        work needs no memento of its own: publication and the entry repair</span>
+<span class="sd">        capture theirs when they run.  A commit point that deferred its work</span>
+<span class="sd">        keeps the memento it took, so the commit that decides the same step</span>
+<span class="sd">        again still restores the values from before the first decision.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_commit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_commit_step</span> <span class="o">==</span> <span class="n">step</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_origin</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_commit</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_forget_deferred_commit</span><span class="p">()</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_entry_epsilon_applied</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;controllers&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_parameter_writes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">staged</span> <span class="o">=</span> <span class="n">_StagedCollections</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_capture_commit_memento</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span> <span class="n">staged</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_remember_deferred_commit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Keep the terms of a commit point that deferred its work.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_commit</span> <span class="o">=</span> <span class="n">memento</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_commit_step</span> <span class="o">=</span> <span class="n">step</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_forget_deferred_commit</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop the terms of a commit point that no longer defers.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_commit</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_commit_step</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deferred_origin</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reject_mutation_failure</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">,</span> <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore the commit point after a failure in its first mutations.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">memento</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">memento</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_capture_commit_memento</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span> <span class="n">_StagedCollections</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_entry_epsilon</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Re-apply the run&#39;s constraint relaxation once at the first commit point.</span>
+
+<span class="sd">        Run preparation writes it, but an entry that resumes from a state</span>
+<span class="sd">        prepares nothing, and a comparator restored from a checkpoint carries</span>
+<span class="sd">        its constructor value.  Applying it here, before the controllers, lets</span>
+<span class="sd">        a controller&#39;s value win over the prepared one.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entry_epsilon_applied</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_entry_epsilon_applied</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">problem</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">problem</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">&quot;handler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="c1"># The relaxation only: the direction and the comparator&#39;s child seed</span>
+        <span class="c1"># belong to run preparation and to a successful publication.</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">feasibility_threshold</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_controllers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Consult every controller once per step value, then apply its commands.</span>
+
+<span class="sd">        The guard is the step counter, not the commit point: a sequential</span>
+<span class="sd">        asynchronous plan enters the commit point several times per step.  A</span>
+<span class="sd">        controller that already decided this step is not asked again, so a</span>
+<span class="sd">        deferral keeps the commands it queued.  Declared state keys are</span>
+<span class="sd">        seeded with ``None`` when absent, and the commit memento restores the</span>
+<span class="sd">        state store, so a rejected commit puts them back and the same step</span>
+<span class="sd">        decides again on resume.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">controllers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;controllers&quot;</span><span class="p">,</span> <span class="p">())</span> <span class="ow">or</span> <span class="p">())</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">controllers</span> <span class="ow">or</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_step</span> <span class="o">==</span> <span class="n">step</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_step</span> <span class="o">=</span> <span class="n">step</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">controller</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">controllers</span><span class="p">):</span>
+            <span class="n">decide</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="s2">&quot;decide&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">decide</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;controller </span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2"> does not provide a callable decide(state)&quot;</span>
+                <span class="p">)</span>
+            <span class="n">declared</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="s2">&quot;state_keys&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">declared</span><span class="p">())</span> <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">declared</span><span class="p">)</span> <span class="k">else</span> <span class="p">()</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">state</span><span class="o">.</span><span class="n">get_state</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="n">state</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">decide</span><span class="p">(</span><span class="n">state</span><span class="p">)</span> <span class="ow">or</span> <span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;controller </span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">controller</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_apply_controller_command</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_controller_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">command</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write one controller command into the live configuration.&quot;&quot;&quot;</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">ReplaceComponent</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">command</span><span class="o">.</span><span class="n">slot</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_BINDING_SLOTS</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;controller </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">controller</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> asked to replace &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">command</span><span class="o">.</span><span class="n">slot</span><span class="si">!r}</span><span class="s2">, which is not a binding slot&quot;</span>
+                <span class="p">)</span>
+            <span class="n">setter</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_set_component&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">setter</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="s2">&quot;the optimizer cannot apply a controller replacement&quot;</span>
+                <span class="p">)</span>
+            <span class="n">setter</span><span class="p">(</span>
+                <span class="n">command</span><span class="o">.</span><span class="n">slot</span><span class="p">,</span>
+                <span class="n">command</span><span class="o">.</span><span class="n">component</span><span class="p">,</span>
+                <span class="s2">&quot;Replaced by a controller at the commit point.&quot;</span><span class="p">,</span>
+                <span class="n">command</span><span class="o">.</span><span class="n">transition</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_command_origins</span><span class="p">[</span><span class="n">command</span><span class="o">.</span><span class="n">slot</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">SetParameter</span><span class="p">):</span>
+            <span class="n">writes</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_parameter_writes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">writes</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="s2">&quot;the optimizer cannot apply a controller parameter write&quot;</span>
+                <span class="p">)</span>
+            <span class="n">writes</span><span class="p">[(</span><span class="n">command</span><span class="o">.</span><span class="n">slot</span><span class="p">,</span> <span class="n">command</span><span class="o">.</span><span class="n">path</span><span class="p">)]</span> <span class="o">=</span> <span class="n">command</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_command_origins</span><span class="p">[</span><span class="n">command</span><span class="o">.</span><span class="n">slot</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span>
+            <span class="k">return</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;controller </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">controller</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> returned &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">command</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">, which is not a replacement or a &quot;</span>
+            <span class="s2">&quot;parameter write&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_parameter_writes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the queued parameter writes to the published bindings.</span>
+
+<span class="sd">        The target is the published binding, not the live slot, and the</span>
+<span class="sd">        running state&#39;s comparator is written too because it can hold a</span>
+<span class="sd">        different instance from the published one.  Every value the write</span>
+<span class="sd">        replaces is recorded in the commit memento first, so any later failure</span>
+<span class="sd">        of this commit point puts it back.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">commands</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consume_parameter_writes</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">commands</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">memento</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover - the memento covers every write</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;a parameter write requires a commit memento&quot;</span><span class="p">)</span>
+        <span class="n">published</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">path</span><span class="p">),</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">commands</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">slot</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_BINDING_SLOTS</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;SetParameter slot </span><span class="si">{</span><span class="n">slot</span><span class="si">!r}</span><span class="s2"> is not a binding slot&quot;</span>
+                <span class="p">)</span>
+            <span class="n">targets</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">bound</span> <span class="o">=</span> <span class="n">published</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">bound</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bound</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">slot</span> <span class="o">==</span> <span class="s2">&quot;comparator&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">running</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span> <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">running</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">running</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">):</span>
+                    <span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">running</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">:</span>
+                <span class="n">owner</span> <span class="o">=</span> <span class="n">_resolve_parameter_owner</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">owner</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">memento</span><span class="o">.</span><span class="n">parameter_writes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">))</span>
+                <span class="p">)</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">command</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_consume_parameter_writes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">SetParameter</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take the parameter writes recorded since the last commit point.&quot;&quot;&quot;</span>
+        <span class="n">consume</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_consume_parameter_writes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">consume</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">consume</span><span class="p">())</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_adopt_published_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Start a resumed run from the bindings the optimizer last published.</span>
 
@@ -3443,7 +3827,7 @@ window.runMermaid = runMermaid;</script>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">staged</span><span class="p">:</span> <span class="n">_StagedCollections</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfigurationCommittedEvent</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare a candidate binding set and publish it, or reject it.</span>
 
 <span class="sd">        ``_capture_commit_memento`` records the terms this commit may change</span>
@@ -3461,7 +3845,11 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span> <span class="o">=</span> <span class="p">()</span>
         <span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consume_replacements</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">staged</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">staged</span> <span class="o">=</span> <span class="n">_StagedCollections</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+            <span class="n">staged</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">memento</span><span class="o">.</span><span class="n">staged</span>
+                <span class="k">if</span> <span class="n">memento</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="n">_StagedCollections</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">memento</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">memento</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_capture_commit_memento</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">staged</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
@@ -3495,6 +3883,9 @@ window.runMermaid = runMermaid;</script>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_active_memento</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">committed</span><span class="p">:</span> <span class="n">ConfigurationCommittedEvent</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">previous_memento</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_memento</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active_memento</span> <span class="o">=</span> <span class="n">memento</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_check_staged_changes</span><span class="p">(</span><span class="n">staged</span><span class="p">,</span> <span class="n">incoming</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_region_history</span><span class="p">(</span><span class="n">rebuilt</span><span class="p">)</span>
@@ -3513,12 +3904,14 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">strategy_values</span><span class="p">,</span>
                 <span class="n">state_reads</span><span class="o">=</span><span class="n">incoming_reads</span><span class="p">,</span>
                 <span class="n">state_writes</span><span class="o">=</span><span class="n">incoming_writes</span><span class="p">,</span>
+                <span class="n">memento</span><span class="o">=</span><span class="n">memento</span><span class="p">,</span>
             <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_assign_published_comparator_rng</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_assign_published_comparator_rng</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">committed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_dispatch_committed_configuration</span><span class="p">(</span><span class="n">committed</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_active_memento</span> <span class="o">=</span> <span class="n">previous_memento</span>
+        <span class="k">return</span> <span class="n">committed</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_publish_prepared</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -3530,8 +3923,16 @@ window.runMermaid = runMermaid;</script>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">state_reads</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">StateKey</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">state_writes</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">StateKey</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfigurationCommittedEvent</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">previous_values</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="n">previous_manager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;surrogate_manager&quot;</span><span class="p">)</span>
+        <span class="n">previous_comparator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">)</span>
+        <span class="n">previous_epsilon</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">previous_comparator</span><span class="p">,</span> <span class="s2">&quot;eps_cv&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">running_epsilon</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">comparator</span><span class="p">,</span> <span class="s2">&quot;eps_cv&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">running_epsilon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">previous_epsilon</span> <span class="o">=</span> <span class="n">running_epsilon</span>
         <span class="n">consumes_feature_encoder</span> <span class="o">=</span> <span class="n">_executable_uses_service</span><span class="p">(</span>
             <span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span>
         <span class="p">)</span>
@@ -3611,7 +4012,18 @@ window.runMermaid = runMermaid;</script>
             <span class="n">comparator</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">))</span>
             <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">comparator</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">comparator</span>
+                <span class="n">_remember_component_attributes</span><span class="p">(</span>
+                    <span class="n">memento</span><span class="p">,</span> <span class="n">comparator</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;direction&quot;</span><span class="p">,</span> <span class="s2">&quot;eps_cv&quot;</span><span class="p">)</span>
+                <span class="p">)</span>
                 <span class="n">prepare_state_comparator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">previous_epsilon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">previous_epsilon</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;controllers&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;surrogate_manager&quot;</span><span class="p">)</span>
+                <span class="ow">is</span> <span class="ow">not</span> <span class="n">previous_manager</span>
+            <span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span><span class="n">SURROGATES_ACCURACY</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">ConfigurationCommittedEvent</span><span class="p">(</span>
@@ -3899,9 +4311,28 @@ window.runMermaid = runMermaid;</script>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_assign_published_comparator_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw the child seed of a randomized comparator once it is published.&quot;&quot;&quot;</span>
+        <span class="n">memento</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_memento</span>
         <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
-        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">assign_comparator_rng</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">comparator</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_remember_component_attributes</span><span class="p">(</span><span class="n">memento</span><span class="p">,</span> <span class="n">comparator</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;_rng&quot;</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_child_seed_owed</span> <span class="o">=</span> <span class="n">assign_comparator_rng</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_spend_child_seed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Advance the run generator&#39;s child counter for a committed publication.</span>
+
+<span class="sd">        Called as the last step of a committed publication, after every step</span>
+<span class="sd">        that can fail, so no path needs to un-spend the seed and the counter</span>
+<span class="sd">        never moves for a rejected commit.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_child_seed_owed</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_child_seed_owed</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">rng</span> <span class="o">=</span> <span class="n">_run_generator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rng</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_region_history</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rebuilt</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the region history an accepted candidate plan needs.&quot;&quot;&quot;</span>
@@ -4035,8 +4466,13 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">_rejected_changes</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">published</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">origins</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RejectedChange</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return every slot whose component differs from the published one.&quot;&quot;&quot;</span>
-        <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return every slot whose component differs from the published one.</span>
+
+<span class="sd">        The live slots are read directly: a rejection reports the slots it is</span>
+<span class="sd">        about to put back, and describing the failure must not run another step</span>
+<span class="sd">        that could fail the same way.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_BINDING_SLOTS</span><span class="p">}</span>
         <span class="n">names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_BINDING_SLOTS</span><span class="p">)</span>
         <span class="n">names</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">sorted</span><span class="p">((</span><span class="nb">set</span><span class="p">(</span><span class="n">published</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">current</span><span class="p">))</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">_BINDING_SLOTS</span><span class="p">)))</span>
         <span class="n">changes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">RejectedChange</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -4125,6 +4561,16 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">_UNSET</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_custom_state&quot;</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">)</span>
             <span class="p">),</span>
             <span class="n">comparator</span><span class="o">=</span><span class="p">(</span><span class="n">_UNSET</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_state_comparator_or_unset</span><span class="p">(</span><span class="n">state</span><span class="p">)),</span>
+            <span class="n">rng</span><span class="o">=</span><span class="n">_capture_run_generator</span><span class="p">(</span><span class="n">state</span><span class="p">),</span>
+            <span class="n">controller_state</span><span class="o">=</span><span class="n">_capture_controller_state</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">state</span><span class="p">),</span>
+            <span class="n">comparator_epsilon</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_UNSET</span>
+                <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="s2">&quot;eps_cv&quot;</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">published_comparator_epsilon</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
+                <span class="n">snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">),</span> <span class="s2">&quot;eps_cv&quot;</span><span class="p">,</span> <span class="n">_UNSET</span>
+            <span class="p">),</span>
             <span class="n">compiled_services</span><span class="o">=</span><span class="n">compiled_services</span><span class="p">,</span>
             <span class="n">history</span><span class="o">=</span><span class="n">history</span><span class="p">,</span>
             <span class="n">region_ids</span><span class="o">=</span><span class="p">(</span>
@@ -4153,9 +4599,13 @@ window.runMermaid = runMermaid;</script>
                 <span class="ow">or</span> <span class="p">{}</span>
             <span class="p">),</span>
             <span class="n">staged</span><span class="o">=</span><span class="n">staged</span><span class="p">,</span>
+            <span class="n">parameter_writes</span><span class="o">=</span><span class="p">[],</span>
+            <span class="n">component_writes</span><span class="o">=</span><span class="p">[],</span>
+            <span class="n">pending_parameter_writes</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_parameter_writes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+            <span class="p">),</span>
             <span class="n">candidate_resolution</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span><span class="p">,</span>
             <span class="n">candidate_diagnostics</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span><span class="p">,</span>
-            <span class="n">publication_deferred</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span><span class="p">,</span>
             <span class="n">pending_recompile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -4204,12 +4654,35 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_restore_region_history</span><span class="p">(</span><span class="n">memento</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_restore_evaluation_handles</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">memento</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">saved</span> <span class="ow">in</span> <span class="n">memento</span><span class="o">.</span><span class="n">controller_state</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">current</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get_state</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="n">current</span> <span class="o">=</span> <span class="n">_UNSET</span>
+                <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="n">_UNSET</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">_restore_container</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">saved</span><span class="p">):</span>
+                    <span class="n">state</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">saved</span><span class="p">))</span>
+            <span class="n">_restore_run_generator</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">target</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">parameter_writes</span><span class="p">):</span>
+            <span class="n">_restore_attribute</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">target</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">component_writes</span><span class="p">):</span>
+            <span class="n">_restore_attribute</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">memento</span><span class="o">.</span><span class="n">comparator_epsilon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_UNSET</span> <span class="ow">and</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">comparator</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">comparator_epsilon</span>
+        <span class="k">if</span> <span class="n">memento</span><span class="o">.</span><span class="n">published_comparator_epsilon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_UNSET</span><span class="p">:</span>
+            <span class="n">published</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">snapshot_values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">published</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">published</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">published_comparator_epsilon</span>
+        <span class="n">queue</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_parameter_writes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">queue</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="n">queue</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">pending_parameter_writes</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_restore_scheduler_state</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">scheduler</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
             <span class="s2">&quot;_ComponentResolution | None&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">candidate_resolution</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">candidate_diagnostics</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">publication_deferred</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">pending_recompile</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_restore_evaluation_handles</span><span class="p">(</span>
@@ -4291,7 +4764,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">report</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore the commit memento, then report the rejection.</span>
 
 <span class="sd">        Every failure after the memento was taken restores the same terms,</span>
@@ -4305,12 +4778,47 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">changes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rejected_changes</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">snapshot_values</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">live_origins</span><span class="p">)</span>
         <span class="n">diagnostics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rejection_source</span><span class="p">(</span><span class="n">changes</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_restore_commit_memento</span><span class="p">(</span><span class="n">memento</span><span class="p">)</span>
+        <span class="c1"># Nothing is pending after a rejection: the published configuration is</span>
+        <span class="c1"># in force again, so no deferral outlives the commit point that failed,</span>
+        <span class="c1"># and the step that was rejected is decided again.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_forget_deferred_commit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_step</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_child_seed_owed</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active_memento</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">report</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span> <span class="ow">is</span> <span class="n">ConfigurationError</span><span class="p">:</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">source</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">source</span><span class="p">}</span>
             <span class="k">raise</span> <span class="n">ReplacementRejectedError</span><span class="p">(</span>
-                <span class="n">changes</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">active_version</span>
+                <span class="n">changes</span><span class="p">,</span>
+                <span class="n">diagnostics</span><span class="p">,</span>
+                <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">active_version</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">origin</span><span class="p">,</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
         <span class="k">raise</span> <span class="n">error</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rejection_source</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">changes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RejectedChange</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">diagnostics</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the controller that produced the rejected change.</span>
+
+<span class="sd">        The diagnostic names the slot that failed, so that slot&#39;s producer is</span>
+<span class="sd">        the one to report; a change list alone cannot tell which of several</span>
+<span class="sd">        rejected slots caused the rejection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">diagnostic</span> <span class="ow">in</span> <span class="n">diagnostics</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">components</span><span class="p">:</span>
+                <span class="n">origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_command_origins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">component</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">origin</span>
+        <span class="k">for</span> <span class="n">change</span> <span class="ow">in</span> <span class="n">changes</span><span class="p">:</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_command_origins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">change</span><span class="o">.</span><span class="n">slot</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">origin</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_origin</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_published_feature_encoder_default</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -4484,8 +4992,11 @@ window.runMermaid = runMermaid;</script>
             <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_publish</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">())</span>
+        <span class="n">committed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_publish</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spend_child_seed</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">committed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dispatch_committed_configuration</span><span class="p">(</span><span class="n">committed</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compile_current_plan</span><span class="p">(</span>
@@ -4775,10 +5286,16 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_increment_step</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">handler</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span>
         <span class="n">handler</span><span class="o">.</span><span class="n">on_generation_end</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">gen</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">population</span><span class="p">)</span>
-        <span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">feasibility_threshold</span>
         <span class="n">manager</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">manager</span><span class="o">.</span><span class="n">on_generation_end</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">gen</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;controllers&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">_accuracy_state_value</span>
+
+            <span class="n">state</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span>
+                <span class="n">SURROGATES_ACCURACY</span><span class="p">,</span>
+                <span class="n">_accuracy_state_value</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">manager</span><span class="p">,</span> <span class="s2">&quot;last_accuracy&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
+            <span class="p">)</span>
         <span class="n">record_generation</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">GenerationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">))</span>
 
@@ -4923,18 +5440,27 @@ window.runMermaid = runMermaid;</script>
     <span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">feasibility_threshold</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">assign_comparator_rng</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assign_comparator_rng</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Give a randomized comparator its niche tie-breaking generator.</span>
 
-<span class="sd">    Consumes one child seed of the run&#39;s generator.  A commit point calls this</span>
-<span class="sd">    only after its new configuration is published, and a rejected replacement</span>
-<span class="sd">    never reaches it, so the parent seed sequence is untouched by a rejected</span>
-<span class="sd">    candidate and the next accepted randomized comparator draws the same child</span>
-<span class="sd">    a run without the rejected attempt would.</span>
+<span class="sd">    The child seed is drawn from a copy of the run generator and handed to the</span>
+<span class="sd">    comparator, so a comparator that refuses its generator leaves the parent</span>
+<span class="sd">    seed sequence untouched.  The run generator itself is advanced later, by</span>
+<span class="sd">    :meth:`_OptimizerEnvironment._spend_child_seed`, once every fallible step</span>
+<span class="sd">    of the commit point has passed: no path ever has to un-spend a seed, and</span>
+<span class="sd">    every holder of the generator keeps the stream it had.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        Whether a child seed is owed to the run generator.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">comparator</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">comparator</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span><span class="p">)</span> <span class="ow">and</span> <span class="n">comparator</span><span class="o">.</span><span class="n">_rng</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">comparator</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">successor</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
+        <span class="n">comparator</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">successor</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">False</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">PipelineRuntime</span><span class="p">:</span>
@@ -5396,7 +5922,10 @@ window.runMermaid = runMermaid;</script>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_state</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">prepare_state_comparator</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
-        <span class="n">assign_comparator_rng</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="c1"># Preparation is not a transactional commit point: the child seed is</span>
+        <span class="c1"># drawn and spent here, and a run that fails preparation is not resumed.</span>
+        <span class="k">if</span> <span class="n">assign_comparator_rng</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+            <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">AsyncPipelineRuntime</span><span class="p">(</span><span class="n">PipelineRuntime</span><span class="p">):</span>

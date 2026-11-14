@@ -16,6 +16,7 @@
 
 
    ~Optimizer.__init__
+   ~Optimizer.add_controller
    ~Optimizer.contract_diagnostics
    ~Optimizer.describe
    ~Optimizer.dispatch
@@ -55,6 +56,9 @@
 
 
 .. automethod:: saealib.Optimizer.__init__
+
+
+.. automethod:: saealib.Optimizer.add_controller
 
 
 .. automethod:: saealib.Optimizer.contract_diagnostics

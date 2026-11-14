@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.problem.constraint &#8212; saealib 0.1.1.dev67+g3573ca625 ドキュメント</title>
+    <title>saealib.problem.constraint &#8212; saealib 0.1.1.dev73+g176274b1d ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=57200c00"></script>
+    <script src="../../../_static/documentation_options.js?v=3314f0ab"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -967,6 +967,8 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib._deprecation</span><span class="w"> </span><span class="kn">import</span> <span class="n">_stacklevel_outside_package</span><span class="p">,</span> <span class="n">warn_deprecated</span>
+
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Population</span>
 
@@ -1255,9 +1257,9 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">                       -&gt; evaluate f, g</span>
 <span class="sd">                       -&gt; [compute_cv(constraints, x, g)]        -&gt; cv</span>
 <span class="sd">                       -&gt; [augment_objective(f, constraints, x, g)] -&gt; f&#39;</span>
-<span class="sd">        Tell           -&gt; Comparator(f&#39;, cv) with eps_cv = feasibility_threshold</span>
-<span class="sd">                       (a search-time relaxation; reported feasibility uses</span>
-<span class="sd">                       the per-constraint violations)</span>
+<span class="sd">        Tell           -&gt; Comparator(f&#39;, cv) with the relaxation of the run&#39;s</span>
+<span class="sd">                       comparator (reported feasibility uses the</span>
+<span class="sd">                       per-constraint violations)</span>
 <span class="sd">        Generation end -&gt; [on_generation_end(gen, population)]</span>
 
 <span class="sd">    Only :meth:`compute_cv` is abstract; the remaining hooks have sensible</span>
@@ -1372,7 +1374,12 @@ window.runMermaid = runMermaid;</script>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">feasibility_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Search-time threshold the comparator copies onto its ``eps_cv``.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return this handler&#39;s own current search-time relaxation.</span>
+
+<span class="sd">        A run reads it at preparation to seed the comparator&#39;s ``eps_cv``; the</span>
+<span class="sd">        running relaxation afterwards is the comparator&#39;s value, which</span>
+<span class="sd">        ``EpsilonSchedule`` writes at every commit point.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="mf">0.0</span>
 
 <div class="viewcode-block" id="ConstraintHandler.on_generation_end">
@@ -1381,8 +1388,10 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run end-of-generation bookkeeping.</span>
 
-<span class="sd">        Used by adaptive strategies (e.g. ε-level control) that update their</span>
-<span class="sd">        internal state between generations. The default is a no-op.</span>
+<span class="sd">        Used by adaptive strategies that update their own state between</span>
+<span class="sd">        generations. The default is a no-op. A hook that moves</span>
+<span class="sd">        :attr:`feasibility_threshold` does not reach the comparator; the</span>
+<span class="sd">        search-side relaxation follows ``EpsilonSchedule``.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1412,7 +1421,8 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    ----------</span>
 <span class="sd">    eps_cv : float, optional</span>
 <span class="sd">        Search-time feasibility relaxation returned by</span>
-<span class="sd">        :attr:`feasibility_threshold` and copied onto the comparator. The</span>
+<span class="sd">        :attr:`feasibility_threshold`, which run preparation writes onto the</span>
+<span class="sd">        comparator. The</span>
 <span class="sd">        default of 0.0 treats a solution as feasible only when</span>
 <span class="sd">        :func:`sum_violation` is zero, which matches the per-constraint</span>
 <span class="sd">        feasibility decision.</span>
@@ -1449,14 +1459,18 @@ window.runMermaid = runMermaid;</script>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Dynamic ε-constraint handler.</span>
 
-<span class="sd">    The feasibility threshold ε starts at ``schedule(0)`` and is updated</span>
-<span class="sd">    to ``schedule(gen)`` at the end of each generation via</span>
-<span class="sd">    :meth:`on_generation_end`. As ε decreases toward 0 the population is</span>
-<span class="sd">    gradually driven into the feasible region.</span>
+<span class="sd">    The handler&#39;s own feasibility threshold ε starts at ``schedule(0)`` and is</span>
+<span class="sd">    updated to ``schedule(gen)`` at the end of each generation via</span>
+<span class="sd">    :meth:`on_generation_end`. The handler keeps the ε-constrained violation</span>
+<span class="sd">    aggregation, and it returns its current ε from</span>
+<span class="sd">    :attr:`feasibility_threshold`, which run preparation writes onto the</span>
+<span class="sd">    comparator.</span>
 
-<span class="sd">    Each call to :meth:`on_generation_end` sets</span>
-<span class="sd">    ``comparator.eps_cv = feasibility_threshold`` via the runner, so the</span>
-<span class="sd">    comparator&#39;s feasibility criterion tightens in sync with ε.</span>
+<span class="sd">    The per-generation search-side relaxation is scheduled by</span>
+<span class="sd">    :class:`~saealib.controllers.EpsilonSchedule`, registered with</span>
+<span class="sd">    :meth:`saealib.Optimizer.add_controller`. Without a schedule the run keeps</span>
+<span class="sd">    the relaxation written at preparation, so a run that wants ε to decrease</span>
+<span class="sd">    over generations registers the schedule with the same mapping.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1501,6 +1515,15 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="EpsilonConstraintHandler.__init__">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.EpsilonConstraintHandler.html#saealib.EpsilonConstraintHandler.__init__">[ドキュメント]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">schedule</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">float</span><span class="p">]):</span>
+        <span class="n">warn_deprecated</span><span class="p">(</span>
+            <span class="s2">&quot;EpsilonConstraintHandler&quot;</span><span class="p">,</span>
+            <span class="n">since</span><span class="o">=</span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
+            <span class="n">replacement</span><span class="o">=</span><span class="p">(</span>
+                <span class="s2">&quot;Problem(cv_aggregator=...) for the violation aggregation and &quot;</span>
+                <span class="s2">&quot;EpsilonSchedule for the schedule&quot;</span>
+            <span class="p">),</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="n">_stacklevel_outside_package</span><span class="p">(),</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_schedule</span> <span class="o">=</span> <span class="n">schedule</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">schedule</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span></div>
 
@@ -1525,7 +1548,13 @@ window.runMermaid = runMermaid;</script>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">feasibility_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Current ε; the comparator treats ``cv &lt;= ε`` as feasible.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return this handler&#39;s own current ε.</span>
+
+<span class="sd">        A run reads it at preparation to seed the comparator&#39;s ``eps_cv``.  The</span>
+<span class="sd">        running relaxation afterwards is the comparator&#39;s value, scheduled by</span>
+<span class="sd">        ``EpsilonSchedule``; the handler keeps updating its own ε for its</span>
+<span class="sd">        violation aggregation and for a later preparation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eps</span>
 
 <div class="viewcode-block" id="EpsilonConstraintHandler.on_generation_end">

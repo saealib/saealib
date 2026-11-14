@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev51+gb318b8f8c documentation</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev52+g992740325 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=5a61be3a"></script>
+    <script src="../../../_static/documentation_options.js?v=f55b3474"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -2259,7 +2259,10 @@ window.runMermaid = runMermaid;</script>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;One published binding set: component identities plus a version.</span>
 
 <span class="sd">    Holds strong references to every bound component so identity comparison</span>
-<span class="sd">    at later commit points cannot be confused by object id reuse.</span>
+<span class="sd">    at later commit points cannot be confused by object id reuse.  The stored</span>
+<span class="sd">    preset object is compared by identity too: component resolution reads it</span>
+<span class="sd">    lazily during publication, so a preset reaches a commit point without</span>
+<span class="sd">    being a bound slot.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">version</span><span class="p">:</span> <span class="nb">int</span>
@@ -2268,13 +2271,14 @@ window.runMermaid = runMermaid;</script>
     <span class="n">feature_encoder_selection</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">strategy_values</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span>
     <span class="n">configuration_version</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">preset</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">unchanged_by</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">values</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
         <span class="n">strategy_values</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
-        <span class="n">configuration_version</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">feature_encoder_selection</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">preset</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True when the candidate bindings resolve to this snapshot.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">):</span>
@@ -2284,7 +2288,7 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="p">(</span>
             <span class="n">feature_encoder_selection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_encoder_selection</span>
             <span class="ow">and</span> <span class="n">strategy_values</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy_values</span>
-            <span class="ow">and</span> <span class="n">configuration_version</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">configuration_version</span>
+            <span class="ow">and</span> <span class="n">preset</span> <span class="ow">is</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="p">)</span>
 
 
@@ -2460,6 +2464,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">feature_encoder_selection</span><span class="o">=</span><span class="n">feature_encoder_selection</span><span class="p">,</span>
                 <span class="n">strategy_values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">(),</span>
                 <span class="n">configuration_version</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="n">preset</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
             <span class="p">),</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -2608,8 +2613,8 @@ window.runMermaid = runMermaid;</script>
         <span class="n">unchanged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span>
             <span class="n">bindings</span><span class="p">,</span>
             <span class="n">strategy_values</span><span class="p">,</span>
-            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_selection</span><span class="p">(),</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">unchanged</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span><span class="p">:</span>
             <span class="c1"># A swap that was deferred while its evaluations ran may resolve</span>
@@ -2731,6 +2736,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">configuration_version</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span>
                 <span class="p">),</span>
+                <span class="n">preset</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
             <span class="p">),</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_remember_published_bindings</span><span class="p">()</span>
@@ -3130,8 +3136,8 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span>
             <span class="n">bindings</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">(),</span>
-            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_selection</span><span class="p">(),</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="p">):</span>
             <span class="k">raise</span> <span class="n">CheckpointError</span><span class="p">(</span>
                 <span class="s2">&quot;checkpoint cannot be saved because the optimizer configuration &quot;</span>

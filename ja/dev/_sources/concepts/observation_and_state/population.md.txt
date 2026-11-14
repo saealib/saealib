@@ -44,10 +44,13 @@ Genome-native経路では、GenomeBatchとSearchSpaceの契約が表現の構造
 | `reorder(order)` / `argsort(name, reverse=False)` | 並べ替え |
 | `empty_like(capacity=None)` | 同じスキーマの空`Population`を作る |
 | `set_cache(key, value)` / `get_cache(key)` | 計算結果をPopulation変更まで有効なキャッシュとして保持する |
+| `add_columns(specs)` | 列を追加し、既存の行を各定義の既定値で埋める。等しい定義の既存列は変更しない |
+| `drop_columns(names)` | 列を削除し、削除した名前を返す。予約列は拒否し、使用中の部品が要求する列は検査しない |
 | `pop[i]` / `pop[a:b]` | 単一intなら`Individual`を、sliceなら部分集合の`Population`を返す |
 | `len(pop)` | 個体数 |
 
-`set_cache`/`get_cache`によるキャッシュは、`append`/`delete`/`update_array`など個体群を変更する操作を呼ぶたびに自動的に無効化されます。
+`set_cache`/`get_cache`によるキャッシュは、`append`/`delete`/`update_array`/`add_columns`/`drop_columns`など個体群を変更する操作を呼ぶたびに自動的に無効化されます。
+`drop_columns`は、設計変数・目的関数・制約・制約違反・候補ID・目的値の出所の各列を残し、アーカイブでは`key_attr`列と`append`ポリシーのアーカイブの観測列も残します。これらを削除しようとすると`ValidationError`を送出します。使用中の部品が要求する列を削除すると、その列を読む次の`ask`または`tell`が`KeyError`で失敗します。`append`や`truncate`と同じく、どちらの操作も有効な`Individual`ビューを無効化し、同じ個体群の並行変更は未対応です。
 [NSGA2Comparator](../problem_and_ranking/comparators.md)がフロント分割と混雑度距離の計算結果を世代内で使い回す際に、この仕組みを利用しています。
 
 ```python

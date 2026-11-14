@@ -16,10 +16,12 @@
 
 
    ~Population.__init__
+   ~Population.add_columns
    ~Population.append
    ~Population.argsort
    ~Population.clear
    ~Population.delete
+   ~Population.drop_columns
    ~Population.empty_like
    ~Population.extend
    ~Population.extract
@@ -45,6 +47,9 @@
 .. automethod:: saealib.Population.__init__
 
 
+.. automethod:: saealib.Population.add_columns
+
+
 .. automethod:: saealib.Population.append
 
 
@@ -55,6 +60,9 @@
 
 
 .. automethod:: saealib.Population.delete
+
+
+.. automethod:: saealib.Population.drop_columns
 
 
 .. automethod:: saealib.Population.empty_like

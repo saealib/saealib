@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Population &#8212; saealib 0.1.1.dev52+g992740325 documentation</title>
+    <title>Population &#8212; saealib 0.1.1.dev53+ga189929a6 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=f55b3474"></script>
+    <script src="../../_static/documentation_options.js?v=164c9488"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -650,6 +650,12 @@ On the Genome-native path, the GenomeBatch and SearchSpace contracts own the rep
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">set_cache(key,</span> <span class="pre">value)</span></code> / <code class="docutils literal notranslate"><span class="pre">get_cache(key)</span></code></p></td>
 <td><p>Holds a computed result as a cache valid until the Population changes</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">add_columns(specs)</span></code></p></td>
+<td><p>Adds columns, filling every row with each specification’s default; an existing column with an equal specification is left unchanged</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">drop_columns(names)</span></code></p></td>
+<td><p>Drops columns and returns the removed names; reserved columns are rejected, and columns that a component in use requires are not checked</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pop[i]</span></code> / <code class="docutils literal notranslate"><span class="pre">pop[a:b]</span></code></p></td>
 <td><p>Returns an <code class="docutils literal notranslate"><span class="pre">Individual</span></code> for a single int, or a <code class="docutils literal notranslate"><span class="pre">Population</span></code> subset for a slice</p></td>
 </tr>
@@ -659,7 +665,8 @@ On the Genome-native path, the GenomeBatch and SearchSpace contracts own the rep
 </tbody>
 </table>
 </div>
-<p>The cache from <code class="docutils literal notranslate"><span class="pre">set_cache</span></code>/<code class="docutils literal notranslate"><span class="pre">get_cache</span></code> is automatically invalidated whenever an operation that changes the population — <code class="docutils literal notranslate"><span class="pre">append</span></code>/<code class="docutils literal notranslate"><span class="pre">delete</span></code>/<code class="docutils literal notranslate"><span class="pre">update_array</span></code>, etc. — is called.
+<p>The cache from <code class="docutils literal notranslate"><span class="pre">set_cache</span></code>/<code class="docutils literal notranslate"><span class="pre">get_cache</span></code> is automatically invalidated whenever an operation that changes the population — <code class="docutils literal notranslate"><span class="pre">append</span></code>/<code class="docutils literal notranslate"><span class="pre">delete</span></code>/<code class="docutils literal notranslate"><span class="pre">update_array</span></code>/<code class="docutils literal notranslate"><span class="pre">add_columns</span></code>/<code class="docutils literal notranslate"><span class="pre">drop_columns</span></code>, etc. — is called.
+<code class="docutils literal notranslate"><span class="pre">drop_columns</span></code> keeps the design-variable, objective, constraint, constraint-value, candidate-identity, and objective-source columns, and an archive also keeps its <code class="docutils literal notranslate"><span class="pre">key_attr</span></code> column and the observation columns of an <code class="docutils literal notranslate"><span class="pre">append</span></code> archive; asking to drop any of them raises <code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>. Dropping a column that a component in use requires makes the next <code class="docutils literal notranslate"><span class="pre">ask</span></code> or <code class="docutils literal notranslate"><span class="pre">tell</span></code> that reads it fail with <code class="docutils literal notranslate"><span class="pre">KeyError</span></code>. Like <code class="docutils literal notranslate"><span class="pre">append</span></code> and <code class="docutils literal notranslate"><span class="pre">truncate</span></code>, both operations invalidate live <code class="docutils literal notranslate"><span class="pre">Individual</span></code> views, and concurrent mutation of the same population is not supported.
 <a class="reference internal" href="../problem_and_ranking/comparators.html"><span class="std std-doc">NSGA2Comparator</span></a> uses this mechanism when reusing its front-splitting and crowding-distance computation results within a generation.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Population</span><span class="p">,</span> <span class="n">PopulationAttribute</span>

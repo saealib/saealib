@@ -17,10 +17,12 @@
 
    ~ParetoArchive.__init__
    ~ParetoArchive.add
+   ~ParetoArchive.add_columns
    ~ParetoArchive.append
    ~ParetoArchive.argsort
    ~ParetoArchive.clear
    ~ParetoArchive.delete
+   ~ParetoArchive.drop_columns
    ~ParetoArchive.empty_like
    ~ParetoArchive.extend
    ~ParetoArchive.extract
@@ -49,6 +51,9 @@
 .. automethod:: saealib.ParetoArchive.add
 
 
+.. automethod:: saealib.ParetoArchive.add_columns
+
+
 .. automethod:: saealib.ParetoArchive.append
 
 
@@ -59,6 +64,9 @@
 
 
 .. automethod:: saealib.ParetoArchive.delete
+
+
+.. automethod:: saealib.ParetoArchive.drop_columns
 
 
 .. automethod:: saealib.ParetoArchive.empty_like

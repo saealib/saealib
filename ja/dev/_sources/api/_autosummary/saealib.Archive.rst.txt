@@ -17,10 +17,12 @@
 
    ~Archive.__init__
    ~Archive.add
+   ~Archive.add_columns
    ~Archive.append
    ~Archive.argsort
    ~Archive.clear
    ~Archive.delete
+   ~Archive.drop_columns
    ~Archive.empty_like
    ~Archive.extend
    ~Archive.extract
@@ -50,6 +52,9 @@
 .. automethod:: saealib.Archive.add
 
 
+.. automethod:: saealib.Archive.add_columns
+
+
 .. automethod:: saealib.Archive.append
 
 
@@ -60,6 +65,9 @@
 
 
 .. automethod:: saealib.Archive.delete
+
+
+.. automethod:: saealib.Archive.drop_columns
 
 
 .. automethod:: saealib.Archive.empty_like

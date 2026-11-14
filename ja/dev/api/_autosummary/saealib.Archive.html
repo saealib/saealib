@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Archive &#8212; saealib 0.1.1.dev52+g992740325 ドキュメント</title>
+    <title>saealib.Archive &#8212; saealib 0.1.1.dev53+ga189929a6 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6c418fda"></script>
+    <script src="../../_static/documentation_options.js?v=8f562f26"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -940,17 +940,23 @@
 <tr class="row-even"><td><p><a class="reference internal" href="#saealib.Archive.add" title="saealib.Archive.add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add</span></code></a></p></td>
 <td><p>Add a solution according to the configured duplicate policy.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Archive.append" title="saealib.Archive.append"><code class="xref py py-obj docutils literal notranslate"><span class="pre">append</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Archive.add_columns" title="saealib.Archive.add_columns"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_columns</span></code></a></p></td>
+<td><p>Add columns, filling every row with each specification's default.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Archive.append" title="saealib.Archive.append"><code class="xref py py-obj docutils literal notranslate"><span class="pre">append</span></code></a></p></td>
 <td><p>Append one candidate.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Archive.argsort" title="saealib.Archive.argsort"><code class="xref py py-obj docutils literal notranslate"><span class="pre">argsort</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Archive.argsort" title="saealib.Archive.argsort"><code class="xref py py-obj docutils literal notranslate"><span class="pre">argsort</span></code></a></p></td>
 <td><p>Return row indices that order a named column.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Archive.clear" title="saealib.Archive.clear"><code class="xref py py-obj docutils literal notranslate"><span class="pre">clear</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Archive.clear" title="saealib.Archive.clear"><code class="xref py py-obj docutils literal notranslate"><span class="pre">clear</span></code></a></p></td>
 <td><p>Clear rows and invalidate identity/neighbor caches.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Archive.delete" title="saealib.Archive.delete"><code class="xref py py-obj docutils literal notranslate"><span class="pre">delete</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Archive.delete" title="saealib.Archive.delete"><code class="xref py py-obj docutils literal notranslate"><span class="pre">delete</span></code></a></p></td>
 <td><p>Delete candidates selected by <code class="docutils literal notranslate"><span class="pre">index</span></code> in place.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#saealib.Archive.drop_columns" title="saealib.Archive.drop_columns"><code class="xref py py-obj docutils literal notranslate"><span class="pre">drop_columns</span></code></a></p></td>
+<td><p>Drop columns from the population.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#saealib.Archive.empty_like" title="saealib.Archive.empty_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">empty_like</span></code></a></p></td>
 <td><p>Create an empty archive while retaining resolved identity services.</p></td>
@@ -1085,6 +1091,43 @@ every observation subject to its ID and request-ID constraints.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="saealib.Archive.add_columns">
+<span class="sig-prename descclassname"><span class="pre">Archive.</span></span><span class="sig-name descname"><span class="pre">add_columns</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">specs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.Archive.add_columns" title="Link to this definition">#</a></dt>
+<dd><p>Add columns, filling every row with each specification's default.</p>
+<p>All specifications are validated before any column is created, so a
+rejected call leaves the schema and the stored data unchanged. Columns
+are appended to the schema in the order they are given.</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>specs</strong> (<em>iterable</em><em> of </em><a class="reference internal" href="saealib.PopulationAttribute.html#saealib.PopulationAttribute" title="saealib.PopulationAttribute"><em>PopulationAttribute</em></a>) -- Column definitions to add. Each definition supplies its own dtype,
+shape, and default value.</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>Names of the columns that were created, in the given order. The
+list is empty when every column already existed.</p>
+</dd>
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of str</p>
+</dd>
+<dt class="field-even">例外<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="saealib.ValidationError.html#saealib.ValidationError" title="saealib.ValidationError"><strong>ValidationError</strong></a> -- If an item is not a <code class="docutils literal notranslate"><span class="pre">PopulationAttribute</span></code>, a name is empty or
+    repeated, the dtype is <code class="docutils literal notranslate"><span class="pre">object</span></code>, a shape entry is not a
+    non-negative integer, or an existing column has a different
+    specification.</p>
+</dd>
+</dl>
+<p class="rubric">メモ</p>
+<p>Adding a column that already exists with an equal specification is a
+no-op, including its version counters. A non-empty call bumps the
+structure version and the value version once, invalidates cached
+values, and invalidates live <a class="reference internal" href="saealib.Individual.html#saealib.Individual" title="saealib.Individual"><code class="xref py py-class docutils literal notranslate"><span class="pre">Individual</span></code></a> handles, exactly as
+<code class="docutils literal notranslate"><span class="pre">append</span></code> and <code class="docutils literal notranslate"><span class="pre">truncate</span></code> do.</p>
+<p>Concurrent mutation of the same population is not supported: a caller
+must not add columns while another thread, callback, or pending
+asynchronous evaluation is writing to it.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="saealib.Archive.append">
 <span class="sig-prename descclassname"><span class="pre">Archive.</span></span><span class="sig-name descname"><span class="pre">append</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">element</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.Archive.append" title="Link to this definition">#</a></dt>
 <dd><p>Append one candidate.</p>
@@ -1159,6 +1202,44 @@ mutated.</p>
 <p class="rubric">メモ</p>
 <p>Surviving rows retain their relative order. The operation invalidates
 the archive's identity and nearest-neighbor caches.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="saealib.Archive.drop_columns">
+<span class="sig-prename descclassname"><span class="pre">Archive.</span></span><span class="sig-name descname"><span class="pre">drop_columns</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">names</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#saealib.Archive.drop_columns" title="Link to this definition">#</a></dt>
+<dd><p>Drop columns from the population.</p>
+<p>Reserved column names are decided by the population, not by the
+caller: the design-variable, objective, constraint, constraint-value,
+candidate-identity, and objective-source columns are rejected, as is
+the archive key attribute (and the observation columns of an
+<code class="docutils literal notranslate"><span class="pre">append</span></code> archive). Columns that a component in use requires, such as
+the velocity of a particle swarm algorithm, are not checked: dropping
+one makes the next <code class="docutils literal notranslate"><span class="pre">ask</span></code> or <code class="docutils literal notranslate"><span class="pre">tell</span></code> that reads it fail with a
+<code class="docutils literal notranslate"><span class="pre">KeyError</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>names</strong> (<em>iterable</em><em> of </em><em>str</em>) -- Column names to remove.</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>Names of the columns that were removed, in the given order. The
+list is empty when <code class="docutils literal notranslate"><span class="pre">names</span></code> is empty.</p>
+</dd>
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of str</p>
+</dd>
+<dt class="field-even">例外<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="saealib.ValidationError.html#saealib.ValidationError" title="saealib.ValidationError"><strong>ValidationError</strong></a> -- If a name is empty or repeated, a column does not exist, or a
+    column is reserved.</p>
+</dd>
+</dl>
+<p class="rubric">メモ</p>
+<p>A non-empty call bumps the structure version and the value version
+once, invalidates cached values, and invalidates live
+<a class="reference internal" href="saealib.Individual.html#saealib.Individual" title="saealib.Individual"><code class="xref py py-class docutils literal notranslate"><span class="pre">Individual</span></code></a> handles, exactly as <code class="docutils literal notranslate"><span class="pre">append</span></code> and <code class="docutils literal notranslate"><span class="pre">truncate</span></code>
+do.</p>
+<p>Concurrent mutation of the same population is not supported: a caller
+must not drop columns while another thread, callback, or pending
+asynchronous evaluation is writing to it.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1506,10 +1587,12 @@ and dtype <code class="docutils literal notranslate"><span class="pre">schema[ke
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive"><code class="docutils literal notranslate"><span class="pre">Archive</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.__init__"><code class="docutils literal notranslate"><span class="pre">Archive.__init__()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.add"><code class="docutils literal notranslate"><span class="pre">Archive.add()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.add_columns"><code class="docutils literal notranslate"><span class="pre">Archive.add_columns()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.append"><code class="docutils literal notranslate"><span class="pre">Archive.append()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.argsort"><code class="docutils literal notranslate"><span class="pre">Archive.argsort()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.clear"><code class="docutils literal notranslate"><span class="pre">Archive.clear()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.delete"><code class="docutils literal notranslate"><span class="pre">Archive.delete()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.drop_columns"><code class="docutils literal notranslate"><span class="pre">Archive.drop_columns()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.empty_like"><code class="docutils literal notranslate"><span class="pre">Archive.empty_like()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.extend"><code class="docutils literal notranslate"><span class="pre">Archive.extend()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saealib.Archive.extract"><code class="docutils literal notranslate"><span class="pre">Archive.extract()</span></code></a></li>

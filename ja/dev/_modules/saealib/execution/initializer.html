@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev52+g992740325 ドキュメント</title>
+    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev53+ga189929a6 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=6c418fda"></script>
+    <script src="../../../_static/documentation_options.js?v=8f562f26"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -988,6 +988,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">ARCHIVES_PARETO</span><span class="p">,</span>
     <span class="n">EVALUATIONS_COUNT</span><span class="p">,</span>
     <span class="n">POPULATIONS_MAIN</span><span class="p">,</span>
+    <span class="n">RUNTIME_BASE_COLUMNS</span><span class="p">,</span>
     <span class="n">RUNTIME_CANDIDATE_ID_ALLOCATOR</span><span class="p">,</span>
     <span class="n">RUNTIME_DECISION_COUNT</span><span class="p">,</span>
     <span class="n">RUNTIME_GENERATION</span><span class="p">,</span>
@@ -1092,6 +1093,19 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="n">a</span> <span class="o">==</span> <span class="n">b</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_declared_attr_names</span><span class="p">(</span><span class="n">problem</span><span class="p">:</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">ComponentProvider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the column names that the bound components declare.&quot;&quot;&quot;</span>
+    <span class="n">names</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">names</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="n">attr</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">provider</span><span class="o">.</span><span class="n">algorithm</span><span class="o">.</span><span class="n">get_required_attrs</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="n">comparator</span> <span class="o">=</span> <span class="n">_provider_comparator</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">names</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">attr</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">comparator</span><span class="o">.</span><span class="n">get_required_attrs</span><span class="p">(</span><span class="n">problem</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">names</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_merge_required_attrs</span><span class="p">(</span>
     <span class="n">attrs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">],</span>
     <span class="n">problem</span><span class="p">:</span> <span class="n">Problem</span><span class="p">,</span>
@@ -1182,6 +1196,7 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">RUNTIME_STEP</span><span class="p">,</span>
                     <span class="n">RUNTIME_REGION_COUNTS</span><span class="p">,</span>
                     <span class="n">RUNTIME_RNG</span><span class="p">,</span>
+                    <span class="n">RUNTIME_BASE_COLUMNS</span><span class="p">,</span>
                 <span class="p">),</span>
             <span class="p">),</span>
         <span class="p">)</span></div>
@@ -1207,12 +1222,13 @@ window.runMermaid = runMermaid;</script>
         <span class="n">pareto_archive</span><span class="p">:</span> <span class="n">ParetoArchive</span><span class="p">,</span>
         <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">,</span>
         <span class="n">rng</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">Generator</span><span class="p">,</span>
+        <span class="n">attrs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
         <span class="n">comparator</span> <span class="o">=</span> <span class="n">_provider_comparator</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span><span class="p">)</span> <span class="ow">and</span> <span class="n">comparator</span><span class="o">.</span><span class="n">_rng</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">comparator</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
-        <span class="k">return</span> <span class="n">OptimizationState</span><span class="p">(</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">OptimizationState</span><span class="p">(</span>
             <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
             <span class="n">population</span><span class="o">=</span><span class="n">population</span><span class="p">,</span>
             <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">,</span>
@@ -1225,6 +1241,13 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">channels</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;history_channels&quot;</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;summary&quot;</span><span class="p">,))</span>
             <span class="p">),</span>
         <span class="p">)</span>
+        <span class="n">declared</span> <span class="o">=</span> <span class="n">_declared_attr_names</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span>
+        <span class="n">columns</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">schema</span> <span class="k">if</span> <span class="n">attrs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[</span><span class="n">attr</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">attrs</span><span class="p">]</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span>
+            <span class="n">RUNTIME_BASE_COLUMNS</span><span class="p">,</span>
+            <span class="nb">sorted</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">columns</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">declared</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">state</span>
 
 <div class="viewcode-block" id="Initializer.initialize">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.Initializer.html#saealib.Initializer.initialize">[ドキュメント]</a>
@@ -1314,7 +1337,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">provider</span><span class="p">,</span> <span class="n">attrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">problem</span>
         <span class="p">)</span>
         <span class="n">ctx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_context</span><span class="p">(</span>
-            <span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">rng</span>
+            <span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">rng</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span>
         <span class="p">)</span>
 
         <span class="n">genomes</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_init_archive</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span>
@@ -1468,7 +1491,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">pareto_archive</span><span class="o">.</span><span class="n">_dense_numeric_view</span> <span class="o">=</span> <span class="n">_resolved_dense_view</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
 
         <span class="n">ctx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_context</span><span class="p">(</span>
-            <span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">rng</span>
+            <span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">rng</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span>
         <span class="p">)</span>
 
         <span class="n">bounds_srv</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
@@ -1630,7 +1653,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">pareto_archive</span><span class="o">.</span><span class="n">_dense_numeric_view</span> <span class="o">=</span> <span class="n">_resolved_dense_view</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
 
         <span class="n">ctx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_context</span><span class="p">(</span>
-            <span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">rng</span>
+            <span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">rng</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span>
         <span class="p">)</span>
 
         <span class="n">bounds_srv</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
@@ -1789,7 +1812,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">pareto_archive</span><span class="o">.</span><span class="n">_dense_numeric_view</span> <span class="o">=</span> <span class="n">_resolved_dense_view</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
 
         <span class="n">ctx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_context</span><span class="p">(</span>
-            <span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">rng</span>
+            <span class="n">problem</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">rng</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span>
         <span class="p">)</span>
 
         <span class="n">bounds_srv</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Population &#8212; saealib 0.1.1.dev52+g992740325 ドキュメント</title>
+    <title>Population &#8212; saealib 0.1.1.dev53+ga189929a6 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6c418fda"></script>
+    <script src="../../_static/documentation_options.js?v=8f562f26"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -651,6 +651,12 @@ Genome-native経路では、GenomeBatchとSearchSpaceの契約が表現の構造
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">set_cache(key,</span> <span class="pre">value)</span></code> / <code class="docutils literal notranslate"><span class="pre">get_cache(key)</span></code></p></td>
 <td><p>計算結果をPopulation変更まで有効なキャッシュとして保持する</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">add_columns(specs)</span></code></p></td>
+<td><p>列を追加し、既存の行を各定義の既定値で埋める。等しい定義の既存列は変更しない</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">drop_columns(names)</span></code></p></td>
+<td><p>列を削除し、削除した名前を返す。予約列は拒否し、使用中の部品が要求する列は検査しない</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pop[i]</span></code> / <code class="docutils literal notranslate"><span class="pre">pop[a:b]</span></code></p></td>
 <td><p>単一intなら<code class="docutils literal notranslate"><span class="pre">Individual</span></code>を、sliceなら部分集合の<code class="docutils literal notranslate"><span class="pre">Population</span></code>を返す</p></td>
 </tr>
@@ -660,7 +666,8 @@ Genome-native経路では、GenomeBatchとSearchSpaceの契約が表現の構造
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">set_cache</span></code>/<code class="docutils literal notranslate"><span class="pre">get_cache</span></code>によるキャッシュは、<code class="docutils literal notranslate"><span class="pre">append</span></code>/<code class="docutils literal notranslate"><span class="pre">delete</span></code>/<code class="docutils literal notranslate"><span class="pre">update_array</span></code>など個体群を変更する操作を呼ぶたびに自動的に無効化されます。
+<p><code class="docutils literal notranslate"><span class="pre">set_cache</span></code>/<code class="docutils literal notranslate"><span class="pre">get_cache</span></code>によるキャッシュは、<code class="docutils literal notranslate"><span class="pre">append</span></code>/<code class="docutils literal notranslate"><span class="pre">delete</span></code>/<code class="docutils literal notranslate"><span class="pre">update_array</span></code>/<code class="docutils literal notranslate"><span class="pre">add_columns</span></code>/<code class="docutils literal notranslate"><span class="pre">drop_columns</span></code>など個体群を変更する操作を呼ぶたびに自動的に無効化されます。
+<code class="docutils literal notranslate"><span class="pre">drop_columns</span></code>は、設計変数・目的関数・制約・制約違反・候補ID・目的値の出所の各列を残し、アーカイブでは<code class="docutils literal notranslate"><span class="pre">key_attr</span></code>列と<code class="docutils literal notranslate"><span class="pre">append</span></code>ポリシーのアーカイブの観測列も残します。これらを削除しようとすると<code class="docutils literal notranslate"><span class="pre">ValidationError</span></code>を送出します。使用中の部品が要求する列を削除すると、その列を読む次の<code class="docutils literal notranslate"><span class="pre">ask</span></code>または<code class="docutils literal notranslate"><span class="pre">tell</span></code>が<code class="docutils literal notranslate"><span class="pre">KeyError</span></code>で失敗します。<code class="docutils literal notranslate"><span class="pre">append</span></code>や<code class="docutils literal notranslate"><span class="pre">truncate</span></code>と同じく、どちらの操作も有効な<code class="docutils literal notranslate"><span class="pre">Individual</span></code>ビューを無効化し、同じ個体群の並行変更は未対応です。
 <a class="reference internal" href="../problem_and_ranking/comparators.html"><span class="std std-doc">NSGA2Comparator</span></a>がフロント分割と混雑度距離の計算結果を世代内で使い回す際に、この仕組みを利用しています。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Population</span><span class="p">,</span> <span class="n">PopulationAttribute</span>

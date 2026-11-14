@@ -26,6 +26,8 @@ from saealib.exceptions import StalePlanError, ValidationError
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from saealib.transition import Transition
+
 __all__ = [
     "ExecutionRuntime",
     "IssueCandidateIds",
@@ -99,6 +101,41 @@ class RequestTermination(RuntimeCommand):
 @dataclass(frozen=True, kw_only=True)
 class RequestCheckpoint(RuntimeCommand):
     """Request that the runtime create a checkpoint."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class ReplaceComponent(RuntimeCommand):
+    """A component replacement recorded by an optimizer setter.
+
+    The record carries the transition the caller attached to the replacement
+    and the origin of the component, so a commit point can run the transition
+    and report where the replacement came from.  Records are internal: a
+    commit point consumes them and nothing serializes them.
+
+    Attributes
+    ----------
+    slot : str
+        Binding slot the replacement targets.
+    component : object
+        The component the setter wrote to the slot.
+    transition : Transition or None
+        Transition to run at the commit point of this replacement.
+    source : str
+        Component origin of the replacement, using the optimizer's origin
+        vocabulary.
+    """
+
+    slot: str
+    component: object
+    transition: Transition | None = None
+    source: str = "setter"
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if not isinstance(self.slot, str) or not self.slot:
+            raise ValidationError("ReplaceComponent slot must be a non-empty string")
+        if not isinstance(self.source, str) or not self.source:
+            raise ValidationError("ReplaceComponent source must be a non-empty string")
 
 
 @dataclass(frozen=True, kw_only=True)

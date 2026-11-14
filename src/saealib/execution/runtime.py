@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import copy
 import inspect
 import logging
 import time
@@ -95,7 +96,15 @@ from saealib.execution.history import (
     record_generation,
 )
 from saealib.execution.prepare import BINDING_SLOTS, _prepare_plan
+from saealib.identity import PopulationAttribute
 from saealib.termination import Termination
+from saealib.transition import (
+    Chain,
+    StagedColumns,
+    Transition,
+    TransitionContext,
+    _iter_applied,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1261,6 +1270,7 @@ def _algorithm_runtime_capabilities(
 
 
 _BINDING_SLOTS = BINDING_SLOTS
+_UNSET = object()
 
 
 class _SnapshotProviderView:
@@ -1408,30 +1418,62 @@ class _PublishedPlan:
     snapshot: _BindingSnapshot
 
 
-def _capture_resolution_state(optimizer: object) -> tuple[object, ...]:
-    """Return the resolution results execution preparation writes back."""
-    return (
-        getattr(optimizer, "_component_resolution", None),
-        getattr(optimizer, "_executable_plan", None),
-        getattr(optimizer, "_component_origins", None),
-        getattr(optimizer, "_materialized_components", None),
-        getattr(optimizer, "_default_resolution", None),
-    )
+def _restore_attribute(target: object, name: str, value: object) -> None:
+    """Put one attribute back to a captured value, removing it when it was absent."""
+    if value is _UNSET:
+        if hasattr(target, name):
+            object.__delattr__(target, name)
+        return
+    object.__setattr__(target, name, value)
 
 
-def _restore_resolution_state(optimizer: object, state: tuple[object, ...]) -> None:
-    """Put back the resolution results captured before preparation ran."""
-    for name, value in zip(
-        (
-            "_component_resolution",
-            "_executable_plan",
-            "_component_origins",
-            "_materialized_components",
-            "_default_resolution",
-        ),
-        state,
-    ):
-        object.__setattr__(optimizer, name, value)
+@dataclass(frozen=True)
+class _CommitMemento:
+    """Every term one commit point may change, captured before it changes one.
+
+    The captured values are the restore targets, not a log of writes:
+    ``attributes`` holds the component the optimizer must hold again after a
+    failure, by identity, for every slot the published snapshot recorded, and
+    the published snapshot supplies the preset, the configuration counter, the
+    origin and materialized-component contents, the feature-encoder default,
+    and the feedback-builder flag.  The remaining terms are the live runtime
+    values the commit replaces: the resolution results, the published binding
+    record and plan, the state's binding version, store, custom state,
+    comparator, compiled services, and history, the region history the
+    candidate plan would add, the scheduler attributes publication writes, and
+    the staged column writes.
+    """
+
+    attributes: Mapping[str, object]
+    preset: object
+    configuration_version: object
+    origins: Mapping[str, object]
+    live_origins: Mapping[str, object]
+    materialized: Mapping[str, object]
+    feature_encoder_default: object
+    comparator_default: object
+    feedback_builder_explicit: object
+    resolution: object
+    executable_plan: object
+    default_resolution: object
+    prepared_diagnostic_cache: object
+    last_published_bindings: object
+    published: object
+    snapshot_values: Mapping[str, object]
+    binding_version: object
+    store: object
+    custom_state: object
+    comparator: object
+    compiled_services: object
+    history: object
+    region_ids: tuple[str, ...]
+    history_columns: Mapping[str, frozenset[str]]
+    scheduler: Mapping[str, object]
+    staged: _StagedCollections
+    candidate_resolution: object
+    candidate_diagnostics: tuple[Diagnostic, ...]
+    publication_deferred: bool
+    pending_recompile: bool
 
 
 def _iter_plan_components(
@@ -1537,6 +1579,228 @@ def _required_column_names(component: object, problem: object) -> tuple[str, ...
     if not callable(getter):
         return ()
     return tuple(attribute.name for attribute in getter(problem))
+
+
+def _required_attributes(
+    component: object, problem: object
+) -> tuple[PopulationAttribute, ...]:
+    """Return the population attributes one component declares."""
+    getter = getattr(component, "get_required_attrs", None)
+    if not callable(getter):
+        return ()
+    return tuple(getter(problem))
+
+
+def _specification_matches(
+    present: PopulationAttribute, required: PopulationAttribute
+) -> bool:
+    """Return whether a present column attribute satisfies a requirement."""
+    try:
+        same_dtype = bool(np.dtype(present.dtype) == np.dtype(required.dtype))
+    except TypeError:
+        return False
+    return same_dtype and tuple(present.shape) == tuple(required.shape)
+
+
+@dataclass
+class _StagedCollections:
+    """Column writes a transition staged for the three state collections."""
+
+    population: StagedColumns | None = None
+    archive: StagedColumns | None = None
+    pareto_archive: StagedColumns | None = None
+
+    @classmethod
+    def of(cls, state: OptimizationState | None) -> _StagedCollections:
+        if state is None:
+            return cls()
+
+        def staged(name: str) -> StagedColumns | None:
+            collection = getattr(state, name, None)
+            return None if collection is None else StagedColumns(collection)
+
+        return cls(
+            population=staged("population"),
+            archive=staged("archive"),
+            pareto_archive=staged("pareto_archive"),
+        )
+
+    def items(self) -> tuple[tuple[str, StagedColumns], ...]:
+        """Return the collection names that have a staged view, in order."""
+        return tuple(
+            (name, staged)
+            for name in ("population", "archive", "pareto_archive")
+            if (staged := getattr(self, name)) is not None
+        )
+
+    def targets(self) -> frozenset[str]:
+        """Return the names of the collections a transition may write."""
+        return frozenset(name for name, _ in self.items())
+
+    def apply(self) -> None:
+        """Apply every staged operation to its collection, atomically.
+
+        Every operation of every collection is validated before the first
+        mutation, and a collection that already changed is restored when a
+        later one still fails.
+        """
+        for _, staged in self.items():
+            staged.validate()
+        applied: list[StagedColumns] = []
+        try:
+            for _, staged in self.items():
+                staged.apply()
+                applied.append(staged)
+        except BaseException:
+            for staged in reversed(applied):
+                staged.rollback()
+            raise
+
+    def restore(self) -> None:
+        """Undo applied column operations and drop the staged ones."""
+        for _, staged in reversed(self.items()):
+            staged.rollback()
+            staged.discard()
+
+    def discard(self) -> None:
+        """Drop every staged operation without touching a collection."""
+        for _, staged in self.items():
+            staged.discard()
+
+
+def _incoming_bindings(
+    optimizer: object,
+    resolution: _ComponentResolution | None,
+    bindings: Mapping[str, object],
+) -> dict[str, object]:
+    """Return the components of the version being committed, by slot."""
+    if resolution is not None:
+        return dict(resolution.bindings)
+    values = dict(bindings)
+    for slot in BINDING_SLOTS:
+        values.setdefault(slot, getattr(optimizer, slot, None))
+    return values
+
+
+def _replaced_slots(
+    published: Mapping[str, object], incoming: Mapping[str, object]
+) -> tuple[str, ...]:
+    """Return the slots whose component differs from the published one."""
+    return tuple(
+        slot for slot in BINDING_SLOTS if published.get(slot) is not incoming.get(slot)
+    )
+
+
+def _transition_entries(
+    records: Mapping[str, object],
+    replaced: tuple[str, ...],
+    incoming: Mapping[str, object],
+) -> tuple[tuple[str, Transition], ...]:
+    """Return the recorded transitions of the replaced slots, in slot order."""
+    entries: list[tuple[str, Transition]] = []
+    for slot in replaced:
+        record = records.get(slot)
+        transition = getattr(record, "transition", None)
+        if not isinstance(transition, Transition):
+            continue
+        if getattr(record, "component", None) is not incoming.get(slot):
+            continue
+        entries.append((slot, transition))
+    return tuple(entries)
+
+
+def _combined_transition(
+    entries: tuple[tuple[str, Transition], ...],
+) -> Transition | None:
+    """Return one transition whose declaration covers the whole commit."""
+    if not entries:
+        return None
+    if len(entries) == 1:
+        return entries[0][1]
+    return Chain(*(transition for _, transition in entries))
+
+
+def _check_transition(
+    transition: Transition | None,
+    new_bindings: Mapping[str, object],
+    *,
+    present: frozenset[str],
+    problem: object,
+) -> tuple[frozenset[str] | None, tuple[Diagnostic, ...]]:
+    """Check a transition's column declaration against the incoming bindings.
+
+    Returns the declared column set (``None`` when the transition declares
+    nothing) and the diagnostics the declaration produces: an error per slot
+    whose required columns the transition neither finds in the state nor
+    declares, and one warning when a transition declares nothing and the check
+    therefore cannot be verified.
+    """
+    declared = (
+        frozenset() if transition is None else transition.produced_columns(new_bindings)
+    )
+    undeclared: list[tuple[str, tuple[str, ...]]] = []
+    unverifiable: list[tuple[str, tuple[str, ...]]] = []
+    for slot in BINDING_SLOTS:
+        component = new_bindings.get(slot)
+        if component is None:
+            continue
+        missing = tuple(
+            name
+            for name in _required_column_names(component, problem)
+            if name not in present
+        )
+        if not missing:
+            continue
+        if declared is None:
+            unverifiable.append((slot, missing))
+            continue
+        withheld = tuple(name for name in missing if name not in declared)
+        if withheld:
+            undeclared.append((slot, withheld))
+    diagnostics: list[Diagnostic] = []
+    for slot, withheld in undeclared:
+        component = new_bindings.get(slot)
+        diagnostics.append(_missing_column_diagnostic(slot, component, withheld))
+    if unverifiable:
+        diagnostics.append(
+            Diagnostic(
+                severity=Severity.WARNING,
+                code="transition_columns_undeclared",
+                message=(
+                    "Transition declares no produced columns, so the columns "
+                    "its replacement requires cannot be verified: "
+                    + ", ".join(
+                        f"{slot} ({', '.join(names)})" for slot, names in unverifiable
+                    )
+                    + "."
+                ),
+                path=ContractPath(components=tuple(slot for slot, _ in unverifiable)),
+                resolutions=(
+                    "Declare the columns with Transition.produced_columns().",
+                    "Add the columns before the replacement.",
+                ),
+            )
+        )
+    return declared, tuple(diagnostics)
+
+
+def _missing_column_diagnostic(
+    slot: str, component: object, missing: tuple[str, ...]
+) -> Diagnostic:
+    """Return the rejection diagnostic for columns a slot still requires."""
+    return Diagnostic(
+        severity=Severity.ERROR,
+        code="missing_population_column",
+        message=(
+            f"{type(component).__name__} requires population columns "
+            "that are missing: " + ", ".join(sorted(missing)) + "."
+        ),
+        path=ContractPath(components=(slot,)),
+        resolutions=(
+            "Add the columns with Population.add_columns() before the replacement.",
+            "Provide a transition that produces the columns.",
+        ),
+    )
 
 
 def _non_checkpointable_components(
@@ -1804,6 +2068,7 @@ class _OptimizerEnvironment:
             # back to the active bindings; a matching commit point then ends
             # the deferral, otherwise pending-collection would stall the run.
             self._publication_deferred = False
+            self._discard_stale_replacements()
             return
         if self._replacement_blocked(state):
             self._publication_deferred = True
@@ -1850,33 +2115,47 @@ class _OptimizerEnvironment:
     ) -> None:
         """Prepare a candidate binding set and publish it, or reject it.
 
-        Preparation covers compilation, the validation gate, the state checks,
-        and region history.  Any failure there goes through
-        :meth:`_reject_commit`, which restores the published configuration;
-        publication itself only writes already prepared values.
+        ``_capture_commit_memento`` records the terms this commit may change
+        before the first mutation, and every failure after it -- in
+        preparation, in a transition, in post-validation, in the staged apply,
+        or inside publication -- goes through :meth:`_reject_commit`, which
+        restores those terms.  Region history for the candidate plan is created
+        only after the transitions and post-validation accepted it, the staged
+        column writes are applied only after post-validation, and the child
+        seed a randomized comparator needs is drawn only once publication
+        succeeded, so a rejected candidate consumes no seed of the run's
+        generator.
         """
         self._candidate_resolution = None
         self._candidate_diagnostics = ()
-        saved_resolution_state = _capture_resolution_state(self.optimizer)
+        records = self._consume_replacements()
+        staged = _StagedCollections.of(self._last_state)
+        memento = self._capture_commit_memento(bindings, staged)
         try:
             executable, rebuilt = self._compile_current_plan(bindings)
             resolution = self._candidate_resolution
             self._gate(executable, resolution)
-            self._check_candidate_state(executable, resolution)
-            if self._last_state is not None and _has_state_key(
-                self._last_state, RUNTIME_REGION_COUNTS
-            ):
-                region_ids = (
-                    _iteration_region_ids(rebuilt.graph)
-                    if isinstance(rebuilt, StructuredPlan)
-                    else ()
-                )
-                _ensure_region_history(self._last_state, region_ids)
+            incoming = _incoming_bindings(self.optimizer, resolution, bindings)
+            replaced = _replaced_slots(memento.snapshot_values, incoming)
+            entries = _transition_entries(records, replaced, incoming)
+            transition = _combined_transition(entries)
+            self._check_candidate_state(executable, resolution, transition, incoming)
         except BaseException as error:
-            self._reject_commit(error, saved_resolution_state)
-        self._publish_prepared(
-            executable, rebuilt, resolution, bindings, strategy_values
-        )
+            self._reject_commit(error, memento)
+        try:
+            self._run_transitions(staged, entries, incoming, replaced)
+        except BaseException as error:
+            self._reject_commit(error, memento, report=False)
+        try:
+            self._check_staged_changes(staged, incoming)
+            self._prepare_region_history(rebuilt)
+            staged.apply()
+            self._publish_prepared(
+                executable, rebuilt, resolution, bindings, strategy_values
+            )
+        except BaseException as error:
+            self._reject_commit(error, memento)
+        self._assign_published_comparator_rng()
 
     def _publish_prepared(
         self,
@@ -1957,20 +2236,23 @@ class _OptimizerEnvironment:
             elif isinstance(current_services, dict):
                 current_services.pop("FeatureEncoder", None)
             self._last_state.__dict__["_binding_version"] = version
+        self._candidate_resolution = None
+        self._publish_scheduler(executable)
+        if self._last_state is not None:
             comparator = cast(Any, self._active_snapshot.values.get("comparator"))
             if comparator is not None and self._last_state.comparator is not comparator:
                 self._last_state.comparator = comparator
                 prepare_state_comparator(self._last_state)
-        self._candidate_resolution = None
-        self._publish_scheduler(executable)
 
     def _check_candidate_state(
         self,
         executable: ExecutablePlan,
         resolution: _ComponentResolution | None,
+        transition: Transition | None,
+        incoming: Mapping[str, object],
     ) -> None:
         """Run the checks that need the running state or the run's format."""
-        self._check_candidate_columns(resolution)
+        self._check_candidate_columns(incoming, transition)
         self._check_candidate_checkpointable(executable)
         if self._candidate_diagnostics:
             raise ConfigurationError(
@@ -1978,42 +2260,141 @@ class _OptimizerEnvironment:
                 + "\n".join(f"  - {item}" for item in self._candidate_diagnostics)
             )
 
-    def _check_candidate_columns(self, resolution: _ComponentResolution | None) -> None:
+    def _check_candidate_columns(
+        self, incoming: Mapping[str, object], transition: Transition | None
+    ) -> None:
         """Reject candidates whose declared columns the running state lacks.
 
-        The check needs a state to compare against, so a commit point without
-        one (a recompile from outside a run) skips it.
+        Columns the transition declares it produces are left to
+        post-validation, which checks the schema the staged writes would leave
+        behind.  A transition that declares nothing cannot be verified, so a
+        missing column only warns there.  The check needs a state to compare
+        against, so a commit point without one (a recompile from outside a run)
+        skips it.
         """
         state = self._last_state
         problem = getattr(self.optimizer, "problem", None)
         if state is None or problem is None:
             return
-        present = _state_column_names(state)
-        for slot in ("algorithm", "comparator"):
-            component = (
-                resolution.components.get(slot)
-                if resolution is not None
-                else getattr(self.optimizer, slot, None)
-            )
-            required = _required_column_names(component, problem)
-            missing = sorted(name for name in required if name not in present)
-            if not missing:
-                continue
+        _, diagnostics = _check_transition(
+            transition,
+            incoming,
+            present=_state_column_names(state),
+            problem=problem,
+        )
+        for diagnostic in diagnostics:
+            if diagnostic.severity is Severity.ERROR:
+                self._candidate_diagnostics += (diagnostic,)
+            else:
+                logger.warning("%s", diagnostic.message)
+
+    def _run_transitions(
+        self,
+        staged: _StagedCollections,
+        entries: tuple[tuple[str, Transition], ...],
+        incoming: Mapping[str, object],
+        replaced: tuple[str, ...],
+    ) -> None:
+        """Run the recorded transitions of this commit point, in slot order."""
+        if not entries:
+            return
+        state = self._last_state
+        tctx = TransitionContext(
+            state=state,
+            problem=getattr(self.optimizer, "problem", None),
+            rng=None if state is None else state.rng,
+            outgoing=dict(self._active_snapshot.values),
+            incoming=dict(incoming),
+            replaced_slots=replaced,
+            write_targets=staged.targets(),
+            population=staged.population,
+            archive=staged.archive,
+            pareto_archive=staged.pareto_archive,
+        )
+        for slot, transition in entries:
+            for requested in _iter_applied(transition, tctx):
+                raise ConfigurationError(
+                    f"Transition {type(transition).__name__} of slot {slot!r} "
+                    f"yielded {requested!r}; evaluation requested by a "
+                    "transition is not available at the commit point."
+                )
+
+    def _assign_published_comparator_rng(self) -> None:
+        """Draw the child seed of a randomized comparator once it is published."""
+        state = self._last_state
+        if state is not None:
+            assign_comparator_rng(state)
+
+    def _prepare_region_history(self, rebuilt: SequentialPlan | StructuredPlan) -> None:
+        """Create the region history an accepted candidate plan needs."""
+        state = self._last_state
+        if state is None or not _has_state_key(state, RUNTIME_REGION_COUNTS):
+            return
+        region_ids = (
+            _iteration_region_ids(rebuilt.graph)
+            if isinstance(rebuilt, StructuredPlan)
+            else ()
+        )
+        _ensure_region_history(state, region_ids)
+
+    def _check_staged_changes(
+        self, staged: _StagedCollections, incoming: Mapping[str, object]
+    ) -> None:
+        """Reject a commit whose staged writes leave a required column out.
+
+        Runs after the transitions and before the staged writes are applied, so
+        a rejected commit leaves every collection unchanged.  Columns a
+        transition adds are checked for dtype and shape as well.
+        """
+        problem = getattr(self.optimizer, "problem", None)
+        if self._last_state is None or problem is None:
+            return
+        missing: dict[str, list[str]] = {}
+        mismatched: dict[tuple[str, str], Diagnostic] = {}
+        for _, collection in staged.items():
+            schema = collection.planned_schema()
+            added = collection.added_columns()
+            for slot in BINDING_SLOTS:
+                component = incoming.get(slot)
+                if component is None:
+                    continue
+                for attribute in _required_attributes(component, problem):
+                    present = schema.get(attribute.name)
+                    if present is None:
+                        names = missing.setdefault(slot, [])
+                        if attribute.name not in names:
+                            names.append(attribute.name)
+                        continue
+                    key = (slot, attribute.name)
+                    if attribute.name not in added or key in mismatched:
+                        continue
+                    if _specification_matches(present, attribute):
+                        continue
+                    mismatched[key] = Diagnostic(
+                        severity=Severity.ERROR,
+                        code="population_column_specification_mismatch",
+                        message=(
+                            f"{type(component).__name__} requires column "
+                            f"{attribute.name!r} with dtype "
+                            f"{np.dtype(attribute.dtype)} and shape "
+                            f"{tuple(attribute.shape)}, but the produced column "
+                            f"has dtype {np.dtype(present.dtype)} and shape "
+                            f"{tuple(present.shape)}."
+                        ),
+                        path=ContractPath(components=(slot,)),
+                        resolutions=(
+                            "Produce the column with the declared dtype and shape.",
+                        ),
+                    )
+        for slot, names in missing.items():
             self._candidate_diagnostics += (
-                Diagnostic(
-                    severity=Severity.ERROR,
-                    code="missing_population_column",
-                    message=(
-                        f"{type(component).__name__} requires population columns "
-                        "that are missing: " + ", ".join(missing) + "."
-                    ),
-                    path=ContractPath(components=(slot,)),
-                    resolutions=(
-                        "Add the columns with Population.add_columns() before the "
-                        "replacement.",
-                        "Provide a transition that produces the columns.",
-                    ),
-                ),
+                _missing_column_diagnostic(slot, incoming.get(slot), tuple(names)),
+            )
+        self._candidate_diagnostics += tuple(mismatched.values())
+        if self._candidate_diagnostics:
+            raise ConfigurationError(
+                "Component replacement rejected at the commit point:\n"
+                + "\n".join(f"  - {item}" for item in self._candidate_diagnostics)
             )
 
     def _check_candidate_checkpointable(self, executable: ExecutablePlan) -> None:
@@ -2031,20 +2412,20 @@ class _OptimizerEnvironment:
         if callable(validator):
             validator(plan=executable)
 
-    def _rejected_changes(self) -> tuple[RejectedChange, ...]:
+    def _rejected_changes(
+        self, published: Mapping[str, object], origins: Mapping[str, object]
+    ) -> tuple[RejectedChange, ...]:
         """Return every slot whose component differs from the published one."""
-        published = self._active_snapshot.values
         current = self._bindings()
         names = list(_BINDING_SLOTS)
         names.extend(sorted((set(published) | set(current)) - set(_BINDING_SLOTS)))
-        origins = getattr(self.optimizer, "_component_origins", None)
         changes: list[RejectedChange] = []
         for name in names:
             previous = published.get(name)
             candidate = current.get(name)
             if previous is candidate:
                 continue
-            origin = origins.get(name) if isinstance(origins, dict) else None
+            origin = origins.get(name)
             changes.append(
                 RejectedChange(
                     slot=name,
@@ -2055,29 +2436,212 @@ class _OptimizerEnvironment:
             )
         return tuple(changes)
 
+    def _consume_replacements(self) -> dict[str, object]:
+        """Take the replacements recorded since the last commit point."""
+        consume = getattr(self.optimizer, "_consume_replacements", None)
+        if not callable(consume):
+            return {}
+        return dict(consume())
+
+    def _discard_stale_replacements(self) -> None:
+        """Drop recorded replacements that describe the published components."""
+        if getattr(self.optimizer, "_replacement_records", None):
+            self._consume_replacements()
+
+    def _capture_commit_memento(
+        self, bindings: Mapping[str, object], staged: _StagedCollections
+    ) -> _CommitMemento:
+        """Return every term this commit point may change, before it changes one."""
+        optimizer = self.optimizer
+        state = self._last_state
+        snapshot = self._active_snapshot
+        history = None if state is None else getattr(state, "history", None)
+        attributes: dict[str, object] = dict(snapshot.values)
+        for name in bindings:
+            if name not in attributes:
+                attributes[name] = getattr(optimizer, name, _UNSET)
+        compiled_services: object = _UNSET
+        if state is not None:
+            compiled_services = state.__dict__.get("_compiled_services", _UNSET)
+            if isinstance(compiled_services, dict):
+                compiled_services = dict(compiled_services)
+        return _CommitMemento(
+            attributes=attributes,
+            preset=snapshot.preset,
+            configuration_version=snapshot.configuration_version,
+            origins=self._published_origins(),
+            live_origins=dict(getattr(optimizer, "_component_origins", None) or {}),
+            materialized=self._published_materialized_components(),
+            feature_encoder_default=self._published_feature_encoder_default(),
+            comparator_default=self._published_comparator_default(),
+            feedback_builder_explicit=self._published_feedback_builder_explicit(),
+            resolution=getattr(optimizer, "_component_resolution", _UNSET),
+            executable_plan=getattr(optimizer, "_executable_plan", _UNSET),
+            default_resolution=getattr(optimizer, "_default_resolution", _UNSET),
+            prepared_diagnostic_cache=getattr(
+                optimizer, "_prepared_diagnostic_cache", _UNSET
+            ),
+            last_published_bindings=getattr(
+                optimizer, "_last_published_bindings", _UNSET
+            ),
+            published=self._published,
+            snapshot_values=dict(snapshot.values),
+            binding_version=(
+                _UNSET
+                if state is None
+                else state.__dict__.get("_binding_version", _UNSET)
+            ),
+            store=(
+                _UNSET
+                if state is None
+                else copy.copy(state.__dict__.get("_store", _UNSET))
+            ),
+            custom_state=(
+                _UNSET if state is None else state.__dict__.get("_custom_state", _UNSET)
+            ),
+            comparator=_UNSET if state is None else state.comparator,
+            compiled_services=compiled_services,
+            history=history,
+            region_ids=(
+                () if history is None else tuple(getattr(history, "_region_ids", ()))
+            ),
+            history_columns=(
+                {}
+                if history is None
+                else {
+                    name: frozenset(columns)
+                    for name, columns in history._columns.items()
+                }
+            ),
+            scheduler=self._scheduler_state(),
+            staged=staged,
+            candidate_resolution=self._candidate_resolution,
+            candidate_diagnostics=self._candidate_diagnostics,
+            publication_deferred=self._publication_deferred,
+            pending_recompile=self._pending_recompile,
+        )
+
+    def _restore_commit_memento(self, memento: _CommitMemento) -> None:
+        """Put back every term a failed commit point changed."""
+        optimizer = self.optimizer
+        state = self._last_state
+        memento.staged.restore()
+        for name, value in memento.attributes.items():
+            if getattr(optimizer, name, _UNSET) is not value:
+                _restore_attribute(optimizer, name, value)
+        for name, value in (
+            ("_preset", memento.preset),
+            ("_configuration_version", memento.configuration_version),
+            ("_component_origins", dict(memento.origins)),
+            ("_materialized_components", dict(memento.materialized)),
+            ("_feature_encoder_default", memento.feature_encoder_default),
+            ("_comparator_default", memento.comparator_default),
+            ("feedback_builder_explicit", memento.feedback_builder_explicit),
+            ("_component_resolution", memento.resolution),
+            ("_executable_plan", memento.executable_plan),
+            ("_default_resolution", memento.default_resolution),
+            ("_prepared_diagnostic_cache", memento.prepared_diagnostic_cache),
+            ("_last_published_bindings", memento.last_published_bindings),
+        ):
+            _restore_attribute(optimizer, name, value)
+        self._published = cast(_PublishedPlan, memento.published)
+        if state is not None:
+            if memento.binding_version is _UNSET:
+                state.__dict__.pop("_binding_version", None)
+            else:
+                state.__dict__["_binding_version"] = memento.binding_version
+            if memento.store is not _UNSET:
+                object.__setattr__(state, "_store", copy.copy(memento.store))
+            if memento.custom_state is _UNSET:
+                state.__dict__.pop("_custom_state", None)
+            else:
+                object.__setattr__(state, "_custom_state", memento.custom_state)
+            if memento.comparator is not _UNSET:
+                state.comparator = cast(Any, memento.comparator)
+            if memento.compiled_services is _UNSET:
+                state.__dict__.pop("_compiled_services", None)
+            elif isinstance(memento.compiled_services, dict):
+                object.__setattr__(
+                    state, "_compiled_services", dict(memento.compiled_services)
+                )
+            self._restore_region_history(memento)
+        self._restore_scheduler_state(memento.scheduler)
+        self._candidate_resolution = cast(
+            "_ComponentResolution | None", memento.candidate_resolution
+        )
+        self._candidate_diagnostics = memento.candidate_diagnostics
+        self._publication_deferred = memento.publication_deferred
+        self._pending_recompile = memento.pending_recompile
+
+    def _restore_region_history(self, memento: _CommitMemento) -> None:
+        """Remove the region history the candidate plan added."""
+        state = self._last_state
+        if state is None:
+            return
+        history = cast(Any, memento.history)
+        if history is not None and state.history is not history:
+            state.history = history
+        if history is None:
+            return
+        history._region_ids = memento.region_ids
+        for name, saved in memento.history_columns.items():
+            stored = history._columns.get(name)
+            if not isinstance(stored, dict):
+                continue
+            for column in [column for column in stored if column not in saved]:
+                del stored[column]
+
+    def _restore_scheduler_state(self, scheduler_state: Mapping[str, object]) -> None:
+        """Put the scheduler attributes publication writes back."""
+        scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
+        if scheduler is None:
+            return
+        for name, value in scheduler_state.items():
+            with contextlib.suppress(AttributeError):
+                object.__setattr__(scheduler, name, value)
+
+    def _scheduler_state(self) -> dict[str, object]:
+        """Return the scheduler terms publication serves from the snapshot."""
+        scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
+        if scheduler is None:
+            return {}
+        return {
+            name: getattr(scheduler, name, None)
+            for name in (
+                "algorithm",
+                "callback_manager",
+                "feedback_builder",
+                "_feedback_accumulator",
+                "_feedback_accumulator_state",
+            )
+        }
+
     def _reject_commit(
         self,
         error: BaseException,
-        saved_resolution_state: tuple[object, ...],
+        memento: _CommitMemento,
+        *,
+        report: bool = True,
     ) -> None:
-        """Restore the published configuration, then report the rejection.
+        """Restore the commit memento, then report the rejection.
 
-        Every failure raised while preparing a candidate restores the same
-        terms, so the next commit point observes no change and publishes
-        nothing.  A plain :class:`ConfigurationError` becomes a
-        :class:`ReplacementRejectedError` with the rejected slots and the
-        diagnostics that caused it; any other exception keeps its type and
-        message because it carries no diagnostics.
+        Every failure after the memento was taken restores the same terms,
+        including one raised inside publication, so the optimizer, the run
+        state, the collections, the region history, and the scheduler describe
+        the last published configuration again.  A plain
+        :class:`ConfigurationError` becomes a :class:`ReplacementRejectedError`
+        with the rejected slots and the diagnostics that caused it; any other
+        exception, and any failure reported with ``report=False``, keeps its
+        type and message.
         """
-        changes = self._rejected_changes()
+        changes = self._rejected_changes(memento.snapshot_values, memento.live_origins)
         diagnostics = self._candidate_diagnostics
-        _restore_resolution_state(self.optimizer, saved_resolution_state)
-        self._restore_published_configuration()
-        if type(error) is ConfigurationError:
+        self._restore_commit_memento(memento)
+        if report and type(error) is ConfigurationError:
             raise ReplacementRejectedError(
                 changes, diagnostics, version=self.active_version
             ) from error
-        raise
+        raise error
 
     def _published_feature_encoder_default(
         self,
@@ -2124,50 +2688,24 @@ class _OptimizerEnvironment:
             and origin.source not in {"setter", "direct assignment"}
         }
 
-    def _restore_published_configuration(self) -> None:
-        """Put every restorable term back to the last published value.
+    def _published_comparator_default(self) -> object:
+        """Return the comparator default the published selection implies."""
+        origin = self._active_snapshot.provenance.get("comparator")
+        if origin is None or origin.source != "framework default":
+            return None
+        return (
+            getattr(self.optimizer, "problem", None),
+            self._active_snapshot.values.get("comparator"),
+        )
 
-        Slots and the preset are restored by identity, the cached default
-        encoder and the origin and materialized-component maps from the
-        published snapshot, the configuration counter last, so the restored
-        values describe the published configuration exactly.  The published
-        binding record and the state's binding version are left alone: they
-        already point at it.
-        """
-        optimizer = self.optimizer
-        snapshot = self._active_snapshot
-        for name, value in snapshot.values.items():
-            if getattr(optimizer, name, None) is not value:
-                object.__setattr__(optimizer, name, value)
-        if getattr(optimizer, "_preset", None) is not snapshot.preset:
-            object.__setattr__(optimizer, "_preset", snapshot.preset)
-        object.__setattr__(
-            optimizer,
-            "_feature_encoder_default",
-            self._published_feature_encoder_default(),
-        )
-        object.__setattr__(optimizer, "_component_origins", self._published_origins())
-        object.__setattr__(
-            optimizer,
-            "_materialized_components",
-            self._published_materialized_components(),
-        )
-        builder_origin = snapshot.provenance.get("feedback_builder")
-        builder_explicit = getattr(builder_origin, "source", None) in {
+    def _published_feedback_builder_explicit(self) -> object:
+        """Return whether the published feedback builder came from an explicit slot."""
+        origin = self._active_snapshot.provenance.get("feedback_builder")
+        return getattr(origin, "source", None) in {
             "setter",
             "direct assignment",
             "user preset",
         }
-        current_explicit = getattr(optimizer, "feedback_builder_explicit", False)
-        if current_explicit is not builder_explicit:
-            object.__setattr__(optimizer, "feedback_builder_explicit", builder_explicit)
-        self._candidate_resolution = None
-        self._candidate_diagnostics = ()
-        self._publication_deferred = False
-        self._pending_recompile = False
-        object.__setattr__(
-            optimizer, "_configuration_version", snapshot.configuration_version
-        )
 
     def _publish_scheduler(self, executable: ExecutablePlan) -> None:
         """Serve the scheduler from the active snapshot, never live reads."""
@@ -2712,6 +3250,18 @@ def prepare_state_comparator(state: OptimizationState) -> None:
     if getattr(comparator, "direction", None) is None:
         comparator.direction = state.problem.direction
     comparator.eps_cv = state.problem.handler.feasibility_threshold
+
+
+def assign_comparator_rng(state: OptimizationState) -> None:
+    """Give a randomized comparator its niche tie-breaking generator.
+
+    Consumes one child seed of the run's generator.  A commit point calls this
+    only after its new configuration is published, and a rejected replacement
+    never reaches it, so the parent seed sequence is untouched by a rejected
+    candidate and the next accepted randomized comparator draws the same child
+    a run without the rejected attempt would.
+    """
+    comparator = state.comparator
     if isinstance(comparator, NSGA3Comparator) and comparator._rng is None:
         comparator.rng = state.rng.spawn(1)[0]
 
@@ -3173,6 +3723,7 @@ class PipelineRuntime:
     @staticmethod
     def _prepare_state(state: OptimizationState) -> None:
         prepare_state_comparator(state)
+        assign_comparator_rng(state)
 
 
 class AsyncPipelineRuntime(PipelineRuntime):
@@ -3267,16 +3818,16 @@ class AsyncPipelineRuntime(PipelineRuntime):
 
         environment = self.environment
         environment.fatal(session.state)
+        state = session.state
+        _sync_transient_fields_from_store(state)
         refresh = getattr(environment, "_refresh_plan_if_needed", None)
         if callable(refresh) and not session.frames:
-            refresh(session.state)
+            refresh(state)
         plan = getattr(environment, "plan", session.plan)
         if not isinstance(plan, StructuredPlan):
             raise ValidationError(
                 "structured async runtime environment returned a non-structured plan"
             )
-        state = session.state
-        _sync_transient_fields_from_store(state)
         generation_open = session.generation_open
         frames = session.frames
         resume_async_driver = False

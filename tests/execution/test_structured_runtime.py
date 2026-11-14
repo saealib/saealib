@@ -29,6 +29,7 @@ from saealib.core.runtime import (
     StructuredPlan,
 )
 from saealib.core.state import (
+    EVALUATION_HANDLES,
     EVALUATION_UPDATES,
     EVALUATIONS_PLAN_UPDATES,
     OPTIMIZATION_STATE_INITIAL_KEYS,
@@ -570,6 +571,25 @@ def test_async_structured_request_is_published_after_pending_work_drains(
         default_runtime_registry.offered_capabilities(optimizer)
     )
     assert kwargs["_verification_enabled"] is True
+
+
+def test_async_structured_advance_syncs_pending_state_before_the_commit_point() -> None:
+    observed: list[list[int]] = []
+
+    class Environment(_StructuredEnvironment):
+        def _refresh_plan_if_needed(self, state=None):
+            assert state is not None
+            observed.append(sorted(int(key) for key in state.evaluation_handles))
+
+    state = _state()
+    state.set_state(EVALUATION_HANDLES, {7: object()})
+    object.__setattr__(state, "evaluation_handles", {})
+    runtime = AsyncPipelineRuntime(Environment())
+    session = runtime.initialize(_compile(Pipeline([_Increment()])), state)
+
+    runtime.advance(session)
+
+    assert observed == [[7]]
 
 
 def test_async_structured_requires_a_driver_without_sync_fallback() -> None:

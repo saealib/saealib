@@ -17,8 +17,8 @@ either leaves the plan and the binding version alone or joins the ordinary
 replacement path.  The declared state keys are seeded, restored when a commit
 point fails, and survive a portable checkpoint, and the accuracy a bound
 surrogate manager reported is available as ``SURROGATES_ACCURACY``.  The
-helpers in this module cover the accuracy threshold, smoothing and stagnation
-rules.
+helpers in this module and :class:`EpsilonSchedule` cover the accuracy
+threshold, smoothing, stagnation and schedule rules.
 
 Extensible toward
 -----------------
@@ -30,8 +30,11 @@ optimizers of an ``IslandModel`` or an ``Experiment``, and a controller whose
 
 Out of scope
 ------------
-A controller that requests an evaluation, a checkpoint, or termination, and a
-controller that changes anything other than components and parameter values.
+A relative epsilon specification (it needs a statistic of the initial
+constraint violation that is not decided), renaming ``eps_cv``, changing what
+``Result`` treats as feasible, and a controller that requests an evaluation,
+a checkpoint, or termination: a controller changes components and parameter
+values only.
 """
 
 from __future__ import annotations
@@ -57,6 +60,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Controller",
+    "EpsilonSchedule",
     "FixedSchedule",
     "SmoothedController",
     "StagnationController",
@@ -159,6 +163,49 @@ def _observed_state(
     except KeyError:
         return None
     return record if isinstance(record, Mapping) else None
+
+
+class EpsilonSchedule(Controller):
+    """Write the comparator's constraint relaxation from a generation schedule.
+
+    The controller returns ``SetParameter("comparator", "eps_cv", schedule(gen))``
+    at every commit point, where ``gen`` is the generation at the start of the
+    step, so the selection of a step that starts at generation ``g`` uses
+    ``schedule(g)``.  A generation-based strategy advances ``gen`` by more than
+    one per step, and the schedule follows that counter.
+
+    Parameters
+    ----------
+    schedule : Callable[[int], float]
+        Maps a generation index to the search-time relaxation.
+
+    Notes
+    -----
+    The value is not part of any contract, so writing it changes neither the
+    plan nor the binding version, and a pending asynchronous evaluation does
+    not delay it.
+
+    This controller moves the relaxation only.  The violation aggregation stays
+    with the constraint handler, and the inequality/equality formulation of a
+    handler such as ``EpsilonConstraintHandler`` is available separately as
+    ``Problem(cv_aggregator=...)``; moving the schedule alone keeps the
+    handler's aggregation, not its lifecycle.
+    """
+
+    def __init__(self, schedule: Callable[[int], float]) -> None:
+        if not callable(schedule):
+            raise ValidationError("EpsilonSchedule requires a callable schedule")
+        self.schedule = schedule
+
+    def decide(self, state: OptimizationState) -> Sequence[RuntimeCommand]:
+        """Return the relaxation this generation's step starts with."""
+        return (
+            SetParameter(
+                slot="comparator",
+                path="eps_cv",
+                value=float(self.schedule(state.gen)),
+            ),
+        )
 
 
 class FixedSchedule(Controller):

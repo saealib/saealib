@@ -98,6 +98,7 @@ from saealib.context import OptimizationState as OptimizationState
 
 # controllers
 from saealib.controllers import Controller as Controller
+from saealib.controllers import EpsilonSchedule as EpsilonSchedule
 from saealib.controllers import FixedSchedule as FixedSchedule
 from saealib.controllers import SmoothedController as SmoothedController
 from saealib.controllers import StagnationController as StagnationController

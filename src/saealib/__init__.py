@@ -325,6 +325,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     "OptimizationState": "saealib.context",
     # controllers
     "Controller": "saealib.controllers",
+    "EpsilonSchedule": "saealib.controllers",
     "FixedSchedule": "saealib.controllers",
     "SmoothedController": "saealib.controllers",
     "StagnationController": "saealib.controllers",

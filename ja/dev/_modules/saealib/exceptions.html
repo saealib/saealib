@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.exceptions &#8212; saealib 0.1.1.dev53+ga189929a6 ドキュメント</title>
+    <title>saealib.exceptions &#8212; saealib 0.1.1.dev54+g422769519 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=8f562f26"></script>
+    <script src="../../_static/documentation_options.js?v=8693314c"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -959,6 +959,7 @@ window.runMermaid = runMermaid;</script>
   <h1>saealib.exceptions のソースコード</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Public exception hierarchy for saealib.&quot;&quot;&quot;</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
@@ -967,6 +968,8 @@ window.runMermaid = runMermaid;</script>
     <span class="s2">&quot;EvaluationFatalError&quot;</span><span class="p">,</span>
     <span class="s2">&quot;EvaluationProtocolError&quot;</span><span class="p">,</span>
     <span class="s2">&quot;EvaluationSubmissionError&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;RejectedChange&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ReplacementRejectedError&quot;</span><span class="p">,</span>
     <span class="s2">&quot;SaealibError&quot;</span><span class="p">,</span>
     <span class="s2">&quot;ValidationError&quot;</span><span class="p">,</span>
 <span class="p">]</span>
@@ -997,6 +1000,66 @@ window.runMermaid = runMermaid;</script>
 <span class="k">class</span><span class="w"> </span><span class="nc">ConfigurationError</span><span class="p">(</span><span class="n">SaealibError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when an :class:`~saealib.Optimizer` is misconfigured at run time.&quot;&quot;&quot;</span></div>
 
+
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RejectedChange</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;One slot a commit point put back to its published component.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    slot : str</span>
+<span class="sd">        Binding slot that held the rejected component.</span>
+<span class="sd">    previous : object or None</span>
+<span class="sd">        Component the slot held in the last published configuration.</span>
+<span class="sd">    candidate : object or None</span>
+<span class="sd">        Component the slot held when the commit point rejected the change.</span>
+<span class="sd">    source : str or None</span>
+<span class="sd">        Source of the rejected write, when the optimizer recorded one.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">slot</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">previous</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">candidate</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ReplacementRejectedError</span><span class="p">(</span><span class="n">ConfigurationError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A commit point refused a replacement and restored the published one.</span>
+
+<span class="sd">    The optimizer holds the configuration it last published, and the binding</span>
+<span class="sd">    version and configuration counter keep the values they had when that</span>
+<span class="sd">    configuration was published, so a resumed run publishes nothing for the</span>
+<span class="sd">    rejected change.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    changes : tuple[RejectedChange, ...]</span>
+<span class="sd">        Every slot whose component differed from the published one when the</span>
+<span class="sd">        rejection happened.</span>
+<span class="sd">    diagnostics : tuple[Diagnostic, ...]</span>
+<span class="sd">        Structured findings that caused the rejection, for example a missing</span>
+<span class="sd">        population column or a component that cannot be checkpointed.</span>
+<span class="sd">    version : int</span>
+<span class="sd">        Binding version of the configuration the optimizer kept.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">changes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RejectedChange</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">diagnostics</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">version</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">changes</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">changes</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diagnostics</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">diagnostics</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">version</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Component replacement rejected at the commit point&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">:</span>
+            <span class="n">message</span> <span class="o">+=</span> <span class="s2">&quot;:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">diagnostic</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">diagnostic</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagnostics</span>
+            <span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="CheckpointError">

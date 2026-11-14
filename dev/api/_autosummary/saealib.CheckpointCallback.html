@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.CheckpointCallback &#8212; saealib 0.1.1.dev53+ga189929a6 documentation</title>
+    <title>saealib.CheckpointCallback &#8212; saealib 0.1.1.dev54+g422769519 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=164c9488"></script>
+    <script src="../../_static/documentation_options.js?v=1f898ae2"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -916,7 +916,10 @@ reproducibility; version-sensitive).</p></li>
 </ul>
 <p>Register this callback with <a class="reference internal" href="saealib.register.html#saealib.register" title="saealib.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a>, or pass it implicitly
 via the <code class="docutils literal notranslate"><span class="pre">checkpoint_*</span></code> parameters of <a class="reference internal" href="saealib.Optimizer.html#saealib.Optimizer.run" title="saealib.Optimizer.run"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run()</span></code></a>
-and <a class="reference internal" href="saealib.Optimizer.html#saealib.Optimizer.iterate" title="saealib.Optimizer.iterate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">iterate()</span></code></a>.</p>
+and <a class="reference internal" href="saealib.Optimizer.html#saealib.Optimizer.iterate" title="saealib.Optimizer.iterate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">iterate()</span></code></a>.  Only the parameters announce the
+checkpoint format to the optimizer; a callback registered by hand writes
+its files but does not make a commit point check whether a replacement
+declares <code class="docutils literal notranslate"><span class="pre">state.checkpointable=False</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

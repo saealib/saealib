@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.optimizer &#8212; saealib 0.1.1.dev53+ga189929a6 ドキュメント</title>
+    <title>saealib.optimizer &#8212; saealib 0.1.1.dev54+g422769519 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=8f562f26"></script>
+    <script src="../../_static/documentation_options.js?v=8693314c"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1021,7 +1021,11 @@ window.runMermaid = runMermaid;</script>
     <span class="n">_prepare_plan</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.runner</span><span class="w"> </span><span class="kn">import</span> <span class="n">Runner</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">_BindingSnapshot</span><span class="p">,</span> <span class="n">default_runtime_registry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_BindingSnapshot</span><span class="p">,</span>
+    <span class="n">_non_checkpointable_components</span><span class="p">,</span>
+    <span class="n">default_runtime_registry</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.scheduler</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncEvaluationScheduler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationPlanner</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeedbackBuilder</span>
@@ -1302,6 +1306,7 @@ window.runMermaid = runMermaid;</script>
             <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span>
         <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verification_enabled</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_portable_checkpointing</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="s2">&quot;evaluator&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="p">,</span>
             <span class="s2">&quot;bundled preset&quot;</span><span class="p">,</span>
@@ -2170,26 +2175,24 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
         <span class="n">cb</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cbmanager</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_checkpointable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reject portable checkpoints for components with non-exportable state.&quot;&quot;&quot;</span>
-        <span class="n">plan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_checkpointable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">ExecutablePlan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reject portable checkpoints for components with non-exportable state.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        plan : ExecutablePlan or None, optional</span>
+<span class="sd">            Plan to inspect.  ``None`` (default) uses the compiled plan of the</span>
+<span class="sd">            configured components.  A commit point passes its candidate plan,</span>
+<span class="sd">            so the check covers a replacement before it is published.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">plan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span>
         <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
-        <span class="n">snapshots</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">contract_snapshots</span><span class="p">)</span>
-        <span class="n">rejected</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">component_id</span><span class="p">,</span> <span class="n">contract</span> <span class="ow">in</span> <span class="n">snapshots</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">contract</span><span class="o">.</span><span class="n">assumptions</span><span class="p">[</span><span class="s2">&quot;state.checkpointable&quot;</span><span class="p">]:</span>
-                <span class="n">component</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">node_by_id</span><span class="p">(</span><span class="n">component_id</span><span class="p">)</span><span class="o">.</span><span class="n">component</span>
-                <span class="n">component_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;component&quot;</span><span class="p">,</span> <span class="n">component</span><span class="p">)</span>
-                <span class="n">rejected</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">component_id</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">component_name</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
-                <span class="k">continue</span>
-            <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">contract</span><span class="o">.</span><span class="n">parts</span><span class="p">:</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">part</span><span class="o">.</span><span class="n">contract</span><span class="o">.</span><span class="n">assumptions</span><span class="p">[</span><span class="s2">&quot;state.checkpointable&quot;</span><span class="p">]:</span>
-                    <span class="n">component</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">node_by_id</span><span class="p">(</span><span class="n">component_id</span><span class="p">)</span><span class="o">.</span><span class="n">component</span>
-                    <span class="n">held</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;stage&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">part</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                    <span class="n">rejected</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">component_id</span><span class="si">}</span><span class="s2">__</span><span class="si">{</span><span class="n">part</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">held</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">)&quot;</span>
-                    <span class="p">)</span>
+        <span class="n">rejected</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">component_id</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">type_name</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="k">for</span> <span class="n">component_id</span><span class="p">,</span> <span class="n">type_name</span> <span class="ow">in</span> <span class="n">_non_checkpointable_components</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
+        <span class="p">]</span>
         <span class="k">if</span> <span class="n">rejected</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
                 <span class="s2">&quot;Portable checkpointing requires state.checkpointable=True; &quot;</span>
@@ -2233,6 +2236,9 @@ window.runMermaid = runMermaid;</script>
                 <span class="s2">&quot;Optimizer misconfigured:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">m</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">issues</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_inject_acquisition_directions</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_portable_checkpointing</span> <span class="o">=</span> <span class="n">checkpoint_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">checkpoint_format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;npz&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">checkpoint_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">checkpoint_format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;npz&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_validate_checkpointable</span><span class="p">()</span>
@@ -2287,6 +2293,9 @@ window.runMermaid = runMermaid;</script>
                 <span class="s2">&quot;Optimizer misconfigured:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">m</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">issues</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_inject_acquisition_directions</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_portable_checkpointing</span> <span class="o">=</span> <span class="n">checkpoint_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">checkpoint_format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;npz&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">checkpoint_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">checkpoint_format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;npz&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_validate_checkpointable</span><span class="p">()</span>
@@ -2345,6 +2354,9 @@ window.runMermaid = runMermaid;</script>
                 <span class="s2">&quot;Optimizer misconfigured:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">m</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">issues</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_inject_acquisition_directions</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_portable_checkpointing</span> <span class="o">=</span> <span class="n">checkpoint_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">checkpoint_format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;npz&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">checkpoint_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">checkpoint_format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;npz&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_validate_checkpointable</span><span class="p">()</span>
@@ -2396,6 +2408,9 @@ window.runMermaid = runMermaid;</script>
                 <span class="s2">&quot;Optimizer misconfigured:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">m</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">issues</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_inject_acquisition_directions</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_portable_checkpointing</span> <span class="o">=</span> <span class="n">checkpoint_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">checkpoint_format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;npz&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">checkpoint_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">checkpoint_format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;npz&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_validate_checkpointable</span><span class="p">()</span>
@@ -2434,6 +2449,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_prepared_diagnostic_cache&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_verification_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_portable_checkpointing&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="p">{})</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="p">{})</span>

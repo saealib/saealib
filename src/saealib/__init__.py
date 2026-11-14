@@ -20,12 +20,15 @@ from saealib.algorithms import GA, PSO, Algorithm, AskTellAlgorithm, GenomeGA
 from saealib.api import maximize, minimize
 from saealib.callback import (
     CallbackManager,
+    ConfigurationChange,
+    ConfigurationCommittedEvent,
     Event,
     GenerationEndEvent,
     GenerationStartEvent,
     InitialEvaluationEndEvent,
     InitialEvaluationStartEvent,
     PostEvaluationEvent,
+    PostEvaluationRequestEvent,
     RunEndEvent,
     RunStartEvent,
 )
@@ -197,6 +200,8 @@ __all__ = [
     "Comparator",
     "ComparatorWorstFallback",
     "Condition",
+    "ConfigurationChange",
+    "ConfigurationCommittedEvent",
     "ConfigurationError",
     "ConstraintHandler",
     "ContinuousVariable",
@@ -259,6 +264,7 @@ __all__ = [
     "Population",
     "PopulationAttribute",
     "PostEvaluationEvent",
+    "PostEvaluationRequestEvent",
     "PreSelectionStrategy",
     "PredictedFeedback",
     "Problem",
@@ -318,6 +324,8 @@ _LAZY_EXPORTS: dict[str, str] = {
     # transitions
     "AlignColumns": "saealib.transition",
     "Chain": "saealib.transition",
+    "EvaluateRequest": "saealib.transition",
+    "EvaluationOutcome": "saealib.transition",
     "Transition": "saealib.transition",
     "TransitionContext": "saealib.transition",
     "chain": "saealib.transition",

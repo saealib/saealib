@@ -47,6 +47,8 @@ from saealib.api import minimize as minimize
 from saealib.callback import AcquisitionEndEvent as AcquisitionEndEvent
 from saealib.callback import AcquisitionStartEvent as AcquisitionStartEvent
 from saealib.callback import CallbackManager as CallbackManager
+from saealib.callback import ConfigurationChange as ConfigurationChange
+from saealib.callback import ConfigurationCommittedEvent as ConfigurationCommittedEvent
 from saealib.callback import Event as Event
 from saealib.callback import GenerationEndEvent as GenerationEndEvent
 from saealib.callback import GenerationStartEvent as GenerationStartEvent
@@ -55,6 +57,9 @@ from saealib.callback import InitialEvaluationStartEvent as InitialEvaluationSta
 from saealib.callback import PostAskEvent as PostAskEvent
 from saealib.callback import PostCrossoverEvent as PostCrossoverEvent
 from saealib.callback import PostEvaluationEvent as PostEvaluationEvent
+from saealib.callback import (
+    PostEvaluationRequestEvent as PostEvaluationRequestEvent,
+)
 from saealib.callback import PostMutationEvent as PostMutationEvent
 from saealib.callback import PostSurrogateFitEvent as PostSurrogateFitEvent
 from saealib.callback import RunEndEvent as RunEndEvent
@@ -321,6 +326,8 @@ from saealib.termination import max_steps as max_steps
 from saealib.termination import stalled as stalled
 from saealib.transition import AlignColumns as AlignColumns
 from saealib.transition import Chain as Chain
+from saealib.transition import EvaluateRequest as EvaluateRequest
+from saealib.transition import EvaluationOutcome as EvaluationOutcome
 from saealib.transition import Transition as Transition
 from saealib.transition import TransitionContext as TransitionContext
 from saealib.transition import chain as chain

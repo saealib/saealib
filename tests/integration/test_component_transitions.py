@@ -20,6 +20,7 @@ from saealib import (
     Chain,
     CrossoverBLXAlpha,
     CrossoverSBX,
+    EvaluateRequest,
     LHSInitializer,
     MutationUniform,
     NSGA3Comparator,
@@ -401,7 +402,7 @@ def test_setting_the_same_replacement_again_runs_the_transition_again() -> None:
     assert environment.active_version == 0
 
 
-def test_a_yielded_value_reports_that_transition_evaluation_is_unavailable() -> None:
+def test_a_yielded_value_that_is_not_an_evaluation_request_is_rejected() -> None:
     optimizer = _optimizer()
     runner, captured = _capturing_runner(optimizer)
     generator = runner.iterate()
@@ -420,7 +421,7 @@ def test_a_yielded_value_reports_that_transition_evaluation_is_unavailable() -> 
         next(generator)
     generator.close()
 
-    assert "evaluation requested by a transition is not available" in str(error.value)
+    assert "a transition may yield only an EvaluateRequest" in str(error.value)
     assert environment.active_version == version
     assert type(optimizer.algorithm) is GA
 
@@ -1321,3 +1322,58 @@ def test_a_rejected_nsga3_replacement_keeps_the_next_child_seed(
     assert control["spawned"] == 1
     for key in ("spawned", "spawn_key", "ordering", "version"):
         assert rejected[key] == control[key]
+
+
+def test_a_later_failure_keeps_the_evaluations_a_transition_confirmed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Evaluate(Transition):
+        def __init__(self) -> None:
+            self.outcomes: list[Any] = []
+
+        def apply(self, tctx: TransitionContext) -> Any:
+            assert tctx.state is not None
+            population = tctx.state.population
+            assert population is not None
+            ids = np.asarray(population.get_array("id"), dtype=np.int64)
+            self.outcomes.append((yield EvaluateRequest(ids)))
+
+    optimizer = _optimizer().set_history(["summary", "evaluation"])
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    state.population.update_array(
+        "objective_source", np.ones(len(state.population), dtype=np.uint8)
+    )
+    fe_before = int(state.fe)
+
+    def fail_validation(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("post-validation failed")
+
+    monkeypatch.setattr(environment, "_check_staged_changes", fail_validation)
+    transition = _Evaluate()
+    optimizer.set_algorithm(_ga(), transition=transition)
+    with pytest.raises(RuntimeError):
+        next(generator)
+
+    failed = environment._last_state
+    assert failed is not None
+    assert environment.active_version == 0
+    assert len(transition.outcomes) == 1
+    evaluated = len(transition.outcomes[0].candidate_ids)
+    assert int(failed.fe) == fe_before + evaluated
+    channel = failed.history.channel("evaluation")
+    assert int(np.sum(channel["size"])) == int(failed.fe)
+    assert int(channel["fe_after"][-1]) == int(failed.fe)
+
+    monkeypatch.undo()
+    rerun = _Evaluate()
+    optimizer.set_algorithm(_ga(), transition=rerun)
+    resumed = environment._refresh_plan_if_needed(failed)
+
+    assert resumed is not None
+    assert environment.active_version == 1
+    assert len(rerun.outcomes) == 1
+    assert len(rerun.outcomes[0].candidate_ids) == 0
+    assert int(resumed.fe) == int(failed.fe)

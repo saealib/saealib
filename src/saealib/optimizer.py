@@ -1175,7 +1175,7 @@ class Optimizer:
         checkpoint_interval: int = 1,
         checkpoint_format: str = "npz",
         checkpoint_delete_on_success: bool = False,
-    ) -> Generator[OptimizationState, None, None]:
+    ) -> Generator[OptimizationState, None, OptimizationState]:
         """
         Iterate the optimization process.
 
@@ -1194,7 +1194,8 @@ class Optimizer:
         Returns
         -------
         Generator[OptimizationState]
-            Generator of OptimizationState.
+            Generator of OptimizationState; it returns the state the runtime
+            ended with.
         """
         self.resolve_defaults()
         self._compile_plan()
@@ -1285,7 +1286,7 @@ class Optimizer:
         checkpoint_interval: int = 1,
         checkpoint_format: str = "npz",
         checkpoint_delete_on_success: bool = False,
-    ) -> Generator[OptimizationState, None, None]:
+    ) -> Generator[OptimizationState, None, OptimizationState]:
         """
         Resume iteration from an existing context (e.g. loaded from checkpoint).
 
@@ -1307,7 +1308,9 @@ class Optimizer:
 
         Returns
         -------
-        Generator[OptimizationState, None, None]
+        Generator[OptimizationState, None, OptimizationState]
+            Generator of OptimizationState; it returns the state the runtime
+            ended with.
         """
         self._compile_plan(require_initializer=False)
         issues = self.validate(require_initializer=False)

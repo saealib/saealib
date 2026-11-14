@@ -435,6 +435,16 @@ def _assert_history_equal(
             np.testing.assert_array_equal(actual_columns[name], expected_values)
 
 
+def _state_at_last_generation_boundary(optimizer: Optimizer) -> OptimizationState:
+    """Return the state at the last observable boundary of a run to completion."""
+    state = None
+    for state in optimizer.iterate():
+        pass
+    if state is None:
+        raise AssertionError("optimizer produced no generation boundary")
+    return state
+
+
 def _assert_run_results_equal(
     actual: OptimizationState,
     expected: OptimizationState,
@@ -612,7 +622,7 @@ def test_async_generation_based_pickle_resume_with_inflight_request_matches_full
     partial_optimizer = _make_async_generation_based_optimizer(
         problem, seed=42, n_gen=2, gen_ctrl=gen_ctrl
     )
-    partial = partial_optimizer.run()
+    partial = _state_at_last_generation_boundary(partial_optimizer)
     assert partial.gen == 2
     assert len(partial.pending_evaluations) == 1
     proposal_id = partial.get_state(PROPOSALS_CURRENT)
@@ -642,7 +652,7 @@ def test_async_generation_based_portable_resume_with_inflight_request_matches_fu
     partial_optimizer = _make_async_generation_based_optimizer(
         problem, seed=42, n_gen=2, gen_ctrl=gen_ctrl
     )
-    partial = partial_optimizer.run()
+    partial = _state_at_last_generation_boundary(partial_optimizer)
     assert partial.gen == 2
     assert len(partial.pending_evaluations) == 1
     assert partial.evaluation_plan_state is not None
@@ -1505,8 +1515,8 @@ def test_async_generation_based_run_end_callback_rejects_nonresumable_context(
 
     assert saver.observed is not None
     callback_fe, _callback_gen, callback_pending = saver.observed
-    assert callback_fe != returned.fe
-    assert callback_pending != len(returned.pending_evaluations)
+    assert callback_fe == returned.fe
+    assert callback_pending == len(returned.pending_evaluations)
     assert saver.error is not None
     assert "requests waiting to be submitted" in saver.error
     assert "save at a GenerationEndEvent instead" in saver.error
@@ -1591,7 +1601,7 @@ def test_async_generation_based_returned_state_resumes_in_all_formats(
     optimizer = _make_async_generation_based_optimizer(
         problem, seed=42, n_gen=2, gen_ctrl=0
     )
-    returned = optimizer.run()
+    returned = _state_at_last_generation_boundary(optimizer)
     path = tmp_path / f"returned-{checkpoint_format}"
     if checkpoint_format == "pickle":
         path = path.with_suffix(".pkl")
@@ -1934,7 +1944,7 @@ def test_pending_evaluation_with_started_callback_rejects_all_checkpoint_paths(
     optimizer = _make_async_generation_based_optimizer(
         problem, seed=12, n_gen=2, gen_ctrl=0
     )
-    state = optimizer.run()
+    state = _state_at_last_generation_boundary(optimizer)
     request_id, pending = next(iter(state.pending_evaluations.items()))
     state.pending_evaluations = {
         request_id: replace(
@@ -2003,7 +2013,7 @@ def test_loaded_state_save_keeps_fatal_pending_behavior(tmp_path):
     optimizer = _make_async_generation_based_optimizer(
         problem, seed=12, n_gen=2, gen_ctrl=0
     )
-    state = optimizer.run()
+    state = _state_at_last_generation_boundary(optimizer)
     assert state.pending_evaluations
     path = tmp_path / "pending.npz"
     state.__dict__.pop("_checkpoint_guard", None)
@@ -2313,7 +2323,7 @@ def test_pickle_checkpoint_reports_reattachment_check_failure(tmp_path):
     optimizer = _make_async_generation_based_optimizer(
         _make_problem(), seed=18, n_gen=2, gen_ctrl=0
     )
-    state = optimizer.run()
+    state = _state_at_last_generation_boundary(optimizer)
     assert state.pending_evaluations
     scheduler = optimizer.async_evaluation_scheduler
     assert scheduler is not None
@@ -2340,7 +2350,7 @@ def test_checkpoint_rejects_evaluator_that_cannot_reattach_pending_work(tmp_path
     optimizer = _make_async_generation_based_optimizer(
         _make_problem(), seed=29, n_gen=2, gen_ctrl=0
     )
-    state = optimizer.run()
+    state = _state_at_last_generation_boundary(optimizer)
     assert state.pending_evaluations
     scheduler = optimizer.async_evaluation_scheduler
     assert scheduler is not None

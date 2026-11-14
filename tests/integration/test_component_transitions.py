@@ -591,7 +591,7 @@ def test_a_chain_declares_the_union_of_its_parts_columns() -> None:
     assert composed.parts == (composed.parts[0], composed.parts[1])
 
 
-def test_a_chain_declares_nothing_when_a_part_declares_nothing() -> None:
+def test_a_chain_ignores_parts_that_declare_nothing() -> None:
     class Declares(Transition):
         def produced_columns(self, new_bindings: Any) -> frozenset[str] | None:
             return frozenset({"velocity"})
@@ -599,7 +599,9 @@ def test_a_chain_declares_nothing_when_a_part_declares_nothing() -> None:
         def apply(self, tctx: TransitionContext) -> Any:
             yield from ()
 
-    assert chain(Declares(), Transition()).produced_columns({}) is None
+    assert chain(Declares(), Transition()).produced_columns({}) == frozenset(
+        {"velocity"}
+    )
 
 
 def test_replacing_two_slots_runs_their_transitions_in_binding_order() -> None:

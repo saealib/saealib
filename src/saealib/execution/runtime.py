@@ -99,6 +99,7 @@ from saealib.execution.prepare import BINDING_SLOTS, _prepare_plan
 from saealib.identity import PopulationAttribute
 from saealib.termination import Termination
 from saealib.transition import (
+    AlignColumns,
     Chain,
     StagedColumns,
     Transition,
@@ -1695,16 +1696,22 @@ def _transition_entries(
     records: Mapping[str, object],
     replaced: tuple[str, ...],
     incoming: Mapping[str, object],
+    problem: object,
 ) -> tuple[tuple[str, Transition], ...]:
-    """Return the recorded transitions of the replaced slots, in slot order."""
+    """Return the transitions of the replaced slots, in slot order.
+
+    A slot without a matching record uses the default column alignment; a
+    recorded transition replaces that default for its slot.
+    """
     entries: list[tuple[str, Transition]] = []
     for slot in replaced:
+        component = incoming.get(slot)
         record = records.get(slot)
         transition = getattr(record, "transition", None)
-        if not isinstance(transition, Transition):
-            continue
-        if getattr(record, "component", None) is not incoming.get(slot):
-            continue
+        if not isinstance(transition, Transition) or (
+            getattr(record, "component", None) is not component
+        ):
+            transition = AlignColumns(problem)  # type: ignore[arg-type]
         entries.append((slot, transition))
     return tuple(entries)
 
@@ -1736,7 +1743,12 @@ def _check_transition(
     therefore cannot be verified.
     """
     declared = (
-        frozenset() if transition is None else transition.produced_columns(new_bindings)
+        frozenset()
+        if transition is None
+        else transition._declared_columns(
+            new_bindings,
+            problem,  # type: ignore[arg-type]
+        )
     )
     undeclared: list[tuple[str, tuple[str, ...]]] = []
     unverifiable: list[tuple[str, tuple[str, ...]]] = []
@@ -2137,7 +2149,12 @@ class _OptimizerEnvironment:
             self._gate(executable, resolution)
             incoming = _incoming_bindings(self.optimizer, resolution, bindings)
             replaced = _replaced_slots(memento.snapshot_values, incoming)
-            entries = _transition_entries(records, replaced, incoming)
+            entries = _transition_entries(
+                records,
+                replaced,
+                incoming,
+                getattr(self.optimizer, "problem", None),
+            )
             transition = _combined_transition(entries)
             self._check_candidate_state(executable, resolution, transition, incoming)
         except BaseException as error:

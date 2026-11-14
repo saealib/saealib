@@ -9,8 +9,10 @@ configuration, the binding version, and the state's collections unchanged.
 Capabilities:
 
 - Supported: attaching a transition to a component setter, composing
-  transitions with :class:`Chain`, and staging column additions and drops for
-  the population, archive, and Pareto archive of the running state.
+  transitions with :class:`Chain`, staging column additions and drops for the
+  population, archive, and Pareto archive of the running state, and aligning
+  the columns of those collections with the components bound after a
+  replacement.
 - Extensible toward: evaluation requests from a transition.  ``apply`` is a
   generator; a yielded value is rejected at the commit point with
   :class:`~saealib.exceptions.ConfigurationError` because evaluation requested
@@ -21,13 +23,15 @@ Capabilities:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
 import numpy as np
 
-from saealib.exceptions import ValidationError
+from saealib.core.state import RUNTIME_BASE_COLUMNS
+from saealib.exceptions import ConfigurationError, ValidationError
 from saealib.identity import PopulationAttribute
 from saealib.population import Population
 from saealib.population.population import _same_column_spec
@@ -36,7 +40,9 @@ if TYPE_CHECKING:
     from saealib.context import OptimizationState
     from saealib.problem import Problem
 
-__all__ = ["Chain", "Transition", "TransitionContext", "chain"]
+__all__ = ["AlignColumns", "Chain", "Transition", "TransitionContext", "chain"]
+
+logger = logging.getLogger(__name__)
 
 _ADD: Final = "add"
 _DROP: Final = "drop"
@@ -321,6 +327,55 @@ class TransitionContext:
     pareto_archive: StagedColumns | None = None
 
 
+class _DeclaredColumns:
+    """Column declarations of the components the caller names."""
+
+    @classmethod
+    def of(
+        cls, bindings: Mapping[str, object], problem: Problem | None
+    ) -> dict[str, PopulationAttribute]:
+        if problem is None:
+            return {}
+        from saealib.execution.prepare import BINDING_SLOTS
+
+        declared: dict[str, PopulationAttribute] = {}
+        for slot in BINDING_SLOTS:
+            component = bindings.get(slot)
+            getter = getattr(component, "get_required_attrs", None)
+            if not callable(getter):
+                continue
+            for attribute in getter(problem):
+                existing = declared.get(attribute.name)
+                if existing is None:
+                    declared[attribute.name] = attribute
+                    continue
+                if _same_attribute(existing, attribute):
+                    continue
+                raise ConfigurationError(
+                    f"Conflicting PopulationAttribute definitions for "
+                    f"{attribute.name!r}: {existing} vs {attribute}"
+                )
+        return declared
+
+
+def _same_attribute(left: PopulationAttribute, right: PopulationAttribute) -> bool:
+    try:
+        same_dtype = bool(np.dtype(left.dtype) == np.dtype(right.dtype))
+    except TypeError:
+        return False
+    try:
+        same_default = bool(
+            np.array_equal(
+                np.asarray(left.default),
+                np.asarray(right.default),
+                equal_nan=True,
+            )
+        )
+    except TypeError:
+        same_default = left.default == right.default
+    return same_dtype and tuple(left.shape) == tuple(right.shape) and same_default
+
+
 class Transition:
     """A change applied at a component replacement's commit point.
 
@@ -388,6 +443,15 @@ class Transition:
             commit point reports a warning and relies on post-validation.
         """
         return None
+
+    def _declared_columns(
+        self,
+        new_bindings: Mapping[str, object],
+        problem: Problem | None,
+    ) -> frozenset[str] | None:
+        """Return the declaration the commit point verifies against *problem*."""
+        del problem
+        return self.produced_columns(new_bindings)
 
     @classmethod
     def from_function(
@@ -468,14 +532,27 @@ class Chain(Transition):
     def produced_columns(
         self, new_bindings: Mapping[str, object]
     ) -> frozenset[str] | None:
-        """Return the union of the parts' columns, or ``None`` if any declares none."""
+        """Return the union of the parts' columns, ignoring parts that declare none."""
         declared: set[str] = set()
         for part in self._parts:
             columns = part.produced_columns(new_bindings)
             if columns is None:
-                return None
+                continue
             declared.update(columns)
-        return frozenset(declared)
+        return frozenset(declared) if declared else None
+
+    def _declared_columns(
+        self,
+        new_bindings: Mapping[str, object],
+        problem: Problem | None,
+    ) -> frozenset[str] | None:
+        declared: set[str] = set()
+        for part in self._parts:
+            columns = part._declared_columns(new_bindings, problem)
+            if columns is None:
+                continue
+            declared.update(columns)
+        return frozenset(declared) if declared else None
 
     def __repr__(self) -> str:
         return f"Chain({', '.join(repr(part) for part in self._parts)})"
@@ -495,6 +572,93 @@ def chain(*parts: Transition) -> Chain:
         The composed transition.
     """
     return Chain(*parts)
+
+
+class AlignColumns(Transition):
+    """Align the state collections with the components bound after a replacement.
+
+    Adds every column the incoming components declare and the collection
+    lacks, filled with the declared default.  Drops a column only when an
+    outgoing component declared it, no remaining component declares it, and
+    the initializer did not create it.  The ``x``
+    column is always kept and is never added to a collection that has none.
+    A state without a base-column record is not changed by a drop, because the
+    columns the initializer created are unknown; a warning reports that limit.
+
+    Parameters
+    ----------
+    problem : Problem or None, optional
+        The problem whose dimensions the components' declarations depend on.
+        The commit point supplies it when it uses this transition by default.
+
+    Notes
+    -----
+    Columns are staged through the context's collections, so a rejected
+    replacement leaves every collection unchanged.  Only the population,
+    archive, and Pareto archive are aligned; offspring collections are not
+    touched.
+    """
+
+    def __init__(self, problem: Problem | None = None) -> None:
+        self._problem = problem
+
+    def produced_columns(
+        self, new_bindings: Mapping[str, object]
+    ) -> frozenset[str] | None:
+        """Return the incoming components' declared column names."""
+        return self._declared_columns(new_bindings, self._problem)
+
+    def _declared_columns(
+        self,
+        new_bindings: Mapping[str, object],
+        problem: Problem | None,
+    ) -> frozenset[str] | None:
+        return frozenset(_DeclaredColumns.of(new_bindings, problem))
+
+    def apply(self, tctx: TransitionContext) -> Iterator[object]:
+        """Stage the column additions and drops of this commit point."""
+        state = tctx.state
+        problem = tctx.problem
+        if state is None or problem is None:
+            return
+        incoming = _DeclaredColumns.of(tctx.incoming, problem)
+        outgoing = _DeclaredColumns.of(tctx.outgoing, problem)
+        recorded = state.get_state(RUNTIME_BASE_COLUMNS)
+        base_columns = (
+            frozenset(recorded)
+            if isinstance(recorded, (list, tuple, set, frozenset))
+            and all(isinstance(name, str) for name in recorded)
+            else None
+        )
+        for staged in (tctx.population, tctx.archive, tctx.pareto_archive):
+            if staged is None:
+                continue
+            schema = staged.planned_schema()
+            additions = [
+                attribute
+                for name, attribute in incoming.items()
+                if name not in schema and (name != "x" or "x" in schema)
+            ]
+            if additions:
+                staged.add_columns(additions)
+            if base_columns is None:
+                if any(name not in incoming for name in outgoing):
+                    logger.warning(
+                        "Column alignment cannot drop columns because the state "
+                        "has no record of the columns the initializer created."
+                    )
+                continue
+            removals = [
+                name
+                for name in outgoing
+                if name not in incoming
+                and name not in base_columns
+                and name != "x"
+                and name in schema
+            ]
+            if removals:
+                staged.drop_columns(removals)
+        yield from ()
 
 
 def _iter_applied(transition: Transition, tctx: TransitionContext) -> Iterator[object]:

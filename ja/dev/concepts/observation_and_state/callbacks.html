@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>CallbackManager &#8212; saealib 0.1.1.dev64+g9284ee7c5 ドキュメント</title>
+    <title>CallbackManager &#8212; saealib 0.1.1.dev67+g3573ca625 ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=bc641cfd"></script>
+    <script src="../../_static/documentation_options.js?v=57200c00"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -675,7 +675,7 @@ Eventは実行境界を観測するものであり、Eventのフィールドを�
 <td><p><code class="docutils literal notranslate"><span class="pre">surrogate</span></code>、<code class="docutils literal notranslate"><span class="pre">train_x</span></code>と<code class="docutils literal notranslate"><span class="pre">train_f</span></code>はoptional</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PostEvaluationEvent</span></code></p></td>
-<td><p>選択された候補のtrue evaluation後</p></td>
+<td><p>評価計画ごとに1回、選択された候補のtrue evaluation後。コミット点でtransitionが要求した評価では発火しない（<code class="docutils literal notranslate"><span class="pre">PostEvaluationRequestEvent</span></code>を使う）</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">offspring</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">InitialEvaluationStartEvent</span></code></p></td>
@@ -691,7 +691,8 @@ Eventは実行境界を観測するものであり、Eventのフィールドを�
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">PostSurrogateFitEvent</span></code>は、Surrogateのfit後に組み込みStageから発火します。
 組み込みStageが発火するイベントでは、<code class="docutils literal notranslate"><span class="pre">train_x</span></code>と<code class="docutils literal notranslate"><span class="pre">train_f</span></code>が設定されない場合があります。
-<code class="docutils literal notranslate"><span class="pre">PostEvaluationEvent</span></code>には、評価済みの<code class="docutils literal notranslate"><span class="pre">offspring</span></code>に加えて<code class="docutils literal notranslate"><span class="pre">request_id</span></code>、<code class="docutils literal notranslate"><span class="pre">candidate_ids</span></code>、<code class="docutils literal notranslate"><span class="pre">status</span></code>が含まれる場合があります。</p>
+<code class="docutils literal notranslate"><span class="pre">PostEvaluationEvent</span></code>には、評価済みの<code class="docutils literal notranslate"><span class="pre">offspring</span></code>に加えて<code class="docutils literal notranslate"><span class="pre">request_id</span></code>、<code class="docutils literal notranslate"><span class="pre">candidate_ids</span></code>、<code class="docutils literal notranslate"><span class="pre">status</span></code>が含まれる場合があります。
+これは計画単位のイベントなので、複数の評価要求を持つ計画では1回だけ発火し、部品の差し替えのコミット点でtransitionが要求した評価では代わりに<code class="docutils literal notranslate"><span class="pre">PostEvaluationRequestEvent</span></code>が要求ごとに1回発火します。</p>
 </section>
 <section id="id3">
 <h2>既定のログ出力<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>

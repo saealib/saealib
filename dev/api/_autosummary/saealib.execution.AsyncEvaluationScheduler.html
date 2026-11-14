@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.execution.AsyncEvaluationScheduler &#8212; saealib 0.1.1.dev64+g9284ee7c5 documentation</title>
+    <title>saealib.execution.AsyncEvaluationScheduler &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=257ea753"></script>
+    <script src="../../_static/documentation_options.js?v=ce3ab7ae"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1002,7 +1002,7 @@
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>OptimizationState</p>
+<dd class="field-even"><p><em>OptimizationState</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1055,7 +1055,7 @@
 <dd class="field-odd"><p><strong>state</strong> (<em>OptimizationState</em>)</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>np.ndarray</p>
+<dd class="field-even"><p><em>ndarray</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1072,7 +1072,7 @@
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>OptimizationState</p>
+<dd class="field-even"><p><em>OptimizationState</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1089,7 +1089,7 @@
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="saealib.execution.PollResult.html#saealib.execution.PollResult" title="saealib.execution.PollResult">PollResult</a></p>
+<dd class="field-even"><p><a class="reference internal" href="saealib.execution.PollResult.html#saealib.execution.PollResult" title="saealib.core.runtime.PollResult"><em>PollResult</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1103,7 +1103,7 @@
 <dd class="field-odd"><p><strong>state</strong> (<em>OptimizationState</em>)</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>OptimizationState</p>
+<dd class="field-even"><p><em>OptimizationState</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1138,13 +1138,18 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.execution.AsyncEvaluationScheduler.submit">
-<span class="sig-prename descclassname"><span class="pre">AsyncEvaluationScheduler.</span></span><span class="sig-name descname"><span class="pre">submit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requests</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/execution/scheduler.html#AsyncEvaluationScheduler.submit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.execution.AsyncEvaluationScheduler.submit" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">AsyncEvaluationScheduler.</span></span><span class="sig-name descname"><span class="pre">submit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requests</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">owner</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/execution/scheduler.html#AsyncEvaluationScheduler.submit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#saealib.execution.AsyncEvaluationScheduler.submit" title="Link to this definition">#</a></dt>
 <dd><p>Submit disjoint requests within capacity and budget limits.</p>
+<p><em>owner</em> holds the candidate rows the requests evaluate; it defaults to
+the state’s offspring.  Pass it explicitly for a request that did not
+come from the flow’s proposals, so the submit path does not read
+<code class="docutils literal notranslate"><span class="pre">state.offspring</span></code> on its behalf.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>state</strong> (<em>OptimizationState</em>)</p></li>
 <li><p><strong>requests</strong> (<em>Iterable</em><em>[</em><a class="reference internal" href="saealib.EvaluationRequest.html#saealib.EvaluationRequest" title="saealib.EvaluationRequest"><em>EvaluationRequest</em></a><em>]</em>)</p></li>
+<li><p><strong>owner</strong> (<a class="reference internal" href="saealib.Population.html#saealib.Population" title="saealib.Population"><em>Population</em></a><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>

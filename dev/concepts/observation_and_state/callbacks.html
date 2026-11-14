@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>CallbackManager &#8212; saealib 0.1.1.dev64+g9284ee7c5 documentation</title>
+    <title>CallbackManager &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=257ea753"></script>
+    <script src="../../_static/documentation_options.js?v=ce3ab7ae"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -674,7 +674,7 @@ Treat <code class="docutils literal notranslate"><span class="pre">ctx</span></c
 <td><p><code class="docutils literal notranslate"><span class="pre">surrogate</span></code>; <code class="docutils literal notranslate"><span class="pre">train_x</span></code> and <code class="docutils literal notranslate"><span class="pre">train_f</span></code> are optional</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PostEvaluationEvent</span></code></p></td>
-<td><p>After true evaluation of the chosen candidates</p></td>
+<td><p>Once per evaluation plan, after true evaluation of the chosen candidates; evaluations a transition requests at a commit point do not fire it (use <code class="docutils literal notranslate"><span class="pre">PostEvaluationRequestEvent</span></code>)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">offspring</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">InitialEvaluationStartEvent</span></code></p></td>
@@ -690,7 +690,8 @@ Treat <code class="docutils literal notranslate"><span class="pre">ctx</span></c
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">PostSurrogateFitEvent</span></code> is fired by the built-in Stage after the Surrogate is fit.
 Events fired by built-in Stages may not set <code class="docutils literal notranslate"><span class="pre">train_x</span></code> and <code class="docutils literal notranslate"><span class="pre">train_f</span></code>.
-<code class="docutils literal notranslate"><span class="pre">PostEvaluationEvent</span></code> may include <code class="docutils literal notranslate"><span class="pre">request_id</span></code>, <code class="docutils literal notranslate"><span class="pre">candidate_ids</span></code>, and <code class="docutils literal notranslate"><span class="pre">status</span></code> in addition to the evaluated <code class="docutils literal notranslate"><span class="pre">offspring</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">PostEvaluationEvent</span></code> may include <code class="docutils literal notranslate"><span class="pre">request_id</span></code>, <code class="docutils literal notranslate"><span class="pre">candidate_ids</span></code>, and <code class="docutils literal notranslate"><span class="pre">status</span></code> in addition to the evaluated <code class="docutils literal notranslate"><span class="pre">offspring</span></code>.
+It is a plan-level event, so a plan with several evaluation requests fires it once, and an evaluation that a transition requests at a component replacement’s commit point fires <code class="docutils literal notranslate"><span class="pre">PostEvaluationRequestEvent</span></code> instead (once per request).</p>
 </section>
 <section id="default-logging-output">
 <h2>Default logging output<a class="headerlink" href="#default-logging-output" title="Link to this heading">#</a></h2>

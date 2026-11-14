@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev64+g9284ee7c5 documentation</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=257ea753"></script>
+    <script src="../../../_static/documentation_options.js?v=ce3ab7ae"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -966,15 +966,17 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">replace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimpleNamespace</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib._deprecation</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated_function</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.callback</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ConfigurationChange</span><span class="p">,</span>
+    <span class="n">ConfigurationCommittedEvent</span><span class="p">,</span>
     <span class="n">Event</span><span class="p">,</span>
     <span class="n">GenerationEndEvent</span><span class="p">,</span>
     <span class="n">GenerationStartEvent</span><span class="p">,</span>
@@ -1031,6 +1033,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">StateKey</span><span class="p">,</span>
     <span class="n">StateView</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state.keys</span><span class="w"> </span><span class="kn">import</span> <span class="n">EVALUATIONS_COUNT</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state.patch</span><span class="w"> </span><span class="kn">import</span> <span class="n">StatePatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state.readonly</span><span class="w"> </span><span class="kn">import</span> <span class="n">_unwrap_readonly</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -1047,6 +1050,12 @@ window.runMermaid = runMermaid;</script>
     <span class="n">_resolve_explicit_feature_encoder</span><span class="p">,</span>
     <span class="n">resolve_components</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NO_TELL_METADATA</span><span class="p">,</span>
+    <span class="n">ORIGIN_KIND_METADATA</span><span class="p">,</span>
+    <span class="n">ORIGIN_KIND_TRANSITION</span><span class="p">,</span>
+    <span class="n">EvaluationRequest</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.history</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">_ensure_region_history</span><span class="p">,</span>
     <span class="n">record_decision</span><span class="p">,</span>
@@ -1054,16 +1063,31 @@ window.runMermaid = runMermaid;</script>
     <span class="n">record_generation</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">BINDING_SLOTS</span><span class="p">,</span> <span class="n">_prepare_plan</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.transition_evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">confirm_true_evaluation</span><span class="p">,</span>
+    <span class="n">rows_for</span><span class="p">,</span>
+    <span class="n">split_for_capacity</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">PopulationAttribute</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="p">,</span> <span class="n">TRUE</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">OBJECTIVE_SOURCE_COLUMN</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.termination</span><span class="w"> </span><span class="kn">import</span> <span class="n">Termination</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.transition</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AlignColumns</span><span class="p">,</span>
     <span class="n">Chain</span><span class="p">,</span>
+    <span class="n">EvaluateRequest</span><span class="p">,</span>
+    <span class="n">EvaluationOutcome</span><span class="p">,</span>
     <span class="n">StagedColumns</span><span class="p">,</span>
     <span class="n">Transition</span><span class="p">,</span>
     <span class="n">TransitionContext</span><span class="p">,</span>
     <span class="n">_iter_applied</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Evaluator</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.scheduler</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncEvaluationScheduler</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.genome</span><span class="w"> </span><span class="kn">import</span> <span class="n">GenomeBatch</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Population</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -2463,6 +2487,8 @@ window.runMermaid = runMermaid;</script>
     <span class="n">region_ids</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
     <span class="n">history_columns</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
     <span class="n">scheduler</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">evaluation_handles</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">scheduler_fatal_states</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
     <span class="n">staged</span><span class="p">:</span> <span class="n">_StagedCollections</span>
     <span class="n">candidate_resolution</span><span class="p">:</span> <span class="nb">object</span>
     <span class="n">candidate_diagnostics</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
@@ -2688,6 +2714,35 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_configuration_changes</span><span class="p">(</span>
+    <span class="n">previous</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="n">current</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="n">provenance</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ConfigurationChange</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the binding slots a publication replaced, in binding order.</span>
+
+<span class="sd">    A slot whose object is unchanged is left out, so a publication that only</span>
+<span class="sd">    recompiled around an in-place part change reports no entries.  The source</span>
+<span class="sd">    is the origin recorded for the component that now holds the slot.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">changes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ConfigurationChange</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">BINDING_SLOTS</span><span class="p">:</span>
+        <span class="n">before</span> <span class="o">=</span> <span class="n">previous</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
+        <span class="n">after</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">before</span> <span class="ow">is</span> <span class="n">after</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">origin</span> <span class="o">=</span> <span class="n">provenance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
+        <span class="n">changes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">ConfigurationChange</span><span class="p">(</span>
+                <span class="n">slot</span><span class="o">=</span><span class="n">slot</span><span class="p">,</span>
+                <span class="n">previous</span><span class="o">=</span><span class="n">before</span><span class="p">,</span>
+                <span class="n">current</span><span class="o">=</span><span class="n">after</span><span class="p">,</span>
+                <span class="n">source</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">origin</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">changes</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_transition_entries</span><span class="p">(</span>
     <span class="n">records</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
     <span class="n">replaced</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
@@ -2716,6 +2771,77 @@ window.runMermaid = runMermaid;</script>
             <span class="n">transition</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">Chain</span><span class="p">(</span><span class="o">*</span><span class="n">parts</span><span class="p">)</span>
         <span class="n">entries</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">slot</span><span class="p">,</span> <span class="n">transition</span><span class="p">))</span>
     <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_transition_steps</span><span class="p">(</span>
+    <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span><span class="p">,</span> <span class="n">tctx</span><span class="p">:</span> <span class="n">TransitionContext</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">EvaluateRequest</span><span class="p">,</span> <span class="n">EvaluationOutcome</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Forward a transition&#39;s evaluation requests and their outcomes.</span>
+
+<span class="sd">    Every yielded value must be an :class:`EvaluateRequest`; the outcome of the</span>
+<span class="sd">    request is sent back into the transition&#39;s generator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">steps</span> <span class="o">=</span> <span class="n">_iter_applied</span><span class="p">(</span><span class="n">transition</span><span class="p">,</span> <span class="n">tctx</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">steps</span><span class="p">)</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">EvaluateRequest</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Transition </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">transition</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> yielded </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">; &quot;</span>
+                    <span class="s2">&quot;a transition may yield only an EvaluateRequest.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">outcome</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">value</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">steps</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">outcome</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">steps</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_unevaluated_rows</span><span class="p">(</span><span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the mask of *rows* whose objective values are not true yet.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">OBJECTIVE_SOURCE_COLUMN</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">population</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">population</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="n">OBJECTIVE_SOURCE_COLUMN</span><span class="p">))[</span><span class="n">rows</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">!=</span> <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="p">[</span><span class="n">TRUE</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_evaluation_outcome</span><span class="p">(</span>
+    <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">,</span> <span class="n">candidate_ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvaluationOutcome</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read the true values of the successfully evaluated rows.</span>
+
+<span class="sd">    Only rows whose objective values are true evaluations are reported, so an</span>
+<span class="sd">    outcome never carries a row that failed to evaluate.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="n">rows_for</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">candidate_ids</span><span class="p">)</span>
+    <span class="n">evaluated</span> <span class="o">=</span> <span class="o">~</span><span class="n">_unevaluated_rows</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">rows</span><span class="p">)</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="n">rows</span><span class="p">[</span><span class="n">evaluated</span><span class="p">]</span>
+    <span class="n">candidate_ids</span> <span class="o">=</span> <span class="n">candidate_ids</span><span class="p">[</span><span class="n">evaluated</span><span class="p">]</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidate_ids</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">column</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">empty</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">population</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">empty</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">population</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="n">name</span><span class="p">))[</span><span class="n">rows</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">EvaluationOutcome</span><span class="p">(</span>
+        <span class="n">candidate_ids</span><span class="o">=</span><span class="n">candidate_ids</span><span class="p">,</span>
+        <span class="n">f</span><span class="o">=</span><span class="n">column</span><span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">width</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span><span class="p">)))),</span>
+        <span class="n">g</span><span class="o">=</span><span class="n">column</span><span class="p">(</span><span class="s2">&quot;g&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">width</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_constraints</span><span class="p">)))),</span>
+        <span class="n">cv</span><span class="o">=</span><span class="n">column</span><span class="p">(</span><span class="s2">&quot;cv&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">width</span><span class="p">)),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_empty_outcome</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvaluationOutcome</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the outcome of a request that had nothing left to evaluate.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">EvaluationOutcome</span><span class="p">(</span>
+        <span class="n">candidate_ids</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+        <span class="n">f</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span><span class="p">))),</span>
+        <span class="n">g</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">n_constraints</span><span class="p">))),</span>
+        <span class="n">cv</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+    <span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_combined_transition</span><span class="p">(</span>
@@ -2978,7 +3104,9 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">SequentialPlan</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_plan_if_needed</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">refreshed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_plan_if_needed</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">refreshed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">refreshed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">SequentialPlan</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;sequential environment cannot execute a structured plan&quot;</span>
@@ -2990,7 +3118,9 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_ExecutionOutcome</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mark_checkpoint_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="s2">&quot;running&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_plan_if_needed</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">refreshed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_plan_if_needed</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">refreshed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">refreshed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">SequentialPlan</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;sequential environment cannot execute a structured plan&quot;</span>
@@ -3065,7 +3195,9 @@ window.runMermaid = runMermaid;</script>
             <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;pipeline&quot;</span>
         <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_refresh_plan_if_needed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_refresh_plan_if_needed</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Commit point: publish a new binding version once, or defer it.</span>
 
 <span class="sd">        A replacement detected between commit points is applied only here;</span>
@@ -3076,12 +3208,13 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        Slots that declare no ``contract()`` (``comparator``, ``cbmanager``,</span>
 <span class="sd">        ``feature_encoder``) are never compared, and a contract holds no</span>
 <span class="sd">        parameter values, so writing one leaves the version and the plan</span>
-<span class="sd">        alone.  A rejection restores slots, not parts: an in-place change</span>
-<span class="sd">        stays installed and a later commit point rejects it again until the</span>
-<span class="sd">        part is put back.  Reading every contract costs roughly a millisecond</span>
-<span class="sd">        per commit point for a GA configuration and half of that for a PSO</span>
-<span class="sd">        one, measured against a cheap objective; next to an expensive</span>
-<span class="sd">        evaluation that is negligible.</span>
+<span class="sd">        alone.  Returns the state to continue with: a transition that evaluated</span>
+<span class="sd">        rows at this commit point advanced the evaluation count.  A rejection</span>
+<span class="sd">        restores slots, not parts: an in-place change stays installed and a</span>
+<span class="sd">        later commit point rejects it again until the part is put back.</span>
+<span class="sd">        Reading every contract costs roughly a millisecond per commit point</span>
+<span class="sd">        for a GA configuration and half of that for a PSO one, measured against</span>
+<span class="sd">        a cheap objective; next to an expensive evaluation that is negligible.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entry_commit</span><span class="p">()</span>
         <span class="n">bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
@@ -3103,11 +3236,11 @@ window.runMermaid = runMermaid;</script>
             <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_discard_stale_replacements</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_apply_entry_repair</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
-            <span class="k">return</span>
+            <span class="k">return</span> <span class="n">state</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_replacement_blocked</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_apply_entry_repair</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
-            <span class="k">return</span>
+            <span class="k">return</span> <span class="n">state</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -3115,6 +3248,7 @@ window.runMermaid = runMermaid;</script>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">memento</span><span class="p">,</span> <span class="n">staged</span> <span class="o">=</span> <span class="n">entry</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_publish</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span><span class="p">,</span> <span class="n">memento</span><span class="o">=</span><span class="n">memento</span><span class="p">,</span> <span class="n">staged</span><span class="o">=</span><span class="n">staged</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_entry_commit</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -3352,10 +3486,14 @@ window.runMermaid = runMermaid;</script>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active_memento</span> <span class="o">=</span> <span class="n">memento</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_run_transitions</span><span class="p">(</span><span class="n">staged</span><span class="p">,</span> <span class="n">entries</span><span class="p">,</span> <span class="n">incoming</span><span class="p">,</span> <span class="n">replaced</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_run_transitions</span><span class="p">(</span><span class="n">staged</span><span class="p">,</span> <span class="n">entries</span><span class="p">,</span> <span class="n">incoming</span><span class="p">,</span> <span class="n">replaced</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_active_memento</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_check_staged_changes</span><span class="p">(</span><span class="n">staged</span><span class="p">,</span> <span class="n">incoming</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_region_history</span><span class="p">(</span><span class="n">rebuilt</span><span class="p">)</span>
@@ -3366,7 +3504,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">incoming_reads</span><span class="p">,</span> <span class="n">incoming_writes</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">incoming_state_keys</span> <span class="k">if</span> <span class="n">incoming_state_keys</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_publish_prepared</span><span class="p">(</span>
+            <span class="n">committed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_publish_prepared</span><span class="p">(</span>
                 <span class="n">executable</span><span class="p">,</span>
                 <span class="n">rebuilt</span><span class="p">,</span>
                 <span class="n">resolution</span><span class="p">,</span>
@@ -3378,6 +3516,8 @@ window.runMermaid = runMermaid;</script>
         <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assign_published_comparator_rng</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">committed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dispatch_committed_configuration</span><span class="p">(</span><span class="n">committed</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_publish_prepared</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -3389,7 +3529,8 @@ window.runMermaid = runMermaid;</script>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">state_reads</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">StateKey</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">state_writes</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">StateKey</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfigurationCommittedEvent</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">previous_values</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
         <span class="n">consumes_feature_encoder</span> <span class="o">=</span> <span class="n">_executable_uses_service</span><span class="p">(</span>
             <span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;FeatureEncoder&quot;</span>
         <span class="p">)</span>
@@ -3470,6 +3611,39 @@ window.runMermaid = runMermaid;</script>
             <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">comparator</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">comparator</span>
                 <span class="n">prepare_state_comparator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">ConfigurationCommittedEvent</span><span class="p">(</span>
+            <span class="n">ctx</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span>
+            <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
+            <span class="n">changes</span><span class="o">=</span><span class="n">_configuration_changes</span><span class="p">(</span><span class="n">previous_values</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">provenance</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_dispatch_committed_configuration</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">ConfigurationCommittedEvent</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dispatch a publication event to the manager the new version binds.</span>
+
+<span class="sd">        The event describes the configuration that now runs, so it reaches the</span>
+<span class="sd">        callback manager of the published binding version: a handler the</span>
+<span class="sd">        replacement registered there observes it, and a manager the</span>
+<span class="sd">        replacement put out of use does not.  It is an observer notification</span>
+<span class="sd">        sent after the publication completed: a handler that raises propagates</span>
+<span class="sd">        to the caller but cannot veto the publication, so the version, the</span>
+<span class="sd">        snapshot, the slots, and the state&#39;s binding version keep describing</span>
+<span class="sd">        the new configuration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
+        <span class="n">phase</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_phase</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mark_checkpoint_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="s2">&quot;callback&quot;</span><span class="p">)</span>
+        <span class="n">manager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cbmanager&quot;</span><span class="p">)</span>
+        <span class="n">dispatch</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">manager</span><span class="p">,</span> <span class="s2">&quot;dispatch&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">dispatch</span><span class="p">):</span>
+                <span class="n">dispatch</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_phase</span> <span class="o">=</span> <span class="n">phase</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_candidate_state</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -3540,13 +3714,187 @@ window.runMermaid = runMermaid;</script>
             <span class="n">archive</span><span class="o">=</span><span class="n">staged</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span>
             <span class="n">pareto_archive</span><span class="o">=</span><span class="n">staged</span><span class="o">.</span><span class="n">pareto_archive</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">transition</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">requested</span> <span class="ow">in</span> <span class="n">_iter_applied</span><span class="p">(</span><span class="n">transition</span><span class="p">,</span> <span class="n">tctx</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Transition </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">transition</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> of slot </span><span class="si">{</span><span class="n">slot</span><span class="si">!r}</span><span class="s2"> &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;yielded </span><span class="si">{</span><span class="n">requested</span><span class="si">!r}</span><span class="s2">; evaluation requested by a &quot;</span>
-                    <span class="s2">&quot;transition is not available at the commit point.&quot;</span>
+        <span class="n">hooked</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_evaluation_confirmation_hook&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_keep_confirmed_evaluation</span>
+            <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">_slot</span><span class="p">,</span> <span class="n">transition</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+                <span class="n">steps</span> <span class="o">=</span> <span class="n">_transition_steps</span><span class="p">(</span><span class="n">transition</span><span class="p">,</span> <span class="n">tctx</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">request</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">steps</span><span class="p">)</span>
+                    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                        <span class="n">outcome</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_transition_request</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+                        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">tctx</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+                        <span class="n">request</span> <span class="o">=</span> <span class="n">steps</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">outcome</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="n">steps</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="p">{</span>
+                <span class="nb">id</span><span class="p">(</span><span class="n">hooked</span><span class="p">):</span> <span class="n">hooked</span><span class="p">,</span>
+                <span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">):</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span>
+            <span class="p">}</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">candidate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">candidate</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;_evaluation_confirmation_hook&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_transition_request</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">EvaluateRequest</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvaluationOutcome</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the population rows *request* names and confirm them.</span>
+
+<span class="sd">        Rows whose objective values already come from a true evaluation are</span>
+<span class="sd">        left out, so a request with nothing left evaluates nothing.  A</span>
+<span class="sd">        synchronous flow evaluates the whole request with one</span>
+<span class="sd">        ``evaluator.evaluate_batch()`` call; an asynchronous flow splits it into</span>
+<span class="sd">        capacity-sized requests and submits them to the scheduler.  Neither</span>
+<span class="sd">        path tells the algorithm about the evaluations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span><span class="s2">&quot;a transition evaluation requires a running state&quot;</span><span class="p">)</span>
+        <span class="n">population</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">population</span>
+        <span class="k">if</span> <span class="n">population</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span><span class="s2">&quot;a transition evaluation requires a population&quot;</span><span class="p">)</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">rows_for</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">rows</span><span class="p">[</span><span class="n">_unevaluated_rows</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">rows</span><span class="p">)]</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">population</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)[</span><span class="n">rows</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_empty_outcome</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">population</span><span class="o">.</span><span class="n">genomes</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="n">request</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">NO_TELL_METADATA</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">ORIGIN_KIND_METADATA</span><span class="p">:</span> <span class="n">ORIGIN_KIND_TRANSITION</span><span class="p">,</span>
+            <span class="s2">&quot;estimated_cost&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">)),</span>
+        <span class="p">}</span>
+        <span class="n">evaluator</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">evaluator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span><span class="s2">&quot;a transition evaluation requires an evaluator&quot;</span><span class="p">)</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_confirm_transition_request</span><span class="p">(</span>
+                <span class="n">state</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">ids</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">metadata</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_schedule_transition_request</span><span class="p">(</span>
+                    <span class="n">state</span><span class="p">,</span> <span class="n">scheduler</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">ids</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">metadata</span>
                 <span class="p">)</span>
+            <span class="k">except</span> <span class="n">EvaluationFatalError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">error</span><span class="o">.</span><span class="n">state</span>
+                <span class="k">raise</span>
+        <span class="k">return</span> <span class="n">_evaluation_outcome</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">ids</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_keep_confirmed_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Advance the confirmed baseline after one request&#39;s results land.</span>
+
+<span class="sd">        Runs from the single confirmation function after the History append and</span>
+<span class="sd">        the row, archive, and count updates and before the request event: the</span>
+<span class="sd">        environment&#39;s current state becomes *state*, and the commit memento&#39;s</span>
+<span class="sd">        store baseline takes the confirmed evaluation count (the request-ID</span>
+<span class="sd">        allocator advanced in place), while the scheduling terms keep their</span>
+<span class="sd">        pre-commit values.  A later failure therefore restores exactly the</span>
+<span class="sd">        results confirmed so far.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="n">memento</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_active_memento&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">memento</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">memento</span><span class="o">.</span><span class="n">store</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">state</span>
+        <span class="n">baseline</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">store</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+            <span class="n">memento</span><span class="p">,</span>
+            <span class="s2">&quot;store&quot;</span><span class="p">,</span>
+            <span class="n">baseline</span><span class="o">.</span><span class="n">apply_patch</span><span class="p">(</span><span class="n">StatePatch</span><span class="p">(</span><span class="n">writes</span><span class="o">=</span><span class="p">{</span><span class="n">EVALUATIONS_COUNT</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">fe</span><span class="p">)})),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_confirm_transition_request</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span>
+        <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span>
+        <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">,</span>
+        <span class="n">ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">payload</span><span class="p">:</span> <span class="n">GenomeBatch</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate one request with the evaluator and confirm it at once.&quot;&quot;&quot;</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="n">EvaluationRequest</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">request_id_allocator</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">ids</span><span class="p">,</span>
+            <span class="n">payload</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">evaluate_batch</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">payload</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">problem</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">candidate_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">candidate_ids</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">candidate_ids</span>
+        <span class="k">return</span> <span class="n">confirm_true_evaluation</span><span class="p">(</span>
+            <span class="n">state</span><span class="p">,</span>
+            <span class="n">request</span><span class="p">,</span>
+            <span class="n">result</span><span class="p">,</span>
+            <span class="n">owner</span><span class="o">=</span><span class="n">population</span><span class="p">,</span>
+            <span class="n">dispatch</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dispatch</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_schedule_transition_request</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span>
+        <span class="n">scheduler</span><span class="p">:</span> <span class="n">AsyncEvaluationScheduler</span><span class="p">,</span>
+        <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">,</span>
+        <span class="n">ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">payload</span><span class="p">:</span> <span class="n">GenomeBatch</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Submit capacity-sized requests to the scheduler and confirm them.</span>
+
+<span class="sd">        The requests are split into parts of at most the free capacity and</span>
+<span class="sd">        submitted in batches the scheduler can accept at once, so a request</span>
+<span class="sd">        larger than the capacity still runs.  A terminal failure of any part is</span>
+<span class="sd">        raised as a fatal error carrying the state, which keeps the confirmed</span>
+<span class="sd">        results and rejects the replacement.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="n">EvaluationRequest</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">request_id_allocator</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">ids</span><span class="p">,</span>
+            <span class="n">payload</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">capacity</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">max_pending</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">)</span>
+        <span class="n">requests</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="n">split_for_capacity</span><span class="p">(</span>
+                <span class="n">request</span><span class="p">,</span>
+                <span class="n">capacity</span><span class="p">,</span>
+                <span class="n">allocate_request_id</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span>
+                    <span class="n">state</span><span class="o">.</span><span class="n">request_id_allocator</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">requests</span><span class="p">),</span> <span class="n">capacity</span><span class="p">):</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="n">requests</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">start</span> <span class="o">+</span> <span class="n">capacity</span><span class="p">]</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">owner</span><span class="o">=</span><span class="n">population</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">wait</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="o">=</span> <span class="n">state</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_transition_requests_evaluated</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">population</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+        <span class="n">record_evaluations</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_transition_requests_evaluated</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span>
+        <span class="n">population</span><span class="p">:</span> <span class="n">Population</span><span class="p">,</span>
+        <span class="n">requests</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">EvaluationRequest</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Raise a fatal error when a submitted part failed to evaluate a row.&quot;&quot;&quot;</span>
+        <span class="n">requested</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">request</span><span class="o">.</span><span class="n">candidate_ids</span> <span class="k">for</span> <span class="n">request</span> <span class="ow">in</span> <span class="n">requests</span><span class="p">])</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">rows_for</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">requested</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">_unevaluated_rows</span><span class="p">(</span><span class="n">population</span><span class="p">,</span> <span class="n">rows</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="n">EvaluationFatalError</span><span class="p">(</span>
+                <span class="s2">&quot;a transition evaluation request did not complete&quot;</span><span class="p">,</span> <span class="n">state</span>
+            <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_assign_published_comparator_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw the child seed of a randomized comparator once it is published.&quot;&quot;&quot;</span>
@@ -3790,6 +4138,19 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">}</span>
             <span class="p">),</span>
             <span class="n">scheduler</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scheduler_state</span><span class="p">(),</span>
+            <span class="n">evaluation_handles</span><span class="o">=</span><span class="p">(</span>
+                <span class="p">{}</span>
+                <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="nb">dict</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;evaluation_handles&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span>
+            <span class="p">),</span>
+            <span class="n">scheduler_fatal_states</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span>
+                <span class="nb">getattr</span><span class="p">(</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                    <span class="s2">&quot;_fatal_states&quot;</span><span class="p">,</span>
+                    <span class="p">{},</span>
+                <span class="p">)</span>
+                <span class="ow">or</span> <span class="p">{}</span>
+            <span class="p">),</span>
             <span class="n">staged</span><span class="o">=</span><span class="n">staged</span><span class="p">,</span>
             <span class="n">candidate_resolution</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span><span class="p">,</span>
             <span class="n">candidate_diagnostics</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span><span class="p">,</span>
@@ -3841,6 +4202,7 @@ window.runMermaid = runMermaid;</script>
                     <span class="n">state</span><span class="p">,</span> <span class="s2">&quot;_compiled_services&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">compiled_services</span><span class="p">)</span>
                 <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_restore_region_history</span><span class="p">(</span><span class="n">memento</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_restore_evaluation_handles</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">memento</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_restore_scheduler_state</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">scheduler</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
             <span class="s2">&quot;_ComponentResolution | None&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">candidate_resolution</span>
@@ -3848,6 +4210,36 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">candidate_diagnostics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">publication_deferred</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">pending_recompile</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_evaluation_handles</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop the handles and fatal records a failed evaluation attempt left.</span>
+
+<span class="sd">        ``evaluation_handles`` is not part of the state store, so the memento</span>
+<span class="sd">        restores it separately: handles the failed commit created are cancelled</span>
+<span class="sd">        or detached on the evaluator, and the scheduler&#39;s fatal-state records</span>
+<span class="sd">        from the attempt are removed, so the same replacement can run again.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">evaluator</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;evaluation_handles&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">request_id</span><span class="p">,</span> <span class="n">handle</span> <span class="ow">in</span> <span class="n">current</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">request_id</span> <span class="ow">in</span> <span class="n">memento</span><span class="o">.</span><span class="n">evaluation_handles</span> <span class="ow">or</span> <span class="n">evaluator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">cancel</span><span class="p">(</span><span class="n">handle</span><span class="p">):</span>
+                        <span class="n">evaluator</span><span class="o">.</span><span class="n">detach</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+                <span class="n">state</span><span class="p">,</span> <span class="s2">&quot;evaluation_handles&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">evaluation_handles</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">fatal</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="s2">&quot;_fatal_states&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fatal</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span>
+                <span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">fatal</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">memento</span><span class="o">.</span><span class="n">scheduler_fatal_states</span>
+            <span class="p">]:</span>
+                <span class="n">fatal</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_restore_region_history</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove the region history the candidate plan added.&quot;&quot;&quot;</span>
@@ -4165,7 +4557,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;Async runtime requires an evaluation scheduler&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_plan_if_needed</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">refreshed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_plan_if_needed</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">refreshed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">refreshed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plan</span><span class="p">,</span> <span class="n">SequentialPlan</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;async environment cannot execute a structured plan&quot;</span><span class="p">)</span>
         <span class="n">sequential_plan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan</span>
@@ -4700,14 +5094,16 @@ window.runMermaid = runMermaid;</script>
             <span class="n">env</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span>
             <span class="n">env</span><span class="o">.</span><span class="n">fatal</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
             <span class="n">refresh</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;_refresh_plan_if_needed&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">state</span>
             <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">refresh</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">frames</span><span class="p">:</span>
-                <span class="n">refresh</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+                <span class="n">refreshed</span> <span class="o">=</span> <span class="n">refresh</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">refreshed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">state</span> <span class="o">=</span> <span class="n">refreshed</span>
             <span class="n">plan</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;plan&quot;</span><span class="p">,</span> <span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                     <span class="s2">&quot;structured runtime environment returned a non-structured plan&quot;</span>
                 <span class="p">)</span>
-            <span class="n">state</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">state</span>
             <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">is_terminated</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
                 <span class="n">env</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">RunEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">state</span><span class="p">))</span>
                 <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">(</span>
@@ -5098,7 +5494,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_sync_transient_fields_from_store</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">refresh</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_refresh_plan_if_needed&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">refresh</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">frames</span><span class="p">:</span>
-            <span class="n">refresh</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+            <span class="n">refreshed</span> <span class="o">=</span> <span class="n">refresh</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">refreshed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="n">refreshed</span>
         <span class="n">plan</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;plan&quot;</span><span class="p">,</span> <span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
@@ -5362,7 +5760,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">metadata</span> <span class="o">=</span> <span class="n">_ExecutionOutcome</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
         <span class="n">commit</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;_refresh_plan_if_needed&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">commit</span><span class="p">):</span>
-            <span class="n">commit</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+            <span class="n">refreshed</span> <span class="o">=</span> <span class="n">commit</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">refreshed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="n">refreshed</span>
             <span class="n">plan</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;plan&quot;</span><span class="p">,</span> <span class="n">plan</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">:</span>

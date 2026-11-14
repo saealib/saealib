@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev64+g9284ee7c5 documentation</title>
+    <title>saealib.execution.initializer &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=257ea753"></script>
+    <script src="../../../_static/documentation_options.js?v=ce3ab7ae"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -963,14 +963,18 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">cast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">scipy.stats</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">InitialEvaluationEndEvent</span><span class="p">,</span> <span class="n">InitialEvaluationStartEvent</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.comparators</span><span class="w"> </span><span class="kn">import</span> <span class="n">Comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">_count_evaluated</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptimizationState</span><span class="p">,</span>
+    <span class="n">_count_evaluated</span><span class="p">,</span>
+    <span class="n">_EvaluationReport</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">MANY</span><span class="p">,</span>
     <span class="n">ComponentContract</span><span class="p">,</span>
@@ -996,6 +1000,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">RUNTIME_STEP</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigurationError</span><span class="p">,</span> <span class="n">ValidationError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">ORIGIN_KIND_FLOW</span><span class="p">,</span> <span class="n">EvaluationStatus</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.history</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">History</span><span class="p">,</span>
     <span class="n">record_generation</span><span class="p">,</span>
@@ -1148,6 +1153,17 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_set_objectives_true</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">collection</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">values</span><span class="p">:</span>
             <span class="n">collection</span><span class="o">.</span><span class="n">update_rows</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">collection</span><span class="p">)),</span> <span class="n">values</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_initial_report</span><span class="p">(</span><span class="n">candidate_ids</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_EvaluationReport</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the request-level report of one initial evaluation.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_EvaluationReport</span><span class="p">(</span>
+        <span class="n">request_id</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">candidate_ids</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+        <span class="n">status</span><span class="o">=</span><span class="n">EvaluationStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">,</span>
+        <span class="n">origin_kind</span><span class="o">=</span><span class="n">ORIGIN_KIND_FLOW</span><span class="p">,</span>
+        <span class="n">dispatch</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="s2">&quot;dispatch&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="p">)</span>
 
 
 <div class="viewcode-block" id="Initializer">
@@ -1362,7 +1378,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
-        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="n">_initial_report</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">provider</span><span class="p">))</span>
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
         <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">comparator</span><span class="o">.</span><span class="n">rank_population</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
@@ -1521,7 +1537,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
-        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="n">_initial_report</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">provider</span><span class="p">))</span>
 
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
@@ -1680,7 +1696,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
-        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="n">_initial_report</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">provider</span><span class="p">))</span>
 
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 
@@ -1842,7 +1858,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_mark_initial_rows_true</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">pareto_archive</span><span class="p">)</span>
 
         <span class="n">record_initial_evaluation</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
-        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ids</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="n">_initial_report</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">provider</span><span class="p">))</span>
 
         <span class="n">provider</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">InitialEvaluationEndEvent</span><span class="p">(</span><span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">archive</span><span class="o">=</span><span class="n">archive</span><span class="p">))</span>
 

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.callback.events &#8212; saealib 0.1.1.dev64+g9284ee7c5 documentation</title>
+    <title>saealib.callback.events &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=257ea753"></script>
+    <script src="../../../_static/documentation_options.js?v=ce3ab7ae"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1197,11 +1197,80 @@ window.runMermaid = runMermaid;</script>
 
 
 
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConfigurationChange</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;One binding slot a published configuration replaced.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    slot : str</span>
+<span class="sd">        Binding slot whose component changed.</span>
+<span class="sd">    previous : object or None</span>
+<span class="sd">        Component the slot held in the previously published version.</span>
+<span class="sd">    current : object or None</span>
+<span class="sd">        Component the slot holds in the published version.</span>
+<span class="sd">    source : str or None</span>
+<span class="sd">        Where the write came from, using the optimizer&#39;s origin vocabulary</span>
+<span class="sd">        (for example ``&quot;setter&quot;`` or ``&quot;direct assignment&quot;``), or ``None``</span>
+<span class="sd">        when no origin was recorded.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">slot</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">previous</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">current</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConfigurationCommittedEvent</span><span class="p">(</span><span class="n">Event</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fired once per published binding version, after publication.</span>
+
+<span class="sd">    A commit point that leaves the configuration unchanged publishes nothing</span>
+<span class="sd">    and fires nothing, so an ordinary run produces no event however many</span>
+<span class="sd">    times it enters a commit point.</span>
+
+<span class="sd">    The event is dispatched to the callback manager of the published</span>
+<span class="sd">    configuration, which is the one in effect from this point: a handler that</span>
+<span class="sd">    the replacement registered on its own manager observes the configuration</span>
+<span class="sd">    that now runs, and a manager the replacement replaced does not receive the</span>
+<span class="sd">    event.</span>
+
+<span class="sd">    The event is an observer notification sent after the publication completed.</span>
+<span class="sd">    A handler that raises propagates to the caller, but it cannot veto the</span>
+<span class="sd">    publication: the new binding version, the published snapshot, the bound</span>
+<span class="sd">    slots, and the run state&#39;s binding version all keep describing the new</span>
+<span class="sd">    configuration.</span>
+
+<span class="sd">    Supported: every publication, on synchronous and asynchronous structured</span>
+<span class="sd">    flows and on sequential plans, with one entry per replaced binding slot.</span>
+<span class="sd">    Extensible toward: parameter changes, which the event does not carry.</span>
+<span class="sd">    Out of scope: a History channel for configuration changes.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    version : int</span>
+<span class="sd">        Binding version the publication created; equal to the run state&#39;s</span>
+<span class="sd">        ``_binding_version`` after the publication.</span>
+<span class="sd">    changes : tuple of ConfigurationChange</span>
+<span class="sd">        Replaced binding slots in ``BINDING_SLOTS`` order.  Empty when the</span>
+<span class="sd">        publication replaced no slot, for example when a part inside a</span>
+<span class="sd">        published component changed in place.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">version</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">changes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ConfigurationChange</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+
+
 <div class="viewcode-block" id="PostEvaluationEvent">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.PostEvaluationEvent.html#saealib.PostEvaluationEvent">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">PostEvaluationEvent</span><span class="p">(</span><span class="n">Event</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Fired after true evaluation of selected candidates.</span>
+
+<span class="sd">    One event is fired per plan, not per evaluation request, and an evaluation</span>
+<span class="sd">    that a transition requested at a commit point does not fire it; use</span>
+<span class="sd">    :class:`PostEvaluationRequestEvent` to observe each evaluation request,</span>
+<span class="sd">    including the ones a transition requests.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -1215,6 +1284,50 @@ window.runMermaid = runMermaid;</script>
     <span class="n">candidate_ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">status</span><span class="p">:</span> <span class="n">EvaluationStatus</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
 
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PostEvaluationRequestEvent</span><span class="p">(</span><span class="n">Event</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fired once for every evaluation request whose results are counted.</span>
+
+<span class="sd">    The event reports the request as a whole, whatever value the neighbouring</span>
+<span class="sd">    :class:`PostEvaluationEvent` aggregates for its plan.  It fires on every</span>
+<span class="sd">    evaluation path:</span>
+
+<span class="sd">    - the initial evaluation of an initializer, with ``request_id = -1``</span>
+<span class="sd">      because no planner issued it;</span>
+<span class="sd">    - ``TrueEvaluationStage`` in a classic ``Pipeline``;</span>
+<span class="sd">    - the synchronous plan&#39;s evaluation and acknowledgment stages, including</span>
+<span class="sd">      the remaining requests of a multi-request plan;</span>
+<span class="sd">    - the asynchronous scheduler&#39;s commit of a request;</span>
+<span class="sd">    - an evaluation a transition requested at a component replacement&#39;s commit</span>
+<span class="sd">      point, with ``origin_kind = 1``.</span>
+
+<span class="sd">    With no handler registered the dispatch costs one dictionary lookup, so the</span>
+<span class="sd">    event is emitted whether or not anybody listens.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    request_id : numpy.int64 or None</span>
+<span class="sd">        Evaluation request the event reports; ``-1`` for an initial evaluation.</span>
+<span class="sd">    candidate_ids : numpy.ndarray or None</span>
+<span class="sd">        Candidate IDs whose results this request counted.</span>
+<span class="sd">    size : int</span>
+<span class="sd">        Number of those candidate IDs.</span>
+<span class="sd">    status : EvaluationStatus or None</span>
+<span class="sd">        Status the request was confirmed with.</span>
+<span class="sd">    origin_kind : int</span>
+<span class="sd">        Who requested the evaluation: ``0`` for a request of the flow and</span>
+<span class="sd">        ``1`` for a request of a transition; ``-1`` when an in-memory</span>
+<span class="sd">        origin record is unavailable after a resume from a portable</span>
+<span class="sd">        checkpoint.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">request_id</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">candidate_ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">EvaluationStatus</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">origin_kind</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
 
 
 <span class="c1"># --- Initializer events ---</span>

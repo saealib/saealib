@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev64+g9284ee7c5 documentation</title>
+    <title>saealib.execution.scheduler &#8212; saealib 0.1.1.dev67+g3573ca625 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=257ea753"></script>
+    <script src="../../../_static/documentation_options.js?v=ce3ab7ae"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -970,7 +970,13 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">PostEvaluationEvent</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluationPlanState</span><span class="p">,</span> <span class="n">_count_evaluated</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">EvaluationPlanState</span><span class="p">,</span>
+    <span class="n">OptimizationState</span><span class="p">,</span>
+    <span class="n">_count_evaluated</span><span class="p">,</span>
+    <span class="n">_EvaluationReport</span><span class="p">,</span>
+    <span class="n">_flush_evaluation_history</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeedbackAccumulator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ComponentContract</span><span class="p">,</span>
@@ -1009,12 +1015,18 @@ window.runMermaid = runMermaid;</script>
     <span class="n">ValidationError</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NO_TELL_METADATA</span><span class="p">,</span>
     <span class="n">EvaluationErrorInfo</span><span class="p">,</span>
     <span class="n">EvaluationRequest</span><span class="p">,</span>
     <span class="n">EvaluationStatus</span><span class="p">,</span>
     <span class="n">EvaluationUpdate</span><span class="p">,</span>
     <span class="n">Evaluator</span><span class="p">,</span>
     <span class="n">PendingEvaluation</span><span class="p">,</span>
+    <span class="n">request_origin_kind</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.transition_evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">append_evaluated_rows</span><span class="p">,</span>
+    <span class="n">apply_true_rows</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">_aggregate_repeated_updates</span><span class="p">,</span>
@@ -1022,21 +1034,23 @@ window.runMermaid = runMermaid;</script>
     <span class="n">_continue_fidelity_plan</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.policies.feedback</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="p">,</span>
-    <span class="n">TRUE</span><span class="p">,</span>
     <span class="n">FeedbackBuilder</span><span class="p">,</span>
     <span class="n">FeedbackResult</span><span class="p">,</span>
     <span class="n">_feedback_batch_from_result</span><span class="p">,</span>
     <span class="n">_set_objective_source</span><span class="p">,</span>
-    <span class="n">_set_objectives_true</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">OBJECTIVE_SOURCE_COLUMN</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.stages</span><span class="w"> </span><span class="kn">import</span> <span class="n">deliver_feedback</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimizationState</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Population</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_origin_kind</span><span class="p">(</span><span class="n">pending</span><span class="p">:</span> <span class="n">PendingEvaluation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return who requested the evaluation of *pending*.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">request_origin_kind</span><span class="p">(</span><span class="n">pending</span><span class="o">.</span><span class="n">request</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="AsyncEvaluationScheduler">
@@ -1225,16 +1239,29 @@ window.runMermaid = runMermaid;</script>
 <div class="viewcode-block" id="AsyncEvaluationScheduler.submit">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.execution.AsyncEvaluationScheduler.html#saealib.execution.AsyncEvaluationScheduler.submit">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">submit</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">requests</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">EvaluationRequest</span><span class="p">]</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span>
+        <span class="n">requests</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">EvaluationRequest</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">owner</span><span class="p">:</span> <span class="n">Population</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationState</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Submit disjoint requests within capacity and budget limits.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Submit disjoint requests within capacity and budget limits.</span>
+
+<span class="sd">        *owner* holds the candidate rows the requests evaluate; it defaults to</span>
+<span class="sd">        the state&#39;s offspring.  Pass it explicitly for a request that did not</span>
+<span class="sd">        come from the flow&#39;s proposals, so the submit path does not read</span>
+<span class="sd">        ``state.offspring`` on its behalf.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">requests</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">requests</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">requests</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">supports_batch_rollback</span><span class="p">():</span>
             <span class="k">raise</span> <span class="n">EvaluationProtocolError</span><span class="p">(</span>
                 <span class="s2">&quot;batch submission requires rollback-capable evaluator&quot;</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">offspring</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">EvaluationProtocolError</span><span class="p">(</span><span class="s2">&quot;asynchronous submission requires offspring&quot;</span><span class="p">)</span>
+        <span class="n">owner</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">offspring</span> <span class="k">if</span> <span class="n">owner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">owner</span>
+        <span class="k">if</span> <span class="n">owner</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">EvaluationProtocolError</span><span class="p">(</span>
+                <span class="s2">&quot;asynchronous submission requires an evaluation owner&quot;</span>
+            <span class="p">)</span>
         <span class="n">existing</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending_candidate_ids</span><span class="p">(</span><span class="n">state</span><span class="p">)))</span>
         <span class="n">plan_ids</span> <span class="o">=</span> <span class="p">{</span><span class="n">request</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;plan_id&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">request</span> <span class="ow">in</span> <span class="n">requests</span><span class="p">}</span>
         <span class="n">allow_replicates</span> <span class="o">=</span> <span class="p">(</span>
@@ -1351,7 +1378,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="p">)</span>
                 <span class="n">handles</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">handle</span>
                 <span class="n">pending_map</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">pending</span>
-                <span class="n">owners</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">offspring</span>
+                <span class="n">owners</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">owner</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
             <span class="n">cleanup_failed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cleanup_started_handles</span><span class="p">(</span><span class="n">started</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">cleanup_failed</span><span class="p">:</span>
@@ -1790,10 +1817,20 @@ window.runMermaid = runMermaid;</script>
             <span class="n">plan_updates</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">request_id</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">update</span><span class="p">)</span>
             <span class="n">current</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">evaluation_plan_updates</span><span class="o">=</span><span class="n">plan_updates</span><span class="p">)</span>
         <span class="n">current_pending</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">pending_evaluations</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span>
+        <span class="n">no_tell</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">current_pending</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">NO_TELL_METADATA</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">replay</span><span class="p">:</span>
             <span class="n">history</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">history</span>
             <span class="k">if</span> <span class="n">history</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">history</span><span class="o">.</span><span class="n">_observe_evaluation</span><span class="p">(</span><span class="n">update</span><span class="p">,</span> <span class="n">current_pending</span><span class="o">.</span><span class="n">retry_count</span><span class="p">)</span>
+                <span class="n">history</span><span class="o">.</span><span class="n">_observe_evaluation</span><span class="p">(</span>
+                    <span class="n">update</span><span class="p">,</span>
+                    <span class="n">current_pending</span><span class="o">.</span><span class="n">retry_count</span><span class="p">,</span>
+                    <span class="n">origin_kind</span><span class="o">=</span><span class="n">request_origin_kind</span><span class="p">(</span><span class="n">current_pending</span><span class="o">.</span><span class="n">request</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">no_tell</span><span class="p">:</span>
+                    <span class="c1"># Confirm the History row before the rows, the archives,</span>
+                    <span class="c1"># and the count change, so a recording failure changes</span>
+                    <span class="c1"># nothing and an observer cannot separate them.</span>
+                    <span class="n">_flush_evaluation_history</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">history</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">current_pending</span><span class="o">.</span><span class="n">feedback_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">current</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">feedback_result</span><span class="o">=</span><span class="n">current_pending</span><span class="o">.</span><span class="n">feedback_result</span><span class="p">)</span>
         <span class="n">current_plan</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">evaluation_plan</span>
@@ -1873,6 +1910,11 @@ window.runMermaid = runMermaid;</script>
         <span class="n">accumulator_update</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">update</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">plan_effect_update</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="n">no_tell</span><span class="p">:</span>
+            <span class="c1"># A request the flow did not make must not reach the accumulator or</span>
+            <span class="c1"># the algorithm; its rows and archive entries are confirmed all the</span>
+            <span class="c1"># same.</span>
+            <span class="n">accumulator_update</span> <span class="o">=</span> <span class="n">plan_effect_update</span>
         <span class="n">population_update</span> <span class="o">=</span> <span class="n">update</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -1908,11 +1950,21 @@ window.runMermaid = runMermaid;</script>
             <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_archive</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">accumulator_update</span><span class="p">)</span>
             <span class="n">current</span> <span class="o">=</span> <span class="n">progress</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="s2">&quot;archived&quot;</span><span class="p">)</span>
             <span class="n">stage_rank</span> <span class="o">=</span> <span class="mi">2</span>
-        <span class="k">if</span> <span class="n">accumulator_update</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">stage_rank</span> <span class="o">&lt;</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">has_rows</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">accumulator_update</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">no_tell</span>
+            <span class="ow">and</span> <span class="n">stage_rank</span> <span class="o">&lt;</span> <span class="mi">3</span>
+            <span class="ow">and</span> <span class="n">has_rows</span>
+        <span class="p">):</span>
             <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_feedback</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">accumulator_update</span><span class="p">)</span>
             <span class="n">current</span> <span class="o">=</span> <span class="n">progress</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="s2">&quot;feedback-applied&quot;</span><span class="p">)</span>
             <span class="n">stage_rank</span> <span class="o">=</span> <span class="mi">3</span>
-        <span class="k">if</span> <span class="n">accumulator_update</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">stage_rank</span> <span class="o">&lt;</span> <span class="mi">4</span> <span class="ow">and</span> <span class="n">has_rows</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">accumulator_update</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">no_tell</span>
+            <span class="ow">and</span> <span class="n">stage_rank</span> <span class="o">&lt;</span> <span class="mi">4</span>
+            <span class="ow">and</span> <span class="n">has_rows</span>
+        <span class="p">):</span>
             <span class="n">current</span> <span class="o">=</span> <span class="n">progress</span><span class="p">(</span>
                 <span class="n">current</span><span class="p">,</span>
                 <span class="s2">&quot;tell-started&quot;</span><span class="p">,</span>
@@ -1931,7 +1983,16 @@ window.runMermaid = runMermaid;</script>
             <span class="n">stage_rank</span> <span class="o">=</span> <span class="mi">4</span>
         <span class="k">if</span> <span class="n">stage_rank</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">current</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">)</span>
+                <span class="n">current</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span>
+                    <span class="n">current</span><span class="p">,</span>
+                    <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span>
+                    <span class="n">report</span><span class="o">=</span><span class="n">_EvaluationReport</span><span class="p">(</span>
+                        <span class="n">request_id</span><span class="o">=</span><span class="n">request_id</span><span class="p">,</span>
+                        <span class="n">candidate_ids</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+                        <span class="n">status</span><span class="o">=</span><span class="n">update</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+                        <span class="n">origin_kind</span><span class="o">=</span><span class="n">_origin_kind</span><span class="p">(</span><span class="n">current_pending</span><span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
             <span class="n">current</span> <span class="o">=</span> <span class="n">progress</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="s2">&quot;fe-applied&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">stage_rank</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">acknowledge</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
@@ -1952,6 +2013,21 @@ window.runMermaid = runMermaid;</script>
         <span class="p">}</span>
         <span class="n">remaining</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">original_ids</span><span class="p">,</span> <span class="n">applied</span><span class="p">)</span>
         <span class="n">retried</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">request_report</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">_EvaluationReport</span><span class="p">(</span>
+                <span class="n">request_id</span><span class="o">=</span><span class="n">request_id</span><span class="p">,</span>
+                <span class="n">candidate_ids</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">applied</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+                <span class="n">status</span><span class="o">=</span><span class="n">update</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+                <span class="n">origin_kind</span><span class="o">=</span><span class="n">_origin_kind</span><span class="p">(</span><span class="n">current_pending</span><span class="p">),</span>
+                <span class="n">dispatch</span><span class="o">=</span><span class="p">(</span>
+                    <span class="kc">None</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">callback_manager</span> <span class="ow">is</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">callback_manager</span><span class="o">.</span><span class="n">dispatch</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">terminal</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">applied</span><span class="p">)</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="n">update</span><span class="o">.</span><span class="n">status</span> <span class="ow">is</span> <span class="n">EvaluationStatus</span><span class="o">.</span><span class="n">FAILED</span>
             <span class="ow">and</span> <span class="n">remaining</span><span class="o">.</span><span class="n">size</span>
@@ -2079,6 +2155,7 @@ window.runMermaid = runMermaid;</script>
             <span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_feedback_accumulator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">no_tell</span>
             <span class="ow">and</span> <span class="n">terminal</span>
             <span class="ow">and</span> <span class="ow">not</span> <span class="n">retried</span>
             <span class="ow">and</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -2092,6 +2169,7 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="n">callback_update</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">no_tell</span>
             <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">callback_update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">)</span>
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">callback_manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="p">):</span>
@@ -2156,6 +2234,16 @@ window.runMermaid = runMermaid;</script>
                         <span class="n">feedback</span><span class="o">=</span><span class="n">plan_state</span><span class="o">.</span><span class="n">feedback</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
+        <span class="k">if</span> <span class="n">request_report</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">current</span> <span class="o">=</span> <span class="n">_count_evaluated</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="p">(),</span> <span class="n">report</span><span class="o">=</span><span class="n">request_report</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">EvaluationFatalError</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">EvaluationFatalError</span><span class="p">(</span>
+                    <span class="s2">&quot;post-evaluation-request callback failed; update is fatal&quot;</span><span class="p">,</span>
+                    <span class="n">current</span><span class="p">,</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
         <span class="k">return</span> <span class="n">current</span>
 
     <span class="nd">@staticmethod</span>
@@ -2368,18 +2456,7 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">state</span>
         <span class="n">owner</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_owner</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">))</span>
-        <span class="n">rows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rows</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">))</span>
-        <span class="n">values</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">name</span><span class="p">:</span> <span class="n">value</span>
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">{</span>
-                <span class="s2">&quot;f&quot;</span><span class="p">:</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">f</span><span class="p">,</span>
-                <span class="s2">&quot;g&quot;</span><span class="p">:</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">g</span><span class="p">,</span>
-                <span class="s2">&quot;cv&quot;</span><span class="p">:</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span>
-            <span class="p">}</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">owner</span><span class="o">.</span><span class="n">schema</span>
-        <span class="p">}</span>
-        <span class="n">_set_objectives_true</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
-        <span class="n">owner</span><span class="o">.</span><span class="n">update_rows</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+        <span class="n">apply_true_rows</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">state</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_archive</span><span class="p">(</span>
@@ -2388,107 +2465,14 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">update</span><span class="o">.</span><span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">state</span>
         <span class="n">owner</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_owner</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">))</span>
-        <span class="n">rows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rows</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">))</span>
-        <span class="n">archives</span> <span class="o">=</span> <span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">pareto_archive</span><span class="p">)</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">row_genomes</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Return the owner&#39;s genomes when every row carries one.&quot;&quot;&quot;</span>
-            <span class="n">genomes</span> <span class="o">=</span> <span class="n">owner</span><span class="o">.</span><span class="n">genomes</span>
-            <span class="k">return</span> <span class="n">genomes</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">genomes</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">owner</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">values_for</span><span class="p">(</span><span class="n">archive</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-            <span class="n">genomes</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">if</span> <span class="s2">&quot;x&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span> <span class="ow">or</span> <span class="s2">&quot;x&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">owner</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
-                <span class="n">genomes</span> <span class="o">=</span> <span class="n">row_genomes</span><span class="p">()</span>
-            <span class="n">values_list</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="n">candidate_id</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-                <span class="n">values</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="n">name</span><span class="p">:</span> <span class="n">owner</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="n">name</span><span class="p">)[</span><span class="n">row</span><span class="p">]</span>
-                    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span>
-                    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">owner</span><span class="o">.</span><span class="n">schema</span>
-                <span class="p">}</span>
-                <span class="k">if</span> <span class="p">(</span>
-                    <span class="n">OBJECTIVE_SOURCE_COLUMN</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span>
-                    <span class="ow">and</span> <span class="n">OBJECTIVE_SOURCE_COLUMN</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">owner</span><span class="o">.</span><span class="n">schema</span>
-                <span class="p">):</span>
-                    <span class="n">values</span><span class="p">[</span><span class="n">OBJECTIVE_SOURCE_COLUMN</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">(</span>
-                        <span class="n">OBJECTIVE_SOURCE_CODES</span><span class="p">[</span><span class="n">TRUE</span><span class="p">]</span>
-                    <span class="p">)</span>
-                <span class="k">if</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
-                    <span class="n">values</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">candidate_id</span><span class="p">)</span>
-                <span class="k">if</span> <span class="s2">&quot;request_id&quot;</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">schema</span><span class="p">:</span>
-                    <span class="n">values</span><span class="p">[</span><span class="s2">&quot;request_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">genomes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">values</span><span class="p">[</span><span class="s2">&quot;genome&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">genomes</span><span class="o">.</span><span class="n">take</span><span class="p">([</span><span class="n">row</span><span class="p">])</span>
-                <span class="n">values_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">values_list</span>
-
-        <span class="n">snapshots</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">archive</span> <span class="ow">in</span> <span class="n">archives</span><span class="p">:</span>
-            <span class="n">snapshots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="p">(</span>
-                    <span class="n">archive</span><span class="p">,</span>
-                    <span class="p">{</span>
-                        <span class="n">name</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">array</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-                    <span class="p">},</span>
-                    <span class="n">archive</span><span class="o">.</span><span class="n">_size</span><span class="p">,</span>
-                    <span class="n">archive</span><span class="o">.</span><span class="n">_structure_version</span><span class="p">,</span>
-                    <span class="n">archive</span><span class="o">.</span><span class="n">_value_version</span><span class="p">,</span>
-                    <span class="nb">dict</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">_cache</span><span class="p">),</span>
-                    <span class="nb">getattr</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="s2">&quot;_kdtree&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">archive</span> <span class="ow">in</span> <span class="n">archives</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">values_for</span><span class="p">(</span><span class="n">archive</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">values</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive</span><span class="p">):</span>
-                        <span class="n">ids</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive</span><span class="p">)]</span>
-                        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">ids</span> <span class="o">==</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]):</span>
-                            <span class="n">policy</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="s2">&quot;duplicate_policy&quot;</span><span class="p">,</span> <span class="s2">&quot;keep_first&quot;</span><span class="p">)</span>
-                            <span class="k">if</span> <span class="p">(</span>
-                                <span class="n">policy</span> <span class="o">==</span> <span class="s2">&quot;keep_first&quot;</span>
-                                <span class="ow">and</span> <span class="n">archive</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">state</span><span class="o">.</span><span class="n">pareto_archive</span>
-                            <span class="p">):</span>
-                                <span class="k">continue</span>
-                            <span class="k">if</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">&quot;append&quot;</span><span class="p">:</span>
-                                <span class="n">request_ids</span> <span class="o">=</span> <span class="n">archive</span><span class="o">.</span><span class="n">get_array</span><span class="p">(</span><span class="s2">&quot;request_id&quot;</span><span class="p">)[</span>
-                                    <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">archive</span><span class="p">)</span>
-                                <span class="p">]</span>
-                                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span>
-                                    <span class="p">(</span><span class="n">ids</span> <span class="o">==</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">])</span>
-                                    <span class="o">&amp;</span> <span class="p">(</span><span class="n">request_ids</span> <span class="o">==</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;request_id&quot;</span><span class="p">))</span>
-                                <span class="p">):</span>
-                                    <span class="k">continue</span>
-                            <span class="k">else</span><span class="p">:</span>
-                                <span class="n">archive</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">ids</span> <span class="o">==</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]))</span>
-                    <span class="n">archive</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_restore_archive_snapshots</span><span class="p">(</span><span class="n">snapshots</span><span class="p">)</span>
-            <span class="k">raise</span>
+        <span class="n">append_evaluated_rows</span><span class="p">(</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">pareto_archive</span><span class="p">,</span>
+            <span class="n">owner</span><span class="p">,</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">request_id</span><span class="p">),</span>
+            <span class="n">update</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">state</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_archive_snapshots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">snapshots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">for</span> <span class="p">(</span>
-            <span class="n">archive</span><span class="p">,</span>
-            <span class="n">snapshot</span><span class="p">,</span>
-            <span class="n">size</span><span class="p">,</span>
-            <span class="n">structure_version</span><span class="p">,</span>
-            <span class="n">value_version</span><span class="p">,</span>
-            <span class="n">cache</span><span class="p">,</span>
-            <span class="n">kdtree</span><span class="p">,</span>
-        <span class="p">)</span> <span class="ow">in</span> <span class="n">snapshots</span><span class="p">:</span>
-            <span class="n">archive</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">snapshot</span>
-            <span class="n">archive</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
-            <span class="n">archive</span><span class="o">.</span><span class="n">_structure_version</span> <span class="o">=</span> <span class="n">structure_version</span>
-            <span class="n">archive</span><span class="o">.</span><span class="n">_value_version</span> <span class="o">=</span> <span class="n">value_version</span>
-            <span class="n">archive</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="s2">&quot;_kdtree&quot;</span><span class="p">):</span>
-                <span class="n">archive</span><span class="o">.</span><span class="n">_kdtree</span> <span class="o">=</span> <span class="n">kdtree</span>
-            <span class="c1"># Rebuild opaque service indexes from restored rows after rollback.</span>
-            <span class="n">invalidate</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="s2">&quot;_invalidate_service_indexes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">invalidate</span><span class="p">):</span>
-                <span class="n">invalidate</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_feedback</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="n">EvaluationUpdate</span>

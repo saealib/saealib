@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.evaluator &#8212; saealib 0.1.1.dev64+g9284ee7c5 ドキュメント</title>
+    <title>saealib.execution.evaluator &#8212; saealib 0.1.1.dev67+g3573ca625 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=bc641cfd"></script>
+    <script src="../../../_static/documentation_options.js?v=57200c00"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -972,10 +972,11 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">Future</span><span class="p">,</span> <span class="n">ThreadPoolExecutor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">fsum</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -994,6 +995,41 @@ window.runMermaid = runMermaid;</script>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
+
+
+<span class="c1">#: Metadata key marking a request whose results must not reach the algorithm.</span>
+<span class="n">NO_TELL_METADATA</span> <span class="o">=</span> <span class="s2">&quot;no_tell&quot;</span>
+
+<span class="c1">#: Metadata key carrying who requested an evaluation.</span>
+<span class="n">ORIGIN_KIND_METADATA</span> <span class="o">=</span> <span class="s2">&quot;origin_kind&quot;</span>
+
+<span class="c1">#: Evaluation requested by the flow.</span>
+<span class="n">ORIGIN_KIND_FLOW</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="c1">#: Evaluation requested by a transition at a commit point.</span>
+<span class="n">ORIGIN_KIND_TRANSITION</span> <span class="o">=</span> <span class="mi">1</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">request_origin_kind</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">EvaluationRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return who requested the evaluation of *request*.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    request : EvaluationRequest</span>
+<span class="sd">        Request whose metadata carries the origin.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        ``0`` for a request of the flow, ``1`` for a request of a transition.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ORIGIN_KIND_METADATA</span><span class="p">,</span> <span class="n">ORIGIN_KIND_FLOW</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ORIGIN_KIND_FLOW</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ORIGIN_KIND_FLOW</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">EvaluationStatus</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
@@ -1199,6 +1235,80 @@ window.runMermaid = runMermaid;</script>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">payload</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> payload&quot;</span>
         <span class="p">)</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">split_request</span><span class="p">(</span>
+    <span class="n">request</span><span class="p">:</span> <span class="n">EvaluationRequest</span><span class="p">,</span>
+    <span class="n">chunk_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">allocate_request_id</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EvaluationRequest</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split a request into *chunk_count* parts, in candidate order.</span>
+
+<span class="sd">    The parts cover the request&#39;s candidates in order; the first part keeps the</span>
+<span class="sd">    request&#39;s ID and each later part takes a new ID from *allocate_request_id*.</span>
+<span class="sd">    The estimated cost a part carries is apportioned by candidate count, and</span>
+<span class="sd">    the last part takes the remainder.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    request : EvaluationRequest</span>
+<span class="sd">        Request to split.</span>
+<span class="sd">    chunk_count : int</span>
+<span class="sd">        Number of parts to produce.  ``1`` returns the request unchanged.</span>
+<span class="sd">    allocate_request_id : callable or None</span>
+<span class="sd">        Returns the request ID for each part after the first.  Required only</span>
+<span class="sd">        when more than one part is requested.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of EvaluationRequest</span>
+<span class="sd">        The parts, in candidate order.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValidationError</span>
+<span class="sd">        If *chunk_count* is not a positive integer, or if more than one part is</span>
+<span class="sd">        requested and no ID allocator was given.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chunk_count</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chunk_count</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;evaluation chunk count must be an integer&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">chunk_count</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;evaluation chunk count must be positive&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">chunk_count</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">request</span><span class="p">,)</span>
+    <span class="k">if</span> <span class="n">allocate_request_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;a split request needs a request ID allocator&quot;</span><span class="p">)</span>
+    <span class="n">total_cost</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+        <span class="n">request</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;estimated_cost&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">))</span>
+    <span class="p">)</span>
+    <span class="n">allocated_cost</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">requests</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">EvaluationRequest</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">id_chunks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">,</span> <span class="n">chunk_count</span><span class="p">)</span>
+    <span class="n">row_chunks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">)),</span> <span class="n">chunk_count</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">rows</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">id_chunks</span><span class="p">,</span> <span class="n">row_chunks</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)):</span>
+        <span class="n">request_id</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">request</span><span class="o">.</span><span class="n">request_id</span> <span class="k">if</span> <span class="n">index</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">allocate_request_id</span><span class="p">())</span>
+        <span class="p">)</span>
+        <span class="n">chunk_cost</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">total_cost</span> <span class="o">-</span> <span class="n">fsum</span><span class="p">((</span><span class="n">allocated_cost</span><span class="p">,))</span>
+            <span class="k">if</span> <span class="n">index</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">id_chunks</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+            <span class="k">else</span> <span class="n">total_cost</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">candidate_ids</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">allocated_cost</span> <span class="o">=</span> <span class="n">fsum</span><span class="p">((</span><span class="n">allocated_cost</span><span class="p">,</span> <span class="n">chunk_cost</span><span class="p">))</span>
+        <span class="n">requests</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">EvaluationRequest</span><span class="p">(</span>
+                <span class="n">request_id</span><span class="p">,</span>
+                <span class="n">ids</span><span class="p">,</span>
+                <span class="n">request</span><span class="o">.</span><span class="n">payload</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">intp</span><span class="p">)),</span>
+                <span class="n">request</span><span class="o">.</span><span class="n">outputs</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="o">**</span><span class="n">request</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+                    <span class="s2">&quot;estimated_cost&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">chunk_cost</span><span class="p">),</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">requests</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="EvaluationHandle">

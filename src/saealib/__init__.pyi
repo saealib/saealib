@@ -57,6 +57,9 @@ from saealib.callback import InitialEvaluationStartEvent as InitialEvaluationSta
 from saealib.callback import PostAskEvent as PostAskEvent
 from saealib.callback import PostCrossoverEvent as PostCrossoverEvent
 from saealib.callback import PostEvaluationEvent as PostEvaluationEvent
+from saealib.callback import (
+    PostEvaluationRequestEvent as PostEvaluationRequestEvent,
+)
 from saealib.callback import PostMutationEvent as PostMutationEvent
 from saealib.callback import PostSurrogateFitEvent as PostSurrogateFitEvent
 from saealib.callback import RunEndEvent as RunEndEvent

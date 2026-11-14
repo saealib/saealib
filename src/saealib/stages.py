@@ -39,7 +39,12 @@ from saealib.callback import (
     SurrogateEndEvent,
     SurrogateStartEvent,
 )
-from saealib.context import EvaluationPlanState, OptimizationState, _count_evaluated
+from saealib.context import (
+    EvaluationPlanState,
+    OptimizationState,
+    _count_evaluated,
+    _EvaluationReport,
+)
 from saealib.core.contracts import (
     CallInput,
     CallOutput,
@@ -96,10 +101,12 @@ from saealib.core.state import (
 from saealib.core.state.context import RuntimeContext
 from saealib.exceptions import EvaluationProtocolError, ValidationError
 from saealib.execution.evaluator import (
+    ORIGIN_KIND_FLOW,
     EvaluationResult,
     EvaluationStatus,
     Evaluator,
     PendingEvaluation,
+    request_origin_kind,
     split_request,
 )
 from saealib.execution.history import observe_true_evaluation
@@ -2139,8 +2146,11 @@ class EvaluationCollectStage(Stage):
                 # A graph-native stage sees a proxy with no history field key.
                 history = getattr(state, "_state", state).history
                 if history is not None:
+                    origin_kind = request_origin_kind(planned_pending.request)
                     for _delivered in delivered:
-                        history._observe_evaluation(_delivered, 0)
+                        history._observe_evaluation(
+                            _delivered, 0, origin_kind=origin_kind
+                        )
                 expected = planned_pending.last_delivered_sequence + 1
                 for update in delivered:
                     if (
@@ -2572,6 +2582,33 @@ class EvaluationAcknowledgeStage(Stage):
             cbmanager=_snapshot_cbmanager(bindings),
         )
 
+    def _report_request(
+        self,
+        state: OptimizationState,
+        *,
+        request_id: int,
+        candidate_ids: list[int],
+        status: EvaluationStatus | None,
+    ) -> OptimizationState:
+        """Report one acknowledged request once, if it counted any row."""
+        if not candidate_ids:
+            return state
+        return _count_evaluated(
+            state,
+            (),
+            report=_EvaluationReport(
+                request_id=request_id,
+                candidate_ids=np.asarray(candidate_ids, dtype=np.int64),
+                status=status,
+                origin_kind=ORIGIN_KIND_FLOW,
+                dispatch=(
+                    None
+                    if self._cbmanager is None
+                    else lambda event: _dispatch_callback(self._cbmanager, event)
+                ),
+            ),
+        )
+
     def execute(self, state: OptimizationState) -> OptimizationState:
         if _plan_incomplete(state):
             return state
@@ -2620,7 +2657,15 @@ class EvaluationAcknowledgeStage(Stage):
             else:
                 pending_map[int(request.request_id)] = updated_pending
             current = _count_evaluated(
-                current, update_new_ids, counted=reported_ids
+                current,
+                update_new_ids,
+                counted=reported_ids,
+                report=_EvaluationReport(
+                    request_id=int(request.request_id),
+                    candidate_ids=np.asarray(update_new_ids, dtype=np.int64),
+                    status=update.status,
+                    origin_kind=ORIGIN_KIND_FLOW,
+                ),
             ).replace(
                 pending_evaluations=pending_map.copy(),
                 evaluation_handles=handles.copy(),
@@ -2661,6 +2706,12 @@ class EvaluationAcknowledgeStage(Stage):
                         status=update.status,
                     ),
                 )
+        current = self._report_request(
+            current,
+            request_id=int(request.request_id),
+            candidate_ids=sorted(reported_ids),
+            status=state.evaluation_updates[-1].status,
+        )
         if isinstance(plan, EvaluationPlan) and len(plan.requests) > 1:
             all_updates = state.evaluation_plan_updates
             for planned in plan.requests:
@@ -2673,12 +2724,30 @@ class EvaluationAcknowledgeStage(Stage):
                     continue
                 extra_pending = pending_map.get(planned_id)
                 reported_extra_ids: set[int] = set()
+                extra_status = None
                 for update in all_updates.get(planned_id, ()):
                     self._evaluator.acknowledge(extra_handle, update.sequence)
                     if update.result is not None:
                         current = _count_evaluated(
-                            current, update.candidate_ids, counted=reported_extra_ids
+                            current,
+                            update.candidate_ids,
+                            counted=reported_extra_ids,
+                            report=_EvaluationReport(
+                                request_id=planned_id,
+                                candidate_ids=np.asarray(
+                                    update.candidate_ids, dtype=np.int64
+                                ),
+                                status=update.status,
+                                origin_kind=ORIGIN_KIND_FLOW,
+                            ),
                         )
+                    extra_status = update.status
+                current = self._report_request(
+                    current,
+                    request_id=planned_id,
+                    candidate_ids=sorted(reported_extra_ids),
+                    status=extra_status,
+                )
                 if extra_pending is not None:
                     pending_map.pop(planned_id, None)
                     handles.pop(planned_id, None)
@@ -2802,8 +2871,23 @@ class TrueEvaluationStage(Stage):
             evaluated_ids = np.asarray(candidates.get_array("id")[:n], dtype=np.int64)
         else:
             evaluated_ids = np.arange(n, dtype=np.int64)
-        counted = _count_evaluated(state, evaluated_ids)
-        observe_true_evaluation(state, evaluated_ids, result)
+        request_id = int(state.request_id_allocator.allocate(1)[0])
+        observe_true_evaluation(state, evaluated_ids, result, request_id=request_id)
+        counted = _count_evaluated(
+            state,
+            evaluated_ids,
+            report=_EvaluationReport(
+                request_id=request_id,
+                candidate_ids=evaluated_ids,
+                status=EvaluationStatus.COMPLETED,
+                origin_kind=ORIGIN_KIND_FLOW,
+                dispatch=(
+                    None
+                    if self._cbmanager is None
+                    else lambda event: _dispatch_callback(self._cbmanager, event)
+                ),
+            ),
+        )
 
         if self._cbmanager is not None:
             _dispatch_callback(

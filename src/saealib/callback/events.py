@@ -268,6 +268,11 @@ class ConfigurationCommittedEvent(Event):
 class PostEvaluationEvent(Event):
     """Fired after true evaluation of selected candidates.
 
+    One event is fired per plan, not per evaluation request, and an evaluation
+    that a transition requested at a commit point does not fire it; use
+    :class:`PostEvaluationRequestEvent` to observe each evaluation request,
+    including the ones a transition requests.
+
     Attributes
     ----------
     offspring : Population or None
@@ -279,6 +284,50 @@ class PostEvaluationEvent(Event):
     request_id: np.int64 | None = None
     candidate_ids: np.ndarray | None = None
     status: EvaluationStatus | None = None
+
+
+@dataclass
+class PostEvaluationRequestEvent(Event):
+    """Fired once for every evaluation request whose results are counted.
+
+    The event reports the request as a whole, whatever value the neighbouring
+    :class:`PostEvaluationEvent` aggregates for its plan.  It fires on every
+    evaluation path:
+
+    - the initial evaluation of an initializer, with ``request_id = -1``
+      because no planner issued it;
+    - ``TrueEvaluationStage`` in a classic ``Pipeline``;
+    - the synchronous plan's evaluation and acknowledgment stages, including
+      the remaining requests of a multi-request plan;
+    - the asynchronous scheduler's commit of a request;
+    - an evaluation a transition requested at a component replacement's commit
+      point, with ``origin_kind = 1``.
+
+    With no handler registered the dispatch costs one dictionary lookup, so the
+    event is emitted whether or not anybody listens.
+
+    Attributes
+    ----------
+    request_id : numpy.int64 or None
+        Evaluation request the event reports; ``-1`` for an initial evaluation.
+    candidate_ids : numpy.ndarray or None
+        Candidate IDs whose results this request counted.
+    size : int
+        Number of those candidate IDs.
+    status : EvaluationStatus or None
+        Status the request was confirmed with.
+    origin_kind : int
+        Who requested the evaluation: ``0`` for a request of the flow and
+        ``1`` for a request of a transition; ``-1`` when an in-memory
+        origin record is unavailable after a resume from a portable
+        checkpoint.
+    """
+
+    request_id: np.int64 | None = None
+    candidate_ids: np.ndarray | None = None
+    size: int = 0
+    status: EvaluationStatus | None = None
+    origin_kind: int = 0
 
 
 # --- Initializer events ---

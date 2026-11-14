@@ -39,13 +39,14 @@ Eventの`ctx`は、`archive`、`comparator`、`n_obj`、`gen`、`fe`などの値
 | `PostMutationEvent` | mutationとrepairの後 | `candidates` |
 | `PostAskEvent` | `ask()`（crossoverとmutation）のすべての処理の後 | `candidates` |
 | `PostSurrogateFitEvent` | surrogateのfit後 | `surrogate`、`train_x`と`train_f`はoptional |
-| `PostEvaluationEvent` | 選択された候補のtrue evaluation後 | `offspring` |
+| `PostEvaluationEvent` | 評価計画ごとに1回、選択された候補のtrue evaluation後。コミット点でtransitionが要求した評価では発火しない（`PostEvaluationRequestEvent`を使う） | `offspring` |
 | `InitialEvaluationStartEvent` | 初期サンプリング後、初期評価前 | `candidates_x` |
 | `InitialEvaluationEndEvent` | 初期評価後、archiveのソート前 | `archive` |
 
 `PostSurrogateFitEvent`は、Surrogateのfit後に組み込みStageから発火します。
 組み込みStageが発火するイベントでは、`train_x`と`train_f`が設定されない場合があります。
 `PostEvaluationEvent`には、評価済みの`offspring`に加えて`request_id`、`candidate_ids`、`status`が含まれる場合があります。
+これは計画単位のイベントなので、複数の評価要求を持つ計画では1回だけ発火し、部品の差し替えのコミット点でtransitionが要求した評価では代わりに`PostEvaluationRequestEvent`が要求ごとに1回発火します。
 
 ## 既定のログ出力
 

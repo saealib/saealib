@@ -28,6 +28,7 @@ from saealib.callback import (
     InitialEvaluationEndEvent,
     InitialEvaluationStartEvent,
     PostEvaluationEvent,
+    PostEvaluationRequestEvent,
     RunEndEvent,
     RunStartEvent,
 )
@@ -263,6 +264,7 @@ __all__ = [
     "Population",
     "PopulationAttribute",
     "PostEvaluationEvent",
+    "PostEvaluationRequestEvent",
     "PreSelectionStrategy",
     "PredictedFeedback",
     "Problem",

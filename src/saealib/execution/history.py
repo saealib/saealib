@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import dataclasses
 from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -52,6 +53,7 @@ _INTEGER_COLUMNS = frozenset(
         "attempt",
         "origin_decision_count",
         "origin_gen",
+        "origin_kind",
     }
 )
 
@@ -103,6 +105,7 @@ class History:
         }
         self._evaluation_keys: set[tuple[int, int, int, int]] = set()
         self._evaluation_origins: dict[int, tuple[int, int]] = {}
+        self._evaluation_origin_kinds: dict[int, int] = {}
         self._evaluation_terminal_request_ids: set[int] = set()
         self._evaluation_resume_initialized = False
         self._evaluation_resume_request_ids: set[int] = set()
@@ -115,6 +118,32 @@ class History:
         self._fe_counted_ids: dict[int, set[int]] = {}
         self._fe_restored: bool = False
 
+    def __setstate__(self, state: Mapping[str, Any]) -> None:
+        """Restore a pickled recorder, including checkpoints older than it.
+
+        A recorder pickled before the ``origin_kind`` origin existed carries no
+        ``_evaluation_origin_kinds`` registry and no ``origin_kind`` column; the
+        restored recorder reads those rows as flow evaluations (``0``).
+        """
+        self.__dict__.update(state)
+        self.__dict__.setdefault("_evaluation_origin_kinds", {})
+        self._ensure_evaluation_origin_kind()
+
+    def _ensure_evaluation_origin_kind(self) -> None:
+        """Add the ``origin_kind`` column filled with ``0`` when it is missing."""
+        if "evaluation" not in self._enabled:
+            return
+        stored = self._columns.get("evaluation")
+        if not isinstance(stored, dict) or "origin_kind" in stored:
+            return
+        capacity = max(
+            int(self._capacity.get("evaluation", 0)),
+            int(self._rows.get("evaluation", 0)),
+        )
+        stored["origin_kind"] = np.zeros(capacity, dtype=np.int64)
+        if self._capacity.get("evaluation", 0) < capacity:
+            self._capacity["evaluation"] = capacity
+
     @property
     def enabled(self) -> frozenset[str]:
         """Return the enabled channel names."""
@@ -124,17 +153,24 @@ class History:
         """Return whether a channel is enabled."""
         return name in self._enabled
 
-    def _observe_evaluation(self, update: EvaluationUpdate, attempt: int) -> None:
+    def _observe_evaluation(
+        self, update: EvaluationUpdate, attempt: int, *, origin_kind: int = -1
+    ) -> None:
         """Buffer one delivered true evaluation for the recorder.
 
         Delivery sources (the sync collect stage and the async scheduler commit
         path) call this; :func:`record_evaluations` is the only consumer.  When
         neither the ``evaluation`` nor ``surrogate_accuracy`` channel is enabled
         the observation is dropped immediately, matching the recorder's own
-        early return.
+        early return.  *origin_kind* records who requested the evaluation, so
+        the row can be written before its request finishes; ``-1`` leaves the
+        request's origin unknown.
         """
         if not (self.is_enabled("evaluation") or self.is_enabled("surrogate_accuracy")):
             return
+        if origin_kind >= 0:
+            with contextlib.suppress(TypeError, ValueError):
+                self._evaluation_origin_kinds[int(update.request_id)] = int(origin_kind)
         self._observations.append(_ObservedEvaluation(update, attempt))
 
     def _reopen_request(self, request_id: int) -> None:
@@ -934,11 +970,12 @@ def _restore_surrogate_accuracy_keys(history: History) -> None:
 def _fill_missing_evaluation_columns(
     history: History, n_obj: int, n_constraints: int
 ) -> None:
-    """NaN-fill evaluation block columns that older checkpoints lack."""
+    """Fill evaluation columns that older checkpoints lack."""
     if not history.is_enabled("evaluation"):
         return
     if history._record_modes["evaluation"] != "block":
         return
+    history._ensure_evaluation_origin_kind()
     block_columns = history._block_columns["evaluation"]
     missing = {"g", "noise"} - set(block_columns)
     if not missing:
@@ -1273,8 +1310,10 @@ def record_evaluations(state: OptimizationState) -> None:
     updates without a result are progress notifications and are skipped.
     The de-duplication key is ``(request_id, sequence, status_code, attempt)``,
     so retry attempts that reuse a request ID are kept as distinct rows; the
-    in-memory request-origin map, de-duplication set, and ``fe`` counter are
-    intentionally not checkpointed.  After resume, requests already present in
+    in-memory request-origin map (which also records each request's
+    ``origin_kind`` and whether the evaluation came from the flow or from a
+    transition), de-duplication set, and ``fe`` counter are intentionally not
+    checkpointed.  After resume, requests already present in
     the restored plan have origin columns equal to ``-1``; the ``fe`` counter
     resumes from the maximum persisted ``fe_after`` (candidate-ID sets are not
     restored, matching the origin limitation).  Recorded keys are reconstructed
@@ -1344,6 +1383,7 @@ def record_evaluations(state: OptimizationState) -> None:
                     origin_decision_count, origin_gen = history._evaluation_origins.get(
                         request_id, (-1, -1)
                     )
+                    origin_kind = history._evaluation_origin_kinds.get(request_id, -1)
                     history.append_block(
                         "evaluation",
                         blocks,
@@ -1357,6 +1397,7 @@ def record_evaluations(state: OptimizationState) -> None:
                         decision_count=int(state.decision_count),
                         origin_decision_count=origin_decision_count,
                         origin_gen=origin_gen,
+                        origin_kind=origin_kind,
                         size=size,
                     )
                 except (
@@ -1413,8 +1454,12 @@ def record_evaluations(state: OptimizationState) -> None:
 
 
 def observe_true_evaluation(
-    state: OptimizationState, candidate_ids: object, result: EvaluationResult
-) -> None:
+    state: OptimizationState,
+    candidate_ids: object,
+    result: EvaluationResult,
+    *,
+    request_id: int | None = None,
+) -> int | None:
     """Buffer one true-evaluation batch of the classic pipeline.
 
     ``TrueEvaluationStage`` evaluates a batch without an evaluation request,
@@ -1427,6 +1472,24 @@ def observe_true_evaluation(
     ``surrogate_accuracy`` channel is enabled, so such a run allocates no
     request ID.  A malformed batch is ignored, because history recording must
     not stop execution.
+
+    Parameters
+    ----------
+    state : OptimizationState
+        State the batch was evaluated in.
+    candidate_ids : object
+        Candidate IDs of the batch.
+    result : EvaluationResult
+        True objective values of the batch.
+    request_id : int or None, optional
+        Request ID to record the batch under.  ``None`` allocates one from the
+        state's request allocator.
+
+    Returns
+    -------
+    int or None
+        The request ID the batch was buffered under, or ``None`` when nothing
+        was buffered.
     """
     # A graph-native stage sees a proxy without a history attribute.
     state = getattr(state, "_state", state)
@@ -1434,12 +1497,14 @@ def observe_true_evaluation(
     if history is None or not (
         history.is_enabled("evaluation") or history.is_enabled("surrogate_accuracy")
     ):
-        return
+        return None
     try:
         ids = np.array(candidate_ids, dtype=np.int64, copy=True)
         result.candidate_ids = ids
+        if request_id is None:
+            request_id = int(state.request_id_allocator.allocate(1)[0])
         update = EvaluationUpdate(
-            np.int64(state.request_id_allocator.allocate(1)[0]),
+            np.int64(request_id),
             EvaluationStatus.COMPLETED,
             ids,
             result,
@@ -1447,8 +1512,9 @@ def observe_true_evaluation(
             0,
         )
     except (AttributeError, TypeError, ValueError, OverflowError):
-        return
-    history._observe_evaluation(update, 0)
+        return None
+    history._observe_evaluation(update, 0, origin_kind=0)
+    return int(request_id)
 
 
 def record_initial_evaluation(
@@ -1497,6 +1563,7 @@ def record_initial_evaluation(
             decision_count=0,
             origin_decision_count=0,
             origin_gen=0,
+            origin_kind=0,
             size=len(candidate_ids),
         )
         history._evaluation_keys.add(

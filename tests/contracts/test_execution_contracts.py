@@ -21,6 +21,7 @@ from saealib.core.state import (
     POPULATIONS_MAIN,
     PROPOSALS_CURRENT,
     RUNTIME_ASYNC_FATAL,
+    RUNTIME_BASE_COLUMNS,
     RUNTIME_CANDIDATE_ID_ALLOCATOR,
     RUNTIME_DECISION_COUNT,
     RUNTIME_GENERATION,
@@ -103,6 +104,7 @@ def test_initializer_contract_declares_population_and_rng_effects() -> None:
             RUNTIME_STEP,
             RUNTIME_REGION_COUNTS,
             RUNTIME_RNG,
+            RUNTIME_BASE_COLUMNS,
             RUNTIME_CANDIDATE_ID_ALLOCATOR,
         ),
     )

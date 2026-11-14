@@ -31,6 +31,7 @@ from saealib.core.runtime import RegionFrame as RegionFrame
 from saealib.core.runtime import StructuredPlan as StructuredPlan
 from saealib.core.state.context import ExecutionContext as ExecutionContext
 from saealib.core.state.context import RuntimeContext as RuntimeContext
+from saealib.core.state.keys import RUNTIME_BASE_COLUMNS as RUNTIME_BASE_COLUMNS
 from saealib.core.state.keys import RUNTIME_DECISION_COUNT as RUNTIME_DECISION_COUNT
 from saealib.core.state.keys import RUNTIME_GENERATION as RUNTIME_GENERATION
 from saealib.core.state.keys import RUNTIME_REGION_COUNTS as RUNTIME_REGION_COUNTS

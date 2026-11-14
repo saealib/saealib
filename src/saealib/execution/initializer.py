@@ -29,6 +29,7 @@ from saealib.core.state import (
     ARCHIVES_PARETO,
     EVALUATIONS_COUNT,
     POPULATIONS_MAIN,
+    RUNTIME_BASE_COLUMNS,
     RUNTIME_CANDIDATE_ID_ALLOCATOR,
     RUNTIME_DECISION_COUNT,
     RUNTIME_GENERATION,
@@ -133,6 +134,19 @@ def _defaults_equal(a: object, b: object) -> bool:
         return a == b
 
 
+def _declared_attr_names(problem: Problem, provider: ComponentProvider) -> set[str]:
+    """Return the column names that the bound components declare."""
+    names: set[str] = set()
+    if provider.algorithm is not None:
+        names.update(
+            attr.name for attr in provider.algorithm.get_required_attrs(problem)
+        )
+    comparator = _provider_comparator(provider)
+    if comparator is not None:
+        names.update(attr.name for attr in comparator.get_required_attrs(problem))
+    return names
+
+
 def _merge_required_attrs(
     attrs: list[PopulationAttribute],
     problem: Problem,
@@ -219,6 +233,7 @@ class Initializer(ABC):
                     RUNTIME_STEP,
                     RUNTIME_REGION_COUNTS,
                     RUNTIME_RNG,
+                    RUNTIME_BASE_COLUMNS,
                 ),
             ),
         )
@@ -243,12 +258,13 @@ class Initializer(ABC):
         pareto_archive: ParetoArchive,
         population: Population,
         rng: np.random.Generator,
+        attrs: list[PopulationAttribute] | None = None,
     ) -> OptimizationState:
         comparator = _provider_comparator(provider)
         if isinstance(comparator, NSGA3Comparator) and comparator._rng is None:
             comparator.rng = rng.spawn(1)[0]
 
-        return OptimizationState(
+        state = OptimizationState(
             problem=problem,
             population=population,
             archive=archive,
@@ -261,6 +277,13 @@ class Initializer(ABC):
                 channels=getattr(provider, "history_channels", ("summary",))
             ),
         )
+        declared = _declared_attr_names(problem, provider)
+        columns = population.schema if attrs is None else [attr.name for attr in attrs]
+        state.set_state(
+            RUNTIME_BASE_COLUMNS,
+            sorted(name for name in columns if name not in declared),
+        )
+        return state
 
     @abstractmethod
     def initialize(
@@ -339,7 +362,7 @@ class GenomeInitializer(Initializer):
             provider, attrs, self.n_init_archive, problem
         )
         ctx = self._create_context(
-            problem, provider, archive, pareto_archive, population, rng
+            problem, provider, archive, pareto_archive, population, rng, attrs=attrs
         )
 
         genomes = problem.space.sample(self.n_init_archive, rng)
@@ -481,7 +504,7 @@ class LHSInitializer(Initializer):
         pareto_archive._dense_numeric_view = _resolved_dense_view(problem)
 
         ctx = self._create_context(
-            problem, provider, archive, pareto_archive, population, rng
+            problem, provider, archive, pareto_archive, population, rng, attrs=attrs
         )
 
         bounds_srv = cast(
@@ -631,7 +654,7 @@ class RandomInitializer(Initializer):
         pareto_archive._dense_numeric_view = _resolved_dense_view(problem)
 
         ctx = self._create_context(
-            problem, provider, archive, pareto_archive, population, rng
+            problem, provider, archive, pareto_archive, population, rng, attrs=attrs
         )
 
         bounds_srv = cast(
@@ -778,7 +801,7 @@ class SobolInitializer(Initializer):
         pareto_archive._dense_numeric_view = _resolved_dense_view(problem)
 
         ctx = self._create_context(
-            problem, provider, archive, pareto_archive, population, rng
+            problem, provider, archive, pareto_archive, population, rng, attrs=attrs
         )
 
         bounds_srv = cast(

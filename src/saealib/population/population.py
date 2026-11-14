@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 import weakref
-from collections.abc import Hashable, Mapping
+from collections.abc import Hashable, Iterable, Mapping
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, overload
 
@@ -21,6 +21,10 @@ from saealib.space.services import DenseNumericView
 OBJECTIVE_SOURCE_COLUMN = "objective_source"
 UNKNOWN_SOURCE_CODE = 255
 
+# Columns the framework itself reads while producing and consuming candidates.
+# ``add_columns`` may add them back, but ``drop_columns`` never removes them.
+_RESERVED_COLUMNS = frozenset({"x", "f", "g", "cv", "id", OBJECTIVE_SOURCE_COLUMN})
+
 if TYPE_CHECKING:
     pass
 
@@ -29,6 +33,22 @@ T_Individual = TypeVar("T_Individual", bound="Individual")
 _T_Default = TypeVar("_T_Default")
 
 ColumnStore = Mapping[str, np.ndarray]
+
+
+def _same_column_spec(left: PopulationAttribute, right: PopulationAttribute) -> bool:
+    """Return whether two column definitions produce equal storage."""
+    if np.dtype(left.dtype) != np.dtype(right.dtype):
+        return False
+    if tuple(left.shape) != tuple(right.shape):
+        return False
+    try:
+        return bool(
+            np.array_equal(
+                np.asarray(left.default), np.asarray(right.default), equal_nan=True
+            )
+        )
+    except TypeError:
+        return bool(left.default == right.default)
 
 
 class _ConflictBypassProperty(property):
@@ -211,16 +231,18 @@ class Population(Generic[T_Individual]):
                 )
 
     def _init_column(self, attr: PopulationAttribute, capacity: int) -> None:
+        self._data[attr.name] = self._allocate_column(attr, capacity)
+
+    @staticmethod
+    def _allocate_column(attr: PopulationAttribute, capacity: int) -> np.ndarray:
         shape = (capacity, *attr.shape)
         if attr.default is not None:
-            arr = np.full(
+            return np.full(
                 shape=shape, fill_value=attr.default, dtype=attr.dtype, order="C"
             )
-        elif np.issubdtype(attr.dtype, np.floating) and np.isnan(attr.default):
-            arr = np.full(shape=shape, fill_value=np.nan, dtype=attr.dtype, order="C")
-        else:
-            arr = np.zeros(shape=shape, dtype=attr.dtype, order="C")
-        self._data[attr.name] = arr
+        if np.issubdtype(attr.dtype, np.floating) and np.isnan(attr.default):
+            return np.full(shape=shape, fill_value=np.nan, dtype=attr.dtype, order="C")
+        return np.zeros(shape=shape, dtype=attr.dtype, order="C")
 
     def _resize(self, new_capacity: int) -> None:
         for k, v in self._data.items():
@@ -1254,6 +1276,180 @@ class Population(Generic[T_Individual]):
             self._replace_genome_rows(normalized_indices, normalized_genome)
 
         self.mod_value()
+
+    def add_columns(self, specs: Iterable[PopulationAttribute]) -> list[str]:
+        """Add columns, filling every row with each specification's default.
+
+        All specifications are validated before any column is created, so a
+        rejected call leaves the schema and the stored data unchanged. Columns
+        are appended to the schema in the order they are given.
+
+        Parameters
+        ----------
+        specs : iterable of PopulationAttribute
+            Column definitions to add. Each definition supplies its own dtype,
+            shape, and default value.
+
+        Returns
+        -------
+        list of str
+            Names of the columns that were created, in the given order. The
+            list is empty when every column already existed.
+
+        Raises
+        ------
+        ValidationError
+            If an item is not a ``PopulationAttribute``, a name is empty or
+            repeated, the dtype is ``object``, a shape entry is not a
+            non-negative integer, or an existing column has a different
+            specification.
+
+        Notes
+        -----
+        Adding a column that already exists with an equal specification is a
+        no-op, including its version counters. A non-empty call bumps the
+        structure version and the value version once, invalidates cached
+        values, and invalidates live :class:`Individual` handles, exactly as
+        ``append`` and ``truncate`` do.
+
+        Concurrent mutation of the same population is not supported: a caller
+        must not add columns while another thread, callback, or pending
+        asynchronous evaluation is writing to it.
+        """
+        new_specs: list[PopulationAttribute] = []
+        requested: set[str] = set()
+        for spec in specs:
+            if not isinstance(spec, PopulationAttribute):
+                raise ValidationError(
+                    "add_columns() expects PopulationAttribute definitions"
+                )
+            name = spec.name
+            if not isinstance(name, str) or not name:
+                raise ValidationError(
+                    "add_columns() requires a non-empty string column name"
+                )
+            if name in requested:
+                raise ValidationError(f"add_columns() names must not repeat: {name!r}")
+            requested.add(name)
+            try:
+                dtype = np.dtype(spec.dtype)
+            except TypeError as exc:
+                raise ValidationError(
+                    f"add_columns() requires a NumPy dtype for {name!r}"
+                ) from exc
+            if dtype == np.dtype(object):
+                raise ValidationError(
+                    f"add_columns() rejects object-dtype column {name!r}"
+                )
+            if not isinstance(spec.shape, tuple) or any(
+                isinstance(size, bool)
+                or not isinstance(size, (int, np.integer))
+                or size < 0
+                for size in spec.shape
+            ):
+                raise ValidationError(
+                    f"add_columns() requires a tuple of non-negative column "
+                    f"shape sizes for {name!r}"
+                )
+            existing = self._schema.get(name)
+            if existing is not None:
+                if not _same_column_spec(existing, spec):
+                    raise ValidationError(
+                        "Conflicting PopulationAttribute definitions for "
+                        f"{name!r}: {existing} vs {spec}"
+                    )
+                continue
+            new_specs.append(spec)
+
+        try:
+            allocated = {
+                spec.name: self._allocate_column(spec, self._capacity)
+                for spec in new_specs
+            }
+        except (TypeError, ValueError) as exc:
+            raise ValidationError(
+                f"add_columns() cannot fill a column with its default: {exc}"
+            ) from exc
+        for spec in new_specs:
+            self._data[spec.name] = allocated[spec.name]
+            self._schema[spec.name] = spec
+        if new_specs:
+            self.mod_structure()
+        return [spec.name for spec in new_specs]
+
+    def drop_columns(self, names: Iterable[str]) -> list[str]:
+        """Drop columns from the population.
+
+        Reserved column names are decided by the population, not by the
+        caller: the design-variable, objective, constraint, constraint-value,
+        candidate-identity, and objective-source columns are rejected, as is
+        the archive key attribute (and the observation columns of an
+        ``append`` archive). Columns that a component in use requires, such as
+        the velocity of a particle swarm algorithm, are not checked: dropping
+        one makes the next ``ask`` or ``tell`` that reads it fail with a
+        ``KeyError``.
+
+        Parameters
+        ----------
+        names : iterable of str
+            Column names to remove.
+
+        Returns
+        -------
+        list of str
+            Names of the columns that were removed, in the given order. The
+            list is empty when ``names`` is empty.
+
+        Raises
+        ------
+        ValidationError
+            If a name is empty or repeated, a column does not exist, or a
+            column is reserved.
+
+        Notes
+        -----
+        A non-empty call bumps the structure version and the value version
+        once, invalidates cached values, and invalidates live
+        :class:`Individual` handles, exactly as ``append`` and ``truncate``
+        do.
+
+        Concurrent mutation of the same population is not supported: a caller
+        must not drop columns while another thread, callback, or pending
+        asynchronous evaluation is writing to it.
+        """
+        requested: list[str] = []
+        seen: set[str] = set()
+        for name in names:
+            if not isinstance(name, str) or not name:
+                raise ValidationError(
+                    "drop_columns() requires a non-empty string column name"
+                )
+            if name in seen:
+                raise ValidationError(f"drop_columns() names must not repeat: {name!r}")
+            seen.add(name)
+            requested.append(name)
+        missing = [name for name in requested if name not in self._schema]
+        if missing:
+            raise ValidationError(
+                "Cannot drop unknown column(s): " + ", ".join(missing)
+            )
+        reserved = self._reserved_columns()
+        rejected = [name for name in requested if name in reserved]
+        if rejected:
+            raise ValidationError(
+                "Cannot drop reserved column(s): " + ", ".join(sorted(rejected))
+            )
+
+        for name in requested:
+            self._data.pop(name, None)
+            del self._schema[name]
+        if requested:
+            self.mod_structure()
+        return requested
+
+    def _reserved_columns(self) -> frozenset[str]:
+        """Return the column names that ``drop_columns`` refuses to remove."""
+        return _RESERVED_COLUMNS
 
     def _assign_ids(self, indices: np.ndarray, ids: np.ndarray) -> None:
         """Assign real candidate IDs to rows currently holding the -1 sentinel.

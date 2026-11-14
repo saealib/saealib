@@ -771,6 +771,14 @@ class ArchiveMixin:
         self._invalidate_service_indexes()
         super().mod_value()  # ty: ignore[unresolved-attribute]
 
+    def _reserved_columns(self) -> frozenset[str]:
+        """Keep the identity and observation columns of the archive schema."""
+        reserved = set(super()._reserved_columns())  # ty: ignore[unresolved-attribute]
+        reserved.add(self.key_attr)
+        if self.duplicate_policy == "append":
+            reserved.update({"id", "request_id"})
+        return frozenset(reserved)
+
     def _dense_archive_array(self: Any) -> np.ndarray:
         """Return dense genome coordinates for the intentionally dense kNN API."""
         if self._identity_mode == "legacy":
@@ -1256,6 +1264,12 @@ class ParetoMixin:
         new_idx: int = self._size  # ty: ignore[unresolved-attribute]
         super()._append_internal(element, preserve_ids=True, **kwargs)  # type: ignore[misc]  # ty: ignore[unresolved-attribute]
         return new_idx
+
+    def _reserved_columns(self) -> frozenset[str]:
+        """Keep the identity column of the Pareto archive schema."""
+        reserved = set(super()._reserved_columns())  # ty: ignore[unresolved-attribute]
+        reserved.add(self.key_attr)
+        return frozenset(reserved)
 
 
 class ParetoArchive(ParetoMixin, Population):

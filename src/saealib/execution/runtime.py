@@ -11,7 +11,7 @@ import time
 from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping
 from dataclasses import dataclass, replace
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, NoReturn, Protocol, cast
 
 import numpy as np
 
@@ -52,12 +52,14 @@ from saealib.core.runtime import (
     NodeStatus,
     PollResult,
     RegionFrame,
+    ReplaceComponent,
     RequestRecompile,
     RequestTermination,
     RuntimeCommand,
     RuntimeSession,
     RuntimeStep,
     SequentialPlan,
+    SetParameter,
     StructuredPlan,
     validate_plan_contracts,
 )
@@ -1523,7 +1525,11 @@ class _CommitMemento:
     binding_version: object
     store: object
     custom_state: object
+    controller_state: tuple[tuple[StateKey, object], ...]
     comparator: object
+    comparator_epsilon: object
+    published_comparator_epsilon: object
+    rng: object
     compiled_services: object
     history: object
     region_ids: tuple[str, ...]
@@ -1532,10 +1538,139 @@ class _CommitMemento:
     evaluation_handles: Mapping[int, object]
     scheduler_fatal_states: frozenset[int]
     staged: _StagedCollections
+    parameter_writes: list[tuple[object, str, object]]
+    component_writes: list[tuple[object, str, object]]
+    pending_parameter_writes: Mapping[tuple[str, str], object]
     candidate_resolution: object
     candidate_diagnostics: tuple[Diagnostic, ...]
-    publication_deferred: bool
     pending_recompile: bool
+
+
+def _run_generator(state: OptimizationState | None) -> object | None:
+    """Return the run generator of a state, or ``None`` when it has none."""
+    try:
+        return getattr(state, "rng", None)
+    except KeyError:
+        return None
+
+
+def _remember_component_attributes(
+    memento: _CommitMemento | None, component: object, names: tuple[str, ...]
+) -> None:
+    """Record a candidate component's attributes before this commit writes them."""
+    if memento is None:
+        return
+    for name in names:
+        memento.component_writes.append(
+            (component, name, getattr(component, name, _UNSET))
+        )
+
+
+def _capture_run_generator(state: OptimizationState | None) -> object:
+    """Return a copy of the run generator, or ``_UNSET`` when there is none."""
+    rng = _run_generator(state)
+    if rng is None:
+        return _UNSET
+    return copy.deepcopy(rng)
+
+
+def _restore_run_generator(state: OptimizationState, saved: object) -> None:
+    """Put the run generator's stream back, on the same generator object.
+
+    The stream is restored in place so every holder of the reference (a
+    transition context, the scheduler, a component) keeps one consistent
+    stream.  The child counter never needs restoring: it is advanced only after
+    a publication committed and every fallible step passed.
+    """
+    if saved is _UNSET:
+        return
+    rng = cast(Any, _run_generator(state))
+    if rng is None:
+        return
+    rng.bit_generator.state = copy.deepcopy(cast(Any, saved).bit_generator.state)
+
+
+def _restore_container(current: object, saved: object) -> bool:
+    """Put a captured controller value back, in place where that is possible.
+
+    The store restore already holds the object the controller was updating, so
+    its contents are put back in place and the entry keeps its identity: a
+    mapping, a sequence, a set, an array whose shape and dtype can be put back,
+    and the mutables a tuple holds.  An immutable value has nothing to put
+    back.
+
+    Returns
+    -------
+    bool
+        Whether the value is restored.  ``False`` asks the caller to replace
+        the stored value with the captured copy.
+    """
+    if isinstance(current, dict) and isinstance(saved, dict):
+        current.clear()
+        current.update({key: copy.deepcopy(value) for key, value in saved.items()})
+        return True
+    if isinstance(current, list) and isinstance(saved, list):
+        current[:] = [copy.deepcopy(value) for value in saved]
+        return True
+    if isinstance(current, tuple) and isinstance(saved, tuple):
+        if len(current) != len(saved):
+            return False
+        return all(
+            _restore_container(item, captured) for item, captured in zip(current, saved)
+        )
+    if isinstance(current, set) and isinstance(saved, set):
+        current.clear()
+        current.update(saved)
+        return True
+    if isinstance(current, np.ndarray) and isinstance(saved, np.ndarray):
+        if current.size != saved.size or current.dtype != saved.dtype:
+            return False
+        try:
+            current.shape = saved.shape
+        except (AttributeError, ValueError):
+            return False
+        current[...] = saved
+        return True
+    return True
+
+
+def _state_step(state: OptimizationState | None) -> int | None:
+    """Return the step value a commit point belongs to, or ``None``."""
+    if state is None:
+        return None
+    try:
+        return int(state.step)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None
+
+
+def _capture_controller_state(
+    optimizer: object, state: OptimizationState | None
+) -> tuple[tuple[StateKey, object], ...]:
+    """Return a deep copy of every declared controller state value.
+
+    A controller keeps its mutable state in the keys it declares, so a commit
+    point that fails has to put those values back with their contents, not with
+    the same dict or list the controller was updating in place.  A value that
+    cannot be copied is kept by identity and restored as it was captured.
+    """
+    if state is None:
+        return ()
+    records: list[tuple[StateKey, object]] = []
+    for controller in getattr(optimizer, "controllers", ()) or ():
+        declared = getattr(controller, "state_keys", None)
+        if not callable(declared):
+            continue
+        for key in declared():
+            try:
+                value = state.get_state(key)
+            except KeyError:
+                continue
+            try:
+                records.append((key, copy.deepcopy(value)))
+            except Exception:
+                records.append((key, value))
+    return tuple(records)
 
 
 def _iter_plan_components(
@@ -1620,6 +1755,17 @@ def _replacement_blocked(
     if state.pending_evaluations or state.evaluation_handles:
         return True
     return plan is not None and _plan_has_unfinished_async_work(plan, state)
+
+
+def _resolve_parameter_owner(target: object, path: str) -> object | None:
+    """Return the object holding the last attribute of a dotted path."""
+    owner = target
+    parts = path.split(".")
+    for part in parts[:-1]:
+        owner = getattr(owner, part, None)
+        if owner is None:
+            return None
+    return owner
 
 
 def _state_column_names(state: OptimizationState) -> frozenset[str]:
@@ -2041,6 +2187,15 @@ class _OptimizerEnvironment:
         self._entry_checked = False
         self._entry_binding_version: object = _UNSET
         self._state_keys_known: bool | None = None
+        self._entry_epsilon_applied = False
+        self._controller_step: int | None = None
+        self._controller_origin: str | None = None
+        self._command_origins: dict[str, str] = {}
+        self._child_seed_owed = False
+        self._active_memento: _CommitMemento | None = None
+        self._deferred_commit: _CommitMemento | None = None
+        self._deferred_commit_step: int | None = None
+        self._deferred_origin: str | None = None
         self._checkpoint_phase = "running"
         self._checkpoint_run_end_callback = False
         self._checkpoint_reject_run_end_callback = False
@@ -2257,43 +2412,75 @@ class _OptimizerEnvironment:
         Reading every contract costs roughly a millisecond per commit point
         for a GA configuration and half of that for a PSO one, measured against
         a cheap objective; next to an expensive evaluation that is negligible.
+
+        A queued parameter write is applied to the published binding first, so
+        the difference check below decides whether the plan can see it: a
+        value no contract and no strategy value carries leaves the version and
+        the plan alone and takes effect from the next step, while a value the
+        flow shape carries joins the ordinary replacement path.  The memento is
+        taken before that write, and everything after it -- the entry repair,
+        the binding reads, the difference check, the drain decision,
+        publication, and the comparator's child seed -- runs inside one guarded
+        region, so a failure anywhere there puts every value the commit changed
+        back.  A commit point that defers its work keeps the memento, so the
+        commit that decides the same step again still restores the values from
+        before the first decision.
         """
-        entry = self._entry_commit()
-        bindings = self._bindings()
-        strategy_values = self._strategy_values()
-        unchanged = (
-            not self._pending_recompile
-            and self._active_snapshot.unchanged_by(
-                bindings,
-                strategy_values,
-                self._feature_encoder_selection(),
-                getattr(self.optimizer, "_preset", None),
+        self._controller_origin = None
+        step = _state_step(state if state is not None else self._last_state)
+        memento = self._commit_memento_for_mutations(step)
+        try:
+            self._apply_entry_epsilon()
+            self._run_controllers(state if state is not None else self._last_state)
+            self._apply_parameter_writes(memento)
+            entry = self._entry_commit(memento)
+            bindings = self._bindings()
+            strategy_values = self._strategy_values()
+            unchanged = (
+                not self._pending_recompile
+                and self._active_snapshot.unchanged_by(
+                    bindings,
+                    strategy_values,
+                    self._feature_encoder_selection(),
+                    getattr(self.optimizer, "_preset", None),
+                )
+                and self._active_snapshot.contracts_match(_contract_records(bindings))
             )
-            and self._active_snapshot.contracts_match(_contract_records(bindings))
-        )
-        if unchanged:
-            # A swap that was deferred while its evaluations ran may resolve
-            # back to the active bindings; a matching commit point then ends
-            # the deferral, otherwise pending-collection would stall the run.
+            if unchanged:
+                # A swap that was deferred while its evaluations ran may
+                # resolve back to the active bindings; a matching commit point
+                # then ends the deferral and drops the terms it kept.
+                self._publication_deferred = False
+                self._discard_stale_replacements()
+                self._apply_entry_repair(entry)
+                self._forget_deferred_commit()
+                return state
+            if self._replacement_blocked(state):
+                self._publication_deferred = True
+                self._remember_deferred_commit(memento, step)
+                self._apply_entry_repair(entry)
+                return state
             self._publication_deferred = False
-            self._discard_stale_replacements()
-            self._apply_entry_repair(entry)
-            return state
-        if self._replacement_blocked(state):
-            self._publication_deferred = True
-            self._apply_entry_repair(entry)
-            return state
-        self._publication_deferred = False
-        self._pending_recompile = False
-        if entry is None:
-            self._publish(bindings, strategy_values)
-        else:
-            memento, staged = entry
-            self._publish(bindings, strategy_values, memento=memento, staged=staged)
+            self._pending_recompile = False
+            if entry is None:
+                committed = self._publish(bindings, strategy_values, memento=memento)
+            else:
+                entry_memento, staged = entry
+                committed = self._publish(
+                    bindings, strategy_values, memento=entry_memento, staged=staged
+                )
+            self._forget_deferred_commit()
+        except BaseException as error:
+            self._reject_mutation_failure(error, memento)
+        self._spend_child_seed()
+        # The event is an observer notification sent after the publication
+        # completed: a handler that raises cannot veto it.
+        if committed is not None:
+            self._dispatch_committed_configuration(committed)
         return self._last_state if self._last_state is not None else state
 
     def _entry_commit(
-        self,
+        self, memento: _CommitMemento | None = None
     ) -> tuple[_CommitMemento, _StagedCollections] | None:
         """Capture an entry repair only when the entry needs one."""
         if self._entry_checked:
@@ -2315,12 +2502,13 @@ class _OptimizerEnvironment:
             if diagnostic.severity is not Severity.ERROR:
                 logger.warning("%s", diagnostic.message)
         declared = self._entry_declared_columns(values, problem)
-        staged = _StagedCollections.of(state)
+        staged = _StagedCollections.of(state) if memento is None else memento.staged
         repairs = self._entry_repairs(staged, declared)
         validate = self._entry_needs_validation()
         if not errors and not repairs and not validate:
             return None
-        memento = self._capture_commit_memento(self._bindings(), staged)
+        if memento is None:
+            memento = self._capture_commit_memento(self._bindings(), staged)
         try:
             if errors:
                 raise ConfigurationError(
@@ -2451,6 +2639,201 @@ class _OptimizerEnvironment:
         scheduler = getattr(self.optimizer, "async_evaluation_scheduler", None)
         return _replacement_blocked(scheduler, self.plan, state)
 
+    def _commit_memento_for_mutations(
+        self, step: int | None = None
+    ) -> _CommitMemento | None:
+        """Capture the commit terms when this commit point will change one.
+
+        Controllers, a scheduled relaxation and a queued parameter write all
+        change values before the binding difference is read, so the memento has
+        to exist before the first of them.  A commit point with none of that
+        work needs no memento of its own: publication and the entry repair
+        capture theirs when they run.  A commit point that deferred its work
+        keeps the memento it took, so the commit that decides the same step
+        again still restores the values from before the first decision.
+        """
+        if self._deferred_commit is not None and self._deferred_commit_step == step:
+            self._controller_origin = self._deferred_origin
+            return self._deferred_commit
+        self._forget_deferred_commit()
+        if (
+            self._entry_epsilon_applied
+            and not getattr(self.optimizer, "controllers", None)
+            and not getattr(self.optimizer, "_parameter_writes", None)
+        ):
+            return None
+        staged = _StagedCollections.of(self._last_state)
+        return self._capture_commit_memento(self._bindings(), staged)
+
+    def _remember_deferred_commit(
+        self, memento: _CommitMemento | None, step: int | None
+    ) -> None:
+        """Keep the terms of a commit point that deferred its work."""
+        self._deferred_commit = memento
+        self._deferred_commit_step = step
+        self._deferred_origin = self._controller_origin
+
+    def _forget_deferred_commit(self) -> None:
+        """Drop the terms of a commit point that no longer defers."""
+        self._deferred_commit = None
+        self._deferred_commit_step = None
+        self._deferred_origin = None
+
+    def _reject_mutation_failure(
+        self, error: BaseException, memento: _CommitMemento | None
+    ) -> NoReturn:
+        """Restore the commit point after a failure in its first mutations."""
+        if memento is None:
+            memento = self._capture_commit_memento(
+                self._bindings(), _StagedCollections.of(self._last_state)
+            )
+        self._reject_commit(error, memento, report=False)
+
+    def _apply_entry_epsilon(self) -> None:
+        """Re-apply the run's constraint relaxation once at the first commit point.
+
+        Run preparation writes it, but an entry that resumes from a state
+        prepares nothing, and a comparator restored from a checkpoint carries
+        its constructor value.  Applying it here, before the controllers, lets
+        a controller's value win over the prepared one.
+        """
+        if self._entry_epsilon_applied:
+            return
+        self._entry_epsilon_applied = True
+        state = self._last_state
+        if state is None or getattr(state, "comparator", None) is None:
+            return
+        problem = getattr(state, "problem", None)
+        if problem is None or getattr(problem, "handler", None) is None:
+            return
+        # The relaxation only: the direction and the comparator's child seed
+        # belong to run preparation and to a successful publication.
+        state.comparator.eps_cv = problem.handler.feasibility_threshold
+
+    def _run_controllers(self, state: OptimizationState | None) -> None:
+        """Consult every controller once per step value, then apply its commands.
+
+        The guard is the step counter, not the commit point: a sequential
+        asynchronous plan enters the commit point several times per step.  A
+        controller that already decided this step is not asked again, so a
+        deferral keeps the commands it queued.  Declared state keys are
+        seeded with ``None`` when absent, and the commit memento restores the
+        state store, so a rejected commit puts them back and the same step
+        decides again on resume.
+        """
+        controllers = list(getattr(self.optimizer, "controllers", ()) or ())
+        if not controllers or state is None:
+            return
+        try:
+            step = int(state.step)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return
+        if self._controller_step == step:
+            return
+        self._controller_step = step
+        for index, controller in enumerate(controllers):
+            decide = getattr(controller, "decide", None)
+            if not callable(decide):
+                raise ValidationError(
+                    f"controller {index} does not provide a callable decide(state)"
+                )
+            declared = getattr(controller, "state_keys", None)
+            keys = tuple(declared()) if callable(declared) else ()
+            for key in keys:
+                try:
+                    state.get_state(key)
+                except KeyError:
+                    state.set_state(key, None)
+            for command in decide(state) or ():
+                self._controller_origin = (
+                    f"controller {index} ({type(controller).__name__})"
+                )
+                self._apply_controller_command(controller, command)
+
+    def _apply_controller_command(self, controller: object, command: object) -> None:
+        """Write one controller command into the live configuration."""
+        optimizer = self.optimizer
+        if isinstance(command, ReplaceComponent):
+            if command.slot not in _BINDING_SLOTS:
+                raise ValidationError(
+                    f"controller {type(controller).__name__} asked to replace "
+                    f"{command.slot!r}, which is not a binding slot"
+                )
+            setter = getattr(optimizer, "_set_component", None)
+            if not callable(setter):
+                raise ValidationError(
+                    "the optimizer cannot apply a controller replacement"
+                )
+            setter(
+                command.slot,
+                command.component,
+                "Replaced by a controller at the commit point.",
+                command.transition,
+            )
+            if self._controller_origin is not None:
+                self._command_origins[command.slot] = self._controller_origin
+            return
+        if isinstance(command, SetParameter):
+            writes = getattr(optimizer, "_parameter_writes", None)
+            if not isinstance(writes, dict):
+                raise ValidationError(
+                    "the optimizer cannot apply a controller parameter write"
+                )
+            writes[(command.slot, command.path)] = command
+            if self._controller_origin is not None:
+                self._command_origins[command.slot] = self._controller_origin
+            return
+        raise ValidationError(
+            f"controller {type(controller).__name__} returned "
+            f"{type(command).__name__}, which is not a replacement or a "
+            "parameter write"
+        )
+
+    def _apply_parameter_writes(self, memento: _CommitMemento | None) -> None:
+        """Apply the queued parameter writes to the published bindings.
+
+        The target is the published binding, not the live slot, and the
+        running state's comparator is written too because it can hold a
+        different instance from the published one.  Every value the write
+        replaces is recorded in the commit memento first, so any later failure
+        of this commit point puts it back.
+        """
+        commands = self._consume_parameter_writes()
+        if not commands:
+            return
+        if memento is None:  # pragma: no cover - the memento covers every write
+            raise ValidationError("a parameter write requires a commit memento")
+        published = self._active_snapshot.values
+        for (slot, path), command in commands.items():
+            if slot not in _BINDING_SLOTS:
+                raise ValidationError(
+                    f"SetParameter slot {slot!r} is not a binding slot"
+                )
+            targets: list[object] = []
+            bound = published.get(slot)
+            if bound is not None:
+                targets.append(bound)
+            if slot == "comparator" and self._last_state is not None:
+                running = getattr(self._last_state, "comparator", None)
+                if running is not None and all(running is not item for item in targets):
+                    targets.append(running)
+            for target in targets:
+                owner = _resolve_parameter_owner(target, path)
+                if owner is None:
+                    continue
+                name = path.rsplit(".", 1)[-1]
+                memento.parameter_writes.append(
+                    (owner, name, getattr(owner, name, _UNSET))
+                )
+                setattr(owner, name, command.value)
+
+    def _consume_parameter_writes(self) -> dict[tuple[str, str], SetParameter]:
+        """Take the parameter writes recorded since the last commit point."""
+        consume = getattr(self.optimizer, "_consume_parameter_writes", None)
+        if not callable(consume):
+            return {}
+        return dict(consume())
+
     def _adopt_published_bindings(self, state: OptimizationState) -> None:
         """Start a resumed run from the bindings the optimizer last published.
 
@@ -2484,7 +2867,7 @@ class _OptimizerEnvironment:
         *,
         memento: _CommitMemento | None = None,
         staged: _StagedCollections | None = None,
-    ) -> None:
+    ) -> ConfigurationCommittedEvent | None:
         """Prepare a candidate binding set and publish it, or reject it.
 
         ``_capture_commit_memento`` records the terms this commit may change
@@ -2502,7 +2885,11 @@ class _OptimizerEnvironment:
         self._candidate_diagnostics = ()
         records = self._consume_replacements()
         if staged is None:
-            staged = _StagedCollections.of(self._last_state)
+            staged = (
+                memento.staged
+                if memento is not None
+                else _StagedCollections.of(self._last_state)
+            )
         if memento is None:
             memento = self._capture_commit_memento(bindings, staged)
         try:
@@ -2536,6 +2923,9 @@ class _OptimizerEnvironment:
                 self._reject_commit(error, memento, report=False)
         finally:
             self._active_memento = None
+        committed: ConfigurationCommittedEvent | None = None
+        previous_memento = self._active_memento
+        self._active_memento = memento
         try:
             self._check_staged_changes(staged, incoming)
             self._prepare_region_history(rebuilt)
@@ -2554,12 +2944,14 @@ class _OptimizerEnvironment:
                 strategy_values,
                 state_reads=incoming_reads,
                 state_writes=incoming_writes,
+                memento=memento,
             )
+            self._assign_published_comparator_rng()
         except BaseException as error:
             self._reject_commit(error, memento)
-        self._assign_published_comparator_rng()
-        if committed is not None:
-            self._dispatch_committed_configuration(committed)
+        finally:
+            self._active_memento = previous_memento
+        return committed
 
     def _publish_prepared(
         self,
@@ -2571,8 +2963,15 @@ class _OptimizerEnvironment:
         *,
         state_reads: frozenset[StateKey] | None = None,
         state_writes: frozenset[StateKey] | None = None,
+        memento: _CommitMemento | None = None,
     ) -> ConfigurationCommittedEvent | None:
         previous_values = dict(self._active_snapshot.values)
+        previous_comparator = self._active_snapshot.values.get("comparator")
+        previous_epsilon = getattr(previous_comparator, "eps_cv", None)
+        if self._last_state is not None:
+            running_epsilon = getattr(self._last_state.comparator, "eps_cv", None)
+            if running_epsilon is not None:
+                previous_epsilon = running_epsilon
         consumes_feature_encoder = _executable_uses_service(
             executable, "FeatureEncoder"
         )
@@ -2652,7 +3051,12 @@ class _OptimizerEnvironment:
             comparator = cast(Any, self._active_snapshot.values.get("comparator"))
             if comparator is not None and self._last_state.comparator is not comparator:
                 self._last_state.comparator = comparator
+                _remember_component_attributes(
+                    memento, comparator, ("direction", "eps_cv")
+                )
                 prepare_state_comparator(self._last_state)
+                if previous_epsilon is not None:
+                    comparator.eps_cv = previous_epsilon
         if self._last_state is None:
             return None
         return ConfigurationCommittedEvent(
@@ -2940,9 +3344,28 @@ class _OptimizerEnvironment:
 
     def _assign_published_comparator_rng(self) -> None:
         """Draw the child seed of a randomized comparator once it is published."""
+        memento = self._active_memento
         state = self._last_state
-        if state is not None:
-            assign_comparator_rng(state)
+        if state is None:
+            return
+        comparator = getattr(state, "comparator", None)
+        if comparator is not None:
+            _remember_component_attributes(memento, comparator, ("_rng",))
+        self._child_seed_owed = assign_comparator_rng(state)
+
+    def _spend_child_seed(self) -> None:
+        """Advance the run generator's child counter for a committed publication.
+
+        Called as the last step of a committed publication, after every step
+        that can fail, so no path needs to un-spend the seed and the counter
+        never moves for a rejected commit.
+        """
+        if not self._child_seed_owed:
+            return
+        self._child_seed_owed = False
+        rng = _run_generator(self._last_state)
+        if rng is not None:
+            cast(Any, rng).spawn(1)
 
     def _prepare_region_history(self, rebuilt: SequentialPlan | StructuredPlan) -> None:
         """Create the region history an accepted candidate plan needs."""
@@ -3076,8 +3499,13 @@ class _OptimizerEnvironment:
     def _rejected_changes(
         self, published: Mapping[str, object], origins: Mapping[str, object]
     ) -> tuple[RejectedChange, ...]:
-        """Return every slot whose component differs from the published one."""
-        current = self._bindings()
+        """Return every slot whose component differs from the published one.
+
+        The live slots are read directly: a rejection reports the slots it is
+        about to put back, and describing the failure must not run another step
+        that could fail the same way.
+        """
+        current = {name: getattr(self.optimizer, name, None) for name in _BINDING_SLOTS}
         names = list(_BINDING_SLOTS)
         names.extend(sorted((set(published) | set(current)) - set(_BINDING_SLOTS)))
         changes: list[RejectedChange] = []
@@ -3166,6 +3594,16 @@ class _OptimizerEnvironment:
                 _UNSET if state is None else state.__dict__.get("_custom_state", _UNSET)
             ),
             comparator=(_UNSET if state is None else _state_comparator_or_unset(state)),
+            rng=_capture_run_generator(state),
+            controller_state=_capture_controller_state(optimizer, state),
+            comparator_epsilon=(
+                _UNSET
+                if state is None
+                else getattr(getattr(state, "comparator", None), "eps_cv", _UNSET)
+            ),
+            published_comparator_epsilon=getattr(
+                snapshot.values.get("comparator"), "eps_cv", _UNSET
+            ),
             compiled_services=compiled_services,
             history=history,
             region_ids=(
@@ -3194,9 +3632,13 @@ class _OptimizerEnvironment:
                 or {}
             ),
             staged=staged,
+            parameter_writes=[],
+            component_writes=[],
+            pending_parameter_writes=dict(
+                getattr(optimizer, "_parameter_writes", None) or {}
+            ),
             candidate_resolution=self._candidate_resolution,
             candidate_diagnostics=self._candidate_diagnostics,
-            publication_deferred=self._publication_deferred,
             pending_recompile=self._pending_recompile,
         )
 
@@ -3245,12 +3687,35 @@ class _OptimizerEnvironment:
                 )
             self._restore_region_history(memento)
             self._restore_evaluation_handles(state, memento)
+            for key, saved in memento.controller_state:
+                try:
+                    current = state.get_state(key)
+                except KeyError:
+                    current = _UNSET
+                if current is _UNSET or not _restore_container(current, saved):
+                    state.set_state(key, copy.deepcopy(saved))
+            _restore_run_generator(state, memento.rng)
+        for target, name, value in reversed(memento.parameter_writes):
+            _restore_attribute(target, name, value)
+        for target, name, value in reversed(memento.component_writes):
+            _restore_attribute(target, name, value)
+        if memento.comparator_epsilon is not _UNSET and state is not None:
+            comparator = cast(Any, getattr(state, "comparator", None))
+            if comparator is not None:
+                comparator.eps_cv = memento.comparator_epsilon
+        if memento.published_comparator_epsilon is not _UNSET:
+            published = cast(Any, memento.snapshot_values.get("comparator"))
+            if published is not None:
+                published.eps_cv = memento.published_comparator_epsilon
+        queue = getattr(optimizer, "_parameter_writes", None)
+        if isinstance(queue, dict):
+            queue.clear()
+            queue.update(memento.pending_parameter_writes)
         self._restore_scheduler_state(memento.scheduler)
         self._candidate_resolution = cast(
             "_ComponentResolution | None", memento.candidate_resolution
         )
         self._candidate_diagnostics = memento.candidate_diagnostics
-        self._publication_deferred = memento.publication_deferred
         self._pending_recompile = memento.pending_recompile
 
     def _restore_evaluation_handles(
@@ -3332,7 +3797,7 @@ class _OptimizerEnvironment:
         memento: _CommitMemento,
         *,
         report: bool = True,
-    ) -> None:
+    ) -> NoReturn:
         """Restore the commit memento, then report the rejection.
 
         Every failure after the memento was taken restores the same terms,
@@ -3346,12 +3811,47 @@ class _OptimizerEnvironment:
         """
         changes = self._rejected_changes(memento.snapshot_values, memento.live_origins)
         diagnostics = self._candidate_diagnostics
+        source = self._rejection_source(changes, diagnostics)
         self._restore_commit_memento(memento)
+        # Nothing is pending after a rejection: the published configuration is
+        # in force again, so no deferral outlives the commit point that failed,
+        # and the step that was rejected is decided again.
+        self._publication_deferred = False
+        self._forget_deferred_commit()
+        self._controller_step = None
+        self._child_seed_owed = False
+        self._active_memento = None
         if report and type(error) is ConfigurationError:
+            origin = {} if source is None else {"source": source}
             raise ReplacementRejectedError(
-                changes, diagnostics, version=self.active_version
+                changes,
+                diagnostics,
+                version=self.active_version,
+                **origin,
             ) from error
         raise error
+
+    def _rejection_source(
+        self,
+        changes: tuple[RejectedChange, ...],
+        diagnostics: tuple[Diagnostic, ...],
+    ) -> str | None:
+        """Return the controller that produced the rejected change.
+
+        The diagnostic names the slot that failed, so that slot's producer is
+        the one to report; a change list alone cannot tell which of several
+        rejected slots caused the rejection.
+        """
+        for diagnostic in diagnostics:
+            for component in diagnostic.path.components:
+                origin = self._command_origins.get(component)
+                if origin is not None:
+                    return origin
+        for change in changes:
+            origin = self._command_origins.get(change.slot)
+            if origin is not None:
+                return origin
+        return self._controller_origin
 
     def _published_feature_encoder_default(
         self,
@@ -3525,8 +4025,11 @@ class _OptimizerEnvironment:
             self._pending_recompile = True
             self._publication_deferred = True
             return self.plan
-        self._publish(self._bindings(), self._strategy_values())
+        committed = self._publish(self._bindings(), self._strategy_values())
         self._pending_recompile = False
+        self._spend_child_seed()
+        if committed is not None:
+            self._dispatch_committed_configuration(committed)
         return self.plan
 
     def _compile_current_plan(
@@ -3816,7 +4319,6 @@ class _OptimizerEnvironment:
         _increment_step(state)
         handler = state.problem.handler
         handler.on_generation_end(state.gen, state.population)
-        state.comparator.eps_cv = state.problem.handler.feasibility_threshold
         manager = getattr(self.optimizer, "surrogate_manager", None)
         if manager is not None:
             manager.on_generation_end(state.gen, state.archive, state)
@@ -3964,18 +4466,27 @@ def prepare_state_comparator(state: OptimizationState) -> None:
     comparator.eps_cv = state.problem.handler.feasibility_threshold
 
 
-def assign_comparator_rng(state: OptimizationState) -> None:
+def assign_comparator_rng(state: OptimizationState) -> bool:
     """Give a randomized comparator its niche tie-breaking generator.
 
-    Consumes one child seed of the run's generator.  A commit point calls this
-    only after its new configuration is published, and a rejected replacement
-    never reaches it, so the parent seed sequence is untouched by a rejected
-    candidate and the next accepted randomized comparator draws the same child
-    a run without the rejected attempt would.
+    The child seed is drawn from a copy of the run generator and handed to the
+    comparator, so a comparator that refuses its generator leaves the parent
+    seed sequence untouched.  The run generator itself is advanced later, by
+    :meth:`_OptimizerEnvironment._spend_child_seed`, once every fallible step
+    of the commit point has passed: no path ever has to un-spend a seed, and
+    every holder of the generator keeps the stream it had.
+
+    Returns
+    -------
+    bool
+        Whether a child seed is owed to the run generator.
     """
     comparator = state.comparator
     if isinstance(comparator, NSGA3Comparator) and comparator._rng is None:
-        comparator.rng = state.rng.spawn(1)[0]
+        successor = copy.deepcopy(state.rng)
+        comparator.rng = successor.spawn(1)[0]
+        return True
+    return False
 
 
 class PipelineRuntime:
@@ -4437,7 +4948,10 @@ class PipelineRuntime:
     @staticmethod
     def _prepare_state(state: OptimizationState) -> None:
         prepare_state_comparator(state)
-        assign_comparator_rng(state)
+        # Preparation is not a transactional commit point: the child seed is
+        # drawn and spent here, and a run that fails preparation is not resumed.
+        if assign_comparator_rng(state):
+            cast(Any, state.rng).spawn(1)
 
 
 class AsyncPipelineRuntime(PipelineRuntime):

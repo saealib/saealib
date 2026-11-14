@@ -74,6 +74,10 @@ class ReplacementRejectedError(ConfigurationError):
         population column or a component that cannot be checkpointed.
     version : int
         Binding version of the configuration the optimizer kept.
+    source : str or None
+        The controller that produced the rejected command, as its registration
+        index and class name, or ``None`` when the change came from a setter or
+        a direct assignment.
     """
 
     def __init__(
@@ -82,11 +86,15 @@ class ReplacementRejectedError(ConfigurationError):
         diagnostics: Any,
         *,
         version: int,
+        source: str | None = None,
     ) -> None:
         self.changes = tuple(changes)
         self.diagnostics = tuple(diagnostics)
         self.version = version
+        self.source = source
         message = "Component replacement rejected at the commit point"
+        if source is not None:
+            message += f" (requested by {source})"
         if self.diagnostics:
             message += ":\n" + "\n".join(
                 f"  - {diagnostic}" for diagnostic in self.diagnostics

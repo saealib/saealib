@@ -73,6 +73,7 @@ from saealib.core.state import (
     OPTIMIZATION_STATE_INITIAL_KEYS,
     RUNTIME_REGION_COUNTS,
     RUNTIME_STEP,
+    SURROGATES_ACCURACY,
     RuntimeContext,
     StateKey,
     StateView,
@@ -2966,6 +2967,7 @@ class _OptimizerEnvironment:
         memento: _CommitMemento | None = None,
     ) -> ConfigurationCommittedEvent | None:
         previous_values = dict(self._active_snapshot.values)
+        previous_manager = self._active_snapshot.values.get("surrogate_manager")
         previous_comparator = self._active_snapshot.values.get("comparator")
         previous_epsilon = getattr(previous_comparator, "eps_cv", None)
         if self._last_state is not None:
@@ -3057,6 +3059,12 @@ class _OptimizerEnvironment:
                 prepare_state_comparator(self._last_state)
                 if previous_epsilon is not None:
                     comparator.eps_cv = previous_epsilon
+            if (
+                getattr(self.optimizer, "controllers", None)
+                and self._active_snapshot.values.get("surrogate_manager")
+                is not previous_manager
+            ):
+                self._last_state.set_state(SURROGATES_ACCURACY, None)
         if self._last_state is None:
             return None
         return ConfigurationCommittedEvent(
@@ -4322,6 +4330,13 @@ class _OptimizerEnvironment:
         manager = getattr(self.optimizer, "surrogate_manager", None)
         if manager is not None:
             manager.on_generation_end(state.gen, state.archive, state)
+        if getattr(self.optimizer, "controllers", None):
+            from saealib.controllers import _accuracy_state_value
+
+            state.set_state(
+                SURROGATES_ACCURACY,
+                _accuracy_state_value(getattr(manager, "last_accuracy", None)),
+            )
         record_generation(state)
         self.dispatch(GenerationEndEvent(ctx=state))
 

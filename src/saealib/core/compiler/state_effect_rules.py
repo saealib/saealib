@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 from saealib.core.compiler.diagnostics import ContractPath, Diagnostic, Severity
@@ -15,12 +16,20 @@ from saealib.core.compiler.regions import (
 )
 from saealib.core.compiler.structured import StructuredGraph
 from saealib.core.state.keys import StateKey
+from saealib.core.state_inference import InferenceStatus
 from saealib.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from saealib.core.compiler.compiler import RuleContext, VerificationResult
 
-__all__ = ["StateEffectRule"]
+__all__ = [
+    "NodeStateEffects",
+    "StateEffectFinding",
+    "StateEffectRule",
+    "compute_state_effect_findings",
+    "declared_state_effects",
+    "resolved_inferred_state_effects",
+]
 
 
 def _path(node: NodeRef) -> ContractPath:
@@ -37,6 +46,16 @@ def _canonical_ref(graph: ComponentGraph, reference: NodeRef) -> NodeRef:
     except KeyError:
         return NodeRef(component_id=reference.component_id)
     return _node_ref(node)
+
+
+def _bindings(
+    graph: ComponentGraph, reference: NodeRef
+) -> tuple[StateKey[object], ...]:
+    return tuple(
+        binding.state_key
+        for binding in graph.state_bindings
+        if _canonical_ref(graph, binding.node) == reference
+    )
 
 
 def _reachable(graph: ComponentGraph) -> dict[NodeRef, set[NodeRef]]:
@@ -78,14 +97,6 @@ def _resolve_keys(
     return resolved
 
 
-def _reads_opaque(node: ComponentNode) -> bool:
-    return not node.analysis_contract.state.reads_enumerable
-
-
-def _writes_opaque(node: ComponentNode) -> bool:
-    return not node.analysis_contract.state.writes_enumerable
-
-
 def _unknown_stage_flow(node: ComponentNode) -> bool:
     stage = getattr(node.component, "stage", None)
     flow = getattr(stage, "flow_summary", None)
@@ -100,149 +111,160 @@ def _strictly_before(ref: NodeRef, others: set[NodeRef], order: dict) -> bool:
     )
 
 
-class StateEffectRule:
-    """Verify initialization and ordering of declared state effects."""
+@dataclass(frozen=True, kw_only=True)
+class NodeStateEffects:
+    """Resolved state effects used by one verification run."""
 
-    namespace = "core"
-    name = "state_effect"
-    phase: Literal["verification"] = "verification"
-
-    def apply(self, context: RuleContext) -> VerificationResult:
-        """Collect state initialization and ordering diagnostics."""
-        from saealib.core.compiler.compiler import VerificationResult
-
-        graph = context.graph
-        if isinstance(graph, StructuredGraph):
-            return VerificationResult(
-                diagnostics=_structured_diagnostics(graph, context)
-            )
-        order = _reachable(graph)
-        refs = tuple(_node_ref(node) for node in graph.nodes)
-        initial = set(context.compile_context.initial_state_keys)
-        reads: dict[NodeRef, set[StateKey[object]]] = {}
-        writes: dict[NodeRef, set[StateKey[object]]] = {}
-        opaque_refs = {
-            ref
-            for node, ref in zip(graph.nodes, refs)
-            if (_reads_opaque(node) or _writes_opaque(node))
-            and not _unknown_stage_flow(node)
-        }
-        non_enumerable_reads = {
-            ref for node, ref in zip(graph.nodes, refs) if _reads_opaque(node)
-        }
-        non_enumerable_writes = {
-            ref for node, ref in zip(graph.nodes, refs) if _writes_opaque(node)
-        }
-        for node in graph.nodes:
-            ref = _node_ref(node)
-            bindings = tuple(
-                binding.state_key
-                for binding in graph.state_bindings
-                if _canonical_ref(graph, binding.node) == ref
-            )
-            reads[ref] = _resolve_keys(bindings, node.analysis_contract.state.reads)
-            writes[ref] = _resolve_keys(bindings, node.analysis_contract.state.writes)
-
-        findings: list[Diagnostic] = []
-        for node, ref in zip(graph.nodes, refs):
-            if ref in opaque_refs:
-                findings.append(
-                    Diagnostic(
-                        severity=Severity.WARNING,
-                        code="opaque_state_effects",
-                        message=(
-                            f"Node {_path(ref)} declares its state effects "
-                            "non-enumerable, so its state reads and writes "
-                            "cannot be verified."
-                        ),
-                        path=_path(ref),
-                        resolutions=(
-                            "Declare the state effects in the component's "
-                            "contract, or accept that they are not verified.",
-                        ),
-                    )
-                )
-
-        def add(code: str, node: NodeRef, key: StateKey[object], related=()) -> None:
-            findings.append(
-                Diagnostic(
-                    severity=Severity.ERROR,
-                    code=code,
-                    message=(
-                        f"State key {key.namespace}:{key.name}:{key.schema_version} "
-                        f"at {_path(node)} has an invalid effect ordering."
-                    ),
-                    path=_path(node),
-                    related=tuple(_path(item) for item in related),
-                    resolutions=(
-                        "Add an initial state key or an ordering edge, and keep "
-                        "the state declaration node-qualified.",
-                    ),
-                )
-            )
-
-        def verifiable(ref: NodeRef) -> bool:
-            # A non-enumerable writer that may run before ``ref`` could
-            # initialize any key, so initialization findings stop being
-            # definite for ``ref``.
-            unverifiable = {other for other in non_enumerable_writes if other != ref}
-            return _strictly_before(ref, unverifiable, order)
-
-        for ref in refs:
-            if ref in non_enumerable_reads:
-                continue
-            for key in reads[ref]:
-                writers = [
-                    other for other in refs if key in writes[other] and other != ref
-                ]
-                if key in initial:
-                    continue
-                if key in writes[ref] and not writers:
-                    if verifiable(ref):
-                        add("uninitialized_state_write", ref, key)
-                    continue
-                if any(ref in order.get(other, set()) for other in writers):
-                    continue
-                if writers and all(other in order.get(ref, set()) for other in writers):
-                    code = "unreachable_state_read"
-                    if not verifiable(ref):
-                        continue
-                else:
-                    code = (
-                        "concurrent_state_read_write"
-                        if writers
-                        else "unreachable_state_read"
-                    )
-                    if not writers and not verifiable(ref):
-                        continue
-                add(code, ref, key, writers)
-        for index, left in enumerate(refs):
-            for right in refs[index + 1 :]:
-                for key in writes[left] & writes[right]:
-                    # A non-enumerable writer may also write keys outside its
-                    # declaration, but keys it does declare are conclusive
-                    # evidence for this check.
-                    if right not in order.get(left, set()) and left not in order.get(
-                        right, set()
-                    ):
-                        add("concurrent_state_write", left, key, (right,))
-        return VerificationResult(diagnostics=tuple(findings))
+    reads: frozenset[StateKey[object]] = frozenset()
+    writes: frozenset[StateKey[object]] = frozenset()
+    exports: frozenset[StateKey[object]] = frozenset()
+    reads_enumerable: bool = True
+    writes_enumerable: bool = True
 
 
-def _structured_diagnostics(
-    graph: StructuredGraph, context: RuleContext
-) -> tuple[Diagnostic, ...]:
-    """Check structured operations in execution order."""
-    initial = set(context.compile_context.initial_state_keys)
-    bindings_by_node: dict[NodeRef, tuple[StateKey[object], ...]] = {}
+@dataclass(frozen=True, kw_only=True)
+class StateEffectFinding:
+    """One ordering conflict, independent of its diagnostic severity."""
+
+    node: NodeRef
+    key: StateKey[object]
+    kind: str
+    related: tuple[NodeRef, ...] = ()
+
+
+def declared_state_effects(
+    graph: ComponentGraph,
+) -> dict[NodeRef, NodeStateEffects]:
+    """Return the contract-declared effects for every node."""
+    effects: dict[NodeRef, NodeStateEffects] = {}
     for node in graph.nodes:
         ref = _node_ref(node)
-        bindings_by_node[ref] = tuple(
-            binding.state_key
-            for binding in graph.state_bindings
-            if _canonical_ref(graph, binding.node) == ref
+        bindings = _bindings(graph, ref)
+        state = node.analysis_contract.state
+        effects[ref] = NodeStateEffects(
+            reads=frozenset(_resolve_keys(bindings, state.reads)),
+            writes=frozenset(_resolve_keys(bindings, state.writes)),
+            exports=frozenset(_resolve_keys(bindings, state.exports)),
+            reads_enumerable=state.reads_enumerable,
+            writes_enumerable=state.writes_enumerable,
         )
+    return effects
 
+
+def resolved_inferred_state_effects(
+    graph: ComponentGraph,
+    declared: dict[NodeRef, NodeStateEffects],
+) -> dict[NodeRef, NodeStateEffects]:
+    """Return declared effects with inferred effects substituted per node."""
+    effects = dict(declared)
+    for node in graph.nodes:
+        inference = node._inferred_effects
+        ref = _node_ref(node)
+        if inference.status is InferenceStatus.INFERRED:
+            bindings = _bindings(graph, ref)
+            assert inference.effects is not None
+            effects[ref] = NodeStateEffects(
+                reads=frozenset(_resolve_keys(bindings, inference.effects.reads)),
+                writes=frozenset(_resolve_keys(bindings, inference.effects.writes)),
+                exports=declared[ref].exports,
+                reads_enumerable=True,
+                writes_enumerable=True,
+            )
+        elif inference.status is InferenceStatus.UNKNOWN:
+            effects[ref] = NodeStateEffects(
+                reads=frozenset(),
+                writes=frozenset(),
+                exports=declared[ref].exports,
+                reads_enumerable=False,
+                writes_enumerable=False,
+            )
+    return effects
+
+
+def compute_state_effect_findings(
+    graph: ComponentGraph,
+    initial: frozenset[StateKey[object]],
+    effects: dict[NodeRef, NodeStateEffects],
+) -> tuple[StateEffectFinding, ...]:
+    """Return ordering conflicts for one set of per-node state effects."""
+    if isinstance(graph, StructuredGraph):
+        return _structured_findings(graph, initial, effects)
+    return _sequential_findings(graph, initial, effects)
+
+
+def _sequential_findings(
+    graph: ComponentGraph,
+    initial: frozenset[StateKey[object]],
+    effects: dict[NodeRef, NodeStateEffects],
+) -> tuple[StateEffectFinding, ...]:
+    order = _reachable(graph)
+    refs = tuple(_node_ref(node) for node in graph.nodes)
+    reads = {ref: effects[ref].reads for ref in refs}
+    writes = {ref: effects[ref].writes for ref in refs}
+    non_enumerable_reads = {ref for ref in refs if not effects[ref].reads_enumerable}
+    non_enumerable_writes = {ref for ref in refs if not effects[ref].writes_enumerable}
+    initial_keys = set(initial)
+    findings: list[StateEffectFinding] = []
+
+    def verifiable(ref: NodeRef) -> bool:
+        unverifiable = {other for other in non_enumerable_writes if other != ref}
+        return _strictly_before(ref, unverifiable, order)
+
+    for ref in refs:
+        if ref in non_enumerable_reads:
+            continue
+        for key in reads[ref]:
+            writers = [other for other in refs if key in writes[other] and other != ref]
+            if key in initial_keys:
+                continue
+            if key in writes[ref] and not writers:
+                if verifiable(ref):
+                    findings.append(
+                        StateEffectFinding(
+                            node=ref, key=key, kind="uninitialized_state_write"
+                        )
+                    )
+                continue
+            if any(ref in order.get(other, set()) for other in writers):
+                continue
+            if writers and all(other in order.get(ref, set()) for other in writers):
+                kind = "unreachable_state_read"
+                if not verifiable(ref):
+                    continue
+            else:
+                kind = (
+                    "concurrent_state_read_write"
+                    if writers
+                    else "unreachable_state_read"
+                )
+                if not writers and not verifiable(ref):
+                    continue
+            findings.append(
+                StateEffectFinding(node=ref, key=key, kind=kind, related=tuple(writers))
+            )
+    for index, left in enumerate(refs):
+        for right in refs[index + 1 :]:
+            for key in writes[left] & writes[right]:
+                if right not in order.get(left, set()) and left not in order.get(
+                    right, set()
+                ):
+                    findings.append(
+                        StateEffectFinding(
+                            node=left,
+                            key=key,
+                            kind="concurrent_state_write",
+                            related=(right,),
+                        )
+                    )
+    return tuple(findings)
+
+
+def _structured_findings(
+    graph: StructuredGraph,
+    initial: frozenset[StateKey[object]],
+    effects: dict[NodeRef, NodeStateEffects],
+) -> tuple[StateEffectFinding, ...]:
+    initial_keys = set(initial)
     nodes_by_id = {node.component_id: node for node in graph.nodes}
     held_nodes_by_stage: dict[str, tuple[ComponentNode, ...]] = {}
     stage_flow_calls = graph.metadata.get("stage_flow_calls", {})
@@ -265,13 +287,12 @@ def _structured_diagnostics(
                 if component_id in nodes_by_id
             )
 
-    universe = set(initial)
+    universe = set(initial_keys)
     for node in graph.nodes:
-        bindings = bindings_by_node[_node_ref(node)]
-        state = node.analysis_contract.state
-        universe.update(_resolve_keys(bindings, state.reads))
-        universe.update(_resolve_keys(bindings, state.writes))
-        universe.update(_resolve_keys(bindings, state.exports))
+        effect = effects[_node_ref(node)]
+        universe.update(effect.reads)
+        universe.update(effect.writes)
+        universe.update(effect.exports)
 
     def visit_regions(current: StructuredGraph) -> None:
         for operation in current.operations:
@@ -288,72 +309,22 @@ def _structured_diagnostics(
                 visit_regions(otherwise)
 
     visit_regions(graph)
-    opaque_refs = {
-        _node_ref(node)
-        for node in graph.nodes
-        if (_reads_opaque(node) or _writes_opaque(node))
-        and not _unknown_stage_flow(node)
-    }
-    non_enumerable_reads = {
-        _node_ref(node) for node in graph.nodes if _reads_opaque(node)
-    }
+    non_enumerable_reads = {ref for ref in effects if not effects[ref].reads_enumerable}
     non_enumerable_writes = {
-        _node_ref(node) for node in graph.nodes if _writes_opaque(node)
+        ref for ref in effects if not effects[ref].writes_enumerable
     }
-    reads: dict[NodeRef, set[StateKey[object]]] = {}
-    writes: dict[NodeRef, set[StateKey[object]]] = {}
-    for node in graph.nodes:
-        ref = _node_ref(node)
-        bindings = bindings_by_node[ref]
-        state = node.analysis_contract.state
-        reads[ref] = _resolve_keys(bindings, state.reads)
-        writes[ref] = _resolve_keys(bindings, state.writes)
+    findings: list[StateEffectFinding] = []
 
-    findings: list[Diagnostic] = []
-    for node in graph.nodes:
-        ref = _node_ref(node)
-        if ref not in opaque_refs:
-            continue
-        findings.append(
-            Diagnostic(
-                severity=Severity.WARNING,
-                code="opaque_state_effects",
-                message=(
-                    f"Node {_path(ref)} declares its state effects "
-                    "non-enumerable, so its state reads and writes cannot "
-                    "be verified."
-                ),
-                path=_path(ref),
-                resolutions=(
-                    "Declare the state effects in the component's contract, "
-                    "or accept that they are not verified.",
-                ),
-            )
-        )
-
-    def add(code: str, node: NodeRef, key: StateKey[object]) -> None:
-        findings.append(
-            Diagnostic(
-                severity=Severity.ERROR,
-                code=code,
-                message=(
-                    f"State key {key.namespace}:{key.name}:{key.schema_version} "
-                    f"at {_path(node)} has an invalid effect ordering."
-                ),
-                path=_path(node),
-                resolutions=(
-                    "Add an initial state key or an ordering edge, and keep "
-                    "the state declaration node-qualified.",
-                ),
-            )
-        )
+    def add(kind: str, node: NodeRef, key: StateKey[object]) -> None:
+        findings.append(StateEffectFinding(node=node, key=key, kind=kind))
 
     def check_reads(node: NodeRef, available: set[StateKey[object]]) -> None:
-        for key in sorted(reads.get(node, ()), key=str):
+        effect = effects[node]
+        for key in sorted(effect.reads, key=str):
             if key not in available:
                 add(
                     "uninitialized_state_write"
-                    if key in writes.get(node, ())
+                    if key in effect.writes
                     else "unreachable_state_read",
                     node,
                     key,
@@ -363,11 +334,9 @@ def _structured_diagnostics(
         if node not in non_enumerable_reads:
             check_reads(node, available)
         if node in non_enumerable_writes:
-            # Unknown writes may touch any key, so every key becomes
-            # potentially available after the node runs.
             available.update(universe)
         else:
-            available.update(writes.get(node, ()))
+            available.update(effects[node].writes)
 
     def check_condition(
         region: LoopRegion | BranchRegion, available: set[StateKey[object]]
@@ -420,8 +389,69 @@ def _structured_diagnostics(
             current_available.update(sequence(body, current_available))
         return current_available
 
-    sequence(graph, initial)
+    sequence(graph, initial_keys)
     return tuple(findings)
+
+
+class StateEffectRule:
+    """Verify initialization and ordering of declared state effects."""
+
+    namespace = "core"
+    name = "state_effect"
+    phase: Literal["verification"] = "verification"
+
+    def apply(self, context: RuleContext) -> VerificationResult:
+        """Collect state initialization and ordering diagnostics."""
+        from saealib.core.compiler.compiler import VerificationResult
+
+        graph = context.graph
+        effects = declared_state_effects(graph)
+        findings = compute_state_effect_findings(
+            graph, context.compile_context.initial_state_keys, effects
+        )
+        diagnostics: list[Diagnostic] = []
+        for node in graph.nodes:
+            ref = _node_ref(node)
+            effect = effects[ref]
+            if (
+                effect.reads_enumerable and effect.writes_enumerable
+            ) or _unknown_stage_flow(node):
+                continue
+            diagnostics.append(
+                Diagnostic(
+                    severity=Severity.WARNING,
+                    code="opaque_state_effects",
+                    message=(
+                        f"Node {_path(ref)} declares its state effects "
+                        "non-enumerable, so its state reads and writes "
+                        "cannot be verified."
+                    ),
+                    path=_path(ref),
+                    resolutions=(
+                        "Declare the state effects in the component's "
+                        "contract, or accept that they are not verified.",
+                    ),
+                )
+            )
+        for finding in findings:
+            diagnostics.append(
+                Diagnostic(
+                    severity=Severity.ERROR,
+                    code=finding.kind,
+                    message=(
+                        f"State key {finding.key.namespace}:{finding.key.name}:"
+                        f"{finding.key.schema_version} at {_path(finding.node)} "
+                        "has an invalid effect ordering."
+                    ),
+                    path=_path(finding.node),
+                    related=tuple(_path(item) for item in finding.related),
+                    resolutions=(
+                        "Add an initial state key or an ordering edge, and keep "
+                        "the state declaration node-qualified.",
+                    ),
+                )
+            )
+        return VerificationResult(diagnostics=tuple(diagnostics))
 
 
 def _structured_body(region: StructuredRegion) -> StructuredGraph:

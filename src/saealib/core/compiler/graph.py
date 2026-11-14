@@ -19,6 +19,11 @@ from saealib.core.contracts.flow import Transform
 from saealib.core.contracts.roles import RoleName
 from saealib.core.contracts.vocabulary import validate_name
 from saealib.core.state.keys import StateKey
+from saealib.core.state_inference import (
+    NOT_APPLICABLE,
+    StateInference,
+    infer_state_effects,
+)
 from saealib.exceptions import ValidationError
 
 if TYPE_CHECKING:
@@ -100,6 +105,9 @@ class ComponentNode:
     )
     _analysis_contract_snapshot: ComponentContract | None = field(
         init=False, default=None, repr=False, compare=False
+    )
+    _inferred_effects: StateInference = field(
+        init=False, default=NOT_APPLICABLE, repr=False, compare=False
     )
     _verification_only: bool = field(
         init=False, default=False, repr=False, compare=False
@@ -194,6 +202,9 @@ class ComponentNode:
             result,
             "_analysis_contract_snapshot",
             self._read_analysis_contract(fallback=contract),
+        )
+        object.__setattr__(
+            result, "_inferred_effects", infer_state_effects(self.component)
         )
         return result
 

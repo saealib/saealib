@@ -56,6 +56,30 @@ A component attribute that holds an undeclared child component becomes a non-blo
 Inconsistent target ports, required services, state effects, lifecycle, or Runtime capabilities are also reported as Compiler Diagnostics.
 An invalid contract type raises `ValidationError` when the contract is created.
 
+## State effects of an undeclared component
+
+A component whose `contract()` implementation is its family default with an empty state does not describe its state effects.
+For such a component the Compiler reads the component source and infers state reads and writes for diagnostics only.
+State exports are not inferred, because the context has no export operation; exports come from a declaration.
+The detection uses the identity of the resolved `contract` implementation: a hand-written declaration, an inherited built-in declaration, an override that only calls `super()`, and the real state declared by the `Algorithm` family default all count as declarations and are never replaced.
+
+Inferred effects are kept in a separate internal record that only one verification rule reads.
+They do not change the executable contract, the analysis contract, plan signatures, binding versions, runtime write-gate decisions, or checkpoints.
+A conflict found from inferred effects is the non-blocking `inferred_state_effect_conflict` WARNING.
+Inference only adds findings: existing findings, including the `opaque_state_effects` WARNING of a Stage, stay as they are.
+
+When any effect cannot be inferred, a family-default component is treated as non-enumerable for verification; a non-Stage family default receives the `opaque_state_effects` WARNING with a message saying its effects could not be inferred.
+The analyzer parses the analyzed function's source, resolves names through class and module dictionaries, never evaluates source expressions, never calls the methods it analyzes, and never raises; any failure leaves the component non-enumerable.
+A function is analyzed only when every syntax node in it belongs to a small allowlist of modeled forms; nested definitions, lambdas, classes, comprehensions, `global`/`nonlocal`, `match`, assignment expressions, `except*`, augmented assignment, `del`, f-strings, subscripts, starred expressions, and rebinding or shadowing of the context are unknown.
+A context value is followed only where it is the receiver of a modeled context attribute or method, a direct positional or keyword argument of a call whose target is analyzed or of a `typing.cast` call, the single name target of an alias assignment, or the returned value; an occurrence anywhere else, such as in a conditional or boolean expression, a container literal, or an iterated expression, makes the whole function unknown.
+A name that the function binds itself, as a parameter, an assignment target, a `for`, `with`, or `except` target, or an import alias, is never resolved to a module or class value; using such a name as a state key or a call target makes the function unknown.
+Unknown call targets, `getattr` on the context, code defined by `exec`, `functools.partial` attributes, a custom metaclass, and source that cannot be read also make the component non-enumerable.
+A method that receives the context is counted whether or not the flow calls it, and a branch that does not run is counted.
+A user class whose `__module__` starts with `saealib.` is not distinguished from a framework class.
+Effects that pass through explicit arguments rather than the context, such as a mutation of candidates passed in or a read of an RNG passed in, are not represented; declare those effects in `contract()`.
+The inference result is cached per class, so a class is analyzed once per process.
+Built-in family-default classes that can be graph nodes and whose inference is unknown declare their effects in `contract()`, each verified against runtime observation; classes that cannot be graph nodes keep their inherited declarations.
+
 ## Minimal example
 
 ```python

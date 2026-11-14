@@ -838,6 +838,10 @@ class TrueOnlyFeedback(FeedbackBuilder):
     def __init__(self) -> None:
         pass
 
+    def contract(self) -> ComponentContract:
+        """Return the feedback contract; the builder reads no state."""
+        return super().contract()
+
     def build(
         self,
         candidates,
@@ -936,6 +940,10 @@ class MixedFeedback(FeedbackBuilder):
 
     def __init__(self) -> None:
         pass
+
+    def contract(self) -> ComponentContract:
+        """Return the feedback contract; the builder reads no state."""
+        return super().contract()
 
     def build(
         self,

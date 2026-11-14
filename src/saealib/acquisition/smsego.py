@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
 
 from saealib.acquisition.base import PointwiseAcquisition, direction_to_minimize_sign
+from saealib.core.contracts import ComponentContract, StateContract
+from saealib.core.state import RUNTIME_RNG
 from saealib.surrogate.prediction import SurrogatePrediction
 from saealib.utils.indicators import _non_dominated, hypervolume
 
@@ -66,6 +69,13 @@ class SMSEGOAcquisition(PointwiseAcquisition):
             else None
         )
         self.direction = direction
+
+    def contract(self) -> ComponentContract:
+        """Return the acquisition contract with the random generator it reads."""
+        return replace(
+            super().contract(),
+            state=StateContract(reads=(RUNTIME_RNG,)),
+        )
 
     def compute_reference(
         self,

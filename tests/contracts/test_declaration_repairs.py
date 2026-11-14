@@ -313,3 +313,248 @@ def test_default_optimizers_gain_no_service_errors_from_training_sets() -> None:
         if diagnostic.severity.value == "error"
     ]
     assert errors == []
+
+
+def _observe_declaration(name, state, call):
+    recorder = Recorder()
+    attach_instrumentation(state, recorder)
+    with instrumented_component(name, recorder):
+        call()
+    recorder.flush()
+    return recorder.keys(name, "read"), recorder.keys(name, "write")
+
+
+def _prediction(x):
+    from saealib.surrogate import PredictionChannel, SurrogatePrediction
+
+    return SurrogatePrediction(
+        {
+            "objective": PredictionChannel(
+                value=np.array([[1.0], [2.0]]),
+                std=np.full((2, 1), 0.5),
+                covariance=np.eye(2) * 0.25,
+            )
+        },
+        x=np.asarray(x),
+    )
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [
+        lambda: __import__(
+            "saealib.acquisition.ei", fromlist=["ExpectedImprovement"]
+        ).ExpectedImprovement(),
+        lambda: __import__(
+            "saealib.acquisition.lcb", fromlist=["LowerConfidenceBound"]
+        ).LowerConfidenceBound(),
+        lambda: __import__(
+            "saealib.acquisition.mean", fromlist=["CORSDistance"]
+        ).CORSDistance(),
+        lambda: __import__(
+            "saealib.acquisition.mean", fromlist=["MeanPrediction"]
+        ).MeanPrediction(),
+        lambda: __import__(
+            "saealib.acquisition.pof", fromlist=["ProbabilityOfFeasibility"]
+        ).ProbabilityOfFeasibility(),
+        lambda: __import__(
+            "saealib.acquisition.pof", fromlist=["ProductOfFeasibility"]
+        ).ProductOfFeasibility(),
+        lambda: __import__(
+            "saealib.acquisition.smsego", fromlist=["SMSEGOAcquisition"]
+        ).SMSEGOAcquisition(),
+        lambda: __import__(
+            "saealib.acquisition.uncertainty", fromlist=["MaxUncertainty"]
+        ).MaxUncertainty(),
+        lambda: __import__(
+            "saealib.acquisition.archive_based", fromlist=["NoveltyAcquisition"]
+        ).NoveltyAcquisition(),
+    ],
+    ids=[
+        "expected-improvement",
+        "lower-confidence-bound",
+        "cors-distance",
+        "mean-prediction",
+        "probability-of-feasibility",
+        "product-of-feasibility",
+        "smsego",
+        "max-uncertainty",
+        "novelty",
+    ],
+)
+def test_acquisition_declarations_match_runtime_observation(factory) -> None:
+    acquisition = factory()
+    state = _initial_state()
+    archive = state.archive
+    candidates = np.asarray(state.population.get_array("x"))
+    prediction = _prediction(candidates)
+    reads, writes = _observe_declaration(
+        "acquisition",
+        state,
+        lambda: acquisition.evaluate(
+            candidates,
+            prediction,
+            archive,
+            prepared=acquisition.prepare(archive, ctx=state),
+            ctx=state,
+        ),
+    )
+    declared = acquisition.contract().state
+    assert reads <= set(declared.reads)
+    assert writes <= set(declared.writes)
+
+
+def test_cors_distance_declaration_covers_decision_count() -> None:
+    from saealib.acquisition.mean import CORSDistance
+    from saealib.core.state import RUNTIME_DECISION_COUNT, RUNTIME_RNG
+
+    acquisition = CORSDistance()
+    state = _initial_state()
+    archive = state.archive
+    candidates = np.asarray(state.population.get_array("x"))
+    prediction = _prediction(candidates)
+    reads, _ = _observe_declaration(
+        "acquisition",
+        state,
+        lambda: acquisition.evaluate(
+            candidates,
+            prediction,
+            archive,
+            prepared=acquisition.prepare(archive, ctx=state),
+            ctx=state,
+        ),
+    )
+    assert RUNTIME_RNG in reads
+    assert RUNTIME_DECISION_COUNT in reads
+    assert reads <= set(acquisition.contract().state.reads)
+
+
+def test_beta_schedule_declaration_covers_decision_count() -> None:
+    from saealib.acquisition.lcb import LowerConfidenceBound
+    from saealib.core.state import RUNTIME_DECISION_COUNT, RUNTIME_RNG
+
+    acquisition = LowerConfidenceBound(beta_schedule=lambda t: 1.0)
+    state = _initial_state()
+    archive = state.archive
+    candidates = np.asarray(state.population.get_array("x"))
+    prediction = _prediction(candidates)
+    reads, _ = _observe_declaration(
+        "acquisition",
+        state,
+        lambda: acquisition.evaluate(
+            candidates,
+            prediction,
+            archive,
+            prepared=acquisition.prepare(archive, ctx=state),
+            ctx=state,
+        ),
+    )
+    assert RUNTIME_RNG in reads
+    assert RUNTIME_DECISION_COUNT in reads
+    assert reads <= set(acquisition.contract().state.reads)
+
+
+def test_composite_acquisition_declaration_covers_rng() -> None:
+    from saealib.acquisition.base import CompositeAcquisition
+    from saealib.acquisition.batch import BatchExpectedImprovement
+    from saealib.core.state import RUNTIME_RNG
+
+    acquisition = CompositeAcquisition(
+        {"objective": BatchExpectedImprovement(n_draws=16)},
+        lambda arrays: arrays[0],
+    )
+    state = _initial_state()
+    archive = state.archive
+    candidates = np.asarray(state.population.get_array("x"))
+    prediction = _prediction(candidates)
+    reads, writes = _observe_declaration(
+        "acquisition",
+        state,
+        lambda: acquisition.evaluate(
+            candidates,
+            prediction,
+            archive,
+            prepared=acquisition.prepare(archive, ctx=state),
+            ctx=state,
+        ),
+    )
+    declared = acquisition.contract().state
+    assert RUNTIME_RNG in reads
+    assert RUNTIME_RNG in writes
+    assert reads <= set(declared.reads)
+    assert writes <= set(declared.writes)
+
+
+def test_composite_surrogate_manager_declaration_covers_child_rng() -> None:
+    from saealib.core.state import RUNTIME_RNG
+    from saealib.surrogate.base import ComparisonSurrogate
+    from saealib.surrogate.manager import (
+        CompositeSurrogateManager,
+        PairwiseSurrogateManager,
+    )
+
+    class _PairwiseSurrogate(ComparisonSurrogate):
+        def fit(self, train_x, train_y) -> None:
+            pass
+
+        def predict_proba(self, test_x):
+            from saealib.surrogate import PredictionChannel, SurrogatePrediction
+
+            return SurrogatePrediction(
+                {"win_rate": PredictionChannel(value=np.zeros((len(test_x), 1)))}
+            )
+
+    manager = CompositeSurrogateManager(
+        {
+            "objective": PairwiseSurrogateManager(
+                _PairwiseSurrogate(),
+                PairwiseComparisonSet(n_pairs=1),
+            )
+        }
+    )
+    state = _initial_state()
+    state.archive._extend_internal(
+        {
+            "id": np.array([3]),
+            "x": np.array([[0.5, 0.5]]),
+            "f": np.array([[3.0]]),
+            "g": np.empty((1, 0)),
+            "cv": np.zeros(1),
+        },
+        preserve_ids=True,
+    )
+    archive = state.archive
+    reads, writes = _observe_declaration(
+        "manager", state, lambda: manager.fit(archive, ctx=state)
+    )
+    declared = manager.contract().state
+    assert RUNTIME_RNG in reads
+    assert RUNTIME_RNG in writes
+    assert reads <= set(declared.reads)
+    assert writes <= set(declared.writes)
+
+
+def test_feedback_declarations_match_runtime_observation() -> None:
+    from saealib.execution.evaluator import EvaluationResult
+    from saealib.policies.feedback import TrueOnlyFeedback
+
+    state = _initial_state()
+    candidates = _incomplete_candidates(state)
+    prediction = _prediction(candidates.get_array("x"))
+    evaluation = EvaluationResult(
+        np.array([[1.0], [2.0]]),
+        np.empty((2, 0)),
+        np.zeros(2),
+        candidate_ids=np.array([10, 11]),
+    )
+    for builder in (TrueOnlyFeedback(), MixedFeedback()):
+        reads, writes = _observe_declaration(
+            "builder",
+            state,
+            lambda: builder.build(candidates, prediction, evaluation, [], ctx=state),
+        )
+        declared = builder.contract().state
+        assert reads <= set(declared.reads)
+        assert writes <= set(declared.writes)
+        assert not declared.reads
+        assert not declared.writes

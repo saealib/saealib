@@ -125,6 +125,11 @@ for _name, _description in (
         "in the contract's parts.",
     ),
     (
+        "inferred_state_effect_conflict",
+        "State effects inferred from a component's source conflict with the "
+        "graph order.",
+    ),
+    (
         "duplicate_component_id",
         "A component id occurs more than once in a component graph.",
     ),

@@ -29,3 +29,7 @@ related_layers: [layer3]
 ```{eval-rst}
 .. autofunction:: saealib.stalled
 ```
+
+```{eval-rst}
+.. autofunction:: saealib.max_steps
+```

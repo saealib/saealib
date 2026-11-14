@@ -45,6 +45,9 @@ Generation end -> [on_generation_end(gen, population)]
 
 実行可能性は集約後の`cv`ではなく制約定義から決まります。制約ごとに`violation_from_value`が許容幅の内側で0を返すとき、つまり不等式なら`g(x) <= threshold`、等式なら`|h(x)| <= tolerance`のとき、その解は実行可能です。
 `Result`、履歴の`best_f`と`feasible_ratio`、`FeasibilityClassificationSet`、Paretoアーカイブはすべてこの判定を使うため、探索中にcomparatorを緩和しても報告される実行可能性は変わりません。
+`GenerationBasedStrategy`で`gen_ctrl > 0`の場合、アルゴリズムの`tell()`の実装によっては、最終個体群にプレースホルダー`g=0`を持つ予測行が含まれることがあります。たとえばGAでは予測行を保持できます。
+Historyの`summary`にある`feasible_ratio`は各世代の`state.population`を制約定義に従って分類するため、これらの行が実行可能として数えられる場合があります。
+真の評価値はアーカイブに保持されます。
 自分で行を分類する場合は、各行の`g`列に`violation_from_value`を適用します。すべての結果が0の行が実行可能です。
 
 集約後の`cv`の役割は1つで、実行不可能な解どうしの順位付けです。

@@ -102,7 +102,14 @@ feasible = np.array(
 print(f"feasible: {feasible.sum()} / {len(feasible)}")
 ```
 
-同じ判定が`result.x`/`result.f`、履歴の`best_f`と`feasible_ratio`、学習データのラベル、Paretoアーカイブを駆動します。そのため、`cv`の集約方法や探索中のε緩和には左右されません。`result.best()`と`result.front()`の既定の基準もこの判定を使い、実行可能解を優先したうえでPareto支配で絞り込みます。実行可能な解が1つもない場合、既定の基準では単目的は`cv`が最小の最初の行を使い、多目的問題の`result.front()`は`cv`が最小の行のうち非劣な解を返します。明示した基準では、`cv`が最小のすべての行をその基準で順位付けします。
+同じ判定が`result.x`/`result.f`、履歴の`best_f`と`feasible_ratio`、学習データのラベル、Paretoアーカイブを駆動します。
+そのため、`cv`の集約方法や探索中のε緩和には左右されません。
+`GenerationBasedStrategy`で`gen_ctrl > 0`の場合、アルゴリズムの`tell()`の実装によっては、最終個体群にプレースホルダー`g=0`を持つ予測行が含まれることがあります。たとえばGAでは予測行を保持できます。
+Historyの`summary`にある`feasible_ratio`は各世代の`state.population`を制約定義に従って分類するため、これらの行が実行可能として数えられる場合があります。
+真の評価値はアーカイブに保持されます。
+`result.best()`と`result.front()`の既定の基準もこの判定を使い、実行可能解を優先したうえでPareto支配で絞り込みます。
+実行可能な解が1つもない場合、既定の基準では単目的は`cv`が最小の最初の行を使い、多目的問題の`result.front()`は`cv`が最小の行のうち非劣な解を返します。
+明示した基準では、`cv`が最小のすべての行をその基準で順位付けします。
 
 ## ConstraintHandlerで制約処理をカスタマイズする
 
@@ -113,7 +120,19 @@ print(f"feasible: {feasible.sum()} / {len(feasible)}")
 集約だけを変えたい場合は、ハンドラを書く代わりに`Problem(cv_aggregator=...)`を渡します。集約の契約は「すべての違反が0のとき、かつそのときに限り`cv == 0`」で、役割は実行不可能な解どうしの順位付けだけです。実行可能性は常に制約定義から決まります。
 
 ```python
-from saealib.problem import sum_violation
+import numpy as np
+from saealib import InequalityConstraint, Problem
+
+DIM = 5
+LB = [-5.0] * DIM
+UB = [5.0] * DIM
+
+
+def expensive_func(x):
+    return np.sum(x**2)
+
+
+constraint = InequalityConstraint(lambda x: 1.0 - np.sum(x), threshold=0.0)
 
 
 def squared_inequality(constraints, x, g):
@@ -127,7 +146,9 @@ problem = Problem(
     dim=DIM,
     n_obj=1,
     direction=np.array([-1.0]),
-    constraints=constraints,
+    lb=LB,
+    ub=UB,
+    constraints=[constraint],
     cv_aggregator=squared_inequality,
 )
 ```

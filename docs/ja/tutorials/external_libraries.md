@@ -9,7 +9,9 @@ page_type: guide
 
 アダプタが翻訳するのは`Problem`/`Population`/`ctx`といった`saealib`側のデータ表現だけで、学習アルゴリズムや探索演算子そのものは外部ライブラリの実装をそのまま使います。
 
-現時点では、サロゲートモデルのアダプター（scikit-learn、XGBoost、LightGBM、PyTorch）と、pymooアダプター（`Crossover`/`Mutation`/`Algorithm`/`Problem`）を実装しています。外部の進化計算ライブラリへのランタイム依存を取り除きたい場合は、{ref}`saealibネイティブなコードへの演算子の移植 <port-operators-to-native-saealib-code>`で、pymooやDEAP風の演算子をネイティブな`Crossover`/`Mutation`サブクラスとして書き直す方法を扱います。
+サロゲートモデル用にscikit-learn、XGBoost、LightGBM、PyTorchのアダプターを、進化計算ライブラリ用にpymooとDEAPのアダプターを実装しています。
+DEAPアダプターは`DeapCrossover`、`DeapMutation`、`DeapGenerateUpdateAlgorithm`で、`deap` extraに含まれます。
+外部の進化計算ライブラリへのランタイム依存を取り除きたい場合は、{ref}`saealibネイティブなコードへの演算子の移植 <port-operators-to-native-saealib-code>`で、pymooやDEAP風の演算子をネイティブな`Crossover`/`Mutation`サブクラスとして書き直す方法を扱います。
 
 :::{admonition} このページでできるようになること
 :class: tip
@@ -141,6 +143,13 @@ result = minimize(
 `PymooAlgorithm`は「エンジンモード」で動作します。
 ラップしたpymooアルゴリズムが自身の個体群と内部の生存選択状態を保持し、`ctx.population`は基準となるデータではなく、各世代後にそこから更新されます。実際の意味（チェックポイントと再開には非対応、`n_offspring`は無視される、`PreSelectionStrategy`の部分的な`tell()`には明示的なオプトインが必要）については[Algorithm](../concepts/search_algorithms/algorithm.md)を参照してください。
 
+## DEAPアダプターを使う
+
+`DeapCrossover`と`DeapMutation`は、DEAPの交叉関数と突然変異関数を`Crossover`と`Mutation`として利用します。
+`DeapGenerateUpdateAlgorithm`は、`generate`と`update`を持つDEAPのStrategy（`deap.cma.Strategy`など）をアルゴリズムとして利用します。
+`DeapGenerateUpdateAlgorithm`は制約なしの単目的問題のみをサポートし、`DeapCrossover`と`DeapMutation`は固定長の数値列に対応します。
+これらのアダプターには`deap` extraが必要です。
+
 ## 関連コンセプトと参考情報
 
 - {py:class}`saealib.Surrogate`
@@ -150,4 +159,6 @@ result = minimize(
 - {py:class}`saealib.PymooCrossover` / {py:class}`saealib.PymooMutation`
 - {py:class}`saealib.PymooAlgorithm`
 - {py:class}`saealib.PymooProblem`
+- {py:class}`saealib.operators.DeapCrossover` / {py:class}`saealib.operators.DeapMutation`
+- {py:class}`saealib.algorithms.DeapGenerateUpdateAlgorithm`
 - {py:func}`saealib.minimize`

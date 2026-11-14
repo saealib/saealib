@@ -114,9 +114,9 @@ front_x = result.x
 front_f = result.f
 ```
 
-The search-side `result.ctx.pareto_archive` is a separate, incrementally pruned archive.
-Its contents follow the search settings, so compare or plot final results with `result.x`/`result.f` or `result.front()` rather than reading the Pareto archive directly.
-For a multi-objective problem, the recomputation from the main archive can produce a different set than the Pareto archive, for example in a run that uses ε relaxation.
+The search-side `result.ctx.pareto_archive` is a separate archive, pruned as rows are added with its configured dominator.
+`result.front()` recomputes the non-dominated set from the main archive with the selected criterion, so the sets can differ when the Pareto archive uses a different dominance rule, such as an `EpsilonDominator`.
+Use `result.x`/`result.f` or `result.front()` for final results rather than reading the Pareto archive directly.
 
 ```python
 from saealib.comparators import ParetoComparator

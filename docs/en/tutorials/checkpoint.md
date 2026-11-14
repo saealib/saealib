@@ -106,6 +106,8 @@ ctx.save("checkpoint.npz")
 ```
 
 Save at a step boundary: a state yielded by `iterate()`, a `GenerationEndEvent` or `RunEndEvent` callback (including `CheckpointCallback`), or after `run()` returns. A run may end inside an open region; saving after it returns is supported when the state can be resumed. With asynchronous evaluation, a `GenerationBasedStrategy` run can reach its termination condition while true evaluations are still in flight inside a generation. The state returned by `run()` in that situation may not resume to the same result. Save at `GenerationEndEvent`, or save from a `RunEndEvent` callback instead. The runtime also accepts a suspended point while waiting for asynchronous evaluations when it can continue from that point. Saving from another callback or while a step is executing inside a `Repeat` or other region raises `CheckpointError`. A `RunEndEvent` callback can save when no planned requests are still waiting to be submitted; a plan with requests still waiting to be submitted is rejected. In that case, save at `GenerationEndEvent`, or save the state returned by `run()` if the run ended at a generation boundary. Pending asynchronous requests are supported only when every request can be reattached and the feedback accumulator matches those requests. A request whose callback or feedback update has started, or a pending component replacement made with `set_*()` or attribute assignment, also rejects the save. Pickle saving reports the evaluator type when that evaluator cannot be serialized; portable checkpoints do not contain the evaluator.
+With `GenerationBasedStrategy` and `AsyncEvaluator`, the `fe` in a state returned by `run()` can be less than `len(state.archive)`. A state with pending evaluations cannot be resumed with the built-in `AsyncEvaluator`.
+Saving with a `CheckpointCallback` that receives `GenerationEndEvent` allows resumption from a resumable generation boundary.
 
 A saved checkpoint can be loaded with `OptimizationState.load(path, problem)`, and passing it to `Optimizer.run_from(ctx)` resumes from where it left off.
 
@@ -155,6 +157,9 @@ ctx = build_optimizer(300).run(
 ## Save in pickle format
 
 npz saves only `ctx`, but pickle format can save the entire `Optimizer`, including the fitted surrogate parameters.
+Pickle also saves `Problem.eps_cv`.
+On resume, the search-side feasibility threshold comes from the handler: the default handler uses the pickled `Problem.eps_cv`, while an explicitly configured handler keeps its own threshold.
+A pickle that stores `Problem.eps_cv=1e-6` with the default handler resumes with a search-side threshold of `1e-6`.
 
 ```python
 optimizer = build_optimizer(200)

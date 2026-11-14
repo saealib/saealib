@@ -17,8 +17,10 @@ Algorithms and surrogates use the `GenomeBatch` and services provided by the spa
 
 `ServiceRegistry` registers the services provided by a space by name.
 The space that needs them exposes sampling, validation, cloning, equivalence, distance, genome serialization, and other capabilities as SearchSpace services.
-`EvaluationAdapter` is the Adapter boundary that converts a `GenomeBatch` into an evaluation Payload.
-`FeatureEncoder` is an Adapter subtype responsible for the semantic conversion `GenomeBatch → FeatureEncoder → FeatureBatch → Surrogate`. Unlike a space capability such as `SamplingService`, it determines the features the surrogate can learn.
+`EvaluationAdapter` is an Adapter at the evaluation boundary that converts a `GenomeBatch` into evaluation request data.
+`FeatureEncoder` is a `Protocol` defined in `saealib.space.services` and exposed as `saealib.space.FeatureEncoder`.
+`FeatureEncoder` is registered and resolved as a service in `SearchSpace.services`, and determines the features the surrogate can learn.
+`FeatureEncoder` is not an Adapter instance.
 The public import is `from saealib.space import FeatureEncoder`.
 
 ## What SearchSpace holds
@@ -39,8 +41,11 @@ For example, `ObjectSpace` does not register default services, so the configurat
 This description says how candidates are stored; it is not itself an implementation of sampling or feature encoding.
 
 Services are the executable boundaries that fill this gap.
-When a prepared strategy consumes `FeatureEncoder`, execution preparation selects a visible default if the space has no explicit encoder. `VectorSpace` uses identity encoding and reports INFO with the selection source and reason; `PermutationSpace` and `SequenceSpace` keep their built-in encodings and report a non-blocking WARNING recommending explicit selection because encoding shapes what the surrogate learns.
-An encoder explicitly provided through `SearchSpace.services` takes priority and produces no default-selection diagnostic. `ObjectSpace` and custom spaces do not receive an inferred encoder, so they must provide one when the selected strategy consumes it.
+When a prepared strategy consumes `FeatureEncoder`, execution preparation selects an encoder after checking for an explicit setting.
+An encoder explicitly registered in `SearchSpace.services` always takes precedence over the default.
+`VectorSpace` uses identity encoding and reports INFO with the selection source and reason; `PermutationSpace` and `SequenceSpace` use their built-in default encodings and report a non-blocking WARNING recommending explicit selection because encoding shapes what the surrogate learns.
+This WARNING does not prevent execution.
+`ObjectSpace` and custom spaces do not receive an inferred encoder, so they must provide one when the selected strategy consumes it.
 Direct calls to `encode_features()` use the same defaults for built-in spaces and emit a Python `UserWarning` when they do; custom spaces without a supported default still require an explicit encoder.
 Use `optimizer.contract_diagnostics()` to inspect the structured stream, or inspect `optimizer.last_contract_diagnostics` after `optimizer.validate()`. `Optimizer.validate()` returns ERROR findings only; INFO and WARNING selections remain in the diagnostic stream.
 

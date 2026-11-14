@@ -54,7 +54,36 @@ The following example changes the configuration with `iterate()` and `optimizer.
 This procedure works on both the Stage compatibility path and the graph-native path.
 
 ```python
+import numpy as np
+from saealib import Optimizer, Problem, Termination, max_fe
+from saealib.surrogate import (
+    ArchiveObjectiveSet,
+    GlobalSurrogateManager,
+    KFoldAccuracyEvaluator,
+    ManagerSwitcher,
+    SklearnGPRSurrogate,
+)
+
+problem = Problem(
+    lambda x: np.sum(x**2),
+    dim=2,
+    n_obj=1,
+    direction=np.array([-1.0]),
+    lb=[-5.0, -5.0],
+    ub=[5.0, 5.0],
+)
+evaluator = KFoldAccuracyEvaluator(n_splits=3)
+primary = GlobalSurrogateManager(
+    SklearnGPRSurrogate(), ArchiveObjectiveSet(), accuracy_evaluator=evaluator
+)
+fallback = GlobalSurrogateManager(SklearnGPRSurrogate(), ArchiveObjectiveSet())
 switcher = ManagerSwitcher(primary, fallback)
+optimizer = (
+    Optimizer(problem, seed=0)
+    .set_surrogate_manager(primary)
+    .set_termination(Termination(max_fe(30)))
+)
+
 for ctx in optimizer.iterate():
     optimizer.set_surrogate_manager(
         switcher.switch(optimizer.surrogate_manager.last_accuracy)
@@ -64,10 +93,11 @@ for ctx in optimizer.iterate():
 | Class | Parameters | What it switches |
 |---|---|---|
 | `ManagerSwitcher` | `primary, fallback, *, metric="spearman", threshold=0.5` | `SurrogateManager` |
-| `StrategySwitcher` | `primary, fallback, *, metric="spearman", threshold=0.56` | `OptimizationStrategy` |
+| `StrategySwitcher` | `primary, fallback, *, metric="spearman", threshold=0.56, mid=None, mid_threshold=None` | `OptimizationStrategy` |
 | `GenCtrlSwitcher` | `*, gm_max=5, gm_min=0, update_rate=0.5, metric="spearman", initial_error=0.5` | `gen_ctrl` (an integer) |
 
-`ManagerSwitcher`/`StrategySwitcher` are simple binary switches, returning `primary` if the specified metric is at or above the threshold, and `fallback` otherwise.
+`ManagerSwitcher` returns `primary` when the specified metric is at or above the threshold, and `fallback` otherwise. `StrategySwitcher` also uses this binary split; when both `mid` and `mid_threshold` are specified, it returns `fallback` below `threshold`, `mid` from `threshold` up to but not including `mid_threshold`, and `primary` at or above `mid_threshold`.
+To use three branches, specify both `mid` and `mid_threshold`; specifying only one raises `ValidationError`.
 `StrategySwitcher`'s default threshold `0.56` is based on the PS/IB-GB switching setting from {cite}`hanawa2025switching`.
 
 Rather than a binary switch, `GenCtrlSwitcher` continuously adjusts `gen_ctrl` via exponential smoothing {cite}`repicky2017genctrl`.

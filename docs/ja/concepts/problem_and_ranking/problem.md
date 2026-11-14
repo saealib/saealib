@@ -35,7 +35,9 @@ Problem(
 
 **`eps_cv`**/**`eps_obj`**：いずれも非推奨の探索側の許容誤差です。
 実行可能性は`eps_cv`ではなく制約定義で決まります。制約ごとの違反量が許容幅の内側ですべて0の解が実行可能であり、`Result`、履歴の`best_f`と`feasible_ratio`、学習データのラベル、Paretoアーカイブはすべてこの判定を使います。
-`eps_cv`に値を渡すと`DeprecationWarning`が出て、既定のハンドラの探索側の緩和として設定されます。ランタイムはその値を毎世代comparatorの`eps_cv`へ書き写すため、探索が実行可能とみなす範囲が広がりますが、報告される実行可能性は変わりません。
+`eps_cv`に値を渡すと`DeprecationWarning`が出て、制約の許容幅または`EpsilonConstraintHandler`を使うよう案内されます。
+渡された値は既定のハンドラの探索側の緩和として設定され、ランタイムはその値を毎世代comparatorの`eps_cv`へ書き写します。
+探索が実行可能とみなす範囲は広がりますが、報告される実行可能性は変わりません。
 省略時の既定は`0.0`で、制約による判定と一致します。実際に使われる緩和値は`handler.feasibility_threshold`です。
 `eps_obj`も既定のcomparatorの許容誤差を決めるだけで、ここに値を渡すと`DeprecationWarning`が出ます。許容誤差は`Optimizer.set_comparator()`で設定するcomparatorに渡してください。
 
@@ -57,9 +59,13 @@ Problem(
 
 ## Problemが保持するもの
 
-`direction`は、符号だけを表すsaealib全体で統一された`±1`配列です。一方、`WeightedSumComparator`や`DecompositionComparator`が受け取る`weights`は、複数の目的をスカラー値へ集約するための非負の重みであり、方向とは独立した別の概念です。
+`direction`は、符号だけを表すsaealib全体で統一された`±1`配列です。
+`DecompositionComparator`が受け取る`weights`は、複数の目的をスカラー値へ集約する非負の重みであり、方向とは独立しています。
+`WeightedSumComparator`は`weights`パラメータを持たず、符号付き重みベクトルとして`direction`を使います。
 
-この役割分担のもとでは、目的の重要度そのもの（スケーリング）を`weights`で表現することはできません。 目的関数値の大きさを調整したい場合は`func`の内部でスケーリングします。 `direction`は符号だけを、`weights`は集約の重み配分だけを表す、という2軸に整理されています。
+`DecompositionComparator`では`weights`が集約時の配分を表します。
+目的関数値のスケールを調整したい場合は`func`の内部でスケーリングします。
+`direction`は符号を、`DecompositionComparator`の`weights`は集約配分を表します。
 
 ## 不変条件
 

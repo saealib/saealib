@@ -6,11 +6,17 @@ page_type: concept
 
 # OptimizationStrategy
 
-`saealib` は、高コストな真の評価へ送る候補の選択を `OptimizationStrategy` に委譲します。 Strategyは、候補生成、予測、評価計画、Feedback、Population更新を一つのグラフとして記述します。
+`saealib` は、高コストな真の評価へ送る候補の選択を `OptimizationStrategy` に委譲します。
 
 ## OptimizationStrategyの役割
 
-Strategyは、候補生成、予測、評価計画、Feedback、Population更新を一つの宣言フローとして記述します。 正規の書き方は、Stageが `(slot, role)` でコンポーネントを参照する `Pipeline` 宣言を `TemplateStrategy` に渡す形です。 実行前にOptimizerはこの宣言を `ComponentGraph` へ下ろしてCompilerに渡し、`ExecutablePlan` を作成します。
+Strategyは、候補生成、予測、評価計画、Feedback、Population更新を一つの宣言フローとして記述します。
+正規の書き方は、Stageが `(slot, role)` でコンポーネントを参照する `Pipeline` 宣言を `TemplateStrategy` に渡す形です。
+
+Strategyは宣言（`declaration`）を保持し、実行準備時に `build_pipeline(provider)` がそれを解決して `strategy.pipeline` を構築します。
+準備が完了するまで `strategy.pipeline` は `None` です。
+Optimizerはこの解決済みパイプラインを `build_graph` で `ComponentGraph` へ下ろしてCompilerに渡し、`ExecutablePlan` を作成します。
+実行時の世代処理を駆動するのは `strategy.step()` やRuntimeであり、パイプラインオブジェクト自体が直接実行を担うわけではありません。
 
 `build_graph(provider) -> ComponentGraph` は宣言を下ろす境界として残りますが、独自Strategyでの上書きは非推奨です。 上書きすると `DeprecationWarning` が出力され、代替は `Pipeline` 宣言を渡した `TemplateStrategy` です。 フローをこの方法で検査できないStrategyは、引き続き `requires_surrogate: bool` を手で宣言します。
 
@@ -30,8 +36,8 @@ Strategyは、候補生成、予測、評価計画、Feedback、Population更新
 
 | クラス | パラメータ | 方式 |
 |---|---|---|
-| `DirectStrategy` | なし | サロゲートを使わず、生成した候補を全件真に評価する |
-| `SteadyStateStrategy` | なし | 1ステップにつき1候補を生成し、非同期補充に対応する |
+| `DirectStrategy` | `n_offspring: int \| None = None` | サロゲートを使わず、生成した候補を全件真に評価する |
+| `SteadyStateStrategy` | なし | `DirectStrategy(n_offspring=1)` として1ステップにつき1候補を生成し、非同期補充に対応する |
 | `IndividualBasedStrategy` | `evaluation_ratio: float = 0.1` | 全候補をサロゲートでスコアリングし、上位`evaluation_ratio`の割合だけ真に評価する |
 | `PreSelectionStrategy` | `n_candidates: int, n_select: int`（共に必須） | `n_candidates`件を生成してスコアリングし、上位`n_select`件だけ真に評価する |
 | `GenerationBasedStrategy` | `gen_ctrl: int`（必須） | `gen_ctrl`世代分をサロゲートのみで進め、その後1世代だけ真に評価する |
@@ -44,12 +50,18 @@ Strategyは、候補生成、予測、評価計画、Feedback、Population更新
 
 | クラス | パイプライン |
 |---|---|
-| `DirectStrategy` | 世代数のカウント → 要求 → 真の評価 → アーカイブ更新 → 反映 |
-| `IndividualBasedStrategy` | CountGeneration → Ask → SurrogatePredictStage → AcquisitionStage → SortByScore → TrueEvaluation（比率指定）→ ArchiveUpdate → Tell |
-| `PreSelectionStrategy` | CountGeneration → Ask（n_candidates）→ SurrogatePredictStage → AcquisitionStage → TopKSelection（k=n_select）→ TrueEvaluation → ArchiveUpdate → Tell |
-| `GenerationBasedStrategy` | SurrogateOnlyLoop(gen_ctrl回) → CountGeneration → Ask → TrueEvaluation → ArchiveUpdate → Tell |
+| `DirectStrategy` | CountGeneration → Ask → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge |
+| `IndividualBasedStrategy` | CountGeneration → Ask → SurrogatePredict → Acquisition → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge |
+| `PreSelectionStrategy` | CountGeneration → Ask（n_candidates）→ SurrogatePredict → Acquisition → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge |
+| `GenerationBasedStrategy` | SurrogateFit → Repeat(surrogate_generation: CountGeneration → Ask → SurrogatePredict → Acquisition → Feedback(PredictedFeedback) → Tell, count=gen_ctrl) → true_generation(CountGeneration → Ask → EvaluationPlan → EvaluationSubmit → EvaluationCollect → EvaluationApply → ArchiveUpdate → Feedback → Tell → EvaluationAcknowledge) |
 
-各Strategyの構成要素には、`EvaluationPlan`、非同期評価の送信と収集、Feedback、Tellが含まれます。Stageはその一部を担う互換性用の実行単位であり、構造化されたパイプライン全体と同じ実行契約ではありません。詳細は[Stage](../observation_and_state/stage.md)と[Framework](../../framework/index.md)を参照してください。
+この行の`SurrogateFit`と`Repeat`は`gen_ctrl`が0以外の場合だけ含まれ、`gen_ctrl=0`では`true_generation`のみです。
+
+各Strategyの構成要素には、`EvaluationPlan`、非同期評価の送信と収集、Feedback、Tellが含まれます。
+`SortByScoreStage` や `TopKSelectionStage` は互換性用の Stage であり、組み込みテンプレートでは使用されません。
+比率や件数による評価候補の選択は、`EvaluationPlanner`（`RatioEvaluation` や `TopKEvaluation`）の内部で処理されます。
+Stageはその一部を担う互換性用の実行単位であり、構造化されたパイプライン全体と同じ実行契約ではありません。
+詳細は{py:class}`saealib.Stage`と[Framework](../../framework/index.md)を参照してください。
 
 ## どのStrategyを選ぶか
 

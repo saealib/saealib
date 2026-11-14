@@ -56,6 +56,40 @@ saealib全体の規約どおり、スコアは高いほど良いです。
 [TrainingSet](training_set.md)の`ConstraintObjectiveSet`で学習データを抽出し、目的側の獲得関数（EIなど）と`CompositeAcquisition`の`product_combine`で組み合わせるのが典型的な使い方です。
 
 ```python
+import numpy as np
+from saealib import InequalityConstraint, Optimizer, Problem
+from saealib.acquisition import (
+    CompositeAcquisition,
+    ExpectedImprovement,
+    ProductOfFeasibility,
+)
+from saealib.surrogate import (
+    ArchiveObjectiveSet,
+    CompositeSurrogateManager,
+    ConstraintObjectiveSet,
+    GlobalSurrogateManager,
+    PerObjectiveSurrogate,
+    SklearnGPRSurrogate,
+    product_combine,
+)
+
+problem = Problem(
+    lambda x: np.sum(x**2),
+    dim=2,
+    n_obj=1,
+    direction=np.array([-1.0]),
+    lb=[-5.0, -5.0],
+    ub=[5.0, 5.0],
+    constraints=[
+        InequalityConstraint(lambda x: x[0] - 1.0),
+        InequalityConstraint(lambda x: x[1] - 1.0),
+    ],
+)
+gp_surrogate = SklearnGPRSurrogate()
+gp_g1 = SklearnGPRSurrogate()
+gp_g2 = SklearnGPRSurrogate()
+optimizer = Optimizer(problem, seed=0)
+
 ei_manager = GlobalSurrogateManager(gp_surrogate, ArchiveObjectiveSet())
 pof_manager = GlobalSurrogateManager(
     PerObjectiveSurrogate([gp_g1, gp_g2]),

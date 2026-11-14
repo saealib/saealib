@@ -7,7 +7,7 @@ related_layers: [layer3, layer4]
 
 ## Evaluator and graph-native contracts
 
-The graph-native path is `GenomeBatch → EvaluationAdapter → EvaluationPayload → Evaluator → ObservationBatch`.
+On the graph-native path, the evaluation planner's output port declares `EvaluationRequestBatch` as the `DataSpec` kind used for candidate selection. The Evaluator receives the selected `GenomeBatch`. When `Problem.evaluation_adapter` is set, `Problem.evaluate_batch()` receives the return value of `EvaluationAdapter.transform()`. When it is unset and the input is a `DenseVectorBatch`, `SerialEvaluator` uses `DenseVectorBatch.array` as the payload. The Evaluator returns an `ObservationBatch`.
 
 ```{eval-rst}
 .. autosummary::

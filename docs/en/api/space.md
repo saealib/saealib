@@ -46,8 +46,10 @@ SearchSpace services such as sampling and validation are capabilities provided b
 
 ### Adapters
 
-`EvaluationAdapter` is an adapter at the evaluation boundary that converts a `GenomeBatch` into an `EvaluationPayload`.
-`FeatureEncoder` is an adapter subtype exposed as `saealib.space.FeatureEncoder`. It converts a `GenomeBatch` into a `FeatureBatch` and determines which features a surrogate can learn. It differs in kind from space capabilities such as `SamplingService`.
+`EvaluationAdapter` is an adapter at the evaluation boundary that converts a `GenomeBatch` into the evaluation payload accepted by `Problem.evaluate_batch()`.
+`FeatureEncoder` is a `Protocol` defined in `saealib.space.services` and exposed as `saealib.space.FeatureEncoder`.
+`FeatureEncoder` is registered and resolved as a service in `SearchSpace.services`. It converts a `GenomeBatch` into a `FeatureBatch` and determines which features a surrogate can learn.
+`FeatureEncoder` is not an Adapter instance.
 When a prepared strategy consumes `FeatureEncoder`, execution preparation selects a default if `SearchSpace.services` has no explicit encoder. `VectorSpace` uses identity encoding and reports INFO with its source and reason; `PermutationSpace` and `SequenceSpace` keep their built-in encodings and report a non-blocking WARNING that encoding affects surrogate learning and an explicit choice is recommended.
 An explicitly provided encoder always takes priority and does not produce a default-selection diagnostic. `ObjectSpace` and custom spaces receive no inferred encoder; provide one when the selected strategy consumes it.
 Direct calls to `encode_features(space, genomes)` use the same built-in defaults when no encoder is registered and emit a Python `UserWarning`. An explicit encoder is used without a warning, and a custom space without a supported default still raises `ValidationError`; the helper does not register its fallback in the space.

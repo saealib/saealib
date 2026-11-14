@@ -74,3 +74,7 @@ related_layers: [layer3]
 ```{eval-rst}
 .. autofunction:: saealib.spea2_fitness
 ```
+
+```{eval-rst}
+.. autofunction:: saealib.comparators.default_comparator
+```

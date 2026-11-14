@@ -26,7 +26,7 @@ importの方針は [Canonical Imports](../api/imports.md) にまとめていま�
 | 候補を生成し、評価結果を消費する | `Algorithm` | `ask()`と`tell()`、必須属性と契約 |
 | 予測モデル | `Surrogate` | `fit()`と`predict()` |
 | 予測を候補スコアに変換する | `AcquisitionFunction` | `evaluate()`、または対応するPointwiseの`compute_reference()`と`score()` |
-| graph-native経路で評価バックエンドを拡張する | `EvaluationAdapter` / `Evaluator` | `GenomeBatch → EvaluationAdapter → EvaluationPayload → Evaluator → ObservationBatch` |
+| graph-native経路で評価バックエンドを拡張する | `EvaluationAdapter` / `Evaluator` | `EvaluationPlanner`の出力ポートのkind `EvaluationRequestBatch` → 候補選択、`GenomeBatch → Evaluator（Problem.evaluation_adapter設定時はtransform()の戻り値、未設定時にDenseVectorBatchならarrayをpayloadに使用）→ Problem.evaluate_batch() → ObservationBatch` |
 | Stage互換経路で同期Evaluatorを差し替える | `Evaluator` | `evaluate_batch()`と`EvaluationResult` |
 | 世代実行ポリシー | `Strategy` | `Pipeline` 宣言を渡した `TemplateStrategy` |
 | 互換実行単位 | `Stage` | `execute(state) -> state` |
@@ -39,7 +39,8 @@ importの方針は [Canonical Imports](../api/imports.md) にまとめていま�
 
 ## graph-native経路のComponent拡張
 
-`Algorithm`などのgraph-nativeコンポーネントは、`ask(...) -> ProposalBatch`と`tell(FeedbackBatch, StateView) -> StatePatch`の境界で拡張します。評価を追加する場合は、`GenomeBatch → EvaluationAdapter → EvaluationPayload → Evaluator → ObservationBatch`の経路に接続します。
+`Algorithm`などのgraph-nativeコンポーネントは、`ask(...) -> ProposalBatch`と`tell(FeedbackBatch, StateView) -> StatePatch`の境界で拡張します。
+評価を追加する場合は、`EvaluationPlanner`の出力ポートにデータ種別`EvaluationRequestBatch`を宣言し、候補選択で得た`GenomeBatch`をEvaluatorへ渡します。`Problem.evaluation_adapter`を設定した場合は`EvaluationAdapter.transform()`の戻り値を、未設定で入力が`DenseVectorBatch`の場合は`DenseVectorBatch.array`をpayloadとして`Problem.evaluate_batch()`に渡します。
 
 ## Stage互換経路の同期Evaluator拡張
 

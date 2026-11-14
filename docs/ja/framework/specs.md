@@ -32,8 +32,11 @@ DataSpecのkind互換性、schemaのunification、サービス解決は別々の
 
 `ServiceRequirement`はポートまたはComponentが必要とする名前付きサービスを宣言します。
 SearchSpaceの`SamplingService`や`ValidationService`などは空間の能力として照合されます。
-`EvaluationAdapter`は評価境界のアダプターで、`FeatureEncoder`は`saealib.space.FeatureEncoder`として公開されるアダプターのサブタイプです。
-`FeatureEncoder`は`GenomeBatch`を`FeatureBatch`へ変換し、サロゲートモデルが学習できる特徴を決める意味変換を提供します。
+`EvaluationAdapter`は評価境界のアダプターです。
+`FeatureEncoder`は`saealib.space.services`で定義される`Protocol`で、`saealib.space.FeatureEncoder`として公開されます。
+`FeatureEncoder`は`SearchSpace.services`へサービスとして登録・解決されます。
+`FeatureEncoder`は`GenomeBatch`を`FeatureBatch`へ変換し、サロゲートモデルが学習できる特徴を決めます。
+`FeatureEncoder`はAdapterインスタンスではありません。
 `FeatureEncoder`を使う戦略は、実行準備時に空間の明示設定を優先してエンコーダを選びます。明示設定がない場合、`VectorSpace`は恒等エンコーディングを選び、選択元と理由をINFOで報告します。`PermutationSpace`と`SequenceSpace`は組み込みの既定エンコーダを使い、エンコーディングがサロゲートの学習対象を決めるため、明示選択を勧めるWARNINGを報告します。このWARNINGは実行を妨げません。
 `SearchSpace.services`に明示されたエンコーダは常に既定より優先され、既定を使ったという診断は出ません。`ObjectSpace`と独自の空間にはエンコーダを推測して割り当てないため、利用する戦略が`FeatureEncoder`を必要とする場合は空間が明示的に提供します。
 診断ストリームは`optimizer.contract_diagnostics()`で確認できます。`optimizer.validate()`を呼んだ後は`optimizer.last_contract_diagnostics`にも診断が残ります。`Optimizer.validate()`が返すのはERRORだけなので、INFOとWARNINGの選択理由は診断ストリームで確認します。
@@ -42,7 +45,7 @@ SearchSpaceの`SamplingService`や`ValidationService`などは空間の能力と
 
 `RepresentationSpec`はSearchSpace側の候補表現仕様です。
 候補の型、形状、表現を記述しますが、ComponentContractのポート、状態、実行の一部ではありません。
-したがって、SearchSpaceサービス、`EvaluationAdapter`、`FeatureEncoder`、空間が保持するRepresentationSpecは、Compilerが接続する別々の境界です。
+`FeatureEncoder`はSearchSpaceサービスとして登録・解決され、`RepresentationSpec`は空間が保持する候補表現仕様です。
 
 | 宣言値 | 所有者 | 利用する境界 |
 |---|---|---|

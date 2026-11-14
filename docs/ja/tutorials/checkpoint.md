@@ -102,6 +102,8 @@ ctx.save("checkpoint.npz")
 ```
 
 保存できるのはstep境界です。`iterate()` が返すstate、`GenerationEndEvent`または`RunEndEvent`のcallback（`CheckpointCallback`を含む）、および`run()`の終了後が対象です。`run()`はregionが開いた状態で終了することがありますが、再開可能なstateなら保存できます。非同期評価では、`GenerationBasedStrategy`のrunが世代の途中で実行中の評価を残したまま終了条件に達することがあります。このとき`run()`が返したstateから再開しても同じ結果にならない場合があります。`GenerationEndEvent`で保存するか、`RunEndEvent` callbackから保存してください。非同期評価を待っている間に、その位置から実行を続けられる停止点も保存できます。step実行中に`Repeat`などのregionが開いている間や、それ以外のcallback内での保存は`CheckpointError`となります。投入待ちの要求がない`RunEndEvent` callbackからは保存できます。投入待ちの要求が残る場合は拒否されるため、`GenerationEndEvent`で保存してください。`run()`が世代境界で終了した場合は、返されたstateを保存できます。非同期の保留要求は、すべての要求を再接続でき、feedback accumulatorが要求と整合する場合に限り保存できます。callbackまたはfeedback更新が開始済みの要求や、`set_*()`または属性代入によるコンポーネント差し替えが保留中の場合も保存できません。pickle保存時にEvaluatorをシリアライズできない場合は、その型名を示して失敗します。portable形式にはEvaluatorを含めません。
+`GenerationBasedStrategy`で`AsyncEvaluator`を使うと、`run()`が返すstateの`fe`が`len(state.archive)`を下回る場合があり、保留評価の残るstateは組み込み`AsyncEvaluator`で再接続できないため、チェックポイントから再開できません。
+`GenerationEndEvent`を受ける`CheckpointCallback`で保存すると、再開可能な世代境界から再開できます。
 
 保存したチェックポイントは `OptimizationState.load(path, problem)` で読み込めます。これを `Optimizer.run_from(ctx)` に渡すと、中断した箇所から再開します。
 
@@ -151,6 +153,9 @@ ctx = build_optimizer(300).run(
 ## pickle形式で保存する
 
 npz形式では `ctx` だけを保存しますが、pickle形式では学習済みサロゲートのパラメータを含む `Optimizer` 全体を保存できます。
+pickleは`Problem.eps_cv`も保存します。
+再開時の探索側の実行可能性閾値はハンドラから決まり、既定のハンドラではpickleに保存された`Problem.eps_cv`が使われ、明示したハンドラではその閾値が維持されます。
+既定のハンドラと`Problem.eps_cv=1e-6`を保存したpickleを再開すると、探索側の閾値は`1e-6`になります。
 
 ```python
 optimizer = build_optimizer(200)

@@ -34,6 +34,7 @@ termination = Termination(max_fe(2000), max_gen(100))
 |---|---|
 | `max_fe(value)` | 評価回数が`value`に到達（`ctx.fe >= value`） |
 | `max_gen(value)` | 世代数が`value`に到達（`ctx.gen >= value`） |
+| `max_steps(value)` | 完了したフロー実行数が`value`に到達（`ctx.step >= value`） |
 | `f_target(value)` | アーカイブの最良目的値が`value`に到達。単目的向けで、`ctx.direction`から最小化/最大化を自動判定する。アーカイブが空の間は終了しない |
 | `stalled(window, tol=1e-8)` | `window`世代連続で改善が`tol`を超えなければ終了 |
 
@@ -84,3 +85,4 @@ not_stalled = ~stalled(20)  # while not stalled
 - {py:func}`saealib.max_gen`
 - {py:func}`saealib.f_target`
 - {py:func}`saealib.stalled`
+- {py:func}`saealib.max_steps`

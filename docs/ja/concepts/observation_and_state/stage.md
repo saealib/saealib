@@ -23,11 +23,12 @@ graph-native componentの実装方法は [Framework](../../framework/index.md) �
 Stageは `OptimizationState` を受け取り、一つの処理を行って更新後のStateを返します。
 この境界はgraph-native componentの `execute(StateView) -> StatePatch` とは異なります。
 
-クラス属性は3つあります。
+クラス属性は4つあります。
 
 - **`name`**: `pipeline["name"]`で検索する機械可読識別子
 - **`label`**: 人間が読める説明
 - **`notation`**: `to_pseudocode()`で使うLaTeX表記
+- **`execution_boundary`**: 実行境界（`"transaction"` 既定値、または実行状態全体を対象とする `"state"`）。これら以外の値を指定すると、計画準備時に `ValidationError` が送出されます
 
 ## パイプライン
 
@@ -38,6 +39,12 @@ Stageは `OptimizationState` を受け取り、一つの処理を行って更新
 | `pipeline["name"]` | `name`で構造エントリを検索 |
 | `pipeline.replace(name, entry)` | トップレベルの構造エントリを置換 |
 | `pipeline.find(name, *, recursive=False)` | `recursive=True`では、入れ子のパイプラインと制御本体を検索 |
+
+`replace` はトップレベルの構造シーケンスのみを変更します。
+入れ子のパイプライン内のエントリは、`find(name, recursive=True)` で該当の入れ子パイプラインを取得してから置き換えます。
+準備済みの実行において差し替えが反映されるのは次の確定点（commit point）です。
+`to_spec` はコンストラクタ引数をシリアライズするため、組み込み戦略での差し替え内容はspecに保持されません。
+差し替えを永続化するには、宣言やコンストラクタ引数を利用します。
 
 ## 組み込みStage
 

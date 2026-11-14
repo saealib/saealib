@@ -40,6 +40,10 @@ page_type: concept
 | `rng` | 乱数生成器 |
 | `fe` | 真の評価回数 |
 | `gen` | 世代数 |
+| `step` | 完了したフロー実行数（単位：回、初期値：0） |
+| `decision_count` | 確定した評価計画数（インフィル判断数、初期値：0） |
+| `region_counts` | 修飾識別子ごとの名前付きRepeat領域とLoop領域の累積反復数（初期値：`{}`） |
+| `comparator` | Optimizer向けに解決された`Comparator` |
 | `data` | Stage互換拡張用の追加データ |
 
 `population`、`archive`、`pareto_archive`は、内部で名前付きのコレクションを参照します。新しいグラフネイティブコンポーネントが任意の値を`data`へ入れる設計にはせず、代わりに`StateContract`で`StateKey`を宣言します。

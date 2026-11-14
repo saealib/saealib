@@ -10,9 +10,18 @@ page_type: concept
 `Optimizer.set_comparator()`で渡します。
 
 ```python
-from saealib import Optimizer
+import numpy as np
+from saealib import Optimizer, Problem
 from saealib.comparators import HypervolumeComparator
 
+problem = Problem(
+    lambda x: np.array([x[0], 1.0 - x[0]]),
+    dim=1,
+    n_obj=2,
+    direction=np.array([-1.0, -1.0]),
+    lb=[0.0],
+    ub=[1.0],
+)
 optimizer = Optimizer(problem, seed=0).set_comparator(HypervolumeComparator())
 ctx = optimizer.run()
 print(ctx.comparator is optimizer.comparator)  # True
@@ -20,7 +29,8 @@ print(ctx.comparator is optimizer.comparator)  # True
 
 comparatorはProblemの一部ではなく、Optimizerの結びつけ枠です。
 comparatorを設定しない場合、`Optimizer`は目的数から既定（`n_obj == 1`なら`SingleObjectiveComparator`、`n_obj > 1`なら`NSGA2Comparator`）を選び、その出どころをframework defaultとして記録します。明示的に設定したcomparatorは常に優先されます。
-comparator自身の`direction`が未設定であれば、枠に入る時点でProblemの`direction`を受け取ります。direction、目的ごとの重み、参照点がProblemの目的数と一致しないcomparatorは`Optimizer.validate()`が報告します。
+comparator自身の`direction`が未設定であれば、枠に入る時点でProblemの`direction`を受け取ります。
+direction、目的ごとの重み、参照点がProblemの目的数と一致しないcomparatorは、`Optimizer.validate()` や `contract_diagnostics()` によって診断コード `direction_length_mismatch`、`objective_count_mismatch`、`reference_points_dimension_mismatch` として報告されます。
 実行中、各コンポーネントは有効なcomparatorを`state.comparator`から読みます。そのため、制約ハンドラが毎世代書き込むεの閾値は、探索が解の順序付けに使うのと同じオブジェクトに届きます。
 
 `Problem(comparator=...)`と`Problem(eps_obj=...)`は非推奨です。
@@ -70,7 +80,11 @@ comparator自身の`direction`が未設定であれば、枠に入る時点でPr
 `WeightedSumComparator(direction, *, eps_cv=0.0, eps_obj=1e-6)`は`direction`が必須で、省略すると`TypeError`になります。
 このクラスに限り、渡した`direction`がそのままスカラー化の重みとして使われます（`score = f @ direction`）。
 符号だけでなく大きさも重みとして機能するため、[Problem](problem.md)で述べた「`direction`は符号のみ、重みの大きさは別の概念」という一般的な役割分担とは異なる、このクラス固有の扱いです。
-組み込みのcomparatorは`eps_cv`の既定値を`0.0`にしており、`Problem`と`ParetoArchive`と同じ既定です。そのため`cv == 0`が実行可能を表します。`Optimizer`の実行中は毎世代`handler.feasibility_threshold`が`eps_cv`に書き写され、`EpsilonConstraintHandler`はこの経路で探索だけを緩和し、報告される実行可能性は変えません。
+組み込みのcomparatorは`eps_cv`の既定値を`0.0`にしており、`Problem`と`ParetoArchive`と同じ既定です。
+そのため`cv == 0`が実行可能を表します。
+`Optimizer`の実行中は毎世代`handler.feasibility_threshold`が`eps_cv`に書き写されます。
+`EpsilonConstraintHandler`はこの仕組みで探索だけを緩和し、報告される実行可能性は変えません。
+comparatorのコンストラクタで指定した`eps_cv`は実行準備時と各世代終了時に上書きされるため、実行中の比較には使われません。
 
 `ParetoComparator(direction=None, *, eps_cv=0.0, eps_obj=1e-6, sorter=non_dominated_sort, dominator=None)`は、支配関係のみで個体群をランク付けします。
 `NSGA2Comparator`/`HypervolumeComparator`/`NSGA3Comparator`/`RNSGA2Comparator`/`EpsilonDominanceComparator`の共通基底であり、具象クラスとして単独でも使えます。
@@ -166,3 +180,4 @@ class RandomComparator(Comparator):
 - {py:class}`saealib.NSGA3Comparator`
 - {py:class}`saealib.RNSGA2Comparator`
 - {py:func}`saealib.hypervolume`
+- {py:func}`saealib.comparators.default_comparator`

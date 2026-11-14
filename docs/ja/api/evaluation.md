@@ -7,7 +7,7 @@ related_layers: [layer3, layer4]
 
 ## Evaluatorとグラフネイティブ契約
 
-graph-native経路は `GenomeBatch → EvaluationAdapter → EvaluationPayload → Evaluator → ObservationBatch` です。
+graph-native経路では、評価プランナーの出力ポートに、候補選択用のデータ種別として `EvaluationRequestBatch` という `DataSpec` のkindが宣言されています。Evaluatorは選択された `GenomeBatch` を受け取ります。`Problem.evaluation_adapter`が設定されている場合、`EvaluationAdapter.transform()`の戻り値を`Problem.evaluate_batch()`に渡します。未設定時に`DenseVectorBatch`を受けた`SerialEvaluator`は、`DenseVectorBatch.array`をpayloadとして使います。Evaluatorは`ObservationBatch`を出力します。
 
 ```{eval-rst}
 .. autosummary::

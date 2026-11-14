@@ -1823,6 +1823,8 @@ def test_a_pickle_whose_snapshot_lacks_the_preset_term_still_resumes() -> None:
         "strategy_values",
         "configuration_version",
         "contracts",
+        "state_reads",
+        "state_writes",
     }
     final = Runner(restored).run_from(restored_state)
     assert final.gen == 10

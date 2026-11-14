@@ -19,6 +19,13 @@ Capabilities:
   by a transition is not available.
 - Out of scope: replacing components or writing component parameters from a
   transition, and declaring properties other than population columns.
+
+Named state is not invalidated across processes: a state resumed from a
+checkpoint in a new process does not record the flow that produced it, so the
+first replacement of that process clears nothing.  A flow with a Stage that
+declares no enumerable contract cannot be verified, so its declared reads and
+writes are unknown and no named state value is invalidated for that
+replacement; a warning reports it.
 """
 
 from __future__ import annotations

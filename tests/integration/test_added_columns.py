@@ -188,13 +188,19 @@ def test_a_column_added_between_generations_survives_a_pickle_checkpoint(
     _assert_column_kept(resumed)
 
 
-def test_dropping_a_column_the_algorithm_declares_stops_the_next_ask() -> None:
+def test_dropping_a_column_the_algorithm_declares_is_repaired_at_the_first_commit() -> (
+    None
+):
     optimizer = _optimizer(PSO(), DirectStrategy())
+    final = None
 
-    with pytest.raises(KeyError, match="velocity"):
-        for state in optimizer.iterate():
-            if state.gen == 0:
-                state.population.drop_columns(["velocity"])
+    for state in optimizer.iterate():
+        final = state
+        if state.gen == 0:
+            state.population.drop_columns(["velocity"])
+
+    assert final is not None
+    assert "velocity" in final.population.schema
 
 
 def test_every_column_of_a_builtin_schema_is_reserved_or_keeps_the_run_alive() -> None:

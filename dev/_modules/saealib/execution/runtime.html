@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev59+g9b61a611d documentation</title>
+    <title>saealib.execution.runtime &#8212; saealib 0.1.1.dev61+gdcdc794db documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=2d89d3f0"></script>
+    <script src="../../../_static/documentation_options.js?v=961ce7f0"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -962,10 +962,11 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">replace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimpleNamespace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
@@ -998,6 +999,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">SequenceRegion</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructuredGraph</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.contract</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.execution</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeCapability</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts.vocabulary</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_name</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -1052,7 +1054,15 @@ window.runMermaid = runMermaid;</script>
     <span class="n">record_generation</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.prepare</span><span class="w"> </span><span class="kn">import</span> <span class="n">BINDING_SLOTS</span><span class="p">,</span> <span class="n">_prepare_plan</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">PopulationAttribute</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.termination</span><span class="w"> </span><span class="kn">import</span> <span class="n">Termination</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.transition</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Chain</span><span class="p">,</span>
+    <span class="n">StagedColumns</span><span class="p">,</span>
+    <span class="n">Transition</span><span class="p">,</span>
+    <span class="n">TransitionContext</span><span class="p">,</span>
+    <span class="n">_iter_applied</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -2218,6 +2228,7 @@ window.runMermaid = runMermaid;</script>
 
 
 <span class="n">_BINDING_SLOTS</span> <span class="o">=</span> <span class="n">BINDING_SLOTS</span>
+<span class="n">_UNSET</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_SnapshotProviderView</span><span class="p">:</span>
@@ -2264,6 +2275,29 @@ window.runMermaid = runMermaid;</script>
         <span class="nb">setattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_contract_records</span><span class="p">(</span>
+    <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">],</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the contract of every binding that declares a readable one.</span>
+
+<span class="sd">    A slot whose ``contract`` attribute cannot be looked up, is missing, is not</span>
+<span class="sd">    callable, or raises is left out: a commit point compares the contracts it</span>
+<span class="sd">    can read and keeps running otherwise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">records</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">bindings</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">contract_method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;contract&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">contract_method</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">contract</span> <span class="o">=</span> <span class="n">contract_method</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">contract</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">):</span>
+            <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">contract</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">records</span><span class="p">)</span>
+
+
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">_BindingSnapshot</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;One published binding set: component identities plus a version.</span>
@@ -2272,7 +2306,10 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    at later commit points cannot be confused by object id reuse.  The stored</span>
 <span class="sd">    preset object is compared by identity too: component resolution reads it</span>
 <span class="sd">    lazily during publication, so a preset reaches a commit point without</span>
-<span class="sd">    being a bound slot.</span>
+<span class="sd">    being a bound slot.  ``contracts`` records the contract of every slot</span>
+<span class="sd">    that declares one, so a slot whose nested part changed in place is</span>
+<span class="sd">    distinguishable from an unchanged one even though it holds the same</span>
+<span class="sd">    object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">version</span><span class="p">:</span> <span class="nb">int</span>
@@ -2282,6 +2319,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">strategy_values</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span>
     <span class="n">configuration_version</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">preset</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">contracts</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">unchanged_by</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -2301,6 +2339,28 @@ window.runMermaid = runMermaid;</script>
             <span class="ow">and</span> <span class="n">preset</span> <span class="ow">is</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">contracts_match</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">contracts</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ComponentContract</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True when every readable candidate contract is the published one.</span>
+
+<span class="sd">        A slot whose contract cannot be read right now is left out of the</span>
+<span class="sd">        comparison rather than counted as a change.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">published</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">contracts</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">published</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span> <span class="o">==</span> <span class="n">contract</span> <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">contract</span> <span class="ow">in</span> <span class="n">contracts</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop the contract records, which pickle cannot carry.&quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;contracts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rebuild the contract records from the components this snapshot holds.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;contracts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_contract_records</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">))</span>
+
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_executable_uses_service</span><span class="p">(</span><span class="n">executable</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">service_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="n">graph</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;graph&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -2316,30 +2376,62 @@ window.runMermaid = runMermaid;</script>
     <span class="n">snapshot</span><span class="p">:</span> <span class="n">_BindingSnapshot</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_capture_resolution_state</span><span class="p">(</span><span class="n">optimizer</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the resolution results execution preparation writes back.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="p">(</span>
-        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-        <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-    <span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_restore_attribute</span><span class="p">(</span><span class="n">target</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Put one attribute back to a captured value, removing it when it was absent.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+            <span class="nb">object</span><span class="o">.</span><span class="fm">__delattr__</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span>
+    <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_restore_resolution_state</span><span class="p">(</span><span class="n">optimizer</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Put back the resolution results captured before preparation ran.&quot;&quot;&quot;</span>
-    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-        <span class="p">(</span>
-            <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span>
-        <span class="p">),</span>
-        <span class="n">state</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_CommitMemento</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Every term one commit point may change, captured before it changes one.</span>
+
+<span class="sd">    The captured values are the restore targets, not a log of writes:</span>
+<span class="sd">    ``attributes`` holds the component the optimizer must hold again after a</span>
+<span class="sd">    failure, by identity, for every slot the published snapshot recorded, and</span>
+<span class="sd">    the published snapshot supplies the preset, the configuration counter, the</span>
+<span class="sd">    origin and materialized-component contents, the feature-encoder default,</span>
+<span class="sd">    and the feedback-builder flag.  The remaining terms are the live runtime</span>
+<span class="sd">    values the commit replaces: the resolution results, the published binding</span>
+<span class="sd">    record and plan, the state&#39;s binding version, store, custom state,</span>
+<span class="sd">    comparator, compiled services, and history, the region history the</span>
+<span class="sd">    candidate plan would add, the scheduler attributes publication writes, and</span>
+<span class="sd">    the staged column writes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">attributes</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">preset</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">configuration_version</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">origins</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">live_origins</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">materialized</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">feature_encoder_default</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">comparator_default</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">feedback_builder_explicit</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">resolution</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">executable_plan</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">default_resolution</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">prepared_diagnostic_cache</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">last_published_bindings</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">published</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">snapshot_values</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">binding_version</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">store</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">custom_state</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">comparator</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">compiled_services</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">history</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">region_ids</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">history_columns</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
+    <span class="n">scheduler</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">staged</span><span class="p">:</span> <span class="n">_StagedCollections</span>
+    <span class="n">candidate_resolution</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="n">candidate_diagnostics</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">publication_deferred</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">pending_recompile</span><span class="p">:</span> <span class="nb">bool</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_iter_plan_components</span><span class="p">(</span>
@@ -2447,6 +2539,228 @@ window.runMermaid = runMermaid;</script>
     <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="n">getter</span><span class="p">(</span><span class="n">problem</span><span class="p">))</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_required_attributes</span><span class="p">(</span>
+    <span class="n">component</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="nb">object</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the population attributes one component declares.&quot;&quot;&quot;</span>
+    <span class="n">getter</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="s2">&quot;get_required_attrs&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">getter</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">()</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">getter</span><span class="p">(</span><span class="n">problem</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_specification_matches</span><span class="p">(</span>
+    <span class="n">present</span><span class="p">:</span> <span class="n">PopulationAttribute</span><span class="p">,</span> <span class="n">required</span><span class="p">:</span> <span class="n">PopulationAttribute</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return whether a present column attribute satisfies a requirement.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">same_dtype</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">present</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">required</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
+    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="n">same_dtype</span> <span class="ow">and</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">present</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">required</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_StagedCollections</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Column writes a transition staged for the three state collections.&quot;&quot;&quot;</span>
+
+    <span class="n">population</span><span class="p">:</span> <span class="n">StagedColumns</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">archive</span><span class="p">:</span> <span class="n">StagedColumns</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pareto_archive</span><span class="p">:</span> <span class="n">StagedColumns</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">of</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_StagedCollections</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">staged</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StagedColumns</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">collection</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">collection</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">StagedColumns</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">population</span><span class="o">=</span><span class="n">staged</span><span class="p">(</span><span class="s2">&quot;population&quot;</span><span class="p">),</span>
+            <span class="n">archive</span><span class="o">=</span><span class="n">staged</span><span class="p">(</span><span class="s2">&quot;archive&quot;</span><span class="p">),</span>
+            <span class="n">pareto_archive</span><span class="o">=</span><span class="n">staged</span><span class="p">(</span><span class="s2">&quot;pareto_archive&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">items</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StagedColumns</span><span class="p">],</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the collection names that have a staged view, in order.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">staged</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;population&quot;</span><span class="p">,</span> <span class="s2">&quot;archive&quot;</span><span class="p">,</span> <span class="s2">&quot;pareto_archive&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">staged</span> <span class="o">:=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">targets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the names of the collections a transition may write.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply every staged operation to its collection, atomically.</span>
+
+<span class="sd">        Every operation of every collection is validated before the first</span>
+<span class="sd">        mutation, and a collection that already changed is restored when a</span>
+<span class="sd">        later one still fails.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">staged</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">staged</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+        <span class="n">applied</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StagedColumns</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">staged</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">staged</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+                <span class="n">applied</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">staged</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">staged</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">applied</span><span class="p">):</span>
+                <span class="n">staged</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+            <span class="k">raise</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Undo applied column operations and drop the staged ones.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">staged</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="n">staged</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+            <span class="n">staged</span><span class="o">.</span><span class="n">discard</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">discard</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop every staged operation without touching a collection.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">staged</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">staged</span><span class="o">.</span><span class="n">discard</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_incoming_bindings</span><span class="p">(</span>
+    <span class="n">optimizer</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+    <span class="n">resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the components of the version being committed, by slot.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">resolution</span><span class="o">.</span><span class="n">bindings</span><span class="p">)</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">BINDING_SLOTS</span><span class="p">:</span>
+        <span class="n">values</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">values</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_replaced_slots</span><span class="p">(</span>
+    <span class="n">published</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">incoming</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the slots whose component differs from the published one.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+        <span class="n">slot</span> <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">BINDING_SLOTS</span> <span class="k">if</span> <span class="n">published</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">incoming</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_transition_entries</span><span class="p">(</span>
+    <span class="n">records</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="n">replaced</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">incoming</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Transition</span><span class="p">],</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the recorded transitions of the replaced slots, in slot order.&quot;&quot;&quot;</span>
+    <span class="n">entries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Transition</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">replaced</span><span class="p">:</span>
+        <span class="n">record</span> <span class="o">=</span> <span class="n">records</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
+        <span class="n">transition</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">&quot;transition&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">transition</span><span class="p">,</span> <span class="n">Transition</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">&quot;component&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">incoming</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">entries</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">slot</span><span class="p">,</span> <span class="n">transition</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_combined_transition</span><span class="p">(</span>
+    <span class="n">entries</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Transition</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return one transition whose declaration covers the whole commit.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">entries</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">entries</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">Chain</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">transition</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">transition</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_transition</span><span class="p">(</span>
+    <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">new_bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">present</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">problem</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check a transition&#39;s column declaration against the incoming bindings.</span>
+
+<span class="sd">    Returns the declared column set (``None`` when the transition declares</span>
+<span class="sd">    nothing) and the diagnostics the declaration produces: an error per slot</span>
+<span class="sd">    whose required columns the transition neither finds in the state nor</span>
+<span class="sd">    declares, and one warning when a transition declares nothing and the check</span>
+<span class="sd">    therefore cannot be verified.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">declared</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="nb">frozenset</span><span class="p">()</span> <span class="k">if</span> <span class="n">transition</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">transition</span><span class="o">.</span><span class="n">produced_columns</span><span class="p">(</span><span class="n">new_bindings</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">undeclared</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">unverifiable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">BINDING_SLOTS</span><span class="p">:</span>
+        <span class="n">component</span> <span class="o">=</span> <span class="n">new_bindings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">name</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_required_column_names</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">problem</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">present</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">declared</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">unverifiable</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">slot</span><span class="p">,</span> <span class="n">missing</span><span class="p">))</span>
+            <span class="k">continue</span>
+        <span class="n">withheld</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">missing</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">declared</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">withheld</span><span class="p">:</span>
+            <span class="n">undeclared</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">slot</span><span class="p">,</span> <span class="n">withheld</span><span class="p">))</span>
+    <span class="n">diagnostics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">withheld</span> <span class="ow">in</span> <span class="n">undeclared</span><span class="p">:</span>
+        <span class="n">component</span> <span class="o">=</span> <span class="n">new_bindings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
+        <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_missing_column_diagnostic</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">withheld</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">unverifiable</span><span class="p">:</span>
+        <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">Diagnostic</span><span class="p">(</span>
+                <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span>
+                <span class="n">code</span><span class="o">=</span><span class="s2">&quot;transition_columns_undeclared&quot;</span><span class="p">,</span>
+                <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Transition declares no produced columns, so the columns &quot;</span>
+                    <span class="s2">&quot;its replacement requires cannot be verified: &quot;</span>
+                    <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">slot</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span> <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">names</span> <span class="ow">in</span> <span class="n">unverifiable</span>
+                    <span class="p">)</span>
+                    <span class="o">+</span> <span class="s2">&quot;.&quot;</span>
+                <span class="p">),</span>
+                <span class="n">path</span><span class="o">=</span><span class="n">ContractPath</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">slot</span> <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">unverifiable</span><span class="p">)),</span>
+                <span class="n">resolutions</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Declare the columns with Transition.produced_columns().&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Add the columns before the replacement.&quot;</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">declared</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">diagnostics</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_missing_column_diagnostic</span><span class="p">(</span>
+    <span class="n">slot</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">component</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">missing</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Diagnostic</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the rejection diagnostic for columns a slot still requires.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Diagnostic</span><span class="p">(</span>
+        <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="s2">&quot;missing_population_column&quot;</span><span class="p">,</span>
+        <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">component</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> requires population columns &quot;</span>
+            <span class="s2">&quot;that are missing: &quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">missing</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span>
+        <span class="p">),</span>
+        <span class="n">path</span><span class="o">=</span><span class="n">ContractPath</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="p">(</span><span class="n">slot</span><span class="p">,)),</span>
+        <span class="n">resolutions</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Add the columns with Population.add_columns() before the replacement.&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Provide a transition that produces the columns.&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_non_checkpointable_components</span><span class="p">(</span>
     <span class="n">plan</span><span class="p">:</span> <span class="n">ExecutablePlan</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">]:</span>
@@ -2538,6 +2852,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">strategy_values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">(),</span>
                 <span class="n">configuration_version</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
                 <span class="n">preset</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">contracts</span><span class="o">=</span><span class="n">_contract_records</span><span class="p">(</span><span class="n">values</span><span class="p">),</span>
             <span class="p">),</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -2680,21 +2995,38 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Commit point: publish a new binding version once, or defer it.</span>
 
 <span class="sd">        A replacement detected between commit points is applied only here;</span>
-<span class="sd">        during one flow execution the active version stays untouched.</span>
+<span class="sd">        during one flow execution the active version stays untouched.  A</span>
+<span class="sd">        published slot whose contract differs from the one recorded at its</span>
+<span class="sd">        publication counts as replaced too, so a part swapped inside a</span>
+<span class="sd">        component whose slot still holds the same object takes this path.</span>
+<span class="sd">        Slots that declare no ``contract()`` (``comparator``, ``cbmanager``,</span>
+<span class="sd">        ``feature_encoder``) are never compared, and a contract holds no</span>
+<span class="sd">        parameter values, so writing one leaves the version and the plan</span>
+<span class="sd">        alone.  A rejection restores slots, not parts: an in-place change</span>
+<span class="sd">        stays installed and a later commit point rejects it again until the</span>
+<span class="sd">        part is put back.  Reading every contract costs roughly a millisecond</span>
+<span class="sd">        per commit point for a GA configuration and half of that for a PSO</span>
+<span class="sd">        one, measured against a cheap objective; next to an expensive</span>
+<span class="sd">        evaluation that is negligible.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
         <span class="n">strategy_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_values</span><span class="p">()</span>
-        <span class="n">unchanged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span>
-            <span class="n">bindings</span><span class="p">,</span>
-            <span class="n">strategy_values</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_selection</span><span class="p">(),</span>
-            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="n">unchanged</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">unchanged_by</span><span class="p">(</span>
+                <span class="n">bindings</span><span class="p">,</span>
+                <span class="n">strategy_values</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_selection</span><span class="p">(),</span>
+                <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">contracts_match</span><span class="p">(</span><span class="n">_contract_records</span><span class="p">(</span><span class="n">bindings</span><span class="p">))</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">unchanged</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">unchanged</span><span class="p">:</span>
             <span class="c1"># A swap that was deferred while its evaluations ran may resolve</span>
             <span class="c1"># back to the active bindings; a matching commit point then ends</span>
             <span class="c1"># the deferral, otherwise pending-collection would stall the run.</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_discard_stale_replacements</span><span class="p">()</span>
             <span class="k">return</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_replacement_blocked</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">True</span>
@@ -2741,33 +3073,47 @@ window.runMermaid = runMermaid;</script>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare a candidate binding set and publish it, or reject it.</span>
 
-<span class="sd">        Preparation covers compilation, the validation gate, the state checks,</span>
-<span class="sd">        and region history.  Any failure there goes through</span>
-<span class="sd">        :meth:`_reject_commit`, which restores the published configuration;</span>
-<span class="sd">        publication itself only writes already prepared values.</span>
+<span class="sd">        ``_capture_commit_memento`` records the terms this commit may change</span>
+<span class="sd">        before the first mutation, and every failure after it -- in</span>
+<span class="sd">        preparation, in a transition, in post-validation, in the staged apply,</span>
+<span class="sd">        or inside publication -- goes through :meth:`_reject_commit`, which</span>
+<span class="sd">        restores those terms.  Region history for the candidate plan is created</span>
+<span class="sd">        only after the transitions and post-validation accepted it, the staged</span>
+<span class="sd">        column writes are applied only after post-validation, and the child</span>
+<span class="sd">        seed a randomized comparator needs is drawn only once publication</span>
+<span class="sd">        succeeded, so a rejected candidate consumes no seed of the run&#39;s</span>
+<span class="sd">        generator.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span> <span class="o">=</span> <span class="p">()</span>
-        <span class="n">saved_resolution_state</span> <span class="o">=</span> <span class="n">_capture_resolution_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">)</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consume_replacements</span><span class="p">()</span>
+        <span class="n">staged</span> <span class="o">=</span> <span class="n">_StagedCollections</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
+        <span class="n">memento</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_capture_commit_memento</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">staged</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">executable</span><span class="p">,</span> <span class="n">rebuilt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile_current_plan</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
             <span class="n">resolution</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gate</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="n">resolution</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_check_candidate_state</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="n">resolution</span><span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_has_state_key</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span> <span class="n">RUNTIME_REGION_COUNTS</span>
-            <span class="p">):</span>
-                <span class="n">region_ids</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="n">_iteration_region_ids</span><span class="p">(</span><span class="n">rebuilt</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rebuilt</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">)</span>
-                    <span class="k">else</span> <span class="p">()</span>
-                <span class="p">)</span>
-                <span class="n">_ensure_region_history</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">,</span> <span class="n">region_ids</span><span class="p">)</span>
+            <span class="n">incoming</span> <span class="o">=</span> <span class="n">_incoming_bindings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">resolution</span><span class="p">,</span> <span class="n">bindings</span><span class="p">)</span>
+            <span class="n">replaced</span> <span class="o">=</span> <span class="n">_replaced_slots</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">snapshot_values</span><span class="p">,</span> <span class="n">incoming</span><span class="p">)</span>
+            <span class="n">entries</span> <span class="o">=</span> <span class="n">_transition_entries</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">replaced</span><span class="p">,</span> <span class="n">incoming</span><span class="p">)</span>
+            <span class="n">transition</span> <span class="o">=</span> <span class="n">_combined_transition</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_candidate_state</span><span class="p">(</span><span class="n">executable</span><span class="p">,</span> <span class="n">resolution</span><span class="p">,</span> <span class="n">transition</span><span class="p">,</span> <span class="n">incoming</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">saved_resolution_state</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_publish_prepared</span><span class="p">(</span>
-            <span class="n">executable</span><span class="p">,</span> <span class="n">rebuilt</span><span class="p">,</span> <span class="n">resolution</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span>
-        <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run_transitions</span><span class="p">(</span><span class="n">staged</span><span class="p">,</span> <span class="n">entries</span><span class="p">,</span> <span class="n">incoming</span><span class="p">,</span> <span class="n">replaced</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_staged_changes</span><span class="p">(</span><span class="n">staged</span><span class="p">,</span> <span class="n">incoming</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_region_history</span><span class="p">(</span><span class="n">rebuilt</span><span class="p">)</span>
+            <span class="n">staged</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_publish_prepared</span><span class="p">(</span>
+                <span class="n">executable</span><span class="p">,</span> <span class="n">rebuilt</span><span class="p">,</span> <span class="n">resolution</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">strategy_values</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reject_commit</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">memento</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assign_published_comparator_rng</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_publish_prepared</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -2831,6 +3177,7 @@ window.runMermaid = runMermaid;</script>
                     <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span>
                 <span class="p">),</span>
                 <span class="n">preset</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">contracts</span><span class="o">=</span><span class="n">_contract_records</span><span class="p">(</span><span class="n">values</span><span class="p">),</span>
             <span class="p">),</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_remember_published_bindings</span><span class="p">()</span>
@@ -2847,20 +3194,23 @@ window.runMermaid = runMermaid;</script>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current_services</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="n">current_services</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;FeatureEncoder&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_binding_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">version</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_publish_scheduler</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">comparator</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">))</span>
             <span class="k">if</span> <span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">comparator</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">comparator</span>
                 <span class="n">prepare_state_comparator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_publish_scheduler</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_candidate_state</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">executable</span><span class="p">:</span> <span class="n">ExecutablePlan</span><span class="p">,</span>
         <span class="n">resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">incoming</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the checks that need the running state or the run&#39;s format.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_candidate_columns</span><span class="p">(</span><span class="n">resolution</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_candidate_columns</span><span class="p">(</span><span class="n">incoming</span><span class="p">,</span> <span class="n">transition</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_candidate_checkpointable</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
@@ -2868,42 +3218,141 @@ window.runMermaid = runMermaid;</script>
                 <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">item</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span><span class="p">)</span>
             <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_check_candidate_columns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resolution</span><span class="p">:</span> <span class="n">_ComponentResolution</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_candidate_columns</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">incoming</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reject candidates whose declared columns the running state lacks.</span>
 
-<span class="sd">        The check needs a state to compare against, so a commit point without</span>
-<span class="sd">        one (a recompile from outside a run) skips it.</span>
+<span class="sd">        Columns the transition declares it produces are left to</span>
+<span class="sd">        post-validation, which checks the schema the staged writes would leave</span>
+<span class="sd">        behind.  A transition that declares nothing cannot be verified, so a</span>
+<span class="sd">        missing column only warns there.  The check needs a state to compare</span>
+<span class="sd">        against, so a commit point without one (a recompile from outside a run)</span>
+<span class="sd">        skips it.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
         <span class="n">problem</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">problem</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
-        <span class="n">present</span> <span class="o">=</span> <span class="n">_state_column_names</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="s2">&quot;comparator&quot;</span><span class="p">):</span>
-            <span class="n">component</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">resolution</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">required</span> <span class="o">=</span> <span class="n">_required_column_names</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">problem</span><span class="p">)</span>
-            <span class="n">missing</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">required</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">present</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">missing</span><span class="p">:</span>
-                <span class="k">continue</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">diagnostics</span> <span class="o">=</span> <span class="n">_check_transition</span><span class="p">(</span>
+            <span class="n">transition</span><span class="p">,</span>
+            <span class="n">incoming</span><span class="p">,</span>
+            <span class="n">present</span><span class="o">=</span><span class="n">_state_column_names</span><span class="p">(</span><span class="n">state</span><span class="p">),</span>
+            <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">diagnostic</span> <span class="ow">in</span> <span class="n">diagnostics</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">severity</span> <span class="ow">is</span> <span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span> <span class="o">+=</span> <span class="p">(</span><span class="n">diagnostic</span><span class="p">,)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_transitions</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">staged</span><span class="p">:</span> <span class="n">_StagedCollections</span><span class="p">,</span>
+        <span class="n">entries</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Transition</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">incoming</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">replaced</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the recorded transitions of this commit point, in slot order.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">entries</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
+        <span class="n">tctx</span> <span class="o">=</span> <span class="n">TransitionContext</span><span class="p">(</span>
+            <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+            <span class="n">problem</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="n">rng</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span><span class="o">.</span><span class="n">rng</span><span class="p">,</span>
+            <span class="n">outgoing</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="p">),</span>
+            <span class="n">incoming</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">incoming</span><span class="p">),</span>
+            <span class="n">replaced_slots</span><span class="o">=</span><span class="n">replaced</span><span class="p">,</span>
+            <span class="n">write_targets</span><span class="o">=</span><span class="n">staged</span><span class="o">.</span><span class="n">targets</span><span class="p">(),</span>
+            <span class="n">population</span><span class="o">=</span><span class="n">staged</span><span class="o">.</span><span class="n">population</span><span class="p">,</span>
+            <span class="n">archive</span><span class="o">=</span><span class="n">staged</span><span class="o">.</span><span class="n">archive</span><span class="p">,</span>
+            <span class="n">pareto_archive</span><span class="o">=</span><span class="n">staged</span><span class="o">.</span><span class="n">pareto_archive</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">transition</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">requested</span> <span class="ow">in</span> <span class="n">_iter_applied</span><span class="p">(</span><span class="n">transition</span><span class="p">,</span> <span class="n">tctx</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Transition </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">transition</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> of slot </span><span class="si">{</span><span class="n">slot</span><span class="si">!r}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;yielded </span><span class="si">{</span><span class="n">requested</span><span class="si">!r}</span><span class="s2">; evaluation requested by a &quot;</span>
+                    <span class="s2">&quot;transition is not available at the commit point.&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign_published_comparator_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw the child seed of a randomized comparator once it is published.&quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">assign_comparator_rng</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_region_history</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rebuilt</span><span class="p">:</span> <span class="n">SequentialPlan</span> <span class="o">|</span> <span class="n">StructuredPlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the region history an accepted candidate plan needs.&quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">_has_state_key</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">RUNTIME_REGION_COUNTS</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="n">region_ids</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">_iteration_region_ids</span><span class="p">(</span><span class="n">rebuilt</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rebuilt</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">)</span>
+            <span class="k">else</span> <span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">_ensure_region_history</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">region_ids</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_staged_changes</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">staged</span><span class="p">:</span> <span class="n">_StagedCollections</span><span class="p">,</span> <span class="n">incoming</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reject a commit whose staged writes leave a required column out.</span>
+
+<span class="sd">        Runs after the transitions and before the staged writes are applied, so</span>
+<span class="sd">        a rejected commit leaves every collection unchanged.  Columns a</span>
+<span class="sd">        transition adds are checked for dtype and shape as well.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">problem</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">problem</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">missing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">mismatched</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Diagnostic</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">staged</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">schema</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">planned_schema</span><span class="p">()</span>
+            <span class="n">added</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">added_columns</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">BINDING_SLOTS</span><span class="p">:</span>
+                <span class="n">component</span> <span class="o">=</span> <span class="n">incoming</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">component</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">for</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="n">_required_attributes</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">problem</span><span class="p">):</span>
+                    <span class="n">present</span> <span class="o">=</span> <span class="n">schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">present</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">names</span> <span class="o">=</span> <span class="n">missing</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="p">[])</span>
+                        <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+                            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                        <span class="k">continue</span>
+                    <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">added</span> <span class="ow">or</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">mismatched</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="k">if</span> <span class="n">_specification_matches</span><span class="p">(</span><span class="n">present</span><span class="p">,</span> <span class="n">attribute</span><span class="p">):</span>
+                        <span class="k">continue</span>
+                    <span class="n">mismatched</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">Diagnostic</span><span class="p">(</span>
+                        <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                        <span class="n">code</span><span class="o">=</span><span class="s2">&quot;population_column_specification_mismatch&quot;</span><span class="p">,</span>
+                        <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">component</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> requires column &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> with dtype &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="si">}</span><span class="s2"> and shape &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">, but the produced column &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;has dtype </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">present</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="si">}</span><span class="s2"> and shape &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">present</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+                        <span class="p">),</span>
+                        <span class="n">path</span><span class="o">=</span><span class="n">ContractPath</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="p">(</span><span class="n">slot</span><span class="p">,)),</span>
+                        <span class="n">resolutions</span><span class="o">=</span><span class="p">(</span>
+                            <span class="s2">&quot;Produce the column with the declared dtype and shape.&quot;</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+        <span class="k">for</span> <span class="n">slot</span><span class="p">,</span> <span class="n">names</span> <span class="ow">in</span> <span class="n">missing</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span> <span class="o">+=</span> <span class="p">(</span>
-                <span class="n">Diagnostic</span><span class="p">(</span>
-                    <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
-                    <span class="n">code</span><span class="o">=</span><span class="s2">&quot;missing_population_column&quot;</span><span class="p">,</span>
-                    <span class="n">message</span><span class="o">=</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">component</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> requires population columns &quot;</span>
-                        <span class="s2">&quot;that are missing: &quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span>
-                    <span class="p">),</span>
-                    <span class="n">path</span><span class="o">=</span><span class="n">ContractPath</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="p">(</span><span class="n">slot</span><span class="p">,)),</span>
-                    <span class="n">resolutions</span><span class="o">=</span><span class="p">(</span>
-                        <span class="s2">&quot;Add the columns with Population.add_columns() before the &quot;</span>
-                        <span class="s2">&quot;replacement.&quot;</span><span class="p">,</span>
-                        <span class="s2">&quot;Provide a transition that produces the columns.&quot;</span><span class="p">,</span>
-                    <span class="p">),</span>
-                <span class="p">),</span>
+                <span class="n">_missing_column_diagnostic</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">incoming</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">slot</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">names</span><span class="p">)),</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span> <span class="o">+=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">mismatched</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
+                <span class="s2">&quot;Component replacement rejected at the commit point:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">item</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span><span class="p">)</span>
             <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_candidate_checkpointable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executable</span><span class="p">:</span> <span class="n">ExecutablePlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -2921,20 +3370,20 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">validator</span><span class="p">):</span>
             <span class="n">validator</span><span class="p">(</span><span class="n">plan</span><span class="o">=</span><span class="n">executable</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_rejected_changes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RejectedChange</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rejected_changes</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">published</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">origins</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RejectedChange</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return every slot whose component differs from the published one.&quot;&quot;&quot;</span>
-        <span class="n">published</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span>
         <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bindings</span><span class="p">()</span>
         <span class="n">names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_BINDING_SLOTS</span><span class="p">)</span>
         <span class="n">names</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">sorted</span><span class="p">((</span><span class="nb">set</span><span class="p">(</span><span class="n">published</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">current</span><span class="p">))</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">_BINDING_SLOTS</span><span class="p">)))</span>
-        <span class="n">origins</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">changes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">RejectedChange</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
             <span class="n">previous</span> <span class="o">=</span> <span class="n">published</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
             <span class="n">candidate</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">previous</span> <span class="ow">is</span> <span class="n">candidate</span><span class="p">:</span>
                 <span class="k">continue</span>
-            <span class="n">origin</span> <span class="o">=</span> <span class="n">origins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">origins</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="n">origins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
             <span class="n">changes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="n">RejectedChange</span><span class="p">(</span>
                     <span class="n">slot</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
@@ -2945,29 +3394,212 @@ window.runMermaid = runMermaid;</script>
             <span class="p">)</span>
         <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">changes</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_consume_replacements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take the replacements recorded since the last commit point.&quot;&quot;&quot;</span>
+        <span class="n">consume</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_consume_replacements&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">consume</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">consume</span><span class="p">())</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_discard_stale_replacements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop recorded replacements that describe the published components.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_replacement_records&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_consume_replacements</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_capture_commit_memento</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">bindings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">staged</span><span class="p">:</span> <span class="n">_StagedCollections</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_CommitMemento</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return every term this commit point may change, before it changes one.&quot;&quot;&quot;</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
+        <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span>
+        <span class="n">history</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;history&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">attributes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">snapshot</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">bindings</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">attributes</span><span class="p">:</span>
+                <span class="n">attributes</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">)</span>
+        <span class="n">compiled_services</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="n">_UNSET</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">compiled_services</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_compiled_services&quot;</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">compiled_services</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">compiled_services</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">compiled_services</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_CommitMemento</span><span class="p">(</span>
+            <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">,</span>
+            <span class="n">preset</span><span class="o">=</span><span class="n">snapshot</span><span class="o">.</span><span class="n">preset</span><span class="p">,</span>
+            <span class="n">configuration_version</span><span class="o">=</span><span class="n">snapshot</span><span class="o">.</span><span class="n">configuration_version</span><span class="p">,</span>
+            <span class="n">origins</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_published_origins</span><span class="p">(),</span>
+            <span class="n">live_origins</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}),</span>
+            <span class="n">materialized</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_published_materialized_components</span><span class="p">(),</span>
+            <span class="n">feature_encoder_default</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_published_feature_encoder_default</span><span class="p">(),</span>
+            <span class="n">comparator_default</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_published_comparator_default</span><span class="p">(),</span>
+            <span class="n">feedback_builder_explicit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_published_feedback_builder_explicit</span><span class="p">(),</span>
+            <span class="n">resolution</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">),</span>
+            <span class="n">executable_plan</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">),</span>
+            <span class="n">default_resolution</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">),</span>
+            <span class="n">prepared_diagnostic_cache</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
+                <span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_prepared_diagnostic_cache&quot;</span><span class="p">,</span> <span class="n">_UNSET</span>
+            <span class="p">),</span>
+            <span class="n">last_published_bindings</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
+                <span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_last_published_bindings&quot;</span><span class="p">,</span> <span class="n">_UNSET</span>
+            <span class="p">),</span>
+            <span class="n">published</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_published</span><span class="p">,</span>
+            <span class="n">snapshot_values</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">snapshot</span><span class="o">.</span><span class="n">values</span><span class="p">),</span>
+            <span class="n">binding_version</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_UNSET</span>
+                <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_binding_version&quot;</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">store</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_UNSET</span>
+                <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_store&quot;</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">))</span>
+            <span class="p">),</span>
+            <span class="n">custom_state</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">_UNSET</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_custom_state&quot;</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">comparator</span><span class="o">=</span><span class="n">_UNSET</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span><span class="o">.</span><span class="n">comparator</span><span class="p">,</span>
+            <span class="n">compiled_services</span><span class="o">=</span><span class="n">compiled_services</span><span class="p">,</span>
+            <span class="n">history</span><span class="o">=</span><span class="n">history</span><span class="p">,</span>
+            <span class="n">region_ids</span><span class="o">=</span><span class="p">(</span>
+                <span class="p">()</span> <span class="k">if</span> <span class="n">history</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">history</span><span class="p">,</span> <span class="s2">&quot;_region_ids&quot;</span><span class="p">,</span> <span class="p">()))</span>
+            <span class="p">),</span>
+            <span class="n">history_columns</span><span class="o">=</span><span class="p">(</span>
+                <span class="p">{}</span>
+                <span class="k">if</span> <span class="n">history</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="p">{</span>
+                    <span class="n">name</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">columns</span> <span class="ow">in</span> <span class="n">history</span><span class="o">.</span><span class="n">_columns</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="p">),</span>
+            <span class="n">scheduler</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scheduler_state</span><span class="p">(),</span>
+            <span class="n">staged</span><span class="o">=</span><span class="n">staged</span><span class="p">,</span>
+            <span class="n">candidate_resolution</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span><span class="p">,</span>
+            <span class="n">candidate_diagnostics</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span><span class="p">,</span>
+            <span class="n">publication_deferred</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span><span class="p">,</span>
+            <span class="n">pending_recompile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_commit_memento</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Put back every term a failed commit point changed.&quot;&quot;&quot;</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
+        <span class="n">memento</span><span class="o">.</span><span class="n">staged</span><span class="o">.</span><span class="n">restore</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">memento</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_UNSET</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+                <span class="n">_restore_attribute</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">preset</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">configuration_version</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">origins</span><span class="p">)),</span>
+            <span class="p">(</span><span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">materialized</span><span class="p">)),</span>
+            <span class="p">(</span><span class="s2">&quot;_feature_encoder_default&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">feature_encoder_default</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_comparator_default&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">comparator_default</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;feedback_builder_explicit&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">feedback_builder_explicit</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_component_resolution&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">resolution</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_executable_plan&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">executable_plan</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_default_resolution&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">default_resolution</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_prepared_diagnostic_cache&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">prepared_diagnostic_cache</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;_last_published_bindings&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">last_published_bindings</span><span class="p">),</span>
+        <span class="p">):</span>
+            <span class="n">_restore_attribute</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_published</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_PublishedPlan</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">published</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">memento</span><span class="o">.</span><span class="n">binding_version</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+                <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;_binding_version&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_binding_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">binding_version</span>
+            <span class="k">if</span> <span class="n">memento</span><span class="o">.</span><span class="n">store</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_UNSET</span><span class="p">:</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;_store&quot;</span><span class="p">,</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">store</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">memento</span><span class="o">.</span><span class="n">custom_state</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+                <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;_custom_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;_custom_state&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">custom_state</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">memento</span><span class="o">.</span><span class="n">comparator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_UNSET</span><span class="p">:</span>
+                <span class="n">state</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">comparator</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">memento</span><span class="o">.</span><span class="n">compiled_services</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+                <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;_compiled_services&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">compiled_services</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+                    <span class="n">state</span><span class="p">,</span> <span class="s2">&quot;_compiled_services&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">compiled_services</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_restore_region_history</span><span class="p">(</span><span class="n">memento</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_restore_scheduler_state</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">scheduler</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="s2">&quot;_ComponentResolution | None&quot;</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">candidate_resolution</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">candidate_diagnostics</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">publication_deferred</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">pending_recompile</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_region_history</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove the region history the candidate plan added.&quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_state</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">history</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">history</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">history</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">state</span><span class="o">.</span><span class="n">history</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">history</span><span class="p">:</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="n">history</span>
+        <span class="k">if</span> <span class="n">history</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">history</span><span class="o">.</span><span class="n">_region_ids</span> <span class="o">=</span> <span class="n">memento</span><span class="o">.</span><span class="n">region_ids</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">saved</span> <span class="ow">in</span> <span class="n">memento</span><span class="o">.</span><span class="n">history_columns</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">stored</span> <span class="o">=</span> <span class="n">history</span><span class="o">.</span><span class="n">_columns</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stored</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="p">[</span><span class="n">column</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">stored</span> <span class="k">if</span> <span class="n">column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">saved</span><span class="p">]:</span>
+                <span class="k">del</span> <span class="n">stored</span><span class="p">[</span><span class="n">column</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_scheduler_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scheduler_state</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Put the scheduler attributes publication writes back.&quot;&quot;&quot;</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">scheduler_state</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">AttributeError</span><span class="p">):</span>
+                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_scheduler_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the scheduler terms publication serves from the snapshot.&quot;&quot;&quot;</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;async_evaluation_scheduler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">scheduler</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;callback_manager&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;_feedback_accumulator&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;_feedback_accumulator_state&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">}</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_reject_commit</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">error</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">,</span>
-        <span class="n">saved_resolution_state</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">memento</span><span class="p">:</span> <span class="n">_CommitMemento</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">report</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore the published configuration, then report the rejection.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore the commit memento, then report the rejection.</span>
 
-<span class="sd">        Every failure raised while preparing a candidate restores the same</span>
-<span class="sd">        terms, so the next commit point observes no change and publishes</span>
-<span class="sd">        nothing.  A plain :class:`ConfigurationError` becomes a</span>
-<span class="sd">        :class:`ReplacementRejectedError` with the rejected slots and the</span>
-<span class="sd">        diagnostics that caused it; any other exception keeps its type and</span>
-<span class="sd">        message because it carries no diagnostics.</span>
+<span class="sd">        Every failure after the memento was taken restores the same terms,</span>
+<span class="sd">        including one raised inside publication, so the optimizer, the run</span>
+<span class="sd">        state, the collections, the region history, and the scheduler describe</span>
+<span class="sd">        the last published configuration again.  A plain</span>
+<span class="sd">        :class:`ConfigurationError` becomes a :class:`ReplacementRejectedError`</span>
+<span class="sd">        with the rejected slots and the diagnostics that caused it; any other</span>
+<span class="sd">        exception, and any failure reported with ``report=False``, keeps its</span>
+<span class="sd">        type and message.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">changes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rejected_changes</span><span class="p">()</span>
+        <span class="n">changes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rejected_changes</span><span class="p">(</span><span class="n">memento</span><span class="o">.</span><span class="n">snapshot_values</span><span class="p">,</span> <span class="n">memento</span><span class="o">.</span><span class="n">live_origins</span><span class="p">)</span>
         <span class="n">diagnostics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span>
-        <span class="n">_restore_resolution_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">saved_resolution_state</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_restore_published_configuration</span><span class="p">()</span>
-        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span> <span class="ow">is</span> <span class="n">ConfigurationError</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_restore_commit_memento</span><span class="p">(</span><span class="n">memento</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">report</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span> <span class="ow">is</span> <span class="n">ConfigurationError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ReplacementRejectedError</span><span class="p">(</span>
                 <span class="n">changes</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">active_version</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-        <span class="k">raise</span>
+        <span class="k">raise</span> <span class="n">error</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_published_feature_encoder_default</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -3014,50 +3646,24 @@ window.runMermaid = runMermaid;</script>
             <span class="ow">and</span> <span class="n">origin</span><span class="o">.</span><span class="n">source</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;setter&quot;</span><span class="p">,</span> <span class="s2">&quot;direct assignment&quot;</span><span class="p">}</span>
         <span class="p">}</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_restore_published_configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Put every restorable term back to the last published value.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_published_comparator_default</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the comparator default the published selection implies.&quot;&quot;&quot;</span>
+        <span class="n">origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">provenance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">origin</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">origin</span><span class="o">.</span><span class="n">source</span> <span class="o">!=</span> <span class="s2">&quot;framework default&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
 
-<span class="sd">        Slots and the preset are restored by identity, the cached default</span>
-<span class="sd">        encoder and the origin and materialized-component maps from the</span>
-<span class="sd">        published snapshot, the configuration counter last, so the restored</span>
-<span class="sd">        values describe the published configuration exactly.  The published</span>
-<span class="sd">        binding record and the state&#39;s binding version are left alone: they</span>
-<span class="sd">        already point at it.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">optimizer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span>
-        <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
-                <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">preset</span><span class="p">:</span>
-            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_preset&quot;</span><span class="p">,</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">preset</span><span class="p">)</span>
-        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
-            <span class="n">optimizer</span><span class="p">,</span>
-            <span class="s2">&quot;_feature_encoder_default&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_published_feature_encoder_default</span><span class="p">(),</span>
-        <span class="p">)</span>
-        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_published_origins</span><span class="p">())</span>
-        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
-            <span class="n">optimizer</span><span class="p">,</span>
-            <span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_published_materialized_components</span><span class="p">(),</span>
-        <span class="p">)</span>
-        <span class="n">builder_origin</span> <span class="o">=</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">provenance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">)</span>
-        <span class="n">builder_explicit</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">builder_origin</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_published_feedback_builder_explicit</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether the published feedback builder came from an explicit slot.&quot;&quot;&quot;</span>
+        <span class="n">origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_snapshot</span><span class="o">.</span><span class="n">provenance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feedback_builder&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">origin</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span>
             <span class="s2">&quot;setter&quot;</span><span class="p">,</span>
             <span class="s2">&quot;direct assignment&quot;</span><span class="p">,</span>
             <span class="s2">&quot;user preset&quot;</span><span class="p">,</span>
         <span class="p">}</span>
-        <span class="n">current_explicit</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;feedback_builder_explicit&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">current_explicit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">builder_explicit</span><span class="p">:</span>
-            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;feedback_builder_explicit&quot;</span><span class="p">,</span> <span class="n">builder_explicit</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_resolution</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_diagnostics</span> <span class="o">=</span> <span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_publication_deferred</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_recompile</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
-            <span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">configuration_version</span>
-        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_publish_scheduler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executable</span><span class="p">:</span> <span class="n">ExecutablePlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Serve the scheduler from the active snapshot, never live reads.&quot;&quot;&quot;</span>
@@ -3602,6 +4208,18 @@ window.runMermaid = runMermaid;</script>
     <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">comparator</span><span class="p">,</span> <span class="s2">&quot;direction&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">comparator</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">direction</span>
     <span class="n">comparator</span><span class="o">.</span><span class="n">eps_cv</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">handler</span><span class="o">.</span><span class="n">feasibility_threshold</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">assign_comparator_rng</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Give a randomized comparator its niche tie-breaking generator.</span>
+
+<span class="sd">    Consumes one child seed of the run&#39;s generator.  A commit point calls this</span>
+<span class="sd">    only after its new configuration is published, and a rejected replacement</span>
+<span class="sd">    never reaches it, so the parent seed sequence is untouched by a rejected</span>
+<span class="sd">    candidate and the next accepted randomized comparator draws the same child</span>
+<span class="sd">    a run without the rejected attempt would.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">comparator</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">comparator</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comparator</span><span class="p">,</span> <span class="n">NSGA3Comparator</span><span class="p">)</span> <span class="ow">and</span> <span class="n">comparator</span><span class="o">.</span><span class="n">_rng</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">comparator</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
@@ -4063,6 +4681,7 @@ window.runMermaid = runMermaid;</script>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_state</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">OptimizationState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">prepare_state_comparator</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">assign_comparator_rng</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">AsyncPipelineRuntime</span><span class="p">(</span><span class="n">PipelineRuntime</span><span class="p">):</span>
@@ -4157,16 +4776,16 @@ window.runMermaid = runMermaid;</script>
 
         <span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span>
         <span class="n">environment</span><span class="o">.</span><span class="n">fatal</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">state</span>
+        <span class="n">_sync_transient_fields_from_store</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">refresh</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;_refresh_plan_if_needed&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">refresh</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">frames</span><span class="p">:</span>
-            <span class="n">refresh</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+            <span class="n">refresh</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">plan</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="s2">&quot;plan&quot;</span><span class="p">,</span> <span class="n">session</span><span class="o">.</span><span class="n">plan</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">StructuredPlan</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
                 <span class="s2">&quot;structured async runtime environment returned a non-structured plan&quot;</span>
             <span class="p">)</span>
-        <span class="n">state</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">state</span>
-        <span class="n">_sync_transient_fields_from_store</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="n">generation_open</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">generation_open</span>
         <span class="n">frames</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">frames</span>
         <span class="n">resume_async_driver</span> <span class="o">=</span> <span class="kc">False</span>

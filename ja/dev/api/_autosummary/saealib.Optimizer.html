@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.Optimizer &#8212; saealib 0.1.1.dev59+g9b61a611d ドキュメント</title>
+    <title>saealib.Optimizer &#8212; saealib 0.1.1.dev61+gdcdc794db ドキュメント</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=b493685e"></script>
+    <script src="../../_static/documentation_options.js?v=0f065c5e"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1431,22 +1431,33 @@ problems of different dimensionality.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.set_acquisition">
-<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_acquisition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">acquisition</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_acquisition"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_acquisition" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_acquisition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">acquisition</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_acquisition"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_acquisition" title="Link to this definition">#</a></dt>
 <dd><p>Set the independent acquisition component.</p>
 <dl class="field-list simple">
-<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-odd"><p><em>Self</em></p>
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>acquisition</strong> (<a class="reference internal" href="saealib.AcquisitionFunction.html#saealib.AcquisitionFunction" title="saealib.AcquisitionFunction"><em>AcquisitionFunction</em></a>) -- The component to bind.</p></li>
+<li><p><strong>transition</strong> (<em>Transition</em><em> or </em><em>None</em><em>, </em><em>optional</em>) -- Transition to run at the commit point of this replacement.</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Self</em></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.set_algorithm">
-<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_algorithm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">algorithm</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_algorithm"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_algorithm" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_algorithm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">algorithm</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_algorithm"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_algorithm" title="Link to this definition">#</a></dt>
 <dd><p>Set the evolutionary algorithm. Returns self.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>algorithm</strong> (<a class="reference internal" href="saealib.Algorithm.html#saealib.Algorithm" title="saealib.Algorithm"><em>Algorithm</em></a>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>algorithm</strong> (<a class="reference internal" href="saealib.Algorithm.html#saealib.Algorithm" title="saealib.Algorithm"><em>Algorithm</em></a>) -- The component to bind.</p></li>
+<li><p><strong>transition</strong> (<em>Transition</em><em> or </em><em>None</em><em>, </em><em>optional</em>) -- Transition to run at the commit point of this replacement, after
+the candidate configuration passes static validation and before
+the new binding version is published.</p></li>
+</ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p>Self</p>
@@ -1470,11 +1481,16 @@ problems of different dimensionality.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.set_comparator">
-<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_comparator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comparator</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_comparator"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_comparator" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_comparator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comparator</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_comparator"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_comparator" title="Link to this definition">#</a></dt>
 <dd><p>Set the comparator that orders solutions. Returns self.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>comparator</strong> (<a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><em>Comparator</em></a>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>comparator</strong> (<a class="reference internal" href="saealib.Comparator.html#saealib.Comparator" title="saealib.Comparator"><em>Comparator</em></a>) -- The component to bind.</p></li>
+<li><p><strong>transition</strong> (<em>Transition</em><em> or </em><em>None</em><em>, </em><em>optional</em>) -- Transition to run at the commit point of this replacement, after
+the candidate configuration passes static validation and before
+the new binding version is published.</p></li>
+</ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p>Self</p>
@@ -1484,11 +1500,14 @@ problems of different dimensionality.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.set_evaluation_planner">
-<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_evaluation_planner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">planner</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_evaluation_planner"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_evaluation_planner" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_evaluation_planner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">planner</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_evaluation_planner"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_evaluation_planner" title="Link to this definition">#</a></dt>
 <dd><p>Set the evaluation planner.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>planner</strong> (<a class="reference internal" href="saealib.EvaluationPlanner.html#saealib.EvaluationPlanner" title="saealib.policies.evaluation.EvaluationPlanner"><em>EvaluationPlanner</em></a>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>planner</strong> (<a class="reference internal" href="saealib.EvaluationPlanner.html#saealib.EvaluationPlanner" title="saealib.EvaluationPlanner"><em>EvaluationPlanner</em></a>) -- The component to bind.</p></li>
+<li><p><strong>transition</strong> (<em>Transition</em><em> or </em><em>None</em><em>, </em><em>optional</em>) -- Transition to run at the commit point of this replacement.</p></li>
+</ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p><em>Self</em></p>
@@ -1498,11 +1517,14 @@ problems of different dimensionality.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.set_evaluator">
-<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_evaluator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">evaluator</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_evaluator"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_evaluator" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_evaluator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">evaluator</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_evaluator"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_evaluator" title="Link to this definition">#</a></dt>
 <dd><p>Set the evaluator. Returns self.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>evaluator</strong> (<a class="reference internal" href="saealib.Evaluator.html#saealib.Evaluator" title="saealib.execution.evaluator.Evaluator"><em>Evaluator</em></a>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>evaluator</strong> (<a class="reference internal" href="saealib.Evaluator.html#saealib.Evaluator" title="saealib.Evaluator"><em>Evaluator</em></a>) -- The component to bind.</p></li>
+<li><p><strong>transition</strong> (<em>Transition</em><em> or </em><em>None</em><em>, </em><em>optional</em>) -- Transition to run at the commit point of this replacement.</p></li>
+</ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p><em>Self</em></p>
@@ -1512,11 +1534,14 @@ problems of different dimensionality.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.set_feedback_builder">
-<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_feedback_builder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">builder</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_feedback_builder"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_feedback_builder" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_feedback_builder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">builder</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_feedback_builder"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_feedback_builder" title="Link to this definition">#</a></dt>
 <dd><p>Set the feedback builder.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>builder</strong> (<a class="reference internal" href="saealib.FeedbackBuilder.html#saealib.FeedbackBuilder" title="saealib.policies.feedback.FeedbackBuilder"><em>FeedbackBuilder</em></a>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>builder</strong> (<a class="reference internal" href="saealib.FeedbackBuilder.html#saealib.FeedbackBuilder" title="saealib.FeedbackBuilder"><em>FeedbackBuilder</em></a>) -- The component to bind.</p></li>
+<li><p><strong>transition</strong> (<em>Transition</em><em> or </em><em>None</em><em>, </em><em>optional</em>) -- Transition to run at the commit point of this replacement.</p></li>
+</ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p><em>Self</em></p>
@@ -1601,11 +1626,14 @@ to <code class="docutils literal notranslate"><span class="pre">history_channels
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.set_strategy">
-<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_strategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_strategy"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_strategy" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_strategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_strategy"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_strategy" title="Link to this definition">#</a></dt>
 <dd><p>Set the optimization strategy. Returns self.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>strategy</strong> (<a class="reference internal" href="saealib.OptimizationStrategy.html#saealib.OptimizationStrategy" title="saealib.OptimizationStrategy"><em>OptimizationStrategy</em></a>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="saealib.OptimizationStrategy.html#saealib.OptimizationStrategy" title="saealib.OptimizationStrategy"><em>OptimizationStrategy</em></a>) -- The component to bind.</p></li>
+<li><p><strong>transition</strong> (<em>Transition</em><em> or </em><em>None</em><em>, </em><em>optional</em>) -- Transition to run at the commit point of this replacement.</p></li>
+</ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p>Self</p>
@@ -1633,11 +1661,14 @@ to <code class="docutils literal notranslate"><span class="pre">history_channels
 
 <dl class="py method">
 <dt class="sig sig-object py" id="saealib.Optimizer.set_surrogate_manager">
-<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_surrogate_manager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">manager</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_surrogate_manager"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_surrogate_manager" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Optimizer.</span></span><span class="sig-name descname"><span class="pre">set_surrogate_manager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">manager</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/saealib/optimizer.html#Optimizer.set_surrogate_manager"><span class="viewcode-link"><span class="pre">[ソース]</span></span></a><a class="headerlink" href="#saealib.Optimizer.set_surrogate_manager" title="Link to this definition">#</a></dt>
 <dd><p>Set the surrogate manager. Returns self.</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>manager</strong> (<a class="reference internal" href="saealib.SurrogateManager.html#saealib.SurrogateManager" title="saealib.surrogate.manager.SurrogateManager"><em>SurrogateManager</em></a>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>manager</strong> (<a class="reference internal" href="saealib.SurrogateManager.html#saealib.SurrogateManager" title="saealib.SurrogateManager"><em>SurrogateManager</em></a>) -- The component to bind.</p></li>
+<li><p><strong>transition</strong> (<em>Transition</em><em> or </em><em>None</em><em>, </em><em>optional</em>) -- Transition to run at the commit point of this replacement.</p></li>
+</ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p><em>Self</em></p>

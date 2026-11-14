@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.optimizer &#8212; saealib 0.1.1.dev59+g9b61a611d ドキュメント</title>
+    <title>saealib.optimizer &#8212; saealib 0.1.1.dev61+gdcdc794db ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=b493685e"></script>
+    <script src="../../_static/documentation_options.js?v=0f065c5e"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1002,6 +1002,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">check_pymoo_feedback_compatibility</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComponentContract</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReplaceComponent</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">OPTIMIZATION_STATE_INITIAL_KEYS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointError</span><span class="p">,</span> <span class="n">ConfigurationError</span><span class="p">,</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.execution.bindings</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -1036,6 +1037,7 @@ window.runMermaid = runMermaid;</script>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.surrogate.rbf_kernels</span><span class="w"> </span><span class="kn">import</span> <span class="n">GaussianKernel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.termination</span><span class="w"> </span><span class="kn">import</span> <span class="n">Termination</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.transition</span><span class="w"> </span><span class="kn">import</span> <span class="n">Transition</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -1249,11 +1251,28 @@ window.runMermaid = runMermaid;</script>
             <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;feedback_builder&quot;</span> <span class="ow">and</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;feedback_builder_explicit&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_set_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_component</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+        <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">transition</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">transition</span><span class="p">,</span> <span class="n">Transition</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;transition must be a Transition or None&quot;</span><span class="p">)</span>
         <span class="n">prior_value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_component_origins</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ComponentOrigin</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;setter&quot;</span><span class="p">,</span> <span class="n">reason</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">transition</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_replacement_records</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_replacement_records</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">ReplaceComponent</span><span class="p">(</span>
+                <span class="n">slot</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">component</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+                <span class="n">transition</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
+                <span class="n">source</span><span class="o">=</span><span class="s2">&quot;setter&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">prior_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_version</span> <span class="o">+=</span> <span class="mi">1</span>
 
@@ -1263,6 +1282,16 @@ window.runMermaid = runMermaid;</script>
             <span class="n">value</span><span class="p">,</span> <span class="s2">&quot;framework default&quot;</span><span class="p">,</span> <span class="n">reason</span><span class="p">,</span> <span class="s2">&quot;&quot;</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_pending_replacements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ReplaceComponent</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the recorded replacements no commit point consumed yet.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_replacement_records</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_consume_replacements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ReplaceComponent</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take the recorded replacements and leave the queue empty.&quot;&quot;&quot;</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_replacement_records</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_replacement_records</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">records</span>
 
 <div class="viewcode-block" id="Optimizer.__init__">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.__init__">[ドキュメント]</a>
@@ -1299,6 +1328,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="n">_materialized_components</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_feature_encoder_default</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_version</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_replacement_records</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ReplaceComponent</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_contract_diagnostics</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_executable_plan</span><span class="p">:</span> <span class="n">ExecutablePlan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_published_bindings</span><span class="p">:</span> <span class="n">_BindingSnapshot</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1714,10 +1744,25 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="Optimizer.set_comparator">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_comparator">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_comparator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">comparator</span><span class="p">:</span> <span class="n">Comparator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the comparator that orders solutions. Returns self.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_comparator</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">comparator</span><span class="p">:</span> <span class="n">Comparator</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the comparator that orders solutions. Returns self.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        comparator : Comparator</span>
+<span class="sd">            The component to bind.</span>
+<span class="sd">        transition : Transition or None, optional</span>
+<span class="sd">            Transition to run at the commit point of this replacement, after</span>
+<span class="sd">            the candidate configuration passes static validation and before</span>
+<span class="sd">            the new binding version is published.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
-            <span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="n">comparator</span><span class="p">,</span> <span class="s2">&quot;Configured with set_comparator().&quot;</span>
+            <span class="s2">&quot;comparator&quot;</span><span class="p">,</span>
+            <span class="n">comparator</span><span class="p">,</span>
+            <span class="s2">&quot;Configured with set_comparator().&quot;</span><span class="p">,</span>
+            <span class="n">transition</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
@@ -1734,18 +1779,48 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="Optimizer.set_algorithm">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_algorithm">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_algorithm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the evolutionary algorithm. Returns self.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">,</span> <span class="s2">&quot;Configured with set_algorithm().&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_algorithm</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">algorithm</span><span class="p">:</span> <span class="n">Algorithm</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the evolutionary algorithm. Returns self.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        algorithm : Algorithm</span>
+<span class="sd">            The component to bind.</span>
+<span class="sd">        transition : Transition or None, optional</span>
+<span class="sd">            Transition to run at the commit point of this replacement, after</span>
+<span class="sd">            the candidate configuration passes static validation and before</span>
+<span class="sd">            the new binding version is published.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;algorithm&quot;</span><span class="p">,</span>
+            <span class="n">algorithm</span><span class="p">,</span>
+            <span class="s2">&quot;Configured with set_algorithm().&quot;</span><span class="p">,</span>
+            <span class="n">transition</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
 <div class="viewcode-block" id="Optimizer.set_surrogate_manager">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_surrogate_manager">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_surrogate_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager</span><span class="p">:</span> <span class="n">SurrogateManager</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the surrogate manager. Returns self.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_surrogate_manager</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">manager</span><span class="p">:</span> <span class="n">SurrogateManager</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the surrogate manager. Returns self.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        manager : SurrogateManager</span>
+<span class="sd">            The component to bind.</span>
+<span class="sd">        transition : Transition or None, optional</span>
+<span class="sd">            Transition to run at the commit point of this replacement.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
-            <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span> <span class="n">manager</span><span class="p">,</span> <span class="s2">&quot;Configured with set_surrogate_manager().&quot;</span>
+            <span class="s2">&quot;surrogate_manager&quot;</span><span class="p">,</span>
+            <span class="n">manager</span><span class="p">,</span>
+            <span class="s2">&quot;Configured with set_surrogate_manager().&quot;</span><span class="p">,</span>
+            <span class="n">transition</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">manager</span><span class="p">,</span> <span class="n">PairwiseSurrogateManager</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_set_framework_component</span><span class="p">(</span>
@@ -1758,10 +1833,23 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="Optimizer.set_acquisition">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_acquisition">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_acquisition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the independent acquisition component.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_acquisition</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the independent acquisition component.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        acquisition : AcquisitionFunction</span>
+<span class="sd">            The component to bind.</span>
+<span class="sd">        transition : Transition or None, optional</span>
+<span class="sd">            Transition to run at the commit point of this replacement.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
-            <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="n">acquisition</span><span class="p">,</span> <span class="s2">&quot;Configured with set_acquisition().&quot;</span>
+            <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span>
+            <span class="n">acquisition</span><span class="p">,</span>
+            <span class="s2">&quot;Configured with set_acquisition().&quot;</span><span class="p">,</span>
+            <span class="n">transition</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
@@ -1777,22 +1865,46 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="Optimizer.set_evaluation_planner">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_evaluation_planner">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_evaluation_planner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">planner</span><span class="p">:</span> <span class="n">EvaluationPlanner</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the evaluation planner.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_evaluation_planner</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">planner</span><span class="p">:</span> <span class="n">EvaluationPlanner</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the evaluation planner.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        planner : EvaluationPlanner</span>
+<span class="sd">            The component to bind.</span>
+<span class="sd">        transition : Transition or None, optional</span>
+<span class="sd">            Transition to run at the commit point of this replacement.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
             <span class="s2">&quot;evaluation_planner&quot;</span><span class="p">,</span>
             <span class="n">planner</span><span class="p">,</span>
             <span class="s2">&quot;Configured with set_evaluation_planner().&quot;</span><span class="p">,</span>
+            <span class="n">transition</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
 <div class="viewcode-block" id="Optimizer.set_feedback_builder">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_feedback_builder">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_feedback_builder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">builder</span><span class="p">:</span> <span class="n">FeedbackBuilder</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the feedback builder.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_feedback_builder</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">builder</span><span class="p">:</span> <span class="n">FeedbackBuilder</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the feedback builder.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        builder : FeedbackBuilder</span>
+<span class="sd">            The component to bind.</span>
+<span class="sd">        transition : Transition or None, optional</span>
+<span class="sd">            Transition to run at the commit point of this replacement.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
-            <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="s2">&quot;Configured with set_feedback_builder().&quot;</span>
+            <span class="s2">&quot;feedback_builder&quot;</span><span class="p">,</span>
+            <span class="n">builder</span><span class="p">,</span>
+            <span class="s2">&quot;Configured with set_feedback_builder().&quot;</span><span class="p">,</span>
+            <span class="n">transition</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">feedback_builder_explicit</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="bp">self</span></div>
@@ -1826,21 +1938,51 @@ window.runMermaid = runMermaid;</script>
 
 <div class="viewcode-block" id="Optimizer.set_strategy">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_strategy">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="n">OptimizationStrategy</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the optimization strategy. Returns self.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span><span class="s2">&quot;strategy&quot;</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;Configured with set_strategy().&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_strategy</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="n">OptimizationStrategy</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the optimization strategy. Returns self.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        strategy : OptimizationStrategy</span>
+<span class="sd">            The component to bind.</span>
+<span class="sd">        transition : Transition or None, optional</span>
+<span class="sd">            Transition to run at the commit point of this replacement.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;strategy&quot;</span><span class="p">,</span>
+            <span class="n">strategy</span><span class="p">,</span>
+            <span class="s2">&quot;Configured with set_strategy().&quot;</span><span class="p">,</span>
+            <span class="n">transition</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
 <div class="viewcode-block" id="Optimizer.set_evaluator">
 <a class="viewcode-back" href="../../api/_autosummary/saealib.Optimizer.html#saealib.Optimizer.set_evaluator">[ドキュメント]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_evaluator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the evaluator. Returns self.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_evaluator</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transition</span><span class="p">:</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the evaluator. Returns self.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        evaluator : Evaluator</span>
+<span class="sd">            The component to bind.</span>
+<span class="sd">        transition : Transition or None, optional</span>
+<span class="sd">            Transition to run at the commit point of this replacement.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">has_partial_lifecycle_override</span><span class="p">():</span>
             <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
                 <span class="s2">&quot;submit(), collect(), and acknowledge() must be overridden together&quot;</span>
             <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span><span class="s2">&quot;evaluator&quot;</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">,</span> <span class="s2">&quot;Configured with set_evaluator().&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_component</span><span class="p">(</span>
+            <span class="s2">&quot;evaluator&quot;</span><span class="p">,</span>
+            <span class="n">evaluator</span><span class="p">,</span>
+            <span class="s2">&quot;Configured with set_evaluator().&quot;</span><span class="p">,</span>
+            <span class="n">transition</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -2442,6 +2584,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_executable_plan&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_prepared_diagnostic_cache&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_feature_encoder_default&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_replacement_records&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">return</span> <span class="n">state</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -2457,6 +2600,7 @@ window.runMermaid = runMermaid;</script>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_component_origins&quot;</span><span class="p">,</span> <span class="p">{})</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_materialized_components&quot;</span><span class="p">,</span> <span class="p">{})</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_feature_encoder_default&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_replacement_records&quot;</span><span class="p">,</span> <span class="p">{})</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;comparator&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_comparator_default&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_configuration_version&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>

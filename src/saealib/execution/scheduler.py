@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from saealib.callback import PostEvaluationEvent
-from saealib.context import EvaluationPlanState
+from saealib.context import EvaluationPlanState, _count_evaluated
 from saealib.core.adapters import FeedbackAccumulator
 from saealib.core.contracts import (
     ComponentContract,
@@ -935,7 +935,7 @@ class AsyncEvaluationScheduler:
             stage_rank = 4
         if stage_rank < 5:
             if update.result is not None:
-                current = current.replace(fe=current.fe + len(update.candidate_ids))
+                current = _count_evaluated(current, update.candidate_ids)
             current = progress(current, "fe-applied")
         if stage_rank < 6:
             self.evaluator.acknowledge(handle, update.sequence)

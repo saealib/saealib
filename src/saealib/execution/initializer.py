@@ -12,7 +12,7 @@ import scipy.stats
 
 from saealib.callback import InitialEvaluationEndEvent, InitialEvaluationStartEvent
 from saealib.comparators import Comparator, NSGA3Comparator
-from saealib.context import OptimizationState
+from saealib.context import OptimizationState, _count_evaluated
 from saealib.core.contracts import (
     MANY,
     ComponentContract,
@@ -388,7 +388,7 @@ class GenomeInitializer(Initializer):
         _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
-        ctx.count_fe(self.n_init_archive)
+        ctx = _count_evaluated(ctx, ids)
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
         sorted_idx = ctx.comparator.rank_population(archive)
@@ -535,7 +535,7 @@ class LHSInitializer(Initializer):
         _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
-        ctx.count_fe(self.n_init_archive)
+        ctx = _count_evaluated(ctx, ids)
 
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
@@ -682,7 +682,7 @@ class RandomInitializer(Initializer):
         _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
-        ctx.count_fe(self.n_init_archive)
+        ctx = _count_evaluated(ctx, ids)
 
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
@@ -832,7 +832,7 @@ class SobolInitializer(Initializer):
         _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
-        ctx.count_fe(self.n_init_archive)
+        ctx = _count_evaluated(ctx, ids)
 
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 

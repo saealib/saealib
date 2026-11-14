@@ -1,5 +1,6 @@
 """Public exception hierarchy for saealib."""
 
+from dataclasses import dataclass
 from typing import Any
 
 __all__ = [
@@ -8,6 +9,8 @@ __all__ = [
     "EvaluationFatalError",
     "EvaluationProtocolError",
     "EvaluationSubmissionError",
+    "RejectedChange",
+    "ReplacementRejectedError",
     "SaealibError",
     "ValidationError",
 ]
@@ -29,6 +32,66 @@ class StalePlanError(ValidationError):
 
 class ConfigurationError(SaealibError, ValueError):
     """Raised when an :class:`~saealib.Optimizer` is misconfigured at run time."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class RejectedChange:
+    """One slot a commit point put back to its published component.
+
+    Attributes
+    ----------
+    slot : str
+        Binding slot that held the rejected component.
+    previous : object or None
+        Component the slot held in the last published configuration.
+    candidate : object or None
+        Component the slot held when the commit point rejected the change.
+    source : str or None
+        Source of the rejected write, when the optimizer recorded one.
+    """
+
+    slot: str
+    previous: object | None
+    candidate: object | None
+    source: str | None = None
+
+
+class ReplacementRejectedError(ConfigurationError):
+    """A commit point refused a replacement and restored the published one.
+
+    The optimizer holds the configuration it last published, and the binding
+    version and configuration counter keep the values they had when that
+    configuration was published, so a resumed run publishes nothing for the
+    rejected change.
+
+    Attributes
+    ----------
+    changes : tuple[RejectedChange, ...]
+        Every slot whose component differed from the published one when the
+        rejection happened.
+    diagnostics : tuple[Diagnostic, ...]
+        Structured findings that caused the rejection, for example a missing
+        population column or a component that cannot be checkpointed.
+    version : int
+        Binding version of the configuration the optimizer kept.
+    """
+
+    def __init__(
+        self,
+        changes: tuple[RejectedChange, ...],
+        diagnostics: Any,
+        *,
+        version: int,
+    ) -> None:
+        self.changes = tuple(changes)
+        self.diagnostics = tuple(diagnostics)
+        self.version = version
+        message = "Component replacement rejected at the commit point"
+        if self.diagnostics:
+            message += ":\n" + "\n".join(
+                f"  - {diagnostic}" for diagnostic in self.diagnostics
+            )
+        super().__init__(message)
 
 
 class CheckpointError(ValidationError):

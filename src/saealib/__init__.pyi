@@ -107,6 +107,8 @@ from saealib.exceptions import ConfigurationError as ConfigurationError
 from saealib.exceptions import EvaluationFatalError as EvaluationFatalError
 from saealib.exceptions import EvaluationProtocolError as EvaluationProtocolError
 from saealib.exceptions import EvaluationSubmissionError as EvaluationSubmissionError
+from saealib.exceptions import RejectedChange as RejectedChange
+from saealib.exceptions import ReplacementRejectedError as ReplacementRejectedError
 from saealib.exceptions import SaealibError as SaealibError
 from saealib.exceptions import ValidationError as ValidationError
 from saealib.execution.evaluator import AsyncEvaluator as AsyncEvaluator

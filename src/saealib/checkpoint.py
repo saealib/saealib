@@ -27,7 +27,10 @@ class CheckpointCallback:
 
     Register this callback with :meth:`register`, or pass it implicitly
     via the ``checkpoint_*`` parameters of :meth:`~saealib.Optimizer.run`
-    and :meth:`~saealib.Optimizer.iterate`.
+    and :meth:`~saealib.Optimizer.iterate`.  Only the parameters announce the
+    checkpoint format to the optimizer; a callback registered by hand writes
+    its files but does not make a commit point check whether a replacement
+    declares ``state.checkpointable=False``.
 
     Parameters
     ----------

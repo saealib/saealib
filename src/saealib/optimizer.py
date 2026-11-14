@@ -62,7 +62,11 @@ from saealib.execution.prepare import (
     _prepare_plan,
 )
 from saealib.execution.runner import Runner
-from saealib.execution.runtime import _BindingSnapshot, default_runtime_registry
+from saealib.execution.runtime import (
+    _BindingSnapshot,
+    _non_checkpointable_components,
+    default_runtime_registry,
+)
 from saealib.execution.scheduler import AsyncEvaluationScheduler
 from saealib.policies.evaluation import EvaluationPlanner
 from saealib.policies.feedback import FeedbackBuilder
@@ -339,6 +343,7 @@ class Optimizer:
             tuple[tuple[object, ...], tuple[Diagnostic, ...]] | None
         ) = None
         self._verification_enabled = True
+        self._portable_checkpointing = False
         self._component_origins["evaluator"] = _ComponentOrigin(
             self.evaluator,
             "bundled preset",
@@ -1140,26 +1145,24 @@ class Optimizer:
         )
         cb.register(self.cbmanager)
 
-    def _validate_checkpointable(self) -> None:
-        """Reject portable checkpoints for components with non-exportable state."""
-        plan = self._executable_plan
+    def _validate_checkpointable(self, plan: ExecutablePlan | None = None) -> None:
+        """Reject portable checkpoints for components with non-exportable state.
+
+        Parameters
+        ----------
+        plan : ExecutablePlan or None, optional
+            Plan to inspect.  ``None`` (default) uses the compiled plan of the
+            configured components.  A commit point passes its candidate plan,
+            so the check covers a replacement before it is published.
+        """
+        if plan is None:
+            plan = self._executable_plan
         if plan is None:
             return
-        snapshots = dict(plan.contract_snapshots)
-        rejected = []
-        for component_id, contract in snapshots.items():
-            if not contract.assumptions["state.checkpointable"]:
-                component = plan.graph.node_by_id(component_id).component
-                component_name = getattr(component, "component", component)
-                rejected.append(f"{component_id} ({type(component_name).__name__})")
-                continue
-            for part in contract.parts:
-                if not part.contract.assumptions["state.checkpointable"]:
-                    component = plan.graph.node_by_id(component_id).component
-                    held = getattr(getattr(component, "stage", None), part.name, None)
-                    rejected.append(
-                        f"{component_id}__{part.name} ({type(held).__name__})"
-                    )
+        rejected = [
+            f"{component_id} ({type_name})"
+            for component_id, type_name in _non_checkpointable_components(plan)
+        ]
         if rejected:
             raise ConfigurationError(
                 "Portable checkpointing requires state.checkpointable=True; "
@@ -1201,6 +1204,9 @@ class Optimizer:
                 "Optimizer misconfigured:\n" + "\n".join(f"  - {m}" for m in issues)
             )
         self._inject_acquisition_directions()
+        self._portable_checkpointing = checkpoint_path is not None and (
+            checkpoint_format in ("npz", "both")
+        )
         if checkpoint_path is not None:
             if checkpoint_format in ("npz", "both"):
                 self._validate_checkpointable()
@@ -1252,6 +1258,9 @@ class Optimizer:
                 "Optimizer misconfigured:\n" + "\n".join(f"  - {m}" for m in issues)
             )
         self._inject_acquisition_directions()
+        self._portable_checkpointing = checkpoint_path is not None and (
+            checkpoint_format in ("npz", "both")
+        )
         if checkpoint_path is not None:
             if checkpoint_format in ("npz", "both"):
                 self._validate_checkpointable()
@@ -1307,6 +1316,9 @@ class Optimizer:
                 "Optimizer misconfigured:\n" + "\n".join(f"  - {m}" for m in issues)
             )
         self._inject_acquisition_directions()
+        self._portable_checkpointing = checkpoint_path is not None and (
+            checkpoint_format in ("npz", "both")
+        )
         if checkpoint_path is not None:
             if checkpoint_format in ("npz", "both"):
                 self._validate_checkpointable()
@@ -1355,6 +1367,9 @@ class Optimizer:
                 "Optimizer misconfigured:\n" + "\n".join(f"  - {m}" for m in issues)
             )
         self._inject_acquisition_directions()
+        self._portable_checkpointing = checkpoint_path is not None and (
+            checkpoint_format in ("npz", "both")
+        )
         if checkpoint_path is not None:
             if checkpoint_format in ("npz", "both"):
                 self._validate_checkpointable()
@@ -1392,6 +1407,7 @@ class Optimizer:
         self.__dict__.setdefault("_prepared_diagnostic_cache", None)
         self.__dict__.setdefault("_default_resolution", None)
         self.__dict__.setdefault("_verification_enabled", True)
+        self.__dict__.setdefault("_portable_checkpointing", False)
         self.__dict__.setdefault("_component_resolution", None)
         self.__dict__.setdefault("_component_origins", {})
         self.__dict__.setdefault("_materialized_components", {})

@@ -145,6 +145,16 @@ def _optimizer(
     return optimizer
 
 
+def _last_generation_boundary(optimizer: Optimizer) -> OptimizationState:
+    """Return the state at the last generation boundary of a completed run."""
+    state = None
+    for state in optimizer.iterate():
+        pass
+    if state is None:
+        raise AssertionError("optimizer produced no generation boundary")
+    return state
+
+
 @pytest.mark.parametrize(
     ("strategy", "algorithm", "max_pending"),
     [
@@ -156,11 +166,13 @@ def _optimizer(
         ("direct", "pso", 2),
     ],
 )
-def test_async_npz_checkpoint_resume_matches_uninterrupted_run(
+def test_async_npz_checkpoint_at_a_generation_boundary_resumes_like_uninterrupted_run(
     tmp_path, strategy: str, algorithm: str, max_pending: int
 ) -> None:
     path = tmp_path / "checkpoint.npz"
-    _optimizer(strategy, algorithm, 1, max_pending).run().save(path)
+    _last_generation_boundary(_optimizer(strategy, algorithm, 1, max_pending)).save(
+        path
+    )
     restored = OptimizationState.load(path, _problem())
 
     resumed = _optimizer(strategy, algorithm, 3, max_pending).run_from(restored)
@@ -185,7 +197,7 @@ def test_async_npz_checkpoint_resume_keeps_objective_source(
     tmp_path, strategy: str, algorithm: str, in_flight: bool
 ) -> None:
     path = tmp_path / "checkpoint.npz"
-    saved = _optimizer(strategy, algorithm, 1, 2).run()
+    saved = _last_generation_boundary(_optimizer(strategy, algorithm, 1, 2))
     saved.save(path)
     restored = OptimizationState.load(path, _problem())
 

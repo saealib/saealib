@@ -285,7 +285,7 @@ def test_scheduler_accumulates_feedback_only_for_plans_with_an_accumulator() -> 
 
 
 @pytest.mark.parametrize(
-    ("gen_ctrl", "generations", "expected"), [(0, 2, (2, 10)), (2, 6, (6, 10))]
+    ("gen_ctrl", "generations", "expected"), [(0, 2, (2, 11)), (2, 6, (6, 11))]
 )
 def test_generation_based_async_submissions_respect_max_pending(
     gen_ctrl: int, generations: int, expected: tuple[int, int]

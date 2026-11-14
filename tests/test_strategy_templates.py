@@ -271,11 +271,24 @@ def _assert_checkpoint_matches(
             )
 
 
-def _assert_history_matches_evaluations(state):
+def _assert_history_matches_evaluations(state, *, final=True):
+    """Check the evaluation channel against the state's evaluation count.
+
+    ``final`` marks the state returned by ``run()``, whose count matches the
+    History totals.  A state taken at a generation boundary carries that
+    boundary's count, while the History object it shares keeps recording
+    later evaluations.
+    """
     assert state.history is not None
     assert state.history.is_enabled("summary")
     assert state.history.is_enabled("evaluation")
-    assert int(state.history.channel("summary")["fe"][-1]) == state.fe
+    evaluation = state.history.channel("evaluation")
+    assert int(evaluation["fe_after"][-1]) >= state.fe
+    if final:
+        assert int(np.sum(evaluation["size"])) == state.fe
+        assert int(evaluation["fe_after"][-1]) == state.fe
+    else:
+        assert int(state.history.channel("summary")["fe"][-1]) == state.fe
     candidate_ids = np.concatenate(
         [
             np.asarray(block).reshape(-1)
@@ -1443,7 +1456,7 @@ def test_strategy_replacement_between_iteration_yields_runs_replacement_flow(
     assert final.gen == 4
     assert final.gen > generation_at_switch
     assert final.fe > fe_at_switch
-    _assert_history_matches_evaluations(final)
+    _assert_history_matches_evaluations(final, final=False)
     resolved = cast(Any, optimizer.strategy).pipeline
     assert resolved is not None
     if isinstance(second, GenerationBasedStrategy):

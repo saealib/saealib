@@ -24,28 +24,24 @@ class Runner:
         self._runtime_factory = runtime_factory
 
     def run(self) -> OptimizationState:
-        """Run to completion and return the final state."""
-        for state in self.iterate():
-            pass
-        return state
+        """Run to completion and return the state the runtime ended with."""
+        return _drain(self.iterate())
 
     def run_from(self, state: OptimizationState) -> OptimizationState:
-        """Resume from an existing state and run to completion."""
-        for state in self.iterate_from(state):
-            pass
-        return state
+        """Resume from an existing state and return the state it ended with."""
+        return _drain(self.iterate_from(state))
 
-    def iterate(self) -> Generator[OptimizationState, None, None]:
+    def iterate(self) -> Generator[OptimizationState, None, OptimizationState]:
         """Initialize the runtime and yield observable runtime states."""
         initializer = getattr(self.optimizer, "initializer", None)
         if initializer is None:
             raise RuntimeError("Runner requires an optimizer initializer")
         state = initializer.initialize(self.optimizer, self.optimizer.problem)
-        yield from self.iterate_from(state)
+        return (yield from self.iterate_from(state))
 
     def iterate_from(
         self, state: OptimizationState
-    ) -> Generator[OptimizationState, None, None]:
+    ) -> Generator[OptimizationState, None, OptimizationState]:
         """Drive runtime steps from an initial or checkpoint state."""
         comparator = getattr(self.optimizer, "comparator", None)
         if comparator is not None and state.comparator is not comparator:
@@ -88,3 +84,20 @@ class Runner:
             session = step.session
             if step.observable:
                 yield step.state
+        return session.state
+
+
+def _drain(
+    states: Generator[OptimizationState, None, OptimizationState],
+) -> OptimizationState:
+    """Consume *states* and return the state the runtime ended with."""
+    final: OptimizationState | None = None
+    while True:
+        try:
+            next(states)
+        except StopIteration as stop:
+            final = stop.value
+            break
+    if final is None:
+        raise RuntimeError("Runner exhausted without a final state")
+    return final

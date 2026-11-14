@@ -16,6 +16,7 @@ import pytest
 from saealib import (
     PSO,
     CrossoverBLXAlpha,
+    CrossoverSBX,
     LHSInitializer,
     MutationUniform,
     Optimizer,
@@ -1820,6 +1821,7 @@ def test_a_pickle_whose_snapshot_lacks_the_preset_term_still_resumes() -> None:
         "feature_encoder_selection",
         "strategy_values",
         "configuration_version",
+        "contracts",
     }
     final = Runner(restored).run_from(restored_state)
     assert final.gen == 10
@@ -2283,3 +2285,185 @@ def test_the_origins_of_every_slot_match_the_published_origins_after_a_rejection
     generator.close()
 
     _assert_published_origins_restored(optimizer)
+
+
+# ---------------------------------------------------------------------------
+# Nested parts changed in place
+# ---------------------------------------------------------------------------
+
+
+class _LateRaisingPlanner(EvaluateAll):
+    """Planner whose contract becomes unreadable in the middle of a run."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.contract_broken = False
+
+    def contract(self) -> Any:
+        if self.contract_broken:
+            raise ValidationError("this planner declares no contract")
+        return super().contract()
+
+
+def _nested_part_optimizer(n_gen: int = 4) -> Optimizer:
+    return (
+        Optimizer(_problem(), seed=7)
+        .set_initializer(LHSInitializer(6, 4, 7))
+        .set_algorithm(_RecordingGA())
+        .set_strategy(DirectStrategy())
+        .set_termination(Termination(max_gen(n_gen)))
+    )
+
+
+def test_a_nested_part_swap_publishes_at_the_next_commit_point() -> None:
+    optimizer = _nested_part_optimizer()
+    ga = cast(GA, optimizer.algorithm)
+    runner, captured = _capturing_runner(optimizer)
+    versions: list[int] = []
+    plans: list[int] = []
+    for state in runner.iterate():
+        versions.append(captured["environment"].active_version)
+        plans.append(id(optimizer._executable_plan))
+        if state.gen == 1:
+            ga.crossover = CrossoverSBX(prob=0.9, eta=20.0)
+
+    assert versions == [0, 0, 1, 1, 1]
+    assert plans[1] == plans[0]
+    assert plans[2] != plans[1]
+    assert len(set(plans[2:])) == 1
+    published = optimizer._last_published_bindings
+    assert published is not None
+    assert published.values["algorithm"] is ga
+
+
+def test_assigning_an_equal_contract_part_publishes_nothing() -> None:
+    optimizer = _nested_part_optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    versions: list[int] = []
+    plans: list[int] = []
+    for state in runner.iterate():
+        versions.append(captured["environment"].active_version)
+        plans.append(id(optimizer._executable_plan))
+        if state.gen == 1:
+            cast(GA, optimizer.algorithm).crossover = CrossoverBLXAlpha(
+                prob=0.2, alpha=0.2
+            )
+
+    assert versions == [0, 0, 0, 0, 0]
+    assert len(set(plans)) == 1
+
+
+def test_writing_algorithm_and_comparator_values_keeps_the_version() -> None:
+    optimizer = _nested_part_optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    versions: list[int] = []
+    plans: list[int] = []
+    for state in runner.iterate():
+        versions.append(captured["environment"].active_version)
+        plans.append(id(optimizer._executable_plan))
+        if state.gen == 1:
+            cast(GA, optimizer.algorithm).crossover.prob = 0.2
+            cast(Any, optimizer.comparator).eps_cv = 0.7
+
+    assert versions == [0, 0, 0, 0, 0]
+    assert len(set(plans)) == 1
+    assert cast(GA, optimizer.algorithm).crossover.prob == 0.2
+
+
+def test_writing_a_surrogate_value_keeps_the_version() -> None:
+    from saealib.surrogate.manager import LocalSurrogateManager
+    from saealib.surrogate.rbf import RBFSurrogate
+    from saealib.surrogate.rbf_kernels import GaussianKernel
+
+    optimizer = (
+        Optimizer(_problem(), seed=7)
+        .set_initializer(LHSInitializer(6, 4, 7))
+        .set_algorithm(_RecordingGA())
+        .set_surrogate_manager(LocalSurrogateManager(RBFSurrogate(GaussianKernel())))
+        .set_strategy(GenerationBasedStrategy(gen_ctrl=2))
+        .set_termination(Termination(max_gen(4)))
+    )
+    runner, captured = _capturing_runner(optimizer)
+    versions: list[int] = []
+    plans: list[int] = []
+    for state in runner.iterate():
+        versions.append(captured["environment"].active_version)
+        plans.append(id(optimizer._executable_plan))
+        if state.gen == 0:
+            cast(Any, optimizer.surrogate_manager).surrogate.alpha = 1e-6
+
+    assert set(versions) == {0}
+    assert len(set(plans)) == 1
+    assert cast(Any, optimizer.surrogate_manager).surrogate.alpha == 1e-6
+
+
+def test_writing_a_pso_value_keeps_the_version() -> None:
+    optimizer = (
+        Optimizer(_problem(), seed=7)
+        .set_initializer(LHSInitializer(6, 4, 7))
+        .set_algorithm(PSO())
+        .set_strategy(DirectStrategy())
+        .set_termination(Termination(max_gen(4)))
+    )
+    runner, captured = _capturing_runner(optimizer)
+    versions: list[int] = []
+    plans: list[int] = []
+    for state in runner.iterate():
+        versions.append(captured["environment"].active_version)
+        plans.append(id(optimizer._executable_plan))
+        if state.gen == 1:
+            cast(PSO, optimizer.algorithm).w = 0.5
+
+    assert versions == [0, 0, 0, 0, 0]
+    assert len(set(plans)) == 1
+    assert cast(PSO, optimizer.algorithm).w == 0.5
+
+
+def test_a_slot_whose_contract_raises_does_not_break_the_run() -> None:
+    optimizer = _nested_part_optimizer()
+    planner = _LateRaisingPlanner()
+    optimizer.set_evaluation_planner(planner)
+    runner, captured = _capturing_runner(optimizer)
+    versions: list[int] = []
+    plans: list[int] = []
+    for state in runner.iterate():
+        versions.append(captured["environment"].active_version)
+        plans.append(id(optimizer._executable_plan))
+        if state.gen == 1:
+            planner.contract_broken = True
+
+    assert set(versions) == {0}
+    assert len(set(plans)) == 1
+    assert planner.contract_broken is True
+
+
+class _RaisingContractPlanner(EvaluateAll):
+    """Planner whose ``contract`` attribute stops being readable mid-run."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_contract_lookup = False
+
+    @property
+    def contract(self):
+        if self.fail_contract_lookup:
+            raise RuntimeError("contract lookup failure")
+        return super().contract()
+
+
+def test_a_contract_attribute_that_raises_after_the_first_yield_keeps_running() -> None:
+    planner = _RaisingContractPlanner()
+    optimizer = _build_optimizer(_RecordingGA())
+    optimizer.set_evaluation_planner(planner)
+    runner, captured = _capturing_runner(optimizer)
+    states: list[Any] = []
+
+    for state in runner.iterate():
+        states.append(state)
+        if state.gen == 1:
+            planner.fail_contract_lookup = True
+
+    assert [int(state.gen) for state in states] == list(range(11))
+    assert captured["environment"].active_version == 0
+    assert optimizer._last_published_bindings is not None
+    assert optimizer._last_published_bindings.values["evaluation_planner"] is planner

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -22,7 +22,12 @@ from saealib import (
 from saealib.algorithms import Algorithm, DeapGenerateUpdateAlgorithm
 from saealib.context import OptimizationState
 from saealib.core.contracts import AssumptionSet
-from saealib.exceptions import ConfigurationError, ReplacementRejectedError
+from saealib.exceptions import (
+    ConfigurationError,
+    ReplacementRejectedError,
+    StalePlanError,
+)
+from saealib.execution.runner import Runner
 from saealib.experiment import (
     AlgorithmEntry,
     ExperimentConfig,
@@ -389,3 +394,125 @@ def test_a_portable_checkpoint_run_accepts_a_checkpointable_replacement(
     assert published.version == 1
     files = sorted((tmp_path / "checkpoint").glob("checkpoint_*.npz"))
     assert len(files) == final.gen
+
+
+class _NonCheckpointableCrossover(CrossoverBLXAlpha):
+    """Crossover whose state a portable checkpoint cannot carry."""
+
+    def contract(self):
+        return replace(
+            super().contract(),
+            assumptions=AssumptionSet({"state.checkpointable": False}),
+        )
+
+
+def _reject_nested_non_checkpointable_part(
+    tmp_path: Path, checkpoint_format: str
+) -> tuple[Optimizer, ReplacementRejectedError, list[OptimizationState]]:
+    optimizer = _optimizer(_picklable_problem(), n_gen=4)
+    ga = cast(GA, optimizer.algorithm)
+    replacement = _NonCheckpointableCrossover(prob=0.9, alpha=0.5)
+    states: list[OptimizationState] = []
+
+    with pytest.raises(ReplacementRejectedError) as error:
+        for state in optimizer.iterate(
+            checkpoint_path=tmp_path / "checkpoint",
+            checkpoint_format=checkpoint_format,
+            checkpoint_interval=1,
+        ):
+            states.append(state)
+            if state.gen == 1:
+                ga.crossover = replacement
+
+    return optimizer, error.value, states
+
+
+@pytest.mark.parametrize("checkpoint_format", ["npz", "both"])
+def test_a_part_swapped_inside_a_published_component_is_rejected_at_the_commit_point(
+    tmp_path: Path, checkpoint_format: str
+) -> None:
+    optimizer, error, states = _reject_nested_non_checkpointable_part(
+        tmp_path, checkpoint_format
+    )
+    ga = cast(GA, optimizer.algorithm)
+    published = optimizer._last_published_bindings
+    assert published is not None
+    assert error.changes == ()
+    assert error.version == published.version
+    assert {diagnostic.code for diagnostic in error.diagnostics} == {
+        "state_not_checkpointable"
+    }
+    assert all("crossover" in str(diagnostic.path) for diagnostic in error.diagnostics)
+    assert optimizer.algorithm is ga
+    assert isinstance(ga.crossover, _NonCheckpointableCrossover)
+    assert states[-1].gen == 1
+    assert states[-1].__dict__["_binding_version"] == published.version
+
+    with pytest.raises(StalePlanError, match="stale_plan"):
+        for _ in Runner(optimizer).iterate_from(states[-1]):
+            pass
+
+    assert isinstance(ga.crossover, _NonCheckpointableCrossover)
+
+    ga.crossover = CrossoverBLXAlpha(prob=0.9, alpha=0.5)
+    final = None
+    for final in Runner(optimizer).iterate_from(states[-1]):
+        pass
+
+    assert final is not None
+    assert final.gen == 4
+    assert final.__dict__["_binding_version"] == published.version
+
+
+@pytest.mark.parametrize("checkpoint_format", ["npz", "both"])
+def test_resuming_a_portable_run_refuses_a_non_checkpointable_part_in_place(
+    tmp_path: Path, checkpoint_format: str
+) -> None:
+    optimizer, _error, states = _reject_nested_non_checkpointable_part(
+        tmp_path, checkpoint_format
+    )
+    ga = cast(GA, optimizer.algorithm)
+
+    with pytest.raises(ConfigurationError, match=r"state\.checkpointable=True"):
+        for _ in optimizer.iterate_from(
+            states[-1],
+            checkpoint_path=tmp_path / "resumed",
+            checkpoint_format=checkpoint_format,
+            checkpoint_interval=1,
+        ):
+            pass
+
+    assert isinstance(ga.crossover, _NonCheckpointableCrossover)
+    published = optimizer._last_published_bindings
+    assert published is not None
+    assert published.version == 0
+
+
+@pytest.mark.parametrize("checkpoint_format", ["pickle", None])
+def test_a_non_portable_run_accepts_a_part_swapped_inside_a_published_component(
+    tmp_path: Path, checkpoint_format: str | None
+) -> None:
+    optimizer = _optimizer(_picklable_problem(), n_gen=4)
+    ga = cast(GA, optimizer.algorithm)
+    replacement = _NonCheckpointableCrossover(prob=0.9, alpha=0.5)
+    kwargs: dict[str, Any] = (
+        {}
+        if checkpoint_format is None
+        else {
+            "checkpoint_path": tmp_path / "checkpoint",
+            "checkpoint_format": checkpoint_format,
+            "checkpoint_interval": 1,
+        }
+    )
+
+    final = None
+    for final in optimizer.iterate(**kwargs):
+        if final.gen == 1:
+            ga.crossover = replacement
+
+    assert final is not None
+    assert final.gen == 4
+    assert ga.crossover is replacement
+    published = optimizer._last_published_bindings
+    assert published is not None
+    assert published.version == 1

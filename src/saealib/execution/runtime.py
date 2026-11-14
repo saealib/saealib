@@ -7,7 +7,7 @@ import contextlib
 import inspect
 import logging
 import time
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from typing import Any, Protocol, cast
@@ -40,6 +40,7 @@ from saealib.core.compiler.regions import (
     SequenceRegion,
 )
 from saealib.core.compiler.structured import StructuredGraph
+from saealib.core.contracts.contract import ComponentContract
 from saealib.core.contracts.execution import RuntimeCapability
 from saealib.core.contracts.vocabulary import validate_name
 from saealib.core.runtime import (
@@ -1306,6 +1307,29 @@ class _SnapshotProviderView:
         setattr(optimizer, name, value)
 
 
+def _contract_records(
+    bindings: Mapping[str, object],
+) -> tuple[tuple[str, ComponentContract], ...]:
+    """Return the contract of every binding that declares a readable one.
+
+    A slot whose ``contract`` attribute cannot be looked up, is missing, is not
+    callable, or raises is left out: a commit point compares the contracts it
+    can read and keeps running otherwise.
+    """
+    records: list[tuple[str, ComponentContract]] = []
+    for name, component in bindings.items():
+        try:
+            contract_method = getattr(component, "contract", None)
+            if not callable(contract_method):
+                continue
+            contract = contract_method()
+        except Exception:
+            continue
+        if isinstance(contract, ComponentContract):
+            records.append((name, contract))
+    return tuple(records)
+
+
 @dataclass(frozen=True)
 class _BindingSnapshot:
     """One published binding set: component identities plus a version.
@@ -1314,7 +1338,10 @@ class _BindingSnapshot:
     at later commit points cannot be confused by object id reuse.  The stored
     preset object is compared by identity too: component resolution reads it
     lazily during publication, so a preset reaches a commit point without
-    being a bound slot.
+    being a bound slot.  ``contracts`` records the contract of every slot
+    that declares one, so a slot whose nested part changed in place is
+    distinguishable from an unchanged one even though it holds the same
+    object.
     """
 
     version: int
@@ -1324,6 +1351,7 @@ class _BindingSnapshot:
     strategy_values: tuple[tuple[str, str], ...]
     configuration_version: int
     preset: object = None
+    contracts: tuple[tuple[str, ComponentContract], ...] = ()
 
     def unchanged_by(
         self,
@@ -1342,6 +1370,28 @@ class _BindingSnapshot:
             and strategy_values == self.strategy_values
             and preset is getattr(self, "preset", None)
         )
+
+    def contracts_match(
+        self, contracts: tuple[tuple[str, ComponentContract], ...]
+    ) -> bool:
+        """Return True when every readable candidate contract is the published one.
+
+        A slot whose contract cannot be read right now is left out of the
+        comparison rather than counted as a change.
+        """
+        published = dict(self.contracts)
+        return all(published.get(slot) == contract for slot, contract in contracts)
+
+    def __getstate__(self) -> dict[str, object]:
+        """Drop the contract records, which pickle cannot carry."""
+        state = self.__dict__.copy()
+        state["contracts"] = ()
+        return state
+
+    def __setstate__(self, state: dict[str, object]) -> None:
+        """Rebuild the contract records from the components this snapshot holds."""
+        self.__dict__.update(state)
+        self.__dict__["contracts"] = _contract_records(dict(self.values))
 
 
 def _executable_uses_service(executable: object, service_name: str) -> bool:
@@ -1580,6 +1630,7 @@ class _OptimizerEnvironment:
                 strategy_values=self._strategy_values(),
                 configuration_version=getattr(optimizer, "_configuration_version", 0),
                 preset=getattr(optimizer, "_preset", None),
+                contracts=_contract_records(values),
             ),
         )
         self._candidate_resolution: _ComponentResolution | None = None
@@ -1722,17 +1773,33 @@ class _OptimizerEnvironment:
         """Commit point: publish a new binding version once, or defer it.
 
         A replacement detected between commit points is applied only here;
-        during one flow execution the active version stays untouched.
+        during one flow execution the active version stays untouched.  A
+        published slot whose contract differs from the one recorded at its
+        publication counts as replaced too, so a part swapped inside a
+        component whose slot still holds the same object takes this path.
+        Slots that declare no ``contract()`` (``comparator``, ``cbmanager``,
+        ``feature_encoder``) are never compared, and a contract holds no
+        parameter values, so writing one leaves the version and the plan
+        alone.  A rejection restores slots, not parts: an in-place change
+        stays installed and a later commit point rejects it again until the
+        part is put back.  Reading every contract costs roughly a millisecond
+        per commit point for a GA configuration and half of that for a PSO
+        one, measured against a cheap objective; next to an expensive
+        evaluation that is negligible.
         """
         bindings = self._bindings()
         strategy_values = self._strategy_values()
-        unchanged = self._active_snapshot.unchanged_by(
-            bindings,
-            strategy_values,
-            self._feature_encoder_selection(),
-            getattr(self.optimizer, "_preset", None),
+        unchanged = (
+            not self._pending_recompile
+            and self._active_snapshot.unchanged_by(
+                bindings,
+                strategy_values,
+                self._feature_encoder_selection(),
+                getattr(self.optimizer, "_preset", None),
+            )
+            and self._active_snapshot.contracts_match(_contract_records(bindings))
         )
-        if unchanged and not self._pending_recompile:
+        if unchanged:
             # A swap that was deferred while its evaluations ran may resolve
             # back to the active bindings; a matching commit point then ends
             # the deferral, otherwise pending-collection would stall the run.
@@ -1873,6 +1940,7 @@ class _OptimizerEnvironment:
                     self.optimizer, "_configuration_version", 0
                 ),
                 preset=getattr(self.optimizer, "_preset", None),
+                contracts=_contract_records(values),
             ),
         )
         self._remember_published_bindings()

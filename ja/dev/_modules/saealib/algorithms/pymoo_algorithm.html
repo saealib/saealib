@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.algorithms.pymoo_algorithm &#8212; saealib 0.1.1.dev61+gdcdc794db ドキュメント</title>
+    <title>saealib.algorithms.pymoo_algorithm &#8212; saealib 0.1.1.dev64+g9284ee7c5 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=0f065c5e"></script>
+    <script src="../../../_static/documentation_options.js?v=bc641cfd"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -961,8 +961,9 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -972,6 +973,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">algorithm_context</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">PostAskEvent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.compiler.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContractPath</span><span class="p">,</span> <span class="n">Diagnostic</span><span class="p">,</span> <span class="n">Severity</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.core.contracts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">PARTIAL_ALLOWED</span><span class="p">,</span>
     <span class="n">REPEATED_ALLOWED</span><span class="p">,</span>
@@ -1116,6 +1118,21 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    infill population, so that :meth:`tell` can recover the correct mapping</span>
 <span class="sd">    even after ``SortByScoreStage``/``TopKSelectionStage`` reorder or</span>
 <span class="sd">    truncate ``state.offspring`` between ``ask`` and ``tell``.</span>
+
+<span class="sd">    Supported: synchronous flows, and asynchronous flows that pass</span>
+<span class="sd">    ``allow_partial_tell=True``.  Extensible toward: asynchronous flows with</span>
+<span class="sd">    complete feedback.</span>
+
+<span class="sd">    An instance that has already run is rebuilt from a copy taken when it was</span>
+<span class="sd">    constructed whenever it is put back into a run: the wrapped algorithm is</span>
+<span class="sd">    replaced by a fresh copy of that construction-time engine, and its</span>
+<span class="sd">    initialization flag and infill population are reset.  An instance that has</span>
+<span class="sd">    never run is inserted as it is, so a ``pop_size`` changed after</span>
+<span class="sd">    construction is honored on its first insertion; a later re-insertion</span>
+<span class="sd">    returns to the construction-time setting.  If the construction-time copy</span>
+<span class="sd">    was unavailable (for example because the wrapped object cannot be copied),</span>
+<span class="sd">    the first insertion still runs and a re-insertion is rejected at the</span>
+<span class="sd">    commit point.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="PymooAlgorithm.__init__">
@@ -1129,6 +1146,8 @@ window.runMermaid = runMermaid;</script>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pymoo_algorithm</span> <span class="o">=</span> <span class="n">pymoo_algorithm</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">allow_partial_tell</span> <span class="o">=</span> <span class="n">allow_partial_tell</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pristine</span> <span class="o">=</span> <span class="n">_deepcopy_or_none</span><span class="p">(</span><span class="n">pymoo_algorithm</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_used</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ieq_idx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_eq_idx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
@@ -1177,6 +1196,118 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a ``pymoo_idx`` column tracking position in the pymoo infill pop.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">PopulationAttribute</span><span class="p">(</span><span class="s2">&quot;pymoo_idx&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="p">(),</span> <span class="n">default</span><span class="o">=-</span><span class="mi">1</span><span class="p">)]</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_replacement_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a transition that restores the construction-time engine.&quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.transition</span><span class="w"> </span><span class="kn">import</span> <span class="n">Transition</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">restore</span><span class="p">(</span><span class="n">tctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">tctx</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_used&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_rebuild_from_pristine</span><span class="p">()</span>
+            <span class="k">yield from</span> <span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">Transition</span><span class="o">.</span><span class="n">from_function</span><span class="p">(</span><span class="n">restore</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_replacement_diagnostics</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">population_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check the engine a re-insertion would use before it is published.&quot;&quot;&quot;</span>
+        <span class="n">used</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_used&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">pristine</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_pristine&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">used</span> <span class="ow">and</span> <span class="n">pristine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">Diagnostic</span><span class="p">(</span>
+                    <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                    <span class="n">code</span><span class="o">=</span><span class="s2">&quot;pristine_copy_unavailable&quot;</span><span class="p">,</span>
+                    <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> cannot restore its &quot;</span>
+                        <span class="s2">&quot;construction-time engine because no copy was available &quot;</span>
+                        <span class="s2">&quot;when it was constructed.&quot;</span>
+                    <span class="p">),</span>
+                    <span class="n">path</span><span class="o">=</span><span class="n">ContractPath</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,)),</span>
+                    <span class="n">resolutions</span><span class="o">=</span><span class="p">(</span>
+                        <span class="s2">&quot;Construct the algorithm so its wrapped engine can be &quot;</span>
+                        <span class="s2">&quot;copied, or insert a fresh instance.&quot;</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">pristine</span> <span class="k">if</span> <span class="n">used</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">pymoo_algorithm</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">_engine_population_size</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_simulated_population_size</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">engine</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">Diagnostic</span><span class="p">(</span>
+                    <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span>
+                    <span class="n">code</span><span class="o">=</span><span class="s2">&quot;pymoo_pop_size_unverified&quot;</span><span class="p">,</span>
+                    <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> declares no population size and &quot;</span>
+                        <span class="s2">&quot;its first population could not be determined, so the &quot;</span>
+                        <span class="s2">&quot;running population size cannot be checked.&quot;</span>
+                    <span class="p">),</span>
+                    <span class="n">path</span><span class="o">=</span><span class="n">ContractPath</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,)),</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="o">==</span> <span class="n">population_size</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">Diagnostic</span><span class="p">(</span>
+                <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                <span class="n">code</span><span class="o">=</span><span class="s2">&quot;pymoo_pop_size_mismatch&quot;</span><span class="p">,</span>
+                <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&#39;s initial population size (</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">) &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;does not match the running population size &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">population_size</span><span class="si">}</span><span class="s2">).&quot;</span>
+                <span class="p">),</span>
+                <span class="n">path</span><span class="o">=</span><span class="n">ContractPath</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;algorithm&quot;</span><span class="p">,)),</span>
+                <span class="n">resolutions</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Set the wrapped algorithm&#39;s pop_size to the running &quot;</span>
+                    <span class="s2">&quot;population size.&quot;</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_simulated_population_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">engine</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the first population size of a copied engine, if it can run.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">pymoo.core.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span> <span class="k">as</span> <span class="n">PymooProblem</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">pymoo.core.termination</span><span class="w"> </span><span class="kn">import</span> <span class="n">NoTermination</span>
+
+            <span class="n">eq_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">EqualityConstraint</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">problem</span><span class="o">.</span><span class="n">constraints</span><span class="p">],</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">pymoo_problem</span> <span class="o">=</span> <span class="n">PymooProblem</span><span class="p">(</span>
+                <span class="n">n_var</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
+                <span class="n">n_obj</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">n_obj</span><span class="p">,</span>
+                <span class="n">n_ieq_constr</span><span class="o">=</span><span class="nb">int</span><span class="p">((</span><span class="o">~</span><span class="n">eq_mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+                <span class="n">n_eq_constr</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">eq_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+                <span class="n">xl</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">lb</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+                <span class="n">xu</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">ub</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">copy_engine</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+            <span class="n">copy_engine</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span>
+                <span class="n">pymoo_problem</span><span class="p">,</span>
+                <span class="n">termination</span><span class="o">=</span><span class="n">NoTermination</span><span class="p">(),</span>
+                <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">population</span> <span class="o">=</span> <span class="n">copy_engine</span><span class="o">.</span><span class="n">ask</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">population</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">population</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rebuild_from_pristine</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pristine</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_pristine&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pristine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> cannot restore its construction-time &quot;</span>
+                <span class="s2">&quot;engine because no copy was available when it was constructed.&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pymoo_algorithm</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">pristine</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_infills</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">ask_notation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -1332,6 +1463,7 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">            Candidates with ``x`` and ``pymoo_idx`` set.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">del</span> <span class="n">request</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_used</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">ctx</span> <span class="o">=</span> <span class="n">algorithm_context</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_initialized</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
         <span class="n">infills</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pymoo_algorithm</span><span class="o">.</span><span class="n">ask</span><span class="p">()</span>
@@ -1559,6 +1691,20 @@ window.runMermaid = runMermaid;</script>
     <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="n">candidate_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">survivor_ids</span><span class="o">.</span><span class="n">tolist</span><span class="p">()):</span>
         <span class="n">sources</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="o">=</span> <span class="n">known</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">candidate_id</span><span class="p">,</span> <span class="n">UNKNOWN_SOURCE_CODE</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">sources</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_deepcopy_or_none</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_engine_population_size</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> <span class="s2">&quot;pop_size&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">))</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span>
 </pre></div>
 
                 </article>

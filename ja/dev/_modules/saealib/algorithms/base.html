@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>saealib.algorithms.base &#8212; saealib 0.1.1.dev61+gdcdc794db ドキュメント</title>
+    <title>saealib.algorithms.base &#8212; saealib 0.1.1.dev64+g9284ee7c5 ドキュメント</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../../_static/documentation_options.js?v=0f065c5e"></script>
+    <script src="../../../_static/documentation_options.js?v=bc641cfd"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -963,7 +963,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">runtime_checkable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">runtime_checkable</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -996,6 +996,9 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.population</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span><span class="p">,</span> <span class="n">ParetoArchive</span><span class="p">,</span> <span class="n">Population</span><span class="p">,</span> <span class="n">PopulationAttribute</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.problem</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenseNumericView</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">saealib.transition</span><span class="w"> </span><span class="kn">import</span> <span class="n">Transition</span>
 
 
 <div class="viewcode-block" id="Algorithm">
@@ -1051,6 +1054,18 @@ window.runMermaid = runMermaid;</script>
             <span class="p">),</span>
         <span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_replacement_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Transition</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the transition that restores this component&#39;s construction state.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Transition or None</span>
+<span class="sd">            A transition the commit point runs after the default column</span>
+<span class="sd">            alignment when this component enters its slot, or ``None`` when</span>
+<span class="sd">            the component keeps no construction-time state to restore.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="Algorithm.get_required_attrs">
 <a class="viewcode-back" href="../../../api/_autosummary/saealib.Algorithm.html#saealib.Algorithm.get_required_attrs">[ドキュメント]</a>

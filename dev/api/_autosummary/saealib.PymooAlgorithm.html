@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>saealib.PymooAlgorithm &#8212; saealib 0.1.1.dev61+gdcdc794db documentation</title>
+    <title>saealib.PymooAlgorithm &#8212; saealib 0.1.1.dev64+g9284ee7c5 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=961ce7f0"></script>
+    <script src="../../_static/documentation_options.js?v=257ea753"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -954,6 +954,19 @@ experiments is not duplicated or discarded.</p>
 infill population, so that <a class="reference internal" href="#saealib.PymooAlgorithm.tell" title="saealib.PymooAlgorithm.tell"><code class="xref py py-meth docutils literal notranslate"><span class="pre">tell()</span></code></a> can recover the correct mapping
 even after <code class="docutils literal notranslate"><span class="pre">SortByScoreStage</span></code>/<code class="docutils literal notranslate"><span class="pre">TopKSelectionStage</span></code> reorder or
 truncate <code class="docutils literal notranslate"><span class="pre">state.offspring</span></code> between <code class="docutils literal notranslate"><span class="pre">ask</span></code> and <code class="docutils literal notranslate"><span class="pre">tell</span></code>.</p>
+<p>Supported: synchronous flows, and asynchronous flows that pass
+<code class="docutils literal notranslate"><span class="pre">allow_partial_tell=True</span></code>.  Extensible toward: asynchronous flows with
+complete feedback.</p>
+<p>An instance that has already run is rebuilt from a copy taken when it was
+constructed whenever it is put back into a run: the wrapped algorithm is
+replaced by a fresh copy of that construction-time engine, and its
+initialization flag and infill population are reset.  An instance that has
+never run is inserted as it is, so a <code class="docutils literal notranslate"><span class="pre">pop_size</span></code> changed after
+construction is honored on its first insertion; a later re-insertion
+returns to the construction-time setting.  If the construction-time copy
+was unavailable (for example because the wrapped object cannot be copied),
+the first insertion still runs and a re-insertion is rejected at the
+commit point.</p>
 </dd></dl>
 
 <p class="rubric">Methods</p>

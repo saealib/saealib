@@ -386,6 +386,17 @@ DIAGNOSTIC_CODES.register(
     ),
 )
 DIAGNOSTIC_CODES.register(
+    "constraint_handler_threshold_moves",
+    VocabularyDescriptor(
+        name="constraint_handler_threshold_moves",
+        description=(
+            "A constraint handler updates its own feasibility threshold during a "
+            "run; the search-side relaxation reaches the comparator through "
+            "EpsilonSchedule."
+        ),
+    ),
+)
+DIAGNOSTIC_CODES.register(
     "opaque_state_effects",
     VocabularyDescriptor(
         name="opaque_state_effects",

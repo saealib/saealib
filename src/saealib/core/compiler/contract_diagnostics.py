@@ -47,6 +47,19 @@ def _selection_note(
     return f" Selected {type(component).__name__} from {source}: {reason}"
 
 
+def _overrides_generation_end(handler: object) -> bool:
+    """Return whether a handler replaces the base generation-end hook.
+
+    The base hook belongs to the last class of the handler's MRO that declares
+    it, so a handler that declares its own is detected without importing the
+    constraint package.
+    """
+    declaring = [
+        base for base in type(handler).__mro__ if "on_generation_end" in vars(base)
+    ]
+    return len(declaring) > 1 and declaring[0] is not declaring[-1]
+
+
 def _optimizer_configuration_diagnostics(
     bindings: Mapping[str, object],
     provenance: Mapping[str, tuple[str, str]],
@@ -73,6 +86,27 @@ def _optimizer_configuration_diagnostics(
                     resolutions=(f"Configure {slot} before execution.",),
                 )
             )
+
+    handler = getattr(problem, "handler", None)
+    if handler is not None and _overrides_generation_end(handler):
+        findings.append(
+            Diagnostic(
+                severity=Severity.WARNING,
+                code="constraint_handler_threshold_moves",
+                message=(
+                    f"{type(handler).__name__} overrides on_generation_end, so "
+                    "its feasibility threshold moves during a run; the "
+                    "search-side relaxation is written by EpsilonSchedule at "
+                    "the commit point and does not follow it."
+                ),
+                path=ContractPath(components=("optimizer", "problem")),
+                resolutions=(
+                    "Register EpsilonSchedule with "
+                    "Optimizer.add_controller() to schedule the relaxation.",
+                    "Move the violation aggregation to Problem(cv_aggregator=...).",
+                ),
+            )
+        )
 
     strategy = bindings.get("strategy")
     if strategy is not None:

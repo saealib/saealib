@@ -351,6 +351,9 @@ class Result:
         ``"best"`` and ``"feasible_ratio"`` use the same constraint-based
         decision, so relaxing the comparator during an epsilon-constrained run
         changes neither; ``min_cv`` describes the population's raw violation.
+        Both ``"feasible_ratio"`` and ``"min_cv"`` cover only the population
+        rows whose ``objective_source`` marks a true evaluation, and are NaN
+        when no row of the population is truly evaluated.
         """
         if x not in _HISTORY_X:
             valid = ", ".join(f'"{name}"' for name in _HISTORY_X_NAMES)

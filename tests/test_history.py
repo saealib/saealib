@@ -52,6 +52,7 @@ from saealib.execution.history import (
 )
 from saealib.policies.evaluation import EvaluateAll
 from saealib.population import Archive, ParetoArchive, Population, PopulationAttribute
+from saealib.population.population import OBJECTIVE_SOURCE_COLUMN
 from saealib.problem import (
     ConstraintHandler,
     EpsilonConstraintHandler,
@@ -68,6 +69,9 @@ from saealib.strategies import (
     IndividualBasedStrategy,
 )
 from saealib.surrogate import PredictionChannel, SurrogatePrediction
+
+TRUE_SOURCE = 0
+SURROGATE_SOURCE = 1
 
 
 def _problem(n_obj: int = 1) -> Problem:
@@ -992,6 +996,91 @@ def test_feasible_ratio_uses_the_constraint_definition() -> None:
     summary = state.history.channel("summary")
 
     assert summary["feasible_ratio"][0] == pytest.approx(0.5)
+
+
+def _state_with_objective_source(problem: Problem) -> OptimizationState:
+    attrs = [
+        PopulationAttribute("x", np.float64, (2,), np.nan),
+        PopulationAttribute("f", np.float64, (1,), np.nan),
+        PopulationAttribute("g", np.float64, (1,), 0.0),
+        PopulationAttribute("cv", np.float64, (), 0.0),
+        PopulationAttribute("id", np.int64, (), -1),
+        PopulationAttribute(OBJECTIVE_SOURCE_COLUMN, np.uint8, (), TRUE_SOURCE),
+    ]
+    return OptimizationState(
+        problem=problem,
+        population=Population(attrs, 1),
+        archive=Archive(attrs, 1),
+        pareto_archive=ParetoArchive(attrs, 1, direction=problem.direction),
+        rng=np.random.default_rng(0),
+        history=History(),
+    )
+
+
+def test_feasible_ratio_ignores_predicted_population_rows() -> None:
+    state = _state_with_objective_source(_constrained_problem())
+    state.population.extend(
+        {
+            "x": np.array([[0.1, 0.0], [0.2, 0.0], [0.9, 0.0], [0.8, 0.0]]),
+            "f": np.zeros((4, 1)),
+            "g": np.array([[0.0], [0.0], [0.3], [0.1]]),
+            "cv": np.array([0.0, 0.0, 0.3, 0.1]),
+            "id": np.full(4, -1),
+            OBJECTIVE_SOURCE_COLUMN: np.array(
+                [SURROGATE_SOURCE, SURROGATE_SOURCE, TRUE_SOURCE, TRUE_SOURCE],
+                dtype=np.uint8,
+            ),
+        }
+    )
+
+    record_generation(state)
+    assert state.history is not None
+    summary = state.history.channel("summary")
+
+    assert summary["feasible_ratio"][0] == pytest.approx(0.0)
+    assert summary["min_cv"][0] == pytest.approx(0.1)
+
+
+def test_feasible_ratio_counts_every_population_row_marked_truly_evaluated() -> None:
+    state = _state_with_objective_source(_constrained_problem())
+    state.population.extend(
+        {
+            "x": np.array([[0.1, 0.0], [0.2, 0.0], [0.9, 0.0], [0.8, 0.0]]),
+            "f": np.zeros((4, 1)),
+            "g": np.array([[0.3], [0.1], [-0.4], [-0.3]]),
+            "cv": np.array([0.3, 0.1, 0.0, 0.0]),
+            "id": np.full(4, -1),
+            OBJECTIVE_SOURCE_COLUMN: np.full(4, TRUE_SOURCE, dtype=np.uint8),
+        }
+    )
+
+    record_generation(state)
+    assert state.history is not None
+    summary = state.history.channel("summary")
+
+    assert summary["feasible_ratio"][0] == pytest.approx(0.5)
+    assert summary["min_cv"][0] == pytest.approx(0.0)
+
+
+def test_summary_reports_nan_when_no_population_row_is_truly_evaluated() -> None:
+    state = _state_with_objective_source(_constrained_problem())
+    state.population.extend(
+        {
+            "x": np.array([[0.1, 0.0], [0.2, 0.0]]),
+            "f": np.zeros((2, 1)),
+            "g": np.zeros((2, 1)),
+            "cv": np.zeros(2),
+            "id": np.full(2, -1),
+            OBJECTIVE_SOURCE_COLUMN: np.full(2, SURROGATE_SOURCE, dtype=np.uint8),
+        }
+    )
+
+    record_generation(state)
+    assert state.history is not None
+    summary = state.history.channel("summary")
+
+    assert np.isnan(summary["feasible_ratio"][0])
+    assert np.isnan(summary["min_cv"][0])
 
 
 def test_epsilon_summary_channels_keep_reporting_and_diagnostics_distinct() -> None:

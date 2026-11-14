@@ -211,6 +211,7 @@ def _feasible_mask(
 def _feasible_rows(
     collection: Any,
     constraints: list[InequalityConstraint],
+    mask: np.ndarray | None = None,
 ) -> np.ndarray:
     """
     Mark the feasible rows of a population or archive.
@@ -225,16 +226,25 @@ def _feasible_rows(
         Rows to classify. The ``g`` column is read when present.
     constraints : list[InequalityConstraint]
         The problem's constraints, aligned with the ``g`` columns.
+    mask : np.ndarray, optional
+        Boolean mask selecting the rows to classify. ``None`` classifies every
+        row.
 
     Returns
     -------
     np.ndarray
-        Boolean mask of feasible rows. shape = (len(collection), )
+        Boolean mask of feasible rows. shape = (len(collection), ) or
+        ``(np.count_nonzero(mask), )`` when *mask* is given.
     """
     schema = getattr(collection, "schema", {})
     if "g" in schema:
-        return _feasible_mask(constraints, collection.get_array("g"))
+        g = np.asarray(collection.get_array("g"))
+        if mask is not None:
+            g = g[mask]
+        return _feasible_mask(constraints, g)
     cv = np.asarray(collection.get_array("cv"), dtype=float)
+    if mask is not None:
+        cv = cv[mask]
     return cv <= 0.0
 
 

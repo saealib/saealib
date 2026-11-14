@@ -41,6 +41,37 @@ if TYPE_CHECKING:
 #: Metadata key marking a request whose results must not reach the algorithm.
 NO_TELL_METADATA = "no_tell"
 
+#: Metadata key carrying who requested an evaluation.
+ORIGIN_KIND_METADATA = "origin_kind"
+
+#: Evaluation requested by the flow.
+ORIGIN_KIND_FLOW = 0
+
+#: Evaluation requested by a transition at a commit point.
+ORIGIN_KIND_TRANSITION = 1
+
+
+def request_origin_kind(request: EvaluationRequest) -> int:
+    """Return who requested the evaluation of *request*.
+
+    Parameters
+    ----------
+    request : EvaluationRequest
+        Request whose metadata carries the origin.
+
+    Returns
+    -------
+    int
+        ``0`` for a request of the flow, ``1`` for a request of a transition.
+    """
+    value = request.metadata.get(ORIGIN_KIND_METADATA, ORIGIN_KIND_FLOW)
+    if isinstance(value, bool):
+        return ORIGIN_KIND_FLOW
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return ORIGIN_KIND_FLOW
+
 
 class EvaluationStatus(str, Enum):
     """State of a submitted evaluation."""

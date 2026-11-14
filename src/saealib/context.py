@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import dataclasses
 import functools
 import json
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -1505,19 +1506,52 @@ def _add_evaluations(
     return state.replace(fe=state.fe + count)
 
 
+@dataclass(frozen=True, kw_only=True)
+class _EvaluationReport:
+    """One evaluation request whose results are confirmed at this point.
+
+    A caller passes a report with the request as a whole when its results are
+    confirmed; the counting function then records the request's origin for the
+    History and dispatches ``PostEvaluationRequestEvent`` once.
+
+    Attributes
+    ----------
+    request_id : int
+        Evaluation request the report describes; ``-1`` for an initial
+        evaluation no planner issued.
+    candidate_ids : numpy.ndarray
+        Candidate IDs whose results the request confirmed.
+    status : object or None
+        Status the request was confirmed with.
+    origin_kind : int
+        ``0`` for a request of the flow, ``1`` for a request of a transition.
+    dispatch : callable or None
+        Receives the event; ``None`` counts without reporting.
+    """
+
+    request_id: int
+    candidate_ids: np.ndarray
+    status: Any = None
+    origin_kind: int = 0
+    dispatch: Callable[[Any], None] | None = None
+
+
 def _count_evaluated(
     state: OptimizationState,
     candidate_ids: Iterable[int],
     *,
     counted: set[int] | None = None,
+    report: _EvaluationReport | None = None,
 ) -> OptimizationState:
     """Return a state that counts the true evaluations of one report.
 
     Every built-in execution path advances the evaluation count through this
-    function, which adds the count with :func:`_add_evaluations`.  A candidate
-    ID is counted once per reporting scope: pass one ``counted`` set per
-    evaluation request to count an ID once however many updates report it, and
-    omit it for a report whose candidate IDs are unique.
+    function, which adds the count with :func:`_add_evaluations`, so a completed
+    true evaluation is counted in one place, and a request-level report is
+    recorded and dispatched through the same place.  A candidate ID is counted
+    once per reporting scope: pass one ``counted`` set per evaluation request
+    to count an ID once however many updates report it, and omit it for a
+    report whose candidate IDs are unique.
 
     Parameters
     ----------
@@ -1527,6 +1561,11 @@ def _count_evaluated(
         Candidate IDs whose evaluations this report delivers.
     counted : set[int] or None
         Candidate IDs already counted for the same request.
+    report : _EvaluationReport or None
+        The evaluation request this call confirms, when the whole request is
+        confirmed here.  A report with no candidate IDs still dispatches the
+        event once, which lets a caller report a request after counting its
+        updates separately.
 
     Returns
     -------
@@ -1541,7 +1580,172 @@ def _count_evaluated(
         if candidate_id not in seen
     ]
     seen.update(newly_counted)
-    return _add_evaluations(state, len(newly_counted))
+    if report is not None:
+        _begin_evaluation_report(state, report)
+    state = _add_evaluations(state, len(newly_counted))
+    if report is not None:
+        state = _finish_evaluation_report(state, report)
+    return state
+
+
+def _keep_evaluation_ledger(
+    state: OptimizationState, report: _EvaluationReport
+) -> OptimizationState:
+    """Advance the confirmed ledger for this counting call, always.
+
+    Runs on every counting call whose results are confirmed, after the History
+    append and the row, archive, and count updates: the environment hook
+    advances its current state and the commit memento's baseline, so a later
+    failure restores exactly the results confirmed so far.  A call outside a
+    commit point (no hook) changes nothing, and this step never depends on
+    whether the call also notifies observers.
+    """
+    keep = state.__dict__.get("_evaluation_confirmation_hook")
+    if callable(keep):
+        kept = keep(state)
+        if isinstance(kept, OptimizationState):
+            state = kept
+    return state
+
+
+def _finish_evaluation_report(
+    state: OptimizationState, report: _EvaluationReport
+) -> OptimizationState:
+    """Keep this counting call's confirmed ledger, then notify observers.
+
+    The ledger part runs first and always; the notification part dispatches the
+    request event only for a report that carries one, so per-update reports
+    still advance the ledger without firing the once-per-request event.
+    """
+    state = _keep_evaluation_ledger(state, report)
+    _dispatch_evaluation_report(state, report)
+    return state
+
+
+def _begin_evaluation_report(
+    state: OptimizationState,
+    report: _EvaluationReport,
+    *,
+    flush: bool = False,
+) -> None:
+    """Record the request's origin, and optionally append its History rows.
+
+    A caller that owns the whole confirmation asks for ``flush`` so the
+    History append runs before the evaluation count advances: a History append
+    failure then raises before anything else changed and the confirmation can
+    be abandoned.
+    """
+    history = getattr(state, "history", None)
+    if history is None:
+        return
+    with contextlib.suppress(AttributeError, TypeError, ValueError):
+        history._evaluation_origin_kinds[int(report.request_id)] = int(
+            report.origin_kind
+        )
+    if flush:
+        _flush_evaluation_history(state, history, strict=True)
+
+
+def _evaluation_recorder_snapshot(history: Any) -> dict[str, Any]:
+    """Return the recorder's in-memory counters and de-duplication state."""
+    return {
+        "fe_counter": int(history._fe_counter),
+        "fe_counted_ids": {
+            request_id: set(counted)
+            for request_id, counted in history._fe_counted_ids.items()
+        },
+        "evaluation_keys": set(history._evaluation_keys),
+        "terminal_request_ids": set(history._evaluation_terminal_request_ids),
+        "surrogate_accuracy_keys": set(history._surrogate_accuracy_keys),
+        "surrogate_predictions": dict(history._surrogate_predictions),
+        "origin_kinds": dict(history._evaluation_origin_kinds),
+    }
+
+
+def _restore_evaluation_recorder(history: Any, snapshot: dict[str, Any]) -> None:
+    """Roll the recorder's counters and de-duplication state back."""
+    history._fe_counter = int(snapshot["fe_counter"])
+    history._fe_counted_ids = {
+        request_id: set(counted)
+        for request_id, counted in snapshot["fe_counted_ids"].items()
+    }
+    history._evaluation_keys = set(snapshot["evaluation_keys"])
+    history._evaluation_terminal_request_ids = set(snapshot["terminal_request_ids"])
+    history._surrogate_accuracy_keys = set(snapshot["surrogate_accuracy_keys"])
+    history._surrogate_predictions = dict(snapshot["surrogate_predictions"])
+    history._evaluation_origin_kinds = dict(snapshot["origin_kinds"])
+
+
+def _flush_evaluation_history(
+    state: OptimizationState, history: Any | None = None, *, strict: bool = False
+) -> None:
+    """Append the buffered evaluation rows.
+
+    With *strict*, a failing append rolls the recorder's internal ``fe``
+    counter, counted candidate IDs, and de-duplication sets back and drops the
+    buffered batch, so the confirmation is abandoned before anything else
+    changed.
+    """
+    history = getattr(state, "history", None) if history is None else history
+    if history is None or not history.is_enabled("evaluation"):
+        return
+    pending = len(history._observations)
+    if not pending:
+        return
+    rows_before = int(history._rows["evaluation"])
+    snapshot = _evaluation_recorder_snapshot(history) if strict else None
+    from saealib.execution.history import record_evaluations
+
+    try:
+        record_evaluations(state)
+    except BaseException:
+        if snapshot is not None:
+            _restore_evaluation_recorder(history, snapshot)
+            history._observations = []
+        raise
+    if strict and int(history._rows["evaluation"]) == rows_before:
+        assert snapshot is not None
+        _restore_evaluation_recorder(history, snapshot)
+        history._observations = []
+        raise ValidationError(
+            "the evaluation history could not record the confirmed results"
+        )
+
+
+def _dispatch_evaluation_report(
+    state: OptimizationState, report: _EvaluationReport
+) -> None:
+    """Append the confirmed request's History rows, then notify observers.
+
+    A completed request is appended before the observer sees it, so a raising
+    handler leaves the evaluation count and the recorded rows together.  A
+    failed or cancelled request is left to the recorder's observation boundary,
+    which keeps the retry bookkeeping of the delivered updates intact.
+    """
+    if getattr(report.status, "name", None) == "COMPLETED":
+        _flush_evaluation_history(state)
+    if report.dispatch is None:
+        return
+    from saealib.callback import PostEvaluationRequestEvent
+    from saealib.exceptions import EvaluationFatalError
+
+    request_id = int(report.request_id)
+    candidate_ids = np.asarray(report.candidate_ids, dtype=np.int64)
+    try:
+        report.dispatch(
+            PostEvaluationRequestEvent(
+                ctx=state,
+                request_id=np.int64(request_id),
+                candidate_ids=candidate_ids,
+                size=len(candidate_ids),
+                status=report.status,
+                origin_kind=int(report.origin_kind),
+            )
+        )
+    except Exception as exc:
+        raise EvaluationFatalError(
+            "post-evaluation-request callback failed", state
+        ) from exc
 
 
 def _state_key_to_json(key: StateKey[Any]) -> dict[str, Any]:

@@ -16,7 +16,7 @@ import pytest
 
 from saealib import EvaluateRequest, PostEvaluationRequestEvent
 from saealib.exceptions import EvaluationFatalError
-from saealib.execution import AsyncEvaluationScheduler
+from saealib.execution import AsyncEvaluationScheduler, SerialEvaluator
 from saealib.execution.evaluator import (
     AsyncEvaluator,
     EvaluationErrorInfo,
@@ -344,3 +344,209 @@ def test_a_failure_keeps_exactly_the_confirmed_evaluation_ledger(
         max_pending=max_pending,
         monkeypatch=monkeypatch,
     )
+
+
+class _StreamingEvaluator(SerialEvaluator):
+    """Deliver one PARTIAL update, then the remaining rows as COMPLETED."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.complete = False
+        self.requests: dict[int, tuple[Any, Any]] = {}
+        self.steps: dict[int, int] = {}
+
+    def supports_batch_rollback(self) -> bool:
+        return True
+
+    def submit(self, request: Any, problem: Any) -> Any:
+        from saealib.execution.evaluator import EvaluationHandle
+
+        self.requests[int(request.request_id)] = (request, problem)
+        self.steps[int(request.request_id)] = 0
+        return EvaluationHandle(
+            request.request_id,
+            EvaluationStatus.PENDING,
+            _candidate_ids=request.candidate_ids,
+        )
+
+    def collect(self, handle: Any, *, wait: bool = True) -> Any:
+        request, problem = self.requests[int(handle.request_id)]
+        step = self.steps[int(handle.request_id)]
+        if step > 1:
+            return []
+        if self.complete:
+            rows = np.arange(len(request.candidate_ids))
+            status = EvaluationStatus.COMPLETED
+        elif step == 0:
+            rows = np.array([0])
+            status = EvaluationStatus.PARTIAL
+        else:
+            rows = np.arange(1, len(request.candidate_ids))
+            status = EvaluationStatus.COMPLETED
+        from saealib.execution.evaluator import EvaluationRequest
+
+        part = EvaluationRequest(
+            request.request_id,
+            request.candidate_ids[rows],
+            request.payload.take(rows),
+            metadata=request.metadata,
+        )
+        result = SerialEvaluator().evaluate_request(part, problem)
+        result.candidate_ids = part.candidate_ids
+        result.__post_init__()
+        self.steps[int(handle.request_id)] += 1
+        handle._delivered_sequence = step
+        return [
+            EvaluationUpdate(
+                request.request_id, status, part.candidate_ids, result, sequence=step
+            )
+        ]
+
+    def acknowledge(self, handle: Any, sequence: int) -> None:
+        super().acknowledge(handle, sequence)
+
+    def cancel(self, handle: Any) -> bool:
+        self.requests.pop(int(handle.request_id), None)
+        return True
+
+    def detach(self, handle: Any) -> bool:
+        return self.cancel(handle)
+
+
+def _ledger_setup(shape: str) -> tuple[Any, Any, Any, Any, Any]:
+    if shape == "partial":
+        evaluator = _StreamingEvaluator()
+        async_evaluator = evaluator
+    else:
+        evaluator = _CountingEvaluator()
+        async_evaluator = AsyncEvaluator(evaluator, max_workers=1)
+    scheduler = AsyncEvaluationScheduler(async_evaluator, max_pending=6)
+    optimizer = _optimizer(async_evaluator, strategy=_DirectStrategy())
+    optimizer.set_async_evaluation_scheduler(scheduler)
+    return evaluator, optimizer, scheduler, async_evaluator, None
+
+
+@pytest.mark.parametrize("shape", ["completed", "partial"])
+@pytest.mark.parametrize("j", [1, 2, 3])
+def test_an_exception_after_the_jth_counting_call_keeps_the_ledger(
+    monkeypatch: pytest.MonkeyPatch, shape: str, j: int
+) -> None:
+    import saealib.context as context_module
+
+    evaluator, optimizer, scheduler, async_evaluator, _ = _ledger_setup(shape)
+    _runner, captured = _commit_point(optimizer)
+    environment = captured["environment"]
+    state = captured["session"].state
+    before = _observable_vector(state, scheduler)
+    original = context_module._finish_evaluation_report
+    calls = [0]
+
+    def fail_after(state: Any, report: Any) -> Any:
+        result = original(state, report)
+        calls[0] += 1
+        if calls[0] == j:
+            raise RuntimeError("injected after counting call")
+        return result
+
+    monkeypatch.setattr(context_module, "_finish_evaluation_report", fail_after)
+    optimizer.set_strategy(_DirectStrategy(), transition=_ScriptedTransition(1))
+    error: Exception | None = None
+    try:
+        environment._refresh_plan_if_needed(state)
+    except Exception as exc:
+        error = exc
+    monkeypatch.undo()
+    if error is None:
+        pytest.skip("fewer counting calls than the injection index")
+
+    failed = environment._last_state
+    assert failed is not None
+    population = failed.population
+    confirmed = int(np.sum(np.asarray(population.get_array("objective_source")) == 0))
+    channel = failed.history.channel("evaluation")
+    assert int(failed.fe) == _INITIAL_FE + confirmed
+    assert int(np.sum(channel["size"])) == _INITIAL_FE + confirmed
+    assert int(channel["fe_after"][-1]) == _INITIAL_FE + confirmed
+    assert int(failed.history._fe_counter) == _INITIAL_FE + confirmed
+    assert _runtime_vector(_observable_vector(failed, scheduler)) == _runtime_vector(
+        before
+    )
+    assert environment.active_version == 0
+
+    if shape == "partial":
+        evaluator.complete = True
+        async_evaluator.complete = True
+    ran_before = (
+        len(evaluator.batches)
+        if hasattr(evaluator, "batches")
+        else len(evaluator.requests)
+    )
+    rerun = _Reevaluate()
+    optimizer.set_strategy(_DirectStrategy(), transition=rerun)
+    resumed = environment._refresh_plan_if_needed(failed)
+
+    assert resumed is not None
+    assert environment.active_version == 1
+    assert len(rerun.outcomes) == 1
+    assert len(rerun.outcomes[0].candidate_ids) == _INITIAL_ROWS - confirmed
+    channel = resumed.history.channel("evaluation")
+    assert int(resumed.fe) == _INITIAL_ROWS + _INITIAL_FE
+    assert int(np.sum(channel["size"])) == _INITIAL_ROWS + _INITIAL_FE
+    assert int(channel["fe_after"][-1]) == _INITIAL_ROWS + _INITIAL_FE
+    assert not resumed.pending_evaluations
+    assert not resumed.evaluation_handles
+    if confirmed == _INITIAL_ROWS:
+        ran_after = (
+            len(evaluator.batches)
+            if hasattr(evaluator, "batches")
+            else len(evaluator.requests)
+        )
+        assert ran_after == ran_before
+
+
+def test_a_failure_after_the_rows_are_applied_and_before_acknowledge_keeps_the_ledger(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evaluator = _CountingEvaluator()
+    async_evaluator = AsyncEvaluator(evaluator, max_workers=1)
+    scheduler = AsyncEvaluationScheduler(async_evaluator, max_pending=6)
+    optimizer = _optimizer(async_evaluator, strategy=_DirectStrategy())
+    optimizer.set_async_evaluation_scheduler(scheduler)
+    _runner, captured = _commit_point(optimizer)
+    environment = captured["environment"]
+    state = captured["session"].state
+    before = _observable_vector(state, scheduler)
+
+    def fail_acknowledge(handle: Any, sequence: int) -> None:
+        raise RuntimeError("acknowledge failed")
+
+    monkeypatch.setattr(async_evaluator, "acknowledge", fail_acknowledge)
+    optimizer.set_strategy(_DirectStrategy(), transition=_ScriptedTransition(1))
+    with pytest.raises(RuntimeError):
+        environment._refresh_plan_if_needed(state)
+    monkeypatch.undo()
+
+    failed = environment._last_state
+    assert failed is not None
+    channel = failed.history.channel("evaluation")
+    assert int(failed.fe) == _INITIAL_ROWS + _INITIAL_FE
+    assert int(np.sum(channel["size"])) == _INITIAL_ROWS + _INITIAL_FE
+    assert int(channel["fe_after"][-1]) == _INITIAL_ROWS + _INITIAL_FE
+    assert int(failed.history._fe_counter) == _INITIAL_ROWS + _INITIAL_FE
+    assert _runtime_vector(_observable_vector(failed, scheduler)) == _runtime_vector(
+        before
+    )
+    assert environment.active_version == 0
+
+    ran_before = len(evaluator.batches)
+    rerun = _Reevaluate()
+    optimizer.set_strategy(_DirectStrategy(), transition=rerun)
+    resumed = environment._refresh_plan_if_needed(failed)
+
+    assert resumed is not None
+    assert environment.active_version == 1
+    assert len(rerun.outcomes[0].candidate_ids) == 0
+    assert len(evaluator.batches) == ran_before
+    channel = resumed.history.channel("evaluation")
+    assert int(resumed.fe) == _INITIAL_ROWS + _INITIAL_FE
+    assert int(np.sum(channel["size"])) == _INITIAL_ROWS + _INITIAL_FE

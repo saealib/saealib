@@ -39,13 +39,14 @@ Treat `ctx` as read-only; use an official boundary such as `with_post`, Componen
 | `PostMutationEvent` | After mutation and repair | `candidates` |
 | `PostAskEvent` | After all of `ask()` (crossover and mutation) | `candidates` |
 | `PostSurrogateFitEvent` | After the surrogate is fitted | `surrogate`; `train_x` and `train_f` are optional |
-| `PostEvaluationEvent` | After true evaluation of the chosen candidates | `offspring` |
+| `PostEvaluationEvent` | Once per evaluation plan, after true evaluation of the chosen candidates; evaluations a transition requests at a commit point do not fire it (use `PostEvaluationRequestEvent`) | `offspring` |
 | `InitialEvaluationStartEvent` | After initial sampling, before initial evaluation | `candidates_x` |
 | `InitialEvaluationEndEvent` | After initial evaluation, before the archive is sorted | `archive` |
 
 `PostSurrogateFitEvent` is fired by the built-in Stage after the Surrogate is fit.
 Events fired by built-in Stages may not set `train_x` and `train_f`.
 `PostEvaluationEvent` may include `request_id`, `candidate_ids`, and `status` in addition to the evaluated `offspring`.
+It is a plan-level event, so a plan with several evaluation requests fires it once, and an evaluation that a transition requests at a component replacement's commit point fires `PostEvaluationRequestEvent` instead (once per request).
 
 ## Default logging output
 

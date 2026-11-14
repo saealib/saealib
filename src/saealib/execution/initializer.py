@@ -5,14 +5,18 @@ from __future__ import annotations
 import inspect
 from abc import ABC, abstractmethod
 from dataclasses import replace
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import scipy.stats
 
 from saealib.callback import InitialEvaluationEndEvent, InitialEvaluationStartEvent
 from saealib.comparators import Comparator, NSGA3Comparator
-from saealib.context import OptimizationState, _count_evaluated
+from saealib.context import (
+    OptimizationState,
+    _count_evaluated,
+    _EvaluationReport,
+)
 from saealib.core.contracts import (
     MANY,
     ComponentContract,
@@ -38,6 +42,7 @@ from saealib.core.state import (
     RUNTIME_STEP,
 )
 from saealib.exceptions import ConfigurationError, ValidationError
+from saealib.execution.evaluator import ORIGIN_KIND_FLOW, EvaluationStatus
 from saealib.execution.history import (
     History,
     record_generation,
@@ -190,6 +195,17 @@ def _mark_initial_rows_true(*collections: Population) -> None:
         _set_objectives_true(collection, values, len(collection))
         if values:
             collection.update_rows(np.arange(len(collection)), values)
+
+
+def _initial_report(candidate_ids: Any, provider: Any) -> _EvaluationReport:
+    """Return the request-level report of one initial evaluation."""
+    return _EvaluationReport(
+        request_id=-1,
+        candidate_ids=np.asarray(candidate_ids, dtype=np.int64),
+        status=EvaluationStatus.COMPLETED,
+        origin_kind=ORIGIN_KIND_FLOW,
+        dispatch=getattr(provider, "dispatch", None),
+    )
 
 
 class Initializer(ABC):
@@ -388,7 +404,7 @@ class GenomeInitializer(Initializer):
         _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
-        ctx = _count_evaluated(ctx, ids)
+        ctx = _count_evaluated(ctx, ids, report=_initial_report(ids, provider))
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
         sorted_idx = ctx.comparator.rank_population(archive)
@@ -535,7 +551,7 @@ class LHSInitializer(Initializer):
         _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
-        ctx = _count_evaluated(ctx, ids)
+        ctx = _count_evaluated(ctx, ids, report=_initial_report(ids, provider))
 
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
@@ -682,7 +698,7 @@ class RandomInitializer(Initializer):
         _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
-        ctx = _count_evaluated(ctx, ids)
+        ctx = _count_evaluated(ctx, ids, report=_initial_report(ids, provider))
 
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 
@@ -832,7 +848,7 @@ class SobolInitializer(Initializer):
         _mark_initial_rows_true(archive, pareto_archive)
 
         record_initial_evaluation(ctx, result, ids)
-        ctx = _count_evaluated(ctx, ids)
+        ctx = _count_evaluated(ctx, ids, report=_initial_report(ids, provider))
 
         provider.dispatch(InitialEvaluationEndEvent(ctx=ctx, archive=archive))
 

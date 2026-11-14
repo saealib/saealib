@@ -43,7 +43,7 @@ from saealib.core.compiler.contract_diagnostics import (
     check_pymoo_feedback_compatibility,
 )
 from saealib.core.contracts import ComponentContract
-from saealib.core.runtime import ReplaceComponent
+from saealib.core.runtime import ReplaceComponent, SetParameter
 from saealib.core.state import OPTIMIZATION_STATE_INITIAL_KEYS
 from saealib.exceptions import CheckpointError, ConfigurationError, ValidationError
 from saealib.execution.bindings import (
@@ -332,6 +332,16 @@ class Optimizer:
         self._replacement_records.clear()
         return records
 
+    def _pending_parameter_writes(self) -> dict[tuple[str, str], SetParameter]:
+        """Return the parameter writes no commit point applied yet."""
+        return dict(self._parameter_writes)
+
+    def _consume_parameter_writes(self) -> dict[tuple[str, str], SetParameter]:
+        """Take the recorded parameter writes and leave the queue empty."""
+        records = dict(self._parameter_writes)
+        self._parameter_writes.clear()
+        return records
+
     def __init__(self, problem: Problem, seed: int | None = None):
         """
         Initialize the Optimizer.
@@ -366,6 +376,7 @@ class Optimizer:
         self._feature_encoder_default: tuple[object, object, str] | None = None
         self._configuration_version = 0
         self._replacement_records: dict[str, ReplaceComponent] = {}
+        self._parameter_writes: dict[tuple[str, str], SetParameter] = {}
         self._last_contract_diagnostics: tuple[Diagnostic, ...] = ()
         self._executable_plan: ExecutablePlan | None = None
         self._last_published_bindings: _BindingSnapshot | None = None
@@ -1543,6 +1554,7 @@ class Optimizer:
         state["_prepared_diagnostic_cache"] = None
         state["_feature_encoder_default"] = None
         state["_replacement_records"] = {}
+        state["_parameter_writes"] = {}
         return state
 
     def __setstate__(self, state: dict[str, object]) -> None:
@@ -1559,6 +1571,7 @@ class Optimizer:
         self.__dict__.setdefault("_materialized_components", {})
         self.__dict__.setdefault("_feature_encoder_default", None)
         self.__dict__.setdefault("_replacement_records", {})
+        self.__dict__.setdefault("_parameter_writes", {})
         self.__dict__.setdefault("comparator", None)
         self.__dict__.setdefault("_comparator_default", None)
         self.__dict__.setdefault("_configuration_version", 0)

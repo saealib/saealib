@@ -35,6 +35,7 @@ from saealib import (
 )
 from saealib.algorithms import GA
 from saealib.context import OptimizationState
+from saealib.core.runtime import SetParameter
 from saealib.exceptions import (
     CheckpointError,
     ConfigurationError,
@@ -822,6 +823,28 @@ class _RefusingComparator(SingleObjectiveComparator):
         super().__setattr__(name, value)
 
 
+_PARAMETER_PROBES = (
+    ("algorithm", "crossover.prob"),
+    ("strategy", "gen_ctrl"),
+)
+
+
+def _parameter_values(optimizer: Any, state: Any) -> dict[str, float | None]:
+    """Return the values a commit point can write without publishing anything."""
+    values: dict[str, float | None] = {}
+    for slot, path in _PARAMETER_PROBES:
+        target = (
+            state.comparator if slot == "comparator" else getattr(optimizer, slot, None)
+        )
+        owner = target
+        for part in path.split(".")[:-1]:
+            owner = getattr(owner, part, None)
+        name = path.rsplit(".", 1)[-1]
+        value = None if owner is None else getattr(owner, name, None)
+        values[f"{slot}.{path}"] = None if value is None else float(value)
+    return values
+
+
 def _collection_values(state: Any) -> list[tuple[Any, ...]]:
     return [
         (
@@ -891,6 +914,15 @@ def _commit_vector(
                 for name, value in environment._scheduler_state().items()
                 if not name.endswith("accumulator_state")
             },
+            "parameters": _parameter_values(optimizer, state),
+            "command_queue": tuple(
+                sorted(
+                    (slot, path, repr(command.value))
+                    for (slot, path), command in (
+                        getattr(optimizer, "_parameter_writes", None) or {}
+                    ).items()
+                )
+            ),
             "active_version": environment.active_version,
             "binding_version": state.__dict__.get("_binding_version"),
             "store": tuple(
@@ -958,7 +990,11 @@ def _inject_commit_fault(
     runtime_module = __import__(
         "saealib.execution.runtime", fromlist=["_StagedCollections"]
     )
-    if step == "compile":
+    if step == "contracts_match":
+        _wrap_after(
+            monkeypatch, runtime_module._BindingSnapshot, "contracts_match", step
+        )
+    elif step == "compile":
         _wrap_after(monkeypatch, environment, "_compile_current_plan", step)
     elif step == "gate":
         _wrap_after(monkeypatch, environment, "_gate", step)
@@ -1125,6 +1161,52 @@ def test_a_rejected_entry_population_size_leaves_the_state_unchanged() -> None:
 
     _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
     assert "pymoo_idx" not in state.population.schema
+
+
+@pytest.mark.parametrize("step", _COMMIT_FAULT_STEPS)
+def test_a_parameter_write_is_restored_when_a_commit_step_fails(
+    step: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    optimizer = _surrogate_optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    optimizer._parameter_writes[("algorithm", "crossover.prob")] = SetParameter(
+        slot="algorithm", path="crossover.prob", value=0.11
+    )
+    before = _commit_vector(optimizer, environment, state)
+    optimizer.set_strategy(GenerationBasedStrategy(1))
+    _inject_commit_fault(monkeypatch, step, environment, optimizer)
+
+    with pytest.raises(RuntimeError, match="fault injected"):
+        next(generator)
+    generator.close()
+
+    assert cast(Any, optimizer.algorithm).crossover.prob == pytest.approx(0.9)
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+
+
+@pytest.mark.parametrize("mutation", ("parameter_write",))
+def test_a_failure_while_comparing_contracts_restores_the_mutated_terms(
+    mutation: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    optimizer = _surrogate_optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    optimizer._parameter_writes[("algorithm", "crossover.prob")] = SetParameter(
+        slot="algorithm", path="crossover.prob", value=0.11
+    )
+    before = _commit_vector(optimizer, environment, state)
+    _inject_commit_fault(monkeypatch, "contracts_match", environment, optimizer)
+
+    with pytest.raises(RuntimeError, match="fault injected"):
+        environment._refresh_plan_if_needed(state)
+    generator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
 
 
 def test_a_comparator_that_refuses_its_binding_restores_the_commit() -> None:

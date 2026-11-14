@@ -1341,6 +1341,32 @@ def _contract_records(
     return tuple(records)
 
 
+def _plan_declared_state_keys(
+    plan: SequentialPlan | StructuredPlan,
+) -> tuple[frozenset[StateKey], frozenset[StateKey]] | None:
+    """Return the state keys a plan's components declare they read and write.
+
+    ``None`` when a component declares its effects non-enumerably: the caller
+    then cannot verify the keys and must not invalidate any value.
+    """
+    reads: set[StateKey] = set()
+    writes: set[StateKey] = set()
+    try:
+        components = tuple(_iter_plan_components(plan))
+    except Exception:
+        return None
+    for node in components:
+        try:
+            state = node.contract.state
+        except Exception:
+            return None
+        if not state.reads_enumerable or not state.writes_enumerable:
+            return None
+        reads.update(state.reads)
+        writes.update(state.writes)
+    return frozenset(reads), frozenset(writes)
+
+
 @dataclass(frozen=True)
 class _BindingSnapshot:
     """One published binding set: component identities plus a version.
@@ -1363,6 +1389,8 @@ class _BindingSnapshot:
     configuration_version: int
     preset: object = None
     contracts: tuple[tuple[str, ComponentContract], ...] = ()
+    state_reads: frozenset[StateKey] | None = None
+    state_writes: frozenset[StateKey] | None = None
 
     def unchanged_by(
         self,
@@ -1863,6 +1891,8 @@ class _OptimizerEnvironment:
         self._publication_deferred = False
         self._pending_recompile = False
         self._last_state: OptimizationState | None = None
+        self._entry_checked = False
+        self._state_keys_known: bool | None = None
         self._checkpoint_phase = "running"
         self._checkpoint_run_end_callback = False
         self._checkpoint_reject_run_end_callback = False
@@ -1938,6 +1968,11 @@ class _OptimizerEnvironment:
         self._publication_deferred = True
 
     def _remember_state(self, state: OptimizationState) -> None:
+        if self._state_keys_known is None:
+            resumed = state.__dict__.get("_binding_version") is not None
+            self._state_keys_known = not (
+                resumed and not isinstance(self._recorded_bindings, _BindingSnapshot)
+            )
         self._last_state = state
         self._mark_checkpoint_state(state)
 
@@ -2063,6 +2098,7 @@ class _OptimizerEnvironment:
         one, measured against a cheap objective; next to an expensive
         evaluation that is negligible.
         """
+        self._check_entry_state()
         bindings = self._bindings()
         strategy_values = self._strategy_values()
         unchanged = (
@@ -2088,6 +2124,72 @@ class _OptimizerEnvironment:
         self._publication_deferred = False
         self._pending_recompile = False
         self._publish(bindings, strategy_values)
+
+    def _check_entry_state(self) -> None:
+        """Repair the columns an entry starts with, once per environment.
+
+        The entry has already compiled the plan and validated the same
+        bindings, so this adds missing declared columns only: it publishes
+        nothing, raises no event, and changes no version.  A resumed state can
+        name bindings other than the ones it was written under, which the next
+        replacement still aligns with its own publication.
+        """
+        if self._entry_checked:
+            return
+        self._entry_checked = True
+        state = self._last_state
+        problem = getattr(self.optimizer, "problem", None)
+        if state is None or problem is None:
+            return
+        declared: dict[str, PopulationAttribute] = {}
+        for slot in BINDING_SLOTS:
+            component = self._active_snapshot.values.get(slot)
+            if component is None:
+                continue
+            for attribute in _required_attributes(component, problem):
+                declared.setdefault(attribute.name, attribute)
+        if not declared:
+            return
+        for name in ("population", "archive", "pareto_archive"):
+            collection = getattr(state, name, None)
+            schema = getattr(collection, "schema", None)
+            if collection is None or schema is None:
+                continue
+            additions = [
+                attribute
+                for column, attribute in declared.items()
+                if column not in schema and (column != "x" or "x" in schema)
+            ]
+            if additions:
+                collection.add_columns(additions)
+
+    def _publication_state_keys(
+        self,
+    ) -> tuple[frozenset[StateKey] | None, frozenset[StateKey] | None]:
+        """Return the outgoing plan's declared state keys, or ``None``."""
+        if not self._state_keys_known:
+            return None, None
+        snapshot = self._active_snapshot
+        if snapshot.state_reads is not None and snapshot.state_writes is not None:
+            return snapshot.state_reads, snapshot.state_writes
+        return _plan_declared_state_keys(self._published.plan) or (None, None)
+
+    def _stale_state_keys(
+        self,
+        outgoing_writes: frozenset[StateKey] | None,
+        incoming: tuple[frozenset[StateKey], frozenset[StateKey]] | None,
+    ) -> tuple[StateKey, ...]:
+        """Return the named state values a replacement invalidates."""
+        if outgoing_writes is None or incoming is None:
+            if outgoing_writes is not None or incoming is not None:
+                logger.warning(
+                    "Named state keys cannot be enumerated for this replacement, "
+                    "so no named state value is invalidated."
+                )
+            return ()
+        incoming_reads, incoming_writes = incoming
+        stale = outgoing_writes & incoming_reads - incoming_writes
+        return tuple(sorted(stale, key=lambda key: (key.namespace, key.name)))
 
     def _replacement_blocked(self, state: OptimizationState | None) -> bool:
         """Outstanding asynchronous work under the active version."""
@@ -2156,6 +2258,11 @@ class _OptimizerEnvironment:
                 getattr(self.optimizer, "problem", None),
             )
             transition = _combined_transition(entries)
+            outgoing_writes = self._publication_state_keys()[1]
+            incoming_state_keys = _plan_declared_state_keys(rebuilt)
+            stale_state_keys = self._stale_state_keys(
+                outgoing_writes, incoming_state_keys
+            )
             self._check_candidate_state(executable, resolution, transition, incoming)
         except BaseException as error:
             self._reject_commit(error, memento)
@@ -2167,9 +2274,21 @@ class _OptimizerEnvironment:
             self._check_staged_changes(staged, incoming)
             self._prepare_region_history(rebuilt)
             staged.apply()
-            self._publish_prepared(
-                executable, rebuilt, resolution, bindings, strategy_values
+            incoming_reads, incoming_writes = (
+                incoming_state_keys if incoming_state_keys is not None else (None, None)
             )
+            self._publish_prepared(
+                executable,
+                rebuilt,
+                resolution,
+                bindings,
+                strategy_values,
+                state_reads=incoming_reads,
+                state_writes=incoming_writes,
+            )
+            if self._last_state is not None:
+                for key in stale_state_keys:
+                    self._last_state.set_state(key, None)
         except BaseException as error:
             self._reject_commit(error, memento)
         self._assign_published_comparator_rng()
@@ -2181,6 +2300,9 @@ class _OptimizerEnvironment:
         resolution: _ComponentResolution | None,
         bindings: dict[str, object],
         strategy_values: tuple[tuple[str, str], ...],
+        *,
+        state_reads: frozenset[StateKey] | None = None,
+        state_writes: frozenset[StateKey] | None = None,
     ) -> None:
         consumes_feature_encoder = _executable_uses_service(
             executable, "FeatureEncoder"
@@ -2237,6 +2359,8 @@ class _OptimizerEnvironment:
                 ),
                 preset=getattr(self.optimizer, "_preset", None),
                 contracts=_contract_records(values),
+                state_reads=state_reads,
+                state_writes=state_writes,
             ),
         )
         self._remember_published_bindings()

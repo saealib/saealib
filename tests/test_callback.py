@@ -743,3 +743,27 @@ def test_generation_based_post_evaluation_ctx_reports_the_delivered_progress(
     # the acknowledging stage has already added the delivered batch to fe
     assert observed == expected
     assert state.fe >= observed[-1][1]
+
+
+def test_generation_based_post_surrogate_fit_ctx_is_the_run_state() -> None:
+    from saealib import GenerationBasedStrategy, MeanPrediction
+    from saealib.surrogate.manager import LocalSurrogateManager
+
+    optimizer = (
+        _progress_optimizer(GenerationBasedStrategy(1))
+        .set_surrogate_manager(LocalSurrogateManager(RBFSurrogate(GaussianKernel())))
+        .set_acquisition(MeanPrediction())
+    )
+    received: list[PostSurrogateFitEvent] = []
+
+    optimizer.cbmanager.register(PostSurrogateFitEvent, received.append)
+    state = optimizer.run()
+
+    assert received
+    assert all(isinstance(event.ctx, OptimizationState) for event in received)
+    assert all(event.surrogate is not None for event in received)
+    for event in received:
+        assert 0 <= event.ctx.gen <= state.gen
+        assert 0 <= event.ctx.fe <= state.fe
+        assert len(event.ctx.population) == len(state.population)
+        assert len(event.ctx.archive) > 0

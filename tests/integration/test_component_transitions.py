@@ -8,6 +8,7 @@ was.
 
 from __future__ import annotations
 
+import copy
 import pickle
 from typing import Any, cast
 
@@ -21,6 +22,7 @@ from saealib import (
     Controller,
     CrossoverBLXAlpha,
     CrossoverSBX,
+    EpsilonSchedule,
     EvaluateRequest,
     LHSInitializer,
     MutationUniform,
@@ -46,9 +48,14 @@ from saealib.exceptions import (
     ReplacementRejectedError,
     ValidationError,
 )
+from saealib.execution import (
+    AsyncEvaluationScheduler,
+    AsyncEvaluator,
+    SerialEvaluator,
+)
 from saealib.execution.bindings import BINDING_SLOTS
 from saealib.execution.runner import Runner
-from saealib.execution.runtime import create_runtime
+from saealib.execution.runtime import create_runtime, resolve_plan
 from saealib.problem import Problem
 from saealib.strategies import DirectStrategy, GenerationBasedStrategy
 
@@ -832,6 +839,7 @@ class _RefusingComparator(SingleObjectiveComparator):
 _PARAMETER_PROBES = (
     ("algorithm", "crossover.prob"),
     ("strategy", "gen_ctrl"),
+    ("comparator", "eps_cv"),
 )
 
 
@@ -849,6 +857,31 @@ def _parameter_values(optimizer: Any, state: Any) -> dict[str, float | None]:
         value = None if owner is None else getattr(owner, name, None)
         values[f"{slot}.{path}"] = None if value is None else float(value)
     return values
+
+
+def _spawned_children(state: Any) -> int | None:
+    """Return how many child seeds the run generator has spawned."""
+    bit_generator = cast(
+        Any, getattr(getattr(state, "rng", None), "bit_generator", None)
+    )
+    seed_sequence = getattr(bit_generator, "seed_seq", None)
+    return getattr(seed_sequence, "n_children_spawned", None)
+
+
+def _declared_controller_state(optimizer: Any, state: Any) -> tuple[Any, ...]:
+    """Return the declared controller values, by content rather than identity."""
+    records: list[Any] = []
+    for controller in getattr(optimizer, "controllers", None) or ():
+        declared = getattr(controller, "state_keys", None)
+        if not callable(declared):
+            continue
+        for key in declared():
+            try:
+                value = state.get_state(key)
+            except KeyError:
+                continue
+            records.append((key.namespace, key.name, repr(value)))
+    return tuple(records)
 
 
 def _collection_values(state: Any) -> list[tuple[Any, ...]]:
@@ -929,6 +962,11 @@ def _commit_vector(
                     ).items()
                 )
             ),
+            "published_epsilon": getattr(
+                environment._active_snapshot.values.get("comparator"), "eps_cv", None
+            ),
+            "declared_state": _declared_controller_state(optimizer, state),
+            "rng_children_spawned": _spawned_children(state),
             "active_version": environment.active_version,
             "binding_version": state.__dict__.get("_binding_version"),
             "store": tuple(
@@ -1193,28 +1231,6 @@ def test_a_parameter_write_is_restored_when_a_commit_step_fails(
     _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
 
 
-@pytest.mark.parametrize("mutation", ("parameter_write",))
-def test_a_failure_while_comparing_contracts_restores_the_mutated_terms(
-    mutation: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    optimizer = _surrogate_optimizer()
-    runner, captured = _capturing_runner(optimizer)
-    generator = runner.iterate()
-    state = next(generator)
-    environment = captured["environment"]
-    optimizer._parameter_writes[("algorithm", "crossover.prob")] = SetParameter(
-        slot="algorithm", path="crossover.prob", value=0.11
-    )
-    before = _commit_vector(optimizer, environment, state)
-    _inject_commit_fault(monkeypatch, "contracts_match", environment, optimizer)
-
-    with pytest.raises(RuntimeError, match="fault injected"):
-        environment._refresh_plan_if_needed(state)
-    generator.close()
-
-    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
-
-
 def test_a_rejected_controller_command_restores_the_commit() -> None:
     class _RejectingController(Controller):
         def decide(self, state: Any) -> tuple[Any, ...]:
@@ -1247,6 +1263,485 @@ def test_a_rejected_controller_command_restores_the_commit() -> None:
     with pytest.raises(KeyError):
         state.get_state(_DECISIONS)
     _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+
+
+class _QueueCommand(Controller):
+    """Queue one parameter write and record the decision in its own state."""
+
+    def decide(self, state: Any) -> tuple[Any, ...]:
+        record = dict(state.get_state(_DECISIONS) or {})
+        record["steps"] = [*record.get("steps", []), state.step]
+        state.set_state(_DECISIONS, record)
+        return (SetParameter(slot="algorithm", path="crossover.prob", value=0.11),)
+
+    def state_keys(self) -> tuple[Any, ...]:
+        return (_DECISIONS,)
+
+
+def _prepare_mutation(optimizer: Any, mutation: str) -> None:
+    """Stage one mutation for the commit point that follows."""
+    if mutation == "parameter_write":
+        optimizer._parameter_writes[("algorithm", "crossover.prob")] = SetParameter(
+            slot="algorithm", path="crossover.prob", value=0.11
+        )
+    elif mutation == "controller_command":
+        optimizer.add_controller(_QueueCommand())
+    elif mutation == "schedule_write":
+        optimizer.add_controller(EpsilonSchedule(lambda generation: 0.25))
+    else:  # pragma: no cover - the parametrization lists every mutation
+        raise AssertionError(f"unknown mutation {mutation!r}")
+
+
+_MUTATIONS = ("parameter_write", "controller_command", "schedule_write")
+
+
+@pytest.mark.parametrize("step", _COMMIT_FAULT_STEPS)
+@pytest.mark.parametrize("mutation", _MUTATIONS)
+def test_any_failing_commit_step_restores_the_mutated_terms(
+    mutation: str, step: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    optimizer = _surrogate_optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    _prepare_mutation(optimizer, mutation)
+    before = _commit_vector(optimizer, environment, state)
+    optimizer.set_strategy(GenerationBasedStrategy(1))
+    _inject_commit_fault(monkeypatch, step, environment, optimizer)
+
+    with pytest.raises(RuntimeError, match="fault injected"):
+        next(generator)
+    generator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+
+
+@pytest.mark.parametrize("mutation", _MUTATIONS)
+def test_a_failure_while_comparing_contracts_restores_the_mutated_terms(
+    mutation: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    optimizer = _surrogate_optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    _prepare_mutation(optimizer, mutation)
+    before = _commit_vector(optimizer, environment, state)
+    _inject_commit_fault(monkeypatch, "contracts_match", environment, optimizer)
+
+    with pytest.raises(RuntimeError, match="fault injected"):
+        environment._refresh_plan_if_needed(state)
+    generator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+
+
+_COMMIT_STEPS = (
+    "_apply_entry_epsilon",
+    "_run_controllers",
+    "_apply_parameter_writes",
+    "_entry_commit",
+    "_bindings",
+    "_strategy_values",
+    "_feature_encoder_selection",
+    "_discard_stale_replacements",
+    "_replacement_blocked",
+    "_compile_current_plan",
+    "_gate",
+    "_check_candidate_state",
+    "_run_transitions",
+    "_check_staged_changes",
+    "_prepare_region_history",
+    "_publish_prepared",
+    "_assign_published_comparator_rng",
+)
+
+_REPLACING_STEPS = frozenset(
+    {
+        "_replacement_blocked",
+        "_compile_current_plan",
+        "_gate",
+        "_check_candidate_state",
+        "_run_transitions",
+        "_check_staged_changes",
+        "_prepare_region_history",
+        "_publish_prepared",
+        "_assign_published_comparator_rng",
+    }
+)
+
+
+def _fault_at(monkeypatch: Any, environment: Any, step: str, when: str) -> list[bool]:
+    """Make one commit step raise, before or after it does its work."""
+    original = getattr(environment, step)
+    calls = [0]
+    hit = [False]
+
+    def broken(*args: Any, **kwargs: Any) -> Any:
+        calls[0] += 1
+        if step == "_bindings" and calls[0] == 1:
+            return original(*args, **kwargs)
+        if when == "after":
+            original(*args, **kwargs)
+        hit[0] = True
+        raise RuntimeError(f"injected fault in {step}")
+
+    monkeypatch.setattr(environment, step, broken)
+    return hit
+
+
+class _EvaluateRows(Transition):
+    """Ask the commit point for the true objective of every population row."""
+
+    def __init__(self) -> None:
+        self.outcomes: list[Any] = []
+
+    def apply(self, tctx: TransitionContext) -> Any:
+        assert tctx.state is not None
+        population = tctx.state.population
+        ids = np.asarray(population.get_array("id"), dtype=np.int64)
+        outcome = yield EvaluateRequest(ids)
+        self.outcomes.append(outcome)
+
+
+def _value_vector(optimizer: Any, environment: Any, state: Any) -> dict[str, Any]:
+    """Return the commit terms that survive a replaced state object."""
+    return {
+        "slots": {name: id(getattr(optimizer, name, None)) for name in BINDING_SLOTS},
+        "parameters": _parameter_values(optimizer, state),
+        "command_queue": tuple(
+            sorted(
+                (slot, path, repr(command.value))
+                for (slot, path), command in (
+                    getattr(optimizer, "_parameter_writes", None) or {}
+                ).items()
+            )
+        ),
+        "declared_state": _declared_controller_state(optimizer, state),
+        "published_epsilon": getattr(
+            environment._active_snapshot.values.get("comparator"), "eps_cv", None
+        ),
+        "rng_children_spawned": _spawned_children(state),
+        "active_version": environment.active_version,
+        "binding_version": state.__dict__.get("_binding_version"),
+    }
+
+
+def _evaluating_optimizer(evaluator: Any = None) -> Any:
+    """Optimizer whose state starts with every row counted as a prediction."""
+    optimizer = (
+        Optimizer(_problem(), seed=7)
+        .set_initializer(LHSInitializer(6, 6, 7))
+        .set_algorithm(_ga())
+        .set_strategy(DirectStrategy())
+        .set_evaluator(SerialEvaluator() if evaluator is None else evaluator)
+        .set_history(["summary", "evaluation"])
+        .set_termination(Termination(lambda state: state.gen >= 40))
+    )
+    optimizer.resolve_defaults()
+    optimizer._compile_plan()
+    initializer = optimizer.initializer
+    assert initializer is not None
+    state = initializer.initialize(optimizer, optimizer.problem)
+    population = state.population
+    population.update_array(
+        "objective_source", np.ones(len(population), dtype=np.uint8)
+    )
+    state.archive.truncate(0)
+    state.pareto_archive.truncate(0)
+    return optimizer, state
+
+
+@pytest.mark.parametrize("step", _COMMIT_STEPS)
+@pytest.mark.parametrize("when", ("before", "after"))
+@pytest.mark.parametrize("mutation", ("parameter_write", "controller_command"))
+def test_a_failure_with_an_evaluating_transition_restores_the_configuration(
+    mutation: str, when: str, step: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    optimizer, initial = _evaluating_optimizer()
+    runtime = create_runtime(optimizer)
+    session = runtime.initialize(resolve_plan(optimizer), initial)
+    environment = cast(Any, runtime).environment
+    state = session.state
+    environment._last_state = state
+    environment._mark_checkpoint_state(state, phase="running")
+    _prepare_mutation(optimizer, mutation)
+    transition = _EvaluateRows()
+    before = _value_vector(optimizer, environment, state)
+    optimizer.set_strategy(GenerationBasedStrategy(1), transition=transition)
+    hit = _fault_at(monkeypatch, environment, step, when)
+
+    raised: BaseException | None = None
+    try:
+        environment._refresh_plan_if_needed(state)
+    except BaseException as error:
+        raised = error
+    monkeypatch.undo()
+    if not hit[0]:  # pragma: no cover - this commit skips the step
+        pytest.skip(f"{step} is not reached by an evaluating transition")
+    assert isinstance(raised, RuntimeError)
+    assert "injected fault" in str(raised)
+    failed = environment._last_state
+    assert failed is not None
+
+    assert environment._active_snapshot.unchanged_by(
+        environment._bindings(),
+        environment._strategy_values(),
+        environment._feature_encoder_selection(),
+        optimizer._preset,
+    )
+    assert _value_vector(optimizer, environment, failed) == before
+    if transition.outcomes:
+        source = np.asarray(failed.population.get_array("objective_source"))
+        assert int((source == 0).sum()) == len(source)
+        history = cast(Any, failed.history)
+        sizes = history.channel("evaluation")["size"]
+        assert int(failed.fe) == int(np.asarray(sizes).sum())
+
+
+@pytest.mark.parametrize("step", _COMMIT_STEPS)
+@pytest.mark.parametrize("when", ("before", "after"))
+@pytest.mark.parametrize("mutation", _MUTATIONS)
+@pytest.mark.parametrize("position", ("entry", "after_one_step"))
+def test_a_failure_after_the_first_mutation_restores_the_whole_commit(
+    mutation: str,
+    when: str,
+    step: str,
+    position: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    optimizer = _surrogate_optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    if position == "after_one_step":
+        state = next(generator)
+    environment = captured["environment"]
+    state.set_state(_DECISIONS, {"steps": []})
+    state.comparator.eps_cv = 0.77
+    _prepare_mutation(optimizer, mutation)
+    before = _commit_vector(optimizer, environment, state)
+    if step in _REPLACING_STEPS:
+        optimizer.set_strategy(GenerationBasedStrategy(1))
+    _fault_at(monkeypatch, environment, step, when)
+
+    with pytest.raises(RuntimeError, match="injected fault"):
+        environment._refresh_plan_if_needed(state)
+    monkeypatch.undo()
+    generator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+    assert state.get_state(_DECISIONS) == {"steps": []}
+    assert float(state.comparator.eps_cv) == pytest.approx(0.77)
+
+
+class _CapturingEvaluation(_EvaluateRows):
+    """Keep the generator the transition context handed to the commit point."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.held: Any = None
+
+    def apply(self, tctx: TransitionContext) -> Any:
+        self.held = tctx.rng
+        yield from super().apply(tctx)
+
+
+def _two_comparator_child_seeds(
+    asynchronous: bool, *, fault: bool, monkeypatch: pytest.MonkeyPatch
+) -> dict[str, Any]:
+    """Publish two randomized comparators, optionally rejecting the first try."""
+    evaluator: Any = SerialEvaluator()
+    if asynchronous:
+        evaluator = AsyncEvaluator(SerialEvaluator(), max_workers=2)
+    optimizer, initial = _evaluating_optimizer(evaluator)
+    if asynchronous:
+        optimizer.set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=3)
+        )
+    runtime = create_runtime(optimizer)
+    session = runtime.initialize(resolve_plan(optimizer), initial)
+    environment = cast(Any, runtime).environment
+    state = session.state
+    environment._last_state = state
+    environment._mark_checkpoint_state(state, phase="running")
+    parent = cast(Any, state.rng.bit_generator.seed_seq)
+    first = NSGA3Comparator(np.array([[1.0]]), direction=np.array([-1.0]))
+    optimizer.set_comparator(first)
+    if fault:
+        original = environment._assign_published_comparator_rng
+
+        def broken() -> None:
+            original()
+            raise RuntimeError("injected fault after the child seed")
+
+        monkeypatch.setattr(environment, "_assign_published_comparator_rng", broken)
+        with pytest.raises(RuntimeError, match="injected fault"):
+            environment._refresh_plan_if_needed(state)
+        monkeypatch.undo()
+        state = environment._last_state
+        assert state is not None
+        assert first._rng is None
+        optimizer.set_comparator(first)
+    environment._refresh_plan_if_needed(state)
+    first_key = tuple(cast(Any, first.rng.bit_generator.seed_seq).spawn_key)
+    first_count = parent.n_children_spawned
+    second = NSGA3Comparator(np.array([[1.0]]), direction=np.array([-1.0]))
+    optimizer.set_comparator(second)
+    environment._refresh_plan_if_needed(environment._last_state)
+    second_key = tuple(cast(Any, second.rng.bit_generator.seed_seq).spawn_key)
+    return {
+        "keys": (first_key, second_key),
+        "counters": (first_count, parent.n_children_spawned),
+        "streams": (
+            cast(Any, first.rng).random(4).tolist(),
+            cast(Any, second.rng).random(4).tolist(),
+        ),
+    }
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_a_rejected_comparator_retry_spends_the_same_child_seeds(
+    asynchronous: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    control = _two_comparator_child_seeds(
+        asynchronous, fault=False, monkeypatch=monkeypatch
+    )
+    rejected = _two_comparator_child_seeds(
+        asynchronous, fault=True, monkeypatch=monkeypatch
+    )
+
+    assert control["keys"] == ((1,), (2,))
+    assert rejected == control
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_a_restored_generator_keeps_the_stream_of_a_captured_reference(
+    asynchronous: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    evaluator: Any = SerialEvaluator()
+    if asynchronous:
+        evaluator = AsyncEvaluator(SerialEvaluator(), max_workers=2)
+    optimizer, initial = _evaluating_optimizer(evaluator)
+    if asynchronous:
+        optimizer.set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=3)
+        )
+    runtime = create_runtime(optimizer)
+    session = runtime.initialize(resolve_plan(optimizer), initial)
+    environment = cast(Any, runtime).environment
+    state = session.state
+    environment._last_state = state
+    environment._mark_checkpoint_state(state, phase="running")
+    optimizer.add_controller(EpsilonSchedule(lambda generation: 0.25))
+    expected = copy.deepcopy(state.rng)
+    transition = _CapturingEvaluation()
+    optimizer.set_comparator(
+        NSGA3Comparator(np.array([[1.0]]), direction=np.array([-1.0])),
+        transition=transition,
+    )
+    original = environment._assign_published_comparator_rng
+
+    def broken() -> None:
+        original()
+        raise RuntimeError("injected fault after the child seed")
+
+    monkeypatch.setattr(environment, "_assign_published_comparator_rng", broken)
+    with pytest.raises(RuntimeError, match="injected fault"):
+        environment._refresh_plan_if_needed(state)
+    monkeypatch.undo()
+    failed = environment._last_state
+    assert failed is not None
+
+    held = transition.held
+    assert held is failed.rng
+    assert _spawned_children(held) == _spawned_children(expected)
+    assert [held.random(), failed.rng.random()] == list(expected.random(2))
+    np.testing.assert_array_equal(
+        held.spawn(1)[0].random(3), expected.spawn(1)[0].random(3)
+    )
+
+
+class _RefuseGenerator(NSGA3Comparator):
+    """Comparator that refuses the generator the runtime gives it."""
+
+    @NSGA3Comparator.rng.setter
+    def rng(self, value: Any) -> None:
+        raise RuntimeError("comparator refused its generator")
+
+
+def test_a_comparator_that_refuses_its_generator_restores_the_commit() -> None:
+    optimizer = _optimizer()
+    runner, captured = _capturing_runner(optimizer)
+    generator = runner.iterate()
+    state = next(generator)
+    environment = captured["environment"]
+    comparator = _RefuseGenerator(np.array([[1.0]]), direction=np.array([-1.0]))
+    optimizer._parameter_writes[("algorithm", "crossover.prob")] = SetParameter(
+        slot="algorithm", path="crossover.prob", value=0.13
+    )
+    before = _commit_vector(optimizer, environment, state)
+    spawned = cast(Any, state.rng.bit_generator.seed_seq).n_children_spawned
+    optimizer.set_comparator(comparator)
+
+    with pytest.raises(RuntimeError, match="refused its generator"):
+        next(generator)
+    generator.close()
+
+    _assert_commit_restored(before, _commit_vector(optimizer, environment, state))
+    assert cast(Any, state.rng.bit_generator.seed_seq).n_children_spawned == spawned
+    assert state.comparator is not comparator
+    assert cast(Any, optimizer.algorithm).crossover.prob == pytest.approx(0.9)
+    assert environment.active_version == 0
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("mutation", ("parameter_write", "controller_command"))
+def test_a_child_seed_spent_by_publication_is_restored_on_a_later_failure(
+    mutation: str, asynchronous: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    evaluator: Any = SerialEvaluator()
+    if asynchronous:
+        evaluator = AsyncEvaluator(SerialEvaluator(), max_workers=2)
+    optimizer, initial = _evaluating_optimizer(evaluator)
+    if asynchronous:
+        optimizer.set_async_evaluation_scheduler(
+            AsyncEvaluationScheduler(evaluator, max_pending=3)
+        )
+    runtime = create_runtime(optimizer)
+    session = runtime.initialize(resolve_plan(optimizer), initial)
+    environment = cast(Any, runtime).environment
+    state = session.state
+    environment._last_state = state
+    environment._mark_checkpoint_state(state, phase="running")
+    _prepare_mutation(optimizer, mutation)
+    transition = _EvaluateRows()
+    before = _value_vector(optimizer, environment, state)
+    spawned = _spawned_children(state)
+    optimizer.set_comparator(
+        NSGA3Comparator(np.array([[1.0]]), direction=np.array([-1.0])),
+        transition=transition,
+    )
+    original = environment._assign_published_comparator_rng
+
+    def broken() -> None:
+        original()
+        raise RuntimeError("injected fault after the child seed")
+
+    monkeypatch.setattr(environment, "_assign_published_comparator_rng", broken)
+
+    with pytest.raises(RuntimeError, match="injected fault"):
+        environment._refresh_plan_if_needed(state)
+    monkeypatch.undo()
+    failed = environment._last_state
+    assert failed is not None
+
+    assert _spawned_children(failed) == spawned
+    assert _value_vector(optimizer, environment, failed) == before
+    if transition.outcomes:
+        sizes = cast(Any, failed.history).channel("evaluation")["size"]
+        assert int(failed.fe) == int(np.asarray(sizes).sum())
 
 
 def test_a_comparator_that_refuses_its_binding_restores_the_commit() -> None:
